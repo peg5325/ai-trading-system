@@ -1,0 +1,34 @@
+# KR/US 혼합 유니버스 — Pre-flight / 장시간 데이터 수집용
+# 실주문 없음(PaperBrokerProvider). market 은 통화로 자동 추론(KRW→KR, USD→US).
+symbols:
+  - "005930"   # 삼성전자 (KR)
+  - "000660"   # SK하이닉스 (KR)
+  - "402340"   # SK스퀘어 (KR)
+  - SOXL       # 3x 반도체 ETF (US)
+  - QQQ        # 나스닥100 ETF (US)
+  - NVDA       # 엔비디아 (US)
+
+poll_interval_s: 20
+account_value: 100000000       # 주: 혼합통화 계좌 사이징은 v1 미분리(데이터 수집엔 무관)
+max_calls_per_session: 300
+
+paper_broker:
+  slippage_bps: 5
+  fee_bps: 2
+
+ai:
+  provider: fake               # 실제 OpenAI 호출 금지
+  model: gpt-5.5-mini
+
+journal:
+  db: data/journal_mixed.sqlite
+candles:
+  db: data/market_mixed.sqlite
+
+logging:
+  dir: logs_mixed
+  max_bytes: 1000000
+  backup_count: 3
+
+reports_dir: reports
+status_path: status_mixed.json

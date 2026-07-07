@@ -1,0 +1,30 @@
+# KRX feasibility 테스트 설정 — 국내 종목 universe
+symbols:
+  - "005930"   # 삼성전자
+  - "000660"   # SK하이닉스
+  - "402340"   # SK스퀘어
+
+poll_interval_s: 20
+account_value: 100000000     # 원화 계좌(1억)
+max_calls_per_session: 200
+
+paper_broker:
+  slippage_bps: 5
+  fee_bps: 2
+
+ai:
+  provider: fake
+  model: gpt-5.5-mini
+
+journal:
+  db: data/journal_krx.sqlite
+candles:
+  db: data/market_krx.sqlite
+
+logging:
+  dir: logs_krx
+  max_bytes: 1000000
+  backup_count: 3
+
+reports_dir: reports
+status_path: status_krx.json

@@ -1,0 +1,36 @@
+# Paper Trading Runtime v1 운영 설정
+symbols:
+  - SOXL
+
+poll_interval_s: 20
+account_value: 100000
+max_calls_per_session: 200
+
+market:
+  session_aware: true          # PRE / REGULAR / POST / OVERNIGHT 구분
+
+paper_broker:                  # 실주문 없음 — PaperBrokerProvider 만
+  slippage_bps: 5
+  fee_bps: 2
+
+ai:
+  provider: fake               # fake | openai (기본 fake — 비용 보호)
+  model: gpt-5.5-mini
+  dry_run: false
+
+review:
+  enabled: false               # 종료 후 배치 회고는 별도
+
+journal:
+  db: data/journal.sqlite
+
+candles:
+  db: data/market.sqlite
+
+logging:
+  dir: logs
+  max_bytes: 1000000
+  backup_count: 3
+
+reports_dir: reports
+status_path: status.json
