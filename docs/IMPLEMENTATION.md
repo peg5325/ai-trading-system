@@ -226,6 +226,26 @@ Journal(+Candle)을 읽는 **read-only batch processor**. 실시간 매매에 �
 - **MVP 범위 주의**: 라벨은 **관찰 기반 forward return 중심**. 진입↔청산 매칭에 의한
   `realized_pnl`/`exit_reason` 은 후속(현재 `None`, entry 체결 정보만 passthrough).
 
+## Review Batch Runner (AI 자기개선 #1 — 완료)
+기간 내 cycle 을 **Replay→Review 순회 + 영속화 + 경량 요약**하는 배치. read-only, 매매 무관.
+기본 provider 는 FakeReviewProvider(비용/네트워크 0, 결정론). 실제 회고는 `--provider openai`.
+```bash
+./.venv/bin/python scripts/run_reviews.py config/runtime_mixed.yaml \
+    --provider fake --export-jsonl reports/reviews_mixed.jsonl
+```
+- **ReviewStore (SQLite, SSoT)**: Aggregator/Dashboard/System Review 가 공용으로 읽는 Primary Storage.
+  resume 키 = `(cycle_id + prompt_version + model_name + review_version)` → 중복 회고 방지/덮어쓰기.
+  `review_version` 도입(같은 cycle 을 다른 모델·프롬프트로 재회고해도 비교 가능),
+  `review_source`(AI/MANUAL/BATCH/SYSTEM, 기본 BATCH). 인덱스: cycle_id·symbol·created_at·
+  model_name·prompt_version·review_version·decision_quality·review_source.
+- **ReviewBatchRunner**: `journal.get_by_time_range` 순회 → `ReplaySystem.replay` → `AIReviewEngine.review`
+  → `ReviewStore.save`. 실패 회고도 REVIEW_FAILED 로 영속(resume 이 재호출 차단). `spacing_s`로 rate limit 완화.
+  결정론(created_at/elapsed 외부 주입).
+- **경량 요약(RunSummary)**: ok/failed/skipped(resumed·no_outcomes), decision_quality 분포,
+  confidence_reassessment 평균, rule_improvement Top-N, failed cycle 목록, 처리시간. (본격 Aggregator 는 #2)
+- **ReviewJsonlExporter**: SSoT(SQLite)에서 조회한 회고를 JSONL 로 export(GPT/Claude 분석·회귀·LLM batch).
+- 구조: `ReviewStore(+ReviewRecord) ─ ReviewBatchRunner(+RunSummary) ─ ReviewJsonlExporter`.
+
 ## 테스트
 ```bash
 ./.venv/bin/python -m pytest -q
@@ -295,6 +315,10 @@ ai_trading_system/
       models.py            # Feature/Label/Meta/Dataset Record + *_VERSION
       builder.py           # DatasetBuilder + LabelConfig (Journal+Candle → Dataset, read-only)
       exporters.py         # JsonlExporter / ParquetExporter
+    review/  (batch)
+      store.py             # ReviewRecord / SqliteReviewStore(SSoT) / InMemoryReviewStore + REVIEW_VERSION/source
+      batch_runner.py      # ReviewBatchRunner + RunnerConfig + RunSummary
+      exporters.py         # ReviewJsonlExporter
     runtime/
       config.py            # RuntimeConfig + load_yaml
       logging_setup.py     # rotating loggers
@@ -306,7 +330,8 @@ ai_trading_system/
     ai_entry_filter_manual.py   # 실제 OpenAI 수동 호출
     run_paper.py                # 운영 진입점 (Toss 시세 + Paper 체결)
     build_dataset.py            # AI Learning Dataset 빌드 (read-only batch)
-  tests/                   # 전 계층 (190 tests)
+    run_reviews.py              # Review Batch Runner (Replay→Review, read-only)
+  tests/                   # 전 계층 (198 tests)
   data/                    # SQLite (git 무시)
   datasets/                # 빌드된 학습 데이터셋 (git 무시)
 ```

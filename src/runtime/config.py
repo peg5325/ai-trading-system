@@ -21,6 +21,7 @@ class RuntimeConfig:
     ai_dry_run: bool = False
     # review
     review_enabled: bool = False
+    review_db: str = "data/reviews.sqlite"
     # stores
     journal_db: str = "data/journal.sqlite"
     candle_db: str = "data/market.sqlite"
@@ -53,6 +54,7 @@ class RuntimeConfig:
             ai_model=ai.get("model", "gpt-5.5-mini"),
             ai_dry_run=bool(ai.get("dry_run", False)),
             review_enabled=bool(review.get("enabled", False)),
+            review_db=review.get("db", "data/reviews.sqlite"),
             journal_db=journal.get("db", "data/journal.sqlite"),
             candle_db=candles.get("db", "data/market.sqlite"),
             slippage_bps=float(paper.get("slippage_bps", 5.0)),

@@ -25,6 +25,8 @@ journal:
   db: data/journal_mixed.sqlite
 candles:
   db: data/market_mixed.sqlite
+review:
+  db: data/reviews_mixed.sqlite     # Review Batch Runner 의 Primary Storage
 
 logging:
   dir: logs_mixed
