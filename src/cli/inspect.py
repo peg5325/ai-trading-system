@@ -628,6 +628,69 @@ def _format_health(data: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
+# 실현손익 (Realized PnL, FIFO) — journal 을 read-only 로 읽어 공유 엔진에 투입
+# ---------------------------------------------------------------------------
+
+class _RoJournalSource:
+    """journal_cycle 을 read-only 로 읽어 realized_from_journal 에 넘기는 어댑터.
+    (SqliteJournalStore 는 생성자에서 CREATE TABLE + RW 연결이라 라이브 DB 조회에 부적합)."""
+    def __init__(self, cycles):
+        self._cycles = cycles
+
+    def get_by_time_range(self, start=None, end=None):
+        return self._cycles           # 이미 SQL 에서 기간 필터됨
+
+
+def _ro_journal_cycles(journal_db: str, start: datetime | None, end: datetime | None):
+    from src.journal.models import JournalCycle
+    with _ro(journal_db) as con:
+        _require_table(con, "journal_cycle", journal_db)
+        sql = "SELECT data FROM journal_cycle WHERE 1=1"
+        params: list = []
+        sql, params = _apply_ts_range(sql, params, "cycle_ts", start, end)
+        sql += " ORDER BY cycle_ts, cycle_id"
+        rows = _query(con, sql, params)
+    return [JournalCycle.from_dict(json.loads(r["data"])) for r in rows]
+
+
+def read_pnl(journal_db: str, *, symbol: str | None = None,
+             start: datetime | None = None, end: datetime | None = None,
+             limit: int = 20) -> dict:
+    from src.pnl.journal_pnl import realized_from_journal
+    cycles = _ro_journal_cycles(journal_db, start, end)
+    trades, open_lots, summary = realized_from_journal(
+        _RoJournalSource(cycles), symbol=symbol)
+    return {
+        "summary": summary.to_dict(),
+        "trades": [t.to_dict() for t in trades[-limit:]],
+        "open_lots": [l.to_dict() for l in open_lots],
+    }
+
+
+def _format_pnl(data: dict) -> str:
+    s = data["summary"]
+    lines = ["=== Realized PnL (FIFO, 청산 완료) ==="]
+    lines.append(f"trades={s['trades']} (W {s['wins']} / L {s['losses']} / BE {s['breakeven']})  "
+                 f"win_rate={s['win_rate'] * 100:.1f}%")
+    lines.append(f"net_pnl(cum)={s['total_net_pnl']:,.2f}  gross={s['total_gross_pnl']:,.2f}  "
+                 f"commission={s['total_commission']:,.2f}  slippage={s['total_slippage']:,.2f}")
+    pf = s["profit_factor"]
+    lines.append(f"expectancy={s['expectancy']:,.4f}  profit_factor={pf if pf is not None else 'n/a'}  "
+                 f"avg_hold={s['avg_holding_minutes']}min/{s['avg_holding_bars']}bars")
+    lines.append(f"open_positions={s['open_positions']} (qty {s['open_quantity']})")
+    if data["trades"]:
+        lines.append("")
+        headers = ["symbol", "qty", "entry", "exit", "net_pnl", "ret%", "hold_min"]
+        rows = [[t["symbol"], t["quantity"], t["entry_price"], t["exit_price"],
+                 t["net_pnl"], t["realized_return_pct"], t["holding_minutes"]]
+                for t in data["trades"]]
+        lines.append(_render_table(headers, rows))
+    else:
+        lines.append("(청산 완료 거래 없음 — 현재 진입만 있고 청산 0건)")
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # --since / --last 시간 파싱 (argparse 레이어 전용 — reader 는 datetime 만 받는다)
 # ---------------------------------------------------------------------------
 
@@ -717,6 +780,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p_health = sub.add_parser("health", parents=[common], help="metrics 기반 health 스냅샷")
     p_health.add_argument("--last", default=None, help="today | Nh | Nm | Nd | ISO")
 
+    p_pnl = sub.add_parser("pnl", parents=[common],
+                           help="실현손익(FIFO) — journal FILLED 체결 기준")
+    p_pnl.add_argument("--symbol", default=None)
+    p_pnl.add_argument("--since", default=None, help="today | Nh | Nm | Nd | ISO")
+    p_pnl.add_argument("--limit", type=int, default=20, help="최근 청산거래 표시 수")
+
     return parser
 
 
@@ -763,6 +832,11 @@ def _dispatch(args: argparse.Namespace, cfg: RuntimeConfig) -> tuple[object, str
         since = _parse_since(args.last)
         data = read_health(args.db or cfg.metrics_db, start=since)
         return data, _format_health(data)
+    if cmd == "pnl":
+        since = _parse_since(args.since)
+        data = read_pnl(args.db or cfg.journal_db, symbol=args.symbol,
+                        start=since, limit=args.limit)
+        return data, _format_pnl(data)
     raise ValueError(f"알 수 없는 커맨드: {cmd}")
 
 

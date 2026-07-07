@@ -24,6 +24,7 @@ class ReplayContext:
     portfolio: dict | None                # 사이클 시점 포트폴리오(+positions)
     symbols: list[dict] = field(default_factory=list)   # symbol별 복원 데이터
     journal: dict | None = None           # 원본 journal cycle (전체 감사)
+    realized_pnl: dict | None = None      # as_of 까지의 실현손익(FIFO 엔진) — Review 활용
 
     def to_dict(self) -> dict:
         return {
@@ -31,6 +32,7 @@ class ReplayContext:
             "status": self.status, "universe": self.universe,
             "market_snapshot": self.market_snapshot, "portfolio": self.portfolio,
             "symbols": self.symbols, "journal": self.journal,
+            "realized_pnl": self.realized_pnl,
         }
 
     @classmethod
@@ -39,7 +41,8 @@ class ReplayContext:
             cycle_id=d["cycle_id"], cycle_ts=d.get("cycle_ts"), session=d.get("session"),
             status=d.get("status", "RAN"), universe=list(d.get("universe", [])),
             market_snapshot=d.get("market_snapshot", {}), portfolio=d.get("portfolio"),
-            symbols=list(d.get("symbols", [])), journal=d.get("journal"))
+            symbols=list(d.get("symbols", [])), journal=d.get("journal"),
+            realized_pnl=d.get("realized_pnl"))
 
     def to_prompt_dict(self, max_candles: int = 20) -> dict:
         """GPT 입력용 요약 뷰. 캔들 배열은 최근 max_candles 개로 절단(프롬프트 크기 보호).
@@ -55,5 +58,5 @@ class ReplayContext:
             "cycle_id": self.cycle_id, "cycle_ts": self.cycle_ts, "session": self.session,
             "status": self.status, "universe": self.universe,
             "market_snapshot": self.market_snapshot, "portfolio": self.portfolio,
-            "symbols": symbols,
+            "symbols": symbols, "realized_pnl": self.realized_pnl,
         }

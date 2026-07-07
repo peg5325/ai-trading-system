@@ -65,7 +65,7 @@ class OrderManager:
             order_type=order_type, requested_quantity=qty,
             filled_quantity=result.filled_quantity, avg_fill_price=result.avg_fill_price,
             fee=result.fee, status=result.status, reject_reason=result.reject_reason,
-            risk_reason_codes=list(risk_decision.reason_codes))
+            risk_reason_codes=list(risk_decision.reason_codes), ref_price=ref_price)
         self._orders.save(record)
 
         if result.filled_quantity > 0:

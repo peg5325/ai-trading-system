@@ -79,7 +79,18 @@ class ReplaySystem:
             cycle_id=cycle.cycle_id, cycle_ts=cycle.cycle_ts, session=cycle.session,
             status=cycle.status, universe=list(cycle.universe),
             market_snapshot=market_snapshot, portfolio=cycle.portfolio,
-            symbols=symbols, journal=cycle.to_dict())
+            symbols=symbols, journal=cycle.to_dict(),
+            realized_pnl=self._realized_pnl(as_of))
+
+    def _realized_pnl(self, as_of) -> dict:
+        """as_of(현재 cycle_ts) 까지 확정된 실현손익 — FIFO 엔진. look-ahead 없음."""
+        from src.pnl.journal_pnl import realized_from_journal
+        trades, open_lots, summary = realized_from_journal(self._journal, end=as_of)
+        return {
+            "summary": summary.to_dict(),
+            "trades": [t.to_dict() for t in trades],
+            "open_lots": [l.to_dict() for l in open_lots],
+        }
 
     def _candles(self, symbol: str, as_of: datetime | None) -> list[dict]:
         """CandleStore(read-only)에서 당시 확정 캔들 복원. look-ahead 방지: as_of 이하만."""

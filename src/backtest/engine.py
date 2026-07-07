@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from src.engines.indicator_engine import IndicatorEngine
 from src.models import ET, classify_session
+from src.pnl.fifo import FifoMatcher
+from src.pnl.models import FillEvent
 from src.risk.models import BUY, NEW_ENTRY, SELL, OrderIntent, PortfolioSnapshot, Position
 from src.risk.risk_manager import RiskManager
 from src.universe.screener import SymbolData, UniverseScreener
@@ -69,6 +71,7 @@ class BacktestEngine:
             return i == n - 1 or et_dates[i + 1] != et_dates[i]
 
         st = {"cash": cfg.initial_capital, "pos": None, "consec": 0}
+        matcher = FifoMatcher(bar_minutes=5.0)     # 실현손익: live/paper 와 동일 엔진
         trades: list[Trade] = []
         equity_curve: list[float] = []
         bars_in_pos = 0
@@ -81,6 +84,9 @@ class BacktestEngine:
         def open_position(i, qty, reasons, risk_decision):
             fill = exe.execute(qty, opens[i], BUY)
             st["cash"] -= fill.quantity * fill.price + fill.fee
+            matcher.ingest(FillEvent(                       # 진입 체결 → FIFO 엔진
+                symbol, BUY, fill.quantity, fill.price, fee=fill.fee,
+                ref_price=opens[i], timestamp=idx[i], bar_index=i, reason=tuple(reasons)))
             st["pos"] = {
                 "qty": fill.quantity, "entry_price": fill.price, "entry_fee": fill.fee,
                 "entry_time": idx[i], "reasons": reasons, "risk_decision": risk_decision,
@@ -91,13 +97,15 @@ class BacktestEngine:
             p = st["pos"]
             fill = exe.execute(p["qty"], ref_price, SELL)
             st["cash"] += fill.quantity * fill.price - fill.fee
-            cost = p["qty"] * p["entry_price"]
-            pnl = (fill.price - p["entry_price"]) * p["qty"] - p["entry_fee"] - fill.fee
-            pnl_pct = (pnl / cost * 100.0) if cost else 0.0
+            rt = matcher.ingest(FillEvent(                   # 청산 체결 → FIFO 엔진(실현손익 계산)
+                symbol, SELL, fill.quantity, fill.price, fee=fill.fee,
+                ref_price=ref_price, timestamp=exit_time, bar_index=i,
+                reason=tuple(reasons)))[0]
             trades.append(Trade(
-                symbol, p["entry_time"], exit_time, p["entry_price"], fill.price,
-                p["qty"], pnl, pnl_pct, p["reasons"], reasons, p["risk_decision"]))
-            st["consec"] = st["consec"] + 1 if pnl < 0 else 0
+                symbol, p["entry_time"], exit_time, rt.entry_price, rt.exit_price,
+                rt.quantity, rt.net_pnl, rt.realized_return_pct, p["reasons"], reasons,
+                p["risk_decision"]))
+            st["consec"] = st["consec"] + 1 if rt.net_pnl < 0 else 0
             st["pos"] = None
 
         for i in range(n):

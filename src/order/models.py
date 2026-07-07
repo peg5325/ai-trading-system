@@ -67,6 +67,7 @@ class OrderRecord:
     status: str
     reject_reason: str | None = None
     risk_reason_codes: list[str] = field(default_factory=list)
+    ref_price: float | None = None       # 의도가(체결 참조가) — 실현손익 슬리피지 분해용
 
     def to_dict(self) -> dict:
         return {
@@ -83,6 +84,7 @@ class OrderRecord:
             "status": self.status,
             "reject_reason": self.reject_reason,
             "risk_reason_codes": self.risk_reason_codes,
+            "ref_price": self.ref_price,
         }
 
 

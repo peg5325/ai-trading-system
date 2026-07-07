@@ -73,10 +73,19 @@ python -m pytest -q
 # Paper Runtime 운영 (실주문 없음, Ctrl+C = graceful shutdown)
 pip install PyYAML
 python scripts/run_paper.py config/runtime_mixed.yaml   # KR/US 혼합 유니버스
+
+# 조회 CLI (read-only, 가동 중에도 안전) — 4대 SSoT + 실현손익
+python scripts/inspect_cli.py summary
+python scripts/inspect_cli.py pnl          # 실현손익(FIFO): 승률/PF/Expectancy/보유시간
 ```
 
 운영 산출물: `status*.json`(실시간 대시보드), `logs*/`(rotation), `reports/`(종료 리포트),
 `data/`(SQLite). — **모두 `.gitignore` 처리(계좌/시세 데이터 보호).**
+
+### 성능 평가 — Realized PnL Engine (FIFO)
+BUY/SELL 을 **FIFO 로 매칭**해 실현손익을 계산하는 **단일 엔진**(실거래/Paper/Backtest 공용).
+부분청산 지원, `net_pnl == gross_pnl - slippage - commission` 불변식, 결정론적. 청산이 완료돼야
+실제 승률/기대수익이 나온다(진입만 있으면 미청산 포지션으로 집계). `scripts/inspect_cli.py pnl` 로 조회.
 
 ## 시장 (US / KR)
 

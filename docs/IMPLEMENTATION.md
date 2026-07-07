@@ -326,6 +326,24 @@ Store 클래스(CREATE TABLE + read-write)를 인스턴스화하지 않고, 매�
 - reader 함수는 모두 명시적 start/end datetime 만 받는다(`datetime.now()` 는 argparse 의
   `--since`/`--last` 파싱에서만 호출) → 테스트가 결정론적.
 
+## Realized PnL Engine (FIFO — 완료)
+BUY/SELL 을 **FIFO 로 매칭**해 실현손익을 계산하는 **단일 엔진**. 실거래/Paper/Backtest 가 모두 사용.
+```bash
+./.venv/bin/python scripts/inspect_cli.py pnl              # journal FILLED 체결 기준 실현손익
+./.venv/bin/python scripts/inspect_cli.py pnl --symbol SOXL --since today
+```
+- **FifoMatcher**(`src/pnl/fifo.py`): 부분청산/여러 번 매수/여러 번 매도 지원. 오래된 롯부터 소진.
+  각 매칭 단위마다 `RealizedTrade` 1건, 수수료는 매칭 수량 비례 배분. 결정론적(now/난수 없음).
+- **RealizedTrade**: `realized_pnl`/`realized_return_pct`/`holding_minutes`/`holding_bars`/
+  `commission`/`slippage`/`net_pnl`/`gross_pnl`. **불변식**: `net_pnl == gross_pnl - slippage - commission`.
+  슬리피지 분해는 의도가(ref_price) 필요 → `OrderRecord.ref_price` 저장(신규). backtest 는 ref 보유.
+- **summarize**(`src/pnl/metrics.py`): 누적손익/평균손익/Profit Factor/Expectancy/평균 보유시간·Holding Bar/승률.
+- **journal_pnl**(`src/pnl/journal_pnl.py`): Trade Journal 의 FILLED 체결 = SSoT → 시간순 FifoMatcher.
+  실현손익은 여기서 결정론적으로 재계산(별도 중복 저장 없이 fills 를 단일 진실원으로 사용).
+- **통합**: Backtest(`BacktestEngine` 이 동일 FifoMatcher 사용) · Replay(`ReplayContext.realized_pnl`,
+  as_of 까지 look-ahead 없이) · Runtime 종료 리포트(실현손익 요약 자동 집계) · inspect CLI(`pnl`).
+- Long-only 가정: 보유 초과 매도는 방어적으로 `unmatched_sells` 기록(크래시 없음).
+
 ## 테스트
 ```bash
 ./.venv/bin/python -m pytest -q
@@ -405,6 +423,11 @@ ai_trading_system/
       window.py            # build_window_summary (MetricsStore+Journal → 운영 요약, read-only)
       engine.py            # SystemReviewEngine (GPT 회고, 실패 안전 종료)
       store.py             # SqliteSystemReviewStore / InMemorySystemReviewStore
+    pnl/  (실현손익 단일 엔진)
+      models.py            # FillEvent / RealizedTrade / OpenLot / PnlSummary
+      fifo.py              # FifoMatcher (FIFO 매칭, 부분청산) + match_fills
+      metrics.py           # summarize (PF/Expectancy/보유시간/승률)
+      journal_pnl.py       # Journal FILLED → 실현손익 (Paper/실거래 경로)
     runtime/
       config.py            # RuntimeConfig + load_yaml
       logging_setup.py     # rotating loggers
@@ -423,7 +446,7 @@ ai_trading_system/
     aggregate_reviews.py        # Rule Improvement Aggregator (제안 전용, read-only)
     system_review.py            # System Review Engine (운영 회고, read-only)
     inspect_cli.py              # 조회 CLI 진입점 (read-only, 4대 SQLite DB) — stdlib inspect shadow 회피 위해 _cli
-  tests/                   # 전 계층 (240 tests)
+  tests/                   # 전 계층 (254 tests)
   data/                    # SQLite (git 무시)
   datasets/                # 빌드된 학습 데이터셋 (git 무시)
 ```

@@ -21,7 +21,7 @@ def _resources() -> tuple[str, str]:
 
 
 def generate_markdown(metrics, health: dict, cfg, *, report_date: str,
-                      run_duration_s: float) -> str:
+                      run_duration_s: float, realized: dict | None = None) -> str:
     m = metrics
     mem, cpu = _resources()
     downtime = round((m.api_errors + m.pipeline_errors + m.exceptions) * cfg.poll_interval_s, 1)
@@ -66,6 +66,26 @@ def generate_markdown(metrics, health: dict, cfg, *, report_date: str,
         f"- CPU: {cpu}",
         "",
     ]
+    if realized is not None:
+        pf = realized.get("profit_factor")
+        lines += [
+            "## Realized PnL (FIFO, 청산 완료 거래)",
+            f"- Closed trades: {realized.get('trades', 0)} "
+            f"(W {realized.get('wins', 0)} / L {realized.get('losses', 0)} / BE {realized.get('breakeven', 0)})",
+            f"- Win rate: {realized.get('win_rate', 0.0) * 100:.1f}%",
+            f"- Net PnL (cum): {realized.get('total_net_pnl', 0.0):,.2f}",
+            f"- Gross PnL: {realized.get('total_gross_pnl', 0.0):,.2f} | "
+            f"Commission: {realized.get('total_commission', 0.0):,.2f} | "
+            f"Slippage: {realized.get('total_slippage', 0.0):,.2f}",
+            f"- Expectancy (avg/trade): {realized.get('expectancy', 0.0):,.4f}",
+            f"- Profit Factor: {pf if pf is not None else 'n/a'}",
+            f"- Avg holding: {realized.get('avg_holding_minutes')} min / "
+            f"{realized.get('avg_holding_bars')} bars",
+            f"- Open positions: {realized.get('open_positions', 0)} "
+            f"(qty {realized.get('open_quantity', 0.0)})",
+            "- 주: 통화 혼합 계좌는 금액 합산에 주의(관찰/검증용).",
+            "",
+        ]
     return "\n".join(lines)
 
 

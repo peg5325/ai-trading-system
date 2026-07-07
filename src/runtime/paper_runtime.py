@@ -238,8 +238,22 @@ class PaperRuntime:
                 report_date = ts[:10].replace("-", "")
         content = generate_markdown(
             self.metrics, self._last_health or self.health_check(), self.cfg,
-            report_date=report_date, run_duration_s=self._monotonic() - self._run_start)
+            report_date=report_date, run_duration_s=self._monotonic() - self._run_start,
+            realized=self._realized_summary())
         return write_report(content, self.cfg.reports_dir, report_date)
+
+    def _realized_summary(self) -> dict | None:
+        """Journal 의 FILLED 체결 → FIFO 실현손익 요약(리포트용). 실패해도 종료를 막지 않음."""
+        journal = getattr(self.loop, "journal", None)
+        if journal is None:
+            return None
+        try:
+            from src.pnl.journal_pnl import realized_from_journal
+            _, _, summary = realized_from_journal(journal)
+            return summary.to_dict()
+        except Exception as e:
+            self.loggers["error"].error(f"realized pnl summary failed: {e}")
+            return None
 
 
 def _utc_now_iso() -> str:
