@@ -1,10 +1,24 @@
 """CandleStore 저장/조회 라운드트립 (네트워크 없음)."""
 from __future__ import annotations
 
+import os
 from datetime import datetime
 
 from src.models import Candle
 from src.storage.candle_store import CandleStore
+
+
+def test_accepts_str_db_path(tmp_path):
+    """db_path 가 str 로 들어와도 Path 로 변환되어 동작(부모 디렉터리 생성 포함). 회귀 방지."""
+    db = str(tmp_path / "nested" / "s.sqlite")   # str + 미존재 부모 디렉터리
+    store = CandleStore(db)
+    try:
+        assert store.count("SOXL", "1m") == 0
+        store.upsert_many([_candle(30, 1.0)])
+        assert store.count("SOXL", "1m") == 1
+    finally:
+        store.close()
+    assert os.path.exists(db)
 
 
 def _candle(minute: int, close: float) -> Candle:
