@@ -197,9 +197,15 @@ def test_report_sections(tmp_path):
 # ---- config from_dict (yaml 매핑) ----
 def test_config_from_dict():
     cfg = RuntimeConfig.from_dict({
-        "symbols": ["SOXL", "TQQQ"], "poll_interval_s": 15,
+        "symbols": ["SOXL", "TQQQ"], "poll_interval_s": 15, "fetch_spacing_s": 0.5,
         "ai": {"provider": "openai", "model": "gpt-5.5-mini"},
         "paper_broker": {"slippage_bps": 7, "fee_bps": 3},
         "logging": {"dir": "logs", "max_bytes": 500000, "backup_count": 2}})
     assert cfg.symbols == ["SOXL", "TQQQ"] and cfg.poll_interval_s == 15
+    assert cfg.fetch_spacing_s == 0.5
     assert cfg.ai_provider == "openai" and cfg.slippage_bps == 7 and cfg.log_backup_count == 2
+
+
+def test_config_fetch_spacing_default_zero():
+    # 미지정 시 0.0(간격 끔) — 기존 단일종목 config 하위호환
+    assert RuntimeConfig.from_dict({"symbols": ["SOXL"]}).fetch_spacing_s == 0.0

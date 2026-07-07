@@ -13,6 +13,7 @@ class RuntimeConfig:
     symbols: list[str] = field(default_factory=lambda: ["SOXL"])
     poll_interval_s: float = 20.0
     account_value: float = 100_000.0
+    fetch_spacing_s: float = 0.0       # 종목간 시세 호출 간격(429 완화, 0=끔)
     max_calls_per_session: int | None = None
     # AI
     ai_provider: str = "fake"          # "fake" | "openai"
@@ -46,6 +47,7 @@ class RuntimeConfig:
             symbols=list(d.get("symbols", ["SOXL"])),
             poll_interval_s=float(d.get("poll_interval_s", 20.0)),
             account_value=float(d.get("account_value", 100_000.0)),
+            fetch_spacing_s=float(d.get("fetch_spacing_s", 0.0)),
             max_calls_per_session=d.get("max_calls_per_session"),
             ai_provider=ai.get("provider", "fake"),
             ai_model=ai.get("model", "gpt-5.5-mini"),

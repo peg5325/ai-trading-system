@@ -75,6 +75,7 @@ def main(config_path: str) -> None:
         market, candle_store, pipeline, position_store,
         LoopConfig(universe=tuple(cfg.symbols), account_value=cfg.account_value,
                    polling_interval_s=cfg.poll_interval_s,
+                   fetch_spacing_s=cfg.fetch_spacing_s,
                    max_calls_per_session=cfg.max_calls_per_session),
         journal=journal)
 

@@ -10,6 +10,7 @@ symbols:
 
 poll_interval_s: 20
 account_value: 100000000       # 주: 혼합통화 계좌 사이징은 v1 미분리(데이터 수집엔 무관)
+fetch_spacing_s: 0.5           # 종목간 시세 호출 간격(초). Toss 429 완화. 6종목×0.5s=3s < poll 20s
 max_calls_per_session: 300
 
 paper_broker:
