@@ -296,6 +296,36 @@ Rule Engine/Trading Pipeline/OrderManager/RiskManager/strategy.yaml 에 **절대
 - 결정론: input_hash = window+prompt+model (created_at/latency 제외). Fake provider 기반 테스트.
   yaml `system_review.db`(runtime_mixed → data/system_reviews_mixed.sqlite).
 
+## 조회 CLI (inspect) (완료)
+4대 SQLite Single Source of Truth(journal/reviews/metrics/system_reviews) 를 터미널에서 훑어보는
+**읽기 전용** 조회 도구. 매매/주문/Runtime 제어 기능은 전혀 없다 — 오직 조회.
+라이브 Paper Trading 루프가 같은 DB 파일에 계속 쓰는 중에도 안전하게 실행 가능:
+Store 클래스(CREATE TABLE + read-write)를 인스턴스화하지 않고, 매번
+`sqlite3.connect(f"file:{path}?mode=ro", uri=True) + PRAGMA query_only=ON` 으로만 연다.
+
+```bash
+./.venv/bin/python scripts/inspect_cli.py summary                       # 4개 DB 전체 개요
+./.venv/bin/python scripts/inspect_cli.py latest --limit 5               # 최신 사이클 5개(최신순)
+./.venv/bin/python scripts/inspect_cli.py cycles --limit 20              # 최근 사이클(시간순)
+./.venv/bin/python scripts/inspect_cli.py errors --since today            # 오늘의 에러 사이클/지표
+./.venv/bin/python scripts/inspect_cli.py candidates --symbol SOXL        # 후보 종목 outcome
+./.venv/bin/python scripts/inspect_cli.py orders --limit 20               # 체결(FILLED) 주문
+./.venv/bin/python scripts/inspect_cli.py reviews --limit 20              # 최근 AI 회고
+./.venv/bin/python scripts/inspect_cli.py improvements --top 5            # Rule Improvement 집계
+./.venv/bin/python scripts/inspect_cli.py metrics --last 24h              # 운영 지표 윈도우 집계
+./.venv/bin/python scripts/inspect_cli.py system-review --latest          # 최신 시스템 회고 상세
+./.venv/bin/python scripts/inspect_cli.py health                          # health 스냅샷
+./.venv/bin/python scripts/inspect_cli.py summary --json                  # 모든 커맨드 --json 지원
+```
+- `--config`(기본 `config/runtime_mixed.yaml`) 로 DB 경로를 읽고, `--db PATH` 로 커맨드별 기본
+  DB 를 오버라이드할 수 있다(config 파일이 없어도 문서화된 기본 경로로 폴백).
+- DB 파일/테이블이 없으면 traceback 없이 친절한 한글 메시지 + non-zero exit; 테이블은 있지만
+  행이 없으면 "데이터 없음" + exit 0.
+- `improvements` 는 `RuleImprovementAggregator` 를 그대로 재사용한다(작은 read-only 어댑터로
+  review 테이블 → `ReviewRecord` 변환).
+- reader 함수는 모두 명시적 start/end datetime 만 받는다(`datetime.now()` 는 argparse 의
+  `--since`/`--last` 파싱에서만 호출) → 테스트가 결정론적.
+
 ## 테스트
 ```bash
 ./.venv/bin/python -m pytest -q
@@ -382,6 +412,8 @@ ai_trading_system/
       metrics_store.py     # CycleMetric + SqliteMetricsStore(SSoT) + InMemoryMetricsStore
       report.py            # 종료 리포트(markdown)
       paper_runtime.py     # PaperRuntime (run/stop/pause/resume, recovery, shutdown, cycle metrics)
+    cli/
+      inspect.py           # 조회 CLI reader/formatter/main (read-only, 4대 DB)
   config/runtime.yaml      # 운영 설정
   scripts/
     ai_entry_filter_manual.py   # 실제 OpenAI 수동 호출
@@ -390,7 +422,8 @@ ai_trading_system/
     run_reviews.py              # Review Batch Runner (Replay→Review, read-only)
     aggregate_reviews.py        # Rule Improvement Aggregator (제안 전용, read-only)
     system_review.py            # System Review Engine (운영 회고, read-only)
-  tests/                   # 전 계층 (224 tests)
+    inspect_cli.py              # 조회 CLI 진입점 (read-only, 4대 SQLite DB) — stdlib inspect shadow 회피 위해 _cli
+  tests/                   # 전 계층 (240 tests)
   data/                    # SQLite (git 무시)
   datasets/                # 빌드된 학습 데이터셋 (git 무시)
 ```
