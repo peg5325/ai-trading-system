@@ -1,0 +1,610 @@
+<title>AI Trading System — 설계 개요</title>
+<style>
+  :root {
+    --bg: #F5F7F4;
+    --surface: #FFFFFF;
+    --surface-2: #FBFCFA;
+    --ink: #171A17;
+    --muted: #5E655E;
+    --faint: #8A918A;
+    --hair: #E4E8E2;
+    --hair-strong: #D3D9CF;
+    --accent: #0F6E52;
+    --accent-ink: #0B5842;
+    --accent-soft: #E4F0EA;
+    --warn: #9A6B12;
+    --warn-soft: #F6EEDC;
+    --crit: #B23B32;
+    --crit-soft: #F8E6E2;
+
+    --maxw: 880px;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    --radius: 12px;
+    --step: clamp(1.5rem, 1rem + 2.4vw, 2.6rem);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0F1210;
+      --surface: #161A17;
+      --surface-2: #1B201C;
+      --ink: #E7EBE5;
+      --muted: #9AA39A;
+      --faint: #6E766E;
+      --hair: #272D27;
+      --hair-strong: #333A33;
+      --accent: #4FBF97;
+      --accent-ink: #6FD3AE;
+      --accent-soft: #17271F;
+      --warn: #D6A34E;
+      --warn-soft: #2A2415;
+      --crit: #E0796E;
+      --crit-soft: #2C1A18;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0F1210; --surface: #161A17; --surface-2: #1B201C;
+    --ink: #E7EBE5; --muted: #9AA39A; --faint: #6E766E;
+    --hair: #272D27; --hair-strong: #333A33;
+    --accent: #4FBF97; --accent-ink: #6FD3AE; --accent-soft: #17271F;
+    --warn: #D6A34E; --warn-soft: #2A2415; --crit: #E0796E; --crit-soft: #2C1A18;
+  }
+  :root[data-theme="light"] {
+    --bg: #F5F7F4; --surface: #FFFFFF; --surface-2: #FBFCFA;
+    --ink: #171A17; --muted: #5E655E; --faint: #8A918A;
+    --hair: #E4E8E2; --hair-strong: #D3D9CF;
+    --accent: #0F6E52; --accent-ink: #0B5842; --accent-soft: #E4F0EA;
+    --warn: #9A6B12; --warn-soft: #F6EEDC; --crit: #B23B32; --crit-soft: #F8E6E2;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+    font-size: 16px;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 22px; }
+
+  /* ---------- header ---------- */
+  header.top {
+    border-bottom: 1px solid var(--hair);
+    background: linear-gradient(180deg, var(--surface-2), var(--bg));
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    margin: 0 0 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::before {
+    content: ""; width: 26px; height: 2px; background: var(--accent); display: inline-block;
+  }
+  h1 {
+    font-size: clamp(2.1rem, 1.4rem + 3.4vw, 3.3rem);
+    line-height: 1.06;
+    letter-spacing: -0.02em;
+    margin: 0 0 16px;
+    text-wrap: balance;
+    font-weight: 680;
+  }
+  .lede {
+    font-size: clamp(1.05rem, 1rem + 0.5vw, 1.24rem);
+    color: var(--muted);
+    max-width: 60ch;
+    margin: 0 0 30px;
+    text-wrap: pretty;
+  }
+  header.top .wrap { padding-top: clamp(46px, 8vw, 84px); padding-bottom: 40px; }
+
+  /* ---------- fact tiles ---------- */
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--hair);
+    border: 1px solid var(--hair);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .fact { background: var(--surface); padding: 16px 18px; }
+  .fact .k {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--faint); margin-bottom: 7px;
+  }
+  .fact .v { font-size: 1.02rem; font-weight: 620; letter-spacing: -0.01em; }
+  .fact .v small { display:block; font-weight: 500; font-size: 0.8rem; color: var(--muted); margin-top:2px; letter-spacing:0; }
+
+  /* ---------- toc ---------- */
+  nav.toc { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 8px; }
+  nav.toc a {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em;
+    text-decoration: none; color: var(--muted);
+    border: 1px solid var(--hair-strong); border-radius: 999px;
+    padding: 5px 12px; transition: all .15s ease;
+  }
+  nav.toc a:hover { color: var(--accent-ink); border-color: var(--accent); background: var(--accent-soft); }
+
+  /* ---------- sections ---------- */
+  section { padding: var(--step) 0; border-top: 1px solid var(--hair); }
+  section:first-of-type { border-top: none; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 22px; }
+  .sec-num {
+    font-family: var(--mono); font-size: 13px; color: var(--accent);
+    font-weight: 600; letter-spacing: 0.05em; padding-top: 4px;
+  }
+  h2 {
+    font-size: clamp(1.4rem, 1.1rem + 1.3vw, 1.9rem);
+    letter-spacing: -0.015em; margin: 0; font-weight: 660; text-wrap: balance;
+  }
+  .sec-sub { color: var(--muted); margin: -8px 0 24px; max-width: 62ch; }
+  h3 { font-size: 1.06rem; margin: 26px 0 12px; letter-spacing: -0.01em; font-weight: 640; }
+  p { margin: 0 0 14px; }
+
+  /* ---------- principle list ---------- */
+  .principles { display: grid; gap: 1px; background: var(--hair); border:1px solid var(--hair); border-radius: var(--radius); overflow: hidden; }
+  .principles li { list-style: none; background: var(--surface); padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+  .principles { margin: 0; padding-left: 0; }
+  .principles .tag {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent-ink); background: var(--accent-soft); border-radius: 6px;
+    padding: 3px 8px; white-space: nowrap; margin-top: 2px; flex-shrink: 0;
+  }
+  .principles .txt { color: var(--ink); }
+  .principles .txt b { font-weight: 640; }
+
+  /* ---------- architecture pipeline ---------- */
+  .flow-card {
+    border: 1px solid var(--hair); border-radius: var(--radius);
+    background: var(--surface); overflow: hidden;
+  }
+  .flow-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 14px 18px; border-bottom: 1px solid var(--hair); flex-wrap: wrap;
+  }
+  .flow-title { font-weight: 650; font-size: 1.02rem; letter-spacing: -0.01em; }
+  .badge {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 999px; font-weight: 600;
+  }
+  .badge.gate { color: var(--warn); background: var(--warn-soft); }
+  .badge.pure { color: var(--accent-ink); background: var(--accent-soft); }
+  .pipe-scroll { overflow-x: auto; padding: 20px 18px; }
+  .pipe { display: flex; align-items: stretch; gap: 0; min-width: min-content; }
+  .node {
+    font-family: var(--mono); font-size: 12.5px; font-weight: 550;
+    border: 1px solid var(--hair-strong); border-radius: 9px;
+    padding: 11px 13px; background: var(--surface-2); white-space: nowrap;
+    display: flex; flex-direction: column; gap: 3px; align-self: center;
+  }
+  .node .sub { font-size: 10px; color: var(--faint); font-weight: 500; letter-spacing: 0.03em; }
+  .node.ai { border-color: var(--warn); background: var(--warn-soft); color: var(--warn); }
+  .node.ai .sub { color: var(--warn); opacity: .8; }
+  .node.risk { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+  .node.risk .sub { color: var(--accent-ink); opacity: .8; }
+  .arrow { align-self: center; color: var(--faint); font-family: var(--mono); padding: 0 9px; font-size: 15px; flex-shrink: 0; }
+  .flow-note {
+    padding: 13px 18px; border-top: 1px dashed var(--hair-strong);
+    font-size: 0.9rem; color: var(--muted); display: flex; gap: 10px; align-items: flex-start;
+  }
+  .flow-note .mk { color: var(--accent); font-family: var(--mono); font-weight: 700; flex-shrink: 0; }
+  .flow-gap { height: 16px; }
+
+  /* ---------- authority table ---------- */
+  .auth { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .auth-col { border: 1px solid var(--hair); border-radius: var(--radius); overflow: hidden; }
+  .auth-col h4 {
+    margin: 0; padding: 12px 16px; font-size: 0.92rem; font-family: var(--mono);
+    letter-spacing: 0.04em; text-transform: uppercase; font-weight: 600;
+    border-bottom: 1px solid var(--hair);
+  }
+  .auth-col.can h4 { color: var(--accent-ink); background: var(--accent-soft); }
+  .auth-col.cant h4 { color: var(--crit); background: var(--crit-soft); }
+  .auth-col ul { margin: 0; padding: 8px 0; list-style: none; }
+  .auth-col li { padding: 7px 16px; font-size: 0.92rem; display: flex; gap: 10px; align-items: flex-start; }
+  .auth-col li::before { content: ""; margin-top: 8px; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .auth-col.can li::before { background: var(--accent); }
+  .auth-col.cant li::before { background: var(--crit); }
+
+  /* ---------- risk triggers ---------- */
+  .triggers { border: 1px solid var(--hair); border-radius: var(--radius); overflow: hidden; }
+  .trigger {
+    display: grid; grid-template-columns: 4px 1fr auto; align-items: center; gap: 0;
+    border-top: 1px solid var(--hair); background: var(--surface);
+  }
+  .trigger:first-child { border-top: none; }
+  .trigger .stripe { align-self: stretch; }
+  .trigger.warn .stripe { background: var(--warn); }
+  .trigger.crit .stripe { background: var(--crit); }
+  .trigger .body { padding: 13px 16px; }
+  .trigger .name { font-weight: 620; font-size: 0.97rem; }
+  .trigger .desc { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
+  .trigger .val {
+    font-family: var(--mono); font-size: 0.92rem; padding: 0 16px; text-align: right;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .trigger.warn .val { color: var(--warn); }
+  .trigger.crit .val { color: var(--crit); font-weight: 600; }
+
+  .callouts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  .callout { border: 1px solid var(--hair); border-left: 3px solid var(--accent); border-radius: 10px; background: var(--surface); padding: 15px 17px; }
+  .callout h4 { margin: 0 0 8px; font-size: 0.98rem; }
+  .callout ul { margin: 0; padding-left: 18px; font-size: 0.9rem; color: var(--muted); }
+  .callout li { margin-bottom: 5px; }
+  .callout.crit { border-left-color: var(--crit); }
+
+  /* ---------- scope chips ---------- */
+  .chips { display: flex; flex-wrap: wrap; gap: 9px; }
+  .chip {
+    font-size: 0.9rem; padding: 8px 14px; border-radius: 999px;
+    border: 1px solid var(--hair-strong); background: var(--surface); color: var(--ink);
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .chip.no .dot { background: var(--crit); }
+  .chip b { font-family: var(--mono); font-size: 0.82rem; letter-spacing: 0.02em; }
+
+  /* ---------- roadmap ---------- */
+  .road { list-style: none; margin: 0; padding: 0; position: relative; }
+  .road::before { content: ""; position: absolute; left: 15px; top: 8px; bottom: 8px; width: 2px; background: var(--hair-strong); }
+  .road li { position: relative; padding: 0 0 4px 46px; margin-bottom: 14px; }
+  .road .rn {
+    position: absolute; left: 0; top: -2px; width: 32px; height: 32px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--hair-strong); color: var(--muted);
+    font-family: var(--mono); font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; z-index: 1;
+  }
+  .road li.key .rn { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+  .road .rt { font-weight: 600; font-size: 0.98rem; }
+  .road .rd { font-size: 0.85rem; color: var(--muted); margin-top: 1px; }
+  .gate-note {
+    margin-top: 20px; border: 1px solid var(--warn); background: var(--warn-soft);
+    border-radius: 10px; padding: 13px 16px; font-size: 0.9rem; color: var(--warn);
+  }
+  .gate-note b { color: var(--warn); }
+
+  /* ---------- blockers ---------- */
+  .blockers { display: grid; gap: 14px; }
+  .blocker {
+    border: 1px solid var(--hair); border-radius: var(--radius); background: var(--surface);
+    padding: 17px 19px; display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start;
+  }
+  .blocker .flag {
+    font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+    color: var(--crit); background: var(--crit-soft); border-radius: 8px;
+    padding: 8px 11px; white-space: nowrap; text-align: center; line-height: 1.3;
+  }
+  .blocker .flag small { display: block; font-weight: 500; font-size: 9px; opacity: .8; margin-top: 3px; }
+  .blocker h4 { margin: 0 0 6px; font-size: 1.02rem; }
+  .blocker p { margin: 0 0 8px; font-size: 0.92rem; color: var(--muted); }
+  .blocker .fallback { font-size: 0.85rem; font-family: var(--mono); color: var(--accent-ink); }
+  .blocker .fallback::before { content: "↳ "; color: var(--accent); }
+
+  /* ---------- footer ---------- */
+  footer { border-top: 1px solid var(--hair); padding: 30px 0 46px; }
+  .principle-box {
+    border: 1px solid var(--accent); border-radius: var(--radius);
+    background: var(--accent-soft); padding: 20px 22px;
+  }
+  .principle-box p { margin: 0; font-size: 1.06rem; color: var(--accent-ink); font-weight: 560; line-height: 1.55; }
+  .meta { margin-top: 22px; font-family: var(--mono); font-size: 11.5px; color: var(--faint); letter-spacing: 0.03em; }
+
+  /* theme toggle */
+  .theme-btn {
+    position: fixed; top: 14px; right: 14px; z-index: 20;
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em;
+    background: var(--surface); color: var(--muted); border: 1px solid var(--hair-strong);
+    border-radius: 999px; padding: 7px 13px; cursor: pointer; text-transform: uppercase;
+  }
+  .theme-btn:hover { color: var(--accent-ink); border-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+  @media (max-width: 640px) {
+    .auth, .callouts { grid-template-columns: 1fr; }
+    .blocker { grid-template-columns: 1fr; gap: 10px; }
+    .blocker .flag { justify-self: start; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    section, header.top .wrap > * { animation: rise .5s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  }
+</style>
+
+<button class="theme-btn" id="themeBtn" aria-label="테마 전환">◑ theme</button>
+
+<header class="top">
+  <div class="wrap">
+    <p class="eyebrow">AI Trading System · 설계 개요</p>
+    <h1>경계만 정하면, 나머지는 자율로</h1>
+    <p class="lede">사용자는 섹터/유니버스와 리스크 한도만 정한다. 그 안에서 어떤 종목을 언제 얼마나 사고팔지는 AI와 코드가 자율적으로 결정하는 다종목 자동매매 시스템. AI는 진입을 거를 수 있을 뿐, 청산·손절·생존은 언제나 코드가 책임진다.</p>
+
+    <div class="facts">
+      <div class="fact"><div class="k">유니버스</div><div class="v">섹터/사용자 지정<small>종목은 시스템이 선별</small></div></div>
+      <div class="fact"><div class="k">종목 선택</div><div class="v">자율 (Screener)<small>다종목 · 포트폴리오</small></div></div>
+      <div class="fact"><div class="k">세션</div><div class="v">연장시간 포함<small>프리·정규·애프터</small></div></div>
+      <div class="fact"><div class="k">오버나잇</div><div class="v">레버리지 차등<small>일반주 보유·레버 청산</small></div></div>
+      <div class="fact"><div class="k">AI 역할</div><div class="v">Entry Filter<small>실행 권한 없음</small></div></div>
+    </div>
+
+    <nav class="toc" aria-label="목차">
+      <a href="#principles">원칙</a>
+      <a href="#autonomy">자율 범위</a>
+      <a href="#arch">아키텍처</a>
+      <a href="#authority">AI 권한</a>
+      <a href="#risk">리스크</a>
+      <a href="#scope">MVP 범위</a>
+      <a href="#roadmap">로드맵</a>
+      <a href="#blockers">검증 전제</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="principles">
+    <div class="sec-head"><span class="sec-num">01</span><h2>핵심 원칙</h2></div>
+    <p class="sec-sub">이 프로젝트의 가장 큰 리스크는 AI 모델 선택이 아니라 검증되지 않은 전략과 불완전한 리스크 관리다. 따라서 모든 설계 결정은 "생존"을 수익보다 앞에 둔다.</p>
+    <ul class="principles">
+      <li><span class="tag">자율</span><span class="txt"><b>사용자는 경계만, 시스템이 나머지를.</b> 섹터/유니버스·리스크 한도만 사람이 정하고 종목·타이밍·사이징은 자동.</span></li>
+      <li><span class="tag">통제</span><span class="txt"><b>코드가 최종 통제권을 가진다.</b> 생존이 수익보다 우선한다.</span></li>
+      <li><span class="tag">AI</span><span class="txt">AI는 <b>진입 필터 + 설명 레이어</b>일 뿐, 절대 실행자가 아니다.</span></li>
+      <li><span class="tag">청산</span><span class="txt">청산·손절·서킷브레이커는 <b>항상 AI와 독립된 순수 코드</b>가 수행한다.</span></li>
+      <li><span class="tag">리스크</span><span class="txt">리스크는 <b>종목별 + 포트폴리오</b> 두 층에서 관리한다.</span></li>
+      <li><span class="tag">순서</span><span class="txt">Backtest와 Paper Trading은 <b>반드시 Live Trading보다 앞선다.</b> 다종목 native로 짓되 검증 유니버스는 작게.</span></li>
+    </ul>
+  </section>
+
+  <section id="autonomy">
+    <div class="sec-head"><span class="sec-num">02</span><h2>자율 범위 — 사람과 기계의 분담</h2></div>
+    <p class="sec-sub">"큰 개입 없이 자동으로." 사람이 내리는 결정은 경계와 안전장치에 한정되고, 나머지 판단은 시스템이 자율적으로 수행한다. SOXL은 대표 단타 종목일 뿐 범위가 아니다.</p>
+    <div class="auth">
+      <div class="auth-col can">
+        <h4>사람이 정하는 것</h4>
+        <ul>
+          <li>섹터 / 유니버스 경계</li>
+          <li>리스크 한도 (노출·손실·포지션 수)</li>
+          <li>on / off · Kill Switch</li>
+        </ul>
+      </div>
+      <div class="auth-col cant" style="border-color:var(--hair);">
+        <h4 style="color:var(--accent-ink);background:var(--accent-soft);">시스템이 자동으로 하는 것</h4>
+        <ul>
+          <li style="--dummy:0;">종목 선별 (Universe Screener)</li>
+          <li>진입 판단 (Rule + AI filter)</li>
+          <li>포지션 사이징 · 타이밍 · 청산</li>
+        </ul>
+      </div>
+    </div>
+    <style>#autonomy .auth-col.cant li::before{background:var(--accent);}</style>
+  </section>
+
+  <section id="arch">
+    <div class="sec-head"><span class="sec-num">03</span><h2>아키텍처 — 유니버스 + 두 개의 경로</h2></div>
+    <p class="sec-sub">먼저 Screener가 섹터에서 매매 후보를 자율 선별하고, 각 후보 종목에 대해 진입/청산 경로가 병렬로 돈다. AI는 진입에만 개입하고 청산에는 손댈 수 없다.</p>
+
+    <div class="flow-card">
+      <div class="flow-head">
+        <span class="flow-title">Universe Layer — 종목 자율 선별</span>
+        <span class="badge pure">사용자는 경계만</span>
+      </div>
+      <div class="pipe-scroll">
+        <div class="pipe">
+          <div class="node">UniverseConfig<span class="sub">섹터/필터</span></div><span class="arrow">→</span>
+          <div class="node risk">UniverseScreener<span class="sub">스캔·랭킹</span></div><span class="arrow">→</span>
+          <div class="node">tradable[]<span class="sub">top-N 후보</span></div>
+        </div>
+      </div>
+      <div class="flow-note"><span class="mk">i</span><span>유동성·가격·변동성 필터 + 지표 랭킹으로 <b>매매할 종목을 시스템이 고른다.</b> 일 단위 갱신, 각 후보는 아래 진입 경로로 들어간다.</span></div>
+    </div>
+
+    <div class="flow-gap"></div>
+
+    <div class="flow-card">
+      <div class="flow-head">
+        <span class="flow-title">Entry Path — 후보 종목별, AI가 거를 수 있음</span>
+        <span class="badge gate">AI may gate</span>
+      </div>
+      <div class="pipe-scroll">
+        <div class="pipe">
+          <div class="node">symbol</div><span class="arrow">→</span>
+          <div class="node">Indicator<span class="sub">공통 엔진</span></div><span class="arrow">→</span>
+          <div class="node">RuleEngine<span class="sub">후보 생성</span></div><span class="arrow">→</span>
+          <div class="node ai">AI Filter<span class="sub">confidence만</span></div><span class="arrow">→</span>
+          <div class="node risk">Risk<span class="sub">종목+포트폴리오</span></div><span class="arrow">→</span>
+          <div class="node">OrderMgr</div><span class="arrow">→</span>
+          <div class="node">Broker</div>
+        </div>
+      </div>
+      <div class="flow-note"><span class="mk">!</span><span>주문은 <b>Rule 후보 + AI confidence ≥ threshold + 종목별 Risk + 포트폴리오 Risk</b>를 모두 통과할 때만. 하나라도 막으면 진입하지 않는다.</span></div>
+    </div>
+
+    <div class="flow-gap"></div>
+
+    <div class="flow-card">
+      <div class="flow-head">
+        <span class="flow-title">Exit Path — AI와 완전히 독립</span>
+        <span class="badge pure">AI 개입 없음</span>
+      </div>
+      <div class="pipe-scroll">
+        <div class="pipe">
+          <div class="node risk">PositionMonitor<span class="sub">전 종목</span></div><span class="arrow">→</span>
+          <div class="node risk">Risk<span class="sub">종목+포트폴리오</span></div><span class="arrow">→</span>
+          <div class="node risk">ExitOrder</div><span class="arrow">→</span>
+          <div class="node">Broker</div>
+        </div>
+      </div>
+      <div class="flow-note"><span class="mk">✓</span><span>보유한 <b>모든 종목</b>의 손절·일일 손실 한도·서킷브레이커·킬 스위치·EOD 청산은 <b>OpenAI 장애·타임아웃·rate limit과 무관하게</b> 계속 작동한다.</span></div>
+    </div>
+
+    <h3>교차 서비스 & 규칙</h3>
+    <ul class="principles">
+      <li><span class="tag">선별</span><span class="txt"><b>UniverseScreener</b> — 섹터/유니버스에서 tradable 후보를 자율 선별. 종목 선택은 여기서만.</span></li>
+      <li><span class="tag">포트폴리오</span><span class="txt"><b>Portfolio Risk</b> — 동시 포지션 수·전체 노출·섹터 집중도·드로다운을 종목별 리스크 위에서 관리.</span></li>
+      <li><span class="tag">정합성</span><span class="txt"><b>ReconciliationService</b> — 전 종목 내부 position DB와 브로커 실잔고를 대조. 진실의 원천은 브로커.</span></li>
+      <li><span class="tag">지표</span><span class="txt"><b>IndicatorEngine</b> — 백테스트·실거래·스크리너가 100% 동일 모듈 공유 (train/live skew 차단).</span></li>
+      <li><span class="tag">경계</span><span class="txt">Provider는 데이터 fetch와 주문 실행만. <b>선별·판단·지표·리스크 로직은 Provider 밖.</b></span></li>
+    </ul>
+  </section>
+
+  <section id="authority">
+    <div class="sec-head"><span class="sec-num">04</span><h2>AI의 권한 경계</h2></div>
+    <p class="sec-sub">"코드가 최종 통제"의 정확한 정의. AI는 신규 진입에 대해서만 제한적 veto를 갖는다.</p>
+    <div class="auth">
+      <div class="auth-col can">
+        <h4>AI가 막을 수 있음</h4>
+        <ul>
+          <li>신규 매수 진입</li>
+          <li>추가 매수 · 물타기</li>
+          <li>confidence 미달 시 BUY 차단</li>
+        </ul>
+      </div>
+      <div class="auth-col cant">
+        <h4>AI가 할 수 없음</h4>
+        <ul>
+          <li>후보 없는 BUY 강제</li>
+          <li>손절 · 청산 차단</li>
+          <li>일일 손실 한도 · 킬 스위치 무시</li>
+        </ul>
+      </div>
+    </div>
+    <div class="flow-note" style="padding-left:0;padding-right:0;"><span class="mk">i</span><span>AI 실패(timeout / error / rate limit / invalid JSON / low confidence)는 시스템 장애가 아니라 <b>매매 금지 조건</b>으로 처리 → 해당 사이클 WAIT. 단, <b>청산 경로에는 절대 적용하지 않는다.</b></span></div>
+  </section>
+
+  <section id="risk">
+    <div class="sec-head"><span class="sec-num">05</span><h2>리스크 관리 — 종목별 + 포트폴리오</h2></div>
+    <p class="sec-sub">다종목이므로 리스크를 두 층에서 본다. 레버리지 상품은 종목별 leverage_factor로 실질 노출을 계산한다. <span style="font-family:var(--mono);font-size:0.85rem;color:var(--muted);">effective_exposure = notional × leverage_factor</span></p>
+
+    <h3>청산 트리거 <span style="font-weight:500;color:var(--faint);font-size:0.85rem;">(순수 코드, AI 독립)</span></h3>
+    <div class="triggers">
+      <div class="trigger warn"><div class="stripe"></div><div class="body"><div class="name">Stop-loss <span style="font-family:var(--mono);font-size:0.7rem;color:var(--faint);">종목별</span></div><div class="desc">종목별 손절 (전략별 설정)</div></div><div class="val">−2 ~ −5%</div></div>
+      <div class="trigger warn"><div class="stripe"></div><div class="body"><div class="name">연속 손실 <span style="font-family:var(--mono);font-size:0.7rem;color:var(--faint);">종목별</span></div><div class="desc">해당 종목 신규 진입 중단</div></div><div class="val">3회</div></div>
+      <div class="trigger warn"><div class="stripe"></div><div class="body"><div class="name">Daily loss — soft <span style="font-family:var(--mono);font-size:0.7rem;color:var(--faint);">포트폴리오</span></div><div class="desc">신규 진입 중단</div></div><div class="val">−2%</div></div>
+      <div class="trigger crit"><div class="stripe"></div><div class="body"><div class="name">Daily loss — hard <span style="font-family:var(--mono);font-size:0.7rem;color:var(--faint);">포트폴리오</span></div><div class="desc">Kill Switch 발동</div></div><div class="val">−3%</div></div>
+      <div class="trigger crit"><div class="stripe"></div><div class="body"><div class="name">Drawdown 서킷브레이커 <span style="font-family:var(--mono);font-size:0.7rem;color:var(--faint);">포트폴리오</span></div><div class="desc">최근 고점 대비 · 자동매매 중단</div></div><div class="val">−5 ~ −10%</div></div>
+    </div>
+
+    <div class="callouts">
+      <div class="callout">
+        <h4>종목별 사이징 (실질 노출)</h4>
+        <ul>
+          <li>초기 1회 진입: 계좌 명목 3~5%</li>
+          <li>단일 종목 실질 노출: 15~30%</li>
+          <li>종목별 leverage_factor 적용 (SOXL=3)</li>
+        </ul>
+      </div>
+      <div class="callout">
+        <h4>포트폴리오 한도</h4>
+        <ul>
+          <li>동시 포지션 수 상한 N</li>
+          <li>전체 실질 노출 합계: ≤ 50%</li>
+          <li>섹터 집중도 · 상관관계 한도</li>
+        </ul>
+      </div>
+      <div class="callout crit">
+        <h4>오버나잇 & 연장시간 (레버리지 차등)</h4>
+        <ul>
+          <li>일반주(×1): 오버나잇 보유 허용</li>
+          <li>레버리지 ETF(&gt;1): 세션 마감 전 청산</li>
+          <li>프리/애프터: 지정가 우선 + 유동성 게이트</li>
+        </ul>
+      </div>
+    </div>
+    <div class="flow-note" style="padding-left:0;"><span class="mk">i</span><span>킬 스위치 발동 후 <b>자동 재개 금지.</b> postmortem(원인·주문로그·포지션·API 상태) 검토 후 운영자 수동 승인으로만 재개.</span></div>
+  </section>
+
+  <section id="scope">
+    <div class="sec-head"><span class="sec-num">06</span><h2>MVP 범위</h2></div>
+    <p class="sec-sub">다종목 native로 설계하되, 첫 Live 검증 유니버스는 작게. SOXL은 대표 검증 종목이자 레버리지 ETF 케이스일 뿐 범위 제한이 아니다.</p>
+    <div class="chips">
+      <span class="chip"><span class="dot"></span>단일 계좌</span>
+      <span class="chip"><span class="dot"></span><b>다종목</b> · Screener 자율 선별</span>
+      <span class="chip"><span class="dot"></span>검증 유니버스 작게 <b>(3~5)</b></span>
+      <span class="chip"><span class="dot"></span>동시 포지션 상한 <b>N</b></span>
+      <span class="chip"><span class="dot"></span><b>5분봉</b> 의사결정</span>
+      <span class="chip"><span class="dot"></span>프리+정규+애프터</span>
+      <span class="chip"><span class="dot"></span>오버나잇 <b>레버리지 차등</b></span>
+      <span class="chip"><span class="dot"></span>종목별 분할매수 2~3회</span>
+      <span class="chip no"><span class="dot"></span>숏 · 헤징 미지원</span>
+    </div>
+  </section>
+
+  <section id="roadmap">
+    <div class="sec-head"><span class="sec-num">07</span><h2>로드맵</h2></div>
+    <p class="sec-sub">개정 순서. Backtest와 Risk Manager를 Live Trading보다 앞으로 이동했다. <span style="color:var(--accent-ink);font-family:var(--mono);font-size:0.82rem;">● = 핵심 게이트</span></p>
+    <ol class="road">
+      <li class="key"><span class="rn">1</span><div class="rt">데이터·API 가용성 검증</div><div class="rd">Toss / KIS / Polygon — feasibility spike</div></li>
+      <li><span class="rn">2</span><div class="rt">유니버스 데이터 확보</div><div class="rd">섹터 종목군 과거 분봉 + 참조지표, adjusted</div></li>
+      <li><span class="rn">3</span><div class="rt">MarketData 수집·저장</div><div class="rd">multi-symbol canonical candle</div></li>
+      <li><span class="rn">4</span><div class="rt">IndicatorEngine + Rule Engine</div><div class="rd">per-symbol</div></li>
+      <li class="key"><span class="rn">5</span><div class="rt">UniverseScreener</div><div class="rd">섹터 → tradable 후보 선별</div></li>
+      <li class="key"><span class="rn">6</span><div class="rt">Risk Manager</div><div class="rd">종목별 + 포트폴리오</div></li>
+      <li><span class="rn">7</span><div class="rt">ReconciliationService</div><div class="rd">전 종목</div></li>
+      <li class="key"><span class="rn">8</span><div class="rt">Backtest Engine</div><div class="rd">포트폴리오 단위 · 합격해야 다음 진입</div></li>
+      <li><span class="rn">9</span><div class="rt">AI Decision Engine 연결</div><div class="rd">entry filter only</div></li>
+      <li class="key"><span class="rn">10</span><div class="rt">Paper Trading</div><div class="rd">작은 유니버스</div></li>
+      <li><span class="rn">11</span><div class="rt">소액 Live Trading</div></li>
+      <li><span class="rn">12</span><div class="rt">유니버스 확장 / Multi AI / Agent</div></li>
+    </ol>
+    <div class="gate-note"><b>Gate —</b> 1~2 실패 시 프로젝트 성립 불가 → 재설계. 8(Backtest) 합격 기준 미달 시 10(Paper) 진입 금지.</div>
+  </section>
+
+  <section id="blockers">
+    <div class="sec-head"><span class="sec-num">08</span><h2>검증 전제 — Feasibility Blockers</h2></div>
+    <p class="sec-sub">코드 작성 전 반드시 통과해야 하는 실증 항목. 하나라도 실패하면 설계가 아무리 좋아도 프로젝트가 성립하지 않는다.</p>
+    <div class="blockers">
+      <div class="blocker">
+        <div class="flag">BLOCKER 1<small>주문</small></div>
+        <div>
+          <h4>Toss 미국주식 자동주문 API</h4>
+          <p>프로그래매틱 주문·잔고·체결 조회가 실제로 가능한가? 주문 유형, 소수점, USD 환전, rate limit, 샌드박스 여부.</p>
+          <div class="fallback">불가 시 MVP Broker를 KIS로 교체</div>
+        </div>
+      </div>
+      <div class="blocker">
+        <div class="flag">BLOCKER 2<small>데이터</small></div>
+        <div>
+          <h4>유니버스 과거 분봉 데이터</h4>
+          <p>섹터 종목군의 1~3년 1/5분봉을 어디서 확보? 다종목 대량 조회 제한·비용, split-adjusted 여부. 없으면 백테스트·스크리너 불가 → Live 불가.</p>
+          <div class="fallback">KIS 해외주식분봉 또는 Polygon</div>
+        </div>
+      </div>
+      <div class="blocker">
+        <div class="flag">BLOCKER 3<small>참조</small></div>
+        <div>
+          <h4>참조지표 & 다종목 실시간 시세</h4>
+          <p>여러 종목 동시 실시간 시세(동시 구독 수) + 섹터 벤치마크(SOXX/SMH/QQQ) + VIX. 실거래·백테스트 소스의 봉 집계·타임스탬프 정합성.</p>
+          <div class="fallback">VIX 미지원 시 Polygon 도입 확정</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="wrap">
+  <div class="principle-box">
+    <p>“사용자는 섹터와 리스크 한도만 정하고, 그 안에서 무엇을 언제 얼마나 사고팔지는 시스템이 자율적으로 결정한다. AI는 엔트리 필터와 설명 레이어에 제한하고, 생존과 청산은 반드시 코드가 책임진다.”</p>
+  </div>
+  <div class="meta">AI TRADING SYSTEM · DESIGN OVERVIEW · docs/AI_Trading_System_Design · 15 docs + feasibility spike</div>
+</footer>
+
+<script>
+  (function () {
+    var btn = document.getElementById('themeBtn');
+    var root = document.documentElement;
+    btn.addEventListener('click', function () {
+      var cur = root.getAttribute('data-theme');
+      if (!cur) {
+        cur = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      root.setAttribute('data-theme', cur === 'dark' ? 'light' : 'dark');
+    });
+  })();
+</script>
