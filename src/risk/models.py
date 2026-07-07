@@ -75,6 +75,7 @@ class PortfolioSnapshot:
     kill_switch: bool = False
     session: str = "REGULAR"                   # PRE / REGULAR / POST / OVERNIGHT (스냅샷 기준)
     is_eod_flatten_window: bool = False        # 세션 마감 임박(레버리지 flatten 창)
+    cash: float | None = None                  # 가용 현금(자금관리) — None 이면 현금 체크 미적용
 
     @property
     def total_effective_exposure(self) -> float:
@@ -88,6 +89,7 @@ class PortfolioSnapshot:
             "consecutive_losses": self.consecutive_losses, "kill_switch": self.kill_switch,
             "session": self.session, "is_eod_flatten_window": self.is_eod_flatten_window,
             "total_effective_exposure": self.total_effective_exposure,
+            "cash": self.cash,
         }
 
 

@@ -21,7 +21,8 @@ def _resources() -> tuple[str, str]:
 
 
 def generate_markdown(metrics, health: dict, cfg, *, report_date: str,
-                      run_duration_s: float, realized: dict | None = None) -> str:
+                      run_duration_s: float, realized: dict | None = None,
+                      performance: dict | None = None) -> str:
     m = metrics
     mem, cpu = _resources()
     downtime = round((m.api_errors + m.pipeline_errors + m.exceptions) * cfg.poll_interval_s, 1)
@@ -84,6 +85,21 @@ def generate_markdown(metrics, health: dict, cfg, *, report_date: str,
             f"- Open positions: {realized.get('open_positions', 0)} "
             f"(qty {realized.get('open_quantity', 0.0)})",
             "- 주: 통화 혼합 계좌는 금액 합산에 주의(관찰/검증용).",
+            "",
+        ]
+    if performance is not None:
+        sharpe = performance.get("sharpe_ratio")
+        pf = performance.get("profit_factor")
+        lines += [
+            "## Performance",
+            f"- 초기자산: {performance.get('initial_capital', 0.0):,.2f}",
+            f"- 최종자산: {performance.get('final_equity', 0.0):,.2f}",
+            f"- 수익률: {performance.get('total_return_pct', 0.0):.2f}%",
+            f"- 승률: {performance.get('win_rate', 0.0) * 100:.1f}%",
+            f"- Profit Factor: {pf if pf is not None else 'n/a'}",
+            f"- Expectancy: {performance.get('expectancy', 0.0):,.4f}",
+            f"- MDD: {performance.get('max_drawdown_pct', 0.0):.2f}%",
+            f"- Sharpe: {sharpe if sharpe is not None else 'n/a'}",
             "",
         ]
     return "\n".join(lines)

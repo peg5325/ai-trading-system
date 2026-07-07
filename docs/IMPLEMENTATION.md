@@ -344,6 +344,46 @@ BUY/SELL 을 **FIFO 로 매칭**해 실현손익을 계산하는 **단일 엔진
   as_of 까지 look-ahead 없이) · Runtime 종료 리포트(실현손익 요약 자동 집계) · inspect CLI(`pnl`).
 - Long-only 가정: 보유 초과 매도는 방어적으로 `unmatched_sells` 기록(크래시 없음).
 
+## 자금관리 / Portfolio (PortfolioAccount — 완료)
+Paper Trading 이 **고정 계좌값이 아니라 실제 자금관리**로 성과를 측정하도록
+`PortfolioAccount`(`src/portfolio/account.py`)를 도입했다. FifoMatcher(위 PnL 엔진)를
+재사용해 계산 코드를 단일화한다. 결정론적(now/난수 없음).
+
+- **PortfolioValue**(`cash, market_value, realized_pnl, unrealized_pnl, total_equity`):
+  `total_equity == cash + market_value`. `.to_dict()` 는 소수 6자리 반올림.
+- **PortfolioAccount**: `apply_fill(FillEvent)` 로 체결 시 cash 즉시 반영
+  (BUY: `-= qty*price+fee`, SELL: `+= qty*price-fee`) 후 FifoMatcher 에 ingest.
+  `positions()` 는 심볼별 보유 롯을 수량가중평균가로 집계(`qty<=1e-9` 는 제외).
+  `market_value(marks)`/`unrealized_pnl(marks)`/`equity(marks)`/`portfolio_value(marks)` 는
+  외부에서 주입한 시가(marks) 기준으로 계산(계좌 자체는 가격을 모른다).
+  `can_afford(notional)` 로 현금 충분성 확인. `mark_equity(marks, day_key)` 로 자산곡선을
+  누적(`equity_curve`)하고 peak/drawdown/일일수익률을 갱신(`peak_equity`,
+  `last_drawdown_pct`, `last_daily_return_pct`). `from_fills(...)` 로 Journal 체결 재생 → 계좌 재구성
+  (재시작 안전성).
+- **사이징 규칙(RiskManager 추가)**: `RiskConfig.max_positions`(기본 2, 동시 보유 종목 수 상한 —
+  신규 진입에만 적용, 기존 종목 추가매수는 무관) + `RC_MAX_POSITIONS`. 스냅샷에 `cash` 가 주어지면
+  주문 명목이 현금을 초과할 때 `RC_INSUFFICIENT_CASH` 로 차단(`cash=None` 이면 미적용, 후방호환).
+  기존 종목당 20% 명목 상한(`max_symbol_notional_pct`)은 그대로 유지.
+- **Paper Loop 통합**(`src/live/paper_loop.py`): `PaperTradingLoop` 가 `self.account` 를 보유하고,
+  journal 이 있으면 `fills_from_journal` 로 이전 체결을 재생해 재구성한다. 매 사이클
+  `_portfolio()` 가 `self.account` 로부터 `PortfolioSnapshot`(equity/positions/cash/drawdown/
+  일일수익률)을 만들고, 체결 결과는 `_apply_fills()` 로 다음 사이클을 위해 계좌에 즉시 반영한다.
+  기존 `InMemoryPositionStore` 는 EOD flatten 판단용으로 그대로 유지.
+- **성과 지표 공용화**(`src/portfolio/performance.py::performance_summary`): 초기자본/자산곡선/
+  실현거래로부터 `total_return_pct, win_rate, profit_factor, avg_win, avg_loss, expectancy,
+  max_drawdown_pct, sharpe_ratio, total_trades, max_consecutive_losses` 산출.
+  **Backtest 는 동일 함수를 사용**한다(`BacktestEngine._metrics` 가 `performance_summary` 호출 후
+  `exposure_time`/`sample_status` 만 추가) — Backtest·Paper 수치 산식이 완전히 동일(parity 유지,
+  기존 254 테스트 회귀 없음). Sharpe 는 자산곡선의 스텝 수익률로 계산(모집단 표준편차, 2점 미만/
+  분산 0 이면 `None`), `periods_per_year` 지정 시 연율화.
+- **Runtime 노출**: `CycleMetric` 에 `equity/peak_equity/drawdown_pct/daily_return_pct` 컬럼 추가
+  (SqliteMetricsStore 스키마 포함). `status.json` 에 `equity` 블록(initial/current/peak/drawdown_pct/
+  daily_return_pct) 추가. 종료 리포트에 `## Performance` 섹션(초기자산/최종자산/수익률/승률/PF/
+  Expectancy/MDD/Sharpe) 추가 — 모두 계좌 없으면(getattr 가드) 조용히 생략, 실패해도 종료를 막지 않음.
+- **운영 설정**: `config/runtime_us.yaml`(US 본장, 초기자본 3,000,000·종목당 20%·동시 2종목).
+  통화 캐비어트: 자본은 KRW 명목, 종목가는 USD — 상대 성과 지표(수익률/PF/Sharpe/MDD)는 단위가
+  상쇄돼 유효하지만 절대 금액은 참고용(v1 한계, 통화 분리는 향후 과제).
+
 ## 테스트
 ```bash
 ./.venv/bin/python -m pytest -q
@@ -428,6 +468,9 @@ ai_trading_system/
       fifo.py              # FifoMatcher (FIFO 매칭, 부분청산) + match_fills
       metrics.py           # summarize (PF/Expectancy/보유시간/승률)
       journal_pnl.py       # Journal FILLED → 실현손익 (Paper/실거래 경로)
+    portfolio/  (자금관리 — cash/포지션/성과)
+      account.py           # PortfolioValue / PortfolioAccount (cash·FIFO·자산곡선)
+      performance.py       # performance_summary (Backtest/Paper 공용 성과지표 + Sharpe)
     runtime/
       config.py            # RuntimeConfig + load_yaml
       logging_setup.py     # rotating loggers
@@ -446,7 +489,7 @@ ai_trading_system/
     aggregate_reviews.py        # Rule Improvement Aggregator (제안 전용, read-only)
     system_review.py            # System Review Engine (운영 회고, read-only)
     inspect_cli.py              # 조회 CLI 진입점 (read-only, 4대 SQLite DB) — stdlib inspect shadow 회피 위해 _cli
-  tests/                   # 전 계층 (254 tests)
+  tests/                   # 전 계층 (275 tests)
   data/                    # SQLite (git 무시)
   datasets/                # 빌드된 학습 데이터셋 (git 무시)
 ```

@@ -18,7 +18,9 @@ from src.engines.indicator_engine import candles_to_frame, resample
 from src.models import MARKET_US, SESSION_OVERNIGHT, SESSION_POST, Candle
 from src.pipeline.models import SystemState
 from src.ai.models import MarketContext
-from src.risk.models import EOD_FLATTEN, SELL, OrderIntent
+from src.pnl.models import FillEvent
+from src.portfolio.account import PortfolioAccount
+from src.risk.models import BUY, EOD_FLATTEN, SELL, OrderIntent
 from src.universe.screener import leverage_for
 from src.live.models import (
     R_DATA_ERROR,
@@ -62,6 +64,15 @@ class PaperTradingLoop:
         self.results = result_log or InMemoryResultLog()
         self.journal = journal          # 선택: JournalStore (감사 로그)
         self._sleep = sleep
+        # 자금관리(Portfolio): journal 이 있으면 이전 체결로 재구성(재시작 안전)
+        self.account = PortfolioAccount(self.cfg.initial_capital)
+        if journal is not None:
+            try:
+                from src.pnl.journal_pnl import fills_from_journal
+                self.account = PortfolioAccount.from_fills(
+                    self.cfg.initial_capital, fills_from_journal(journal))
+            except Exception:
+                self.account = PortfolioAccount(self.cfg.initial_capital)
         # 제어 플래그
         self.stopped = False
         self.paused = False
@@ -161,9 +172,34 @@ class PaperTradingLoop:
         self._calls += 1
         self._last_processed = newest
         err = "; ".join(f"{k}:{v}" for k, v in data_errors.items()) or None
+        self._apply_fills(cycle_id, result)
         self._journal_cycle(cycle_id, session, result, portfolio, market, err)
         return self._save(CycleReport(cycle_id, ST_RAN, R_OK, session,
                                       pipeline_result=result.to_dict(), error=err))
+
+    def _apply_fills(self, cycle_id, result) -> None:
+        """이번 사이클의 FILLED 체결을 자금관리 계좌(cash/FIFO)에 반영(다음 사이클 스냅샷 정확도)."""
+        from src.journal.models import ts_from_cycle_id
+        ts_str = ts_from_cycle_id(cycle_id)
+        ts = None
+        if ts_str:
+            from datetime import datetime, timezone
+            try:
+                ts = datetime.strptime(ts_str, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            except ValueError:
+                ts = None
+        for o in result.outcomes:
+            rec = o.order_record
+            if not rec or rec.get("status") != "FILLED":
+                continue
+            side = rec.get("side")
+            qty = rec.get("filled_quantity") or 0.0
+            if side not in (BUY, SELL) or qty <= 0:
+                continue
+            self.account.apply_fill(FillEvent(
+                symbol=rec.get("symbol"), side=side, quantity=float(qty),
+                price=float(rec.get("avg_fill_price") or 0.0), fee=float(rec.get("fee") or 0.0),
+                ref_price=rec.get("ref_price"), timestamp=ts, reason=(rec.get("kind"),) if rec.get("kind") else ()))
 
     def _journal_cycle(self, cycle_id, session, result, portfolio, market, error=None) -> None:
         if self.journal is None:
@@ -205,15 +241,16 @@ class PaperTradingLoop:
 
     def _portfolio(self, last_prices, session, eod):
         from src.risk.models import PortfolioSnapshot, Position
+        self.account.mark_equity(last_prices, day_key=None)
         positions = {}
-        for sym, p in self.positions.all().items():
-            if abs(p["quantity"]) <= 0:
-                continue
+        for sym, p in self.account.positions().items():
             lev = leverage_for(sym)
             positions[sym] = Position(sym, p["quantity"], p["avg_price"],
                                       last_prices.get(sym, p["avg_price"]), lev)
         return PortfolioSnapshot(
-            account_value=self.cfg.account_value, positions=positions,
+            account_value=self.account.last_equity, positions=positions,
+            cash=self.account.cash, drawdown_pct=self.account.last_drawdown_pct,
+            daily_pnl_pct=self.account.last_daily_return_pct,
             kill_switch=self.kill_switch, session=session, is_eod_flatten_window=eod)
 
     def _eod_exits(self, last_prices) -> list[OrderIntent]:

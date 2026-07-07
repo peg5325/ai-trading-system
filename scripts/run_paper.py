@@ -29,10 +29,10 @@ from src.live.paper_loop import PaperTradingLoop  # noqa: E402
 from src.order.manager import OrderManager  # noqa: E402
 from src.order.models import InMemoryOrderStore, InMemoryPositionStore  # noqa: E402
 from src.order.paper_broker import PaperBrokerProvider  # noqa: E402
-from src.pipeline.pipeline import TradingPipeline  # noqa: E402
+from src.pipeline.pipeline import PipelineConfig, TradingPipeline  # noqa: E402
 from src.providers.toss_client import TossClient  # noqa: E402
 from src.providers.toss_market_data import TossMarketDataProvider  # noqa: E402
-from src.risk.risk_manager import RiskManager  # noqa: E402
+from src.risk.risk_manager import RiskConfig, RiskManager  # noqa: E402
 from src.runtime.config import load_yaml  # noqa: E402
 from src.runtime.metrics_store import SqliteMetricsStore  # noqa: E402
 from src.runtime.paper_runtime import PaperRuntime  # noqa: E402
@@ -69,15 +69,19 @@ def main(config_path: str) -> None:
         InMemoryOrderStore(), position_store)
     ai = AIDecisionEngine(_ai_provider(cfg),
                           AIConfig(dry_run=cfg.ai_dry_run, max_calls_per_day=cfg.max_calls_per_session))
+    risk_manager = RiskManager(RiskConfig(max_positions=cfg.max_positions))
     pipeline = TradingPipeline(IndicatorEngine(), UniverseScreener(), ai,
-                               RiskManager(), order_manager)
+                               risk_manager, order_manager,
+                               PipelineConfig(entry_notional_pct=cfg.entry_notional_pct))
     journal = SqliteJournalStore(cfg.journal_db)
     loop = PaperTradingLoop(
         market, candle_store, pipeline, position_store,
         LoopConfig(universe=tuple(cfg.symbols), account_value=cfg.account_value,
                    polling_interval_s=cfg.poll_interval_s,
                    fetch_spacing_s=cfg.fetch_spacing_s,
-                   max_calls_per_session=cfg.max_calls_per_session),
+                   max_calls_per_session=cfg.max_calls_per_session,
+                   initial_capital=cfg.initial_capital,
+                   max_positions=cfg.max_positions),
         journal=journal)
 
     metrics_store = SqliteMetricsStore(cfg.metrics_db)

@@ -15,6 +15,7 @@ from src.engines.indicator_engine import IndicatorEngine
 from src.models import ET, classify_session
 from src.pnl.fifo import FifoMatcher
 from src.pnl.models import FillEvent
+from src.portfolio.performance import performance_summary
 from src.risk.models import BUY, NEW_ENTRY, SELL, OrderIntent, PortfolioSnapshot, Position
 from src.risk.risk_manager import RiskManager
 from src.universe.screener import SymbolData, UniverseScreener
@@ -198,43 +199,11 @@ class BacktestEngine:
 
     def _metrics(self, trades, equity_curve, bars_in_pos, cfg) -> dict:
         n = len(trades)
-        pnls = [t.pnl for t in trades]
-        wins = [p for p in pnls if p > 0]
-        losses = [p for p in pnls if p < 0]
-        gross_win = sum(wins)
-        gross_loss = abs(sum(losses))
-        initial = cfg.initial_capital
-        final = equity_curve[-1] if equity_curve else initial
-
-        # max drawdown
-        peak = -float("inf")
-        mdd = 0.0
-        for e in equity_curve:
-            peak = max(peak, e)
-            if peak > 0:
-                mdd = min(mdd, (e - peak) / peak)
-        # 연속 손실
-        mcl = cur = 0
-        for p in pnls:
-            if p < 0:
-                cur += 1
-                mcl = max(mcl, cur)
-            else:
-                cur = 0
+        summary = performance_summary(cfg.initial_capital, equity_curve, trades)
         bars_total = len(equity_curve)
-        return {
-            "total_return_pct": round((final - initial) / initial * 100.0, 4) if initial else 0.0,
-            "win_rate": round(len(wins) / n, 4) if n else 0.0,
-            "profit_factor": round(gross_win / gross_loss, 4) if gross_loss > 0 else None,
-            "avg_win": round(gross_win / len(wins), 6) if wins else 0.0,
-            "avg_loss": round(sum(losses) / len(losses), 6) if losses else 0.0,
-            "expectancy": round(sum(pnls) / n, 6) if n else 0.0,
-            "max_drawdown_pct": round(mdd * 100.0, 4),
-            "max_consecutive_losses": mcl,
-            "exposure_time": round(bars_in_pos / bars_total, 4) if bars_total else 0.0,
-            "total_trades": n,
-            "sample_status": SAMPLE_INSUFFICIENT if n < cfg.min_trades else SAMPLE_OK,
-        }
+        summary["exposure_time"] = round(bars_in_pos / bars_total, 4) if bars_total else 0.0
+        summary["sample_status"] = SAMPLE_INSUFFICIENT if n < cfg.min_trades else SAMPLE_OK
+        return summary
 
     def run_in_out(self, candles, symbol, leverage_factor=1, ratio=0.7, entry_strategy=None):
         """in-sample / out-of-sample 분리 실행."""

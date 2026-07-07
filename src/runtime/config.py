@@ -15,6 +15,10 @@ class RuntimeConfig:
     account_value: float = 100_000.0
     fetch_spacing_s: float = 0.0       # 종목간 시세 호출 간격(429 완화, 0=끔)
     max_calls_per_session: int | None = None
+    # 자금관리(Portfolio)
+    initial_capital: float = 100_000.0
+    max_positions: int = 2
+    entry_notional_pct: float = 0.05
     # AI
     ai_provider: str = "fake"          # "fake" | "openai"
     ai_model: str = "gpt-5.5-mini"
@@ -52,6 +56,9 @@ class RuntimeConfig:
             account_value=float(d.get("account_value", 100_000.0)),
             fetch_spacing_s=float(d.get("fetch_spacing_s", 0.0)),
             max_calls_per_session=d.get("max_calls_per_session"),
+            initial_capital=float(d.get("initial_capital", 100_000.0)),
+            max_positions=int(d.get("max_positions", 2)),
+            entry_notional_pct=float(d.get("entry_notional_pct", 0.05)),
             ai_provider=ai.get("provider", "fake"),
             ai_model=ai.get("model", "gpt-5.5-mini"),
             ai_dry_run=bool(ai.get("dry_run", False)),

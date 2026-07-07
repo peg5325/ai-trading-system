@@ -1,0 +1,49 @@
+# US 본장 Paper Trading 운영 설정 (자금관리 v1)
+#
+# 통화 주의: initial_capital/account_value 는 원(KRW) 명목 단위이나 symbols 는 USD 가격이다.
+# v1 은 통화를 분리하지 않는다(알려진 한계). 수익률(%)/승률/Profit Factor/Sharpe/MDD 등
+# 상대 성과 지표는 단위가 상쇄되어 유효하지만, 절대 금액(손익/현금 등)은 단위가 혼재되어
+# 참고용으로만 사용할 것.
+symbols:
+  - SOXL
+  - QQQ
+  - NVDA
+
+poll_interval_s: 20
+initial_capital: 3000000
+entry_notional_pct: 0.20
+max_positions: 2
+account_value: 3000000      # 후방호환(레거시 필드) — 런타임은 initial_capital 을 사용
+fetch_spacing_s: 0.5
+max_calls_per_session: 300
+
+paper_broker:                  # 실주문 없음 — PaperBrokerProvider 만
+  slippage_bps: 5
+  fee_bps: 2
+
+ai:
+  provider: fake               # fake | openai (기본 fake — 비용 보호)
+  model: gpt-5.5-mini
+
+journal:
+  db: data/journal_us.sqlite
+
+candles:
+  db: data/market_us.sqlite
+
+review:
+  db: data/reviews_us.sqlite
+
+metrics:
+  db: data/metrics_us.sqlite
+
+system_review:
+  db: data/system_reviews_us.sqlite
+
+logging:
+  dir: logs_us
+  max_bytes: 1000000
+  backup_count: 3
+
+reports_dir: reports
+status_path: status_us.json

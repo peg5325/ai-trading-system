@@ -40,6 +40,8 @@ class LoopConfig:
     max_calls_per_session: int | None = None
     eod_flatten_before_min: int = 10
     extended_close_et_min: int = 20 * 60      # 20:00 ET (애프터마켓 마감)
+    initial_capital: float = 100_000.0        # 자금관리(PortfolioAccount) 초기자본
+    max_positions: int = 2                    # 동시 보유 최대 종목 수
 
 
 @dataclass

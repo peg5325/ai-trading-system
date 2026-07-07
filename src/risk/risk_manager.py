@@ -41,6 +41,8 @@ RC_MAX_PORTFOLIO_EFFECTIVE = "MAX_EFFECTIVE_EXPOSURE_EXCEEDED"
 RC_QTY_REDUCED = "QUANTITY_REDUCED_TO_LIMIT"
 RC_RISK_REDUCING_ALLOWED = "RISK_REDUCING_ALLOWED"
 RC_NOTHING_TO_REDUCE = "NOTHING_TO_REDUCE"
+RC_MAX_POSITIONS = "MAX_CONCURRENT_POSITIONS"
+RC_INSUFFICIENT_CASH = "INSUFFICIENT_CASH"
 
 # 상위(Screener 등)에서 넘어오는 리스크 플래그
 FLAG_LEVERAGED = "LEVERAGED_ETF"
@@ -62,6 +64,7 @@ class RiskConfig:
     max_scale_ins: int = 2                      # 최초 진입 후 추가 진입 허용 횟수
     block_extended_hours_risky: bool = True     # 연장시간 리스크 주문 차단(False=감량)
     extended_hours_qty_factor: float = 0.5      # 감량 모드일 때 수량 배수
+    max_positions: int = 2                      # 동시 보유 가능한 최대 종목 수(신규 진입 기준)
 
 
 class RiskManager:
@@ -139,6 +142,15 @@ class RiskManager:
                 blocks.append(RC_NO_EXISTING_POSITION)
             elif pos.scale_in_count >= self.cfg.max_scale_ins + 1:
                 blocks.append(RC_MAX_SCALE_INS)
+
+        # 자금관리: 동시 보유 종목 수 한도 (신규 진입만 대상, 기존 보유 종목의 추가진입은 무관)
+        open_count = sum(1 for p in snapshot.positions.values() if abs(p.quantity) > 0)
+        if intent.kind == NEW_ENTRY and not has_position and open_count >= self.cfg.max_positions:
+            blocks.append(RC_MAX_POSITIONS)
+
+        # 자금관리: 가용 현금 부족(명목 기준)
+        if snapshot.cash is not None and intent.notional > snapshot.cash + _EPS:
+            blocks.append(RC_INSUFFICIENT_CASH)
 
         if blocks:
             return RiskDecision(False, blocks, 0.0, flags)

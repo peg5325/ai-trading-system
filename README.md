@@ -87,6 +87,16 @@ BUY/SELL 을 **FIFO 로 매칭**해 실현손익을 계산하는 **단일 엔진
 부분청산 지원, `net_pnl == gross_pnl - slippage - commission` 불변식, 결정론적. 청산이 완료돼야
 실제 승률/기대수익이 나온다(진입만 있으면 미청산 포지션으로 집계). `scripts/inspect_cli.py pnl` 로 조회.
 
+### US 본장 Paper 운영 (자금관리)
+`PortfolioAccount` 가 현금/포지션/실현손익을 FIFO 엔진으로 관리해 Paper Trading 이
+**실제 자금관리 기준으로** 성과를 측정한다(고정 계좌값이 아니라 체결마다 cash 가 갱신됨).
+
+- 초기자본 3,000,000, 종목당 최대 20% 명목 노출, **동시 보유 2종목**, **현금부족 시 진입 거절**.
+- 실행: `./.venv/bin/python scripts/run_paper.py config/runtime_us.yaml`
+- 통화 주의: 자본은 KRW 명목, 종목은 USD 가격 — v1 은 통화를 분리하지 않는다(알려진 한계).
+  수익률/승률/Profit Factor/Sharpe/MDD 등 **상대 성과 지표는 단위가 상쇄되어 유효**하지만,
+  절대 금액(손익/현금)은 단위가 혼재되므로 참고용으로만 사용할 것.
+
 ## 시장 (US / KR)
 
 Canonical Candle은 `market` 필드로 시장을 구분하고, 세션/타임존을 시장별로 분류한다.

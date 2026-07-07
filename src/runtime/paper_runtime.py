@@ -133,7 +133,7 @@ class PaperRuntime:
         if self.metrics_store is None:
             return
         cm = build_cycle_metric(report, dt_s, self._last_health, delta,
-                                created_at=self._now_iso())
+                                created_at=self._now_iso(), account=getattr(self.loop, "account", None))
         try:
             self.metrics_store.record(cm)
         except Exception as e:                        # 관측 실패가 매매/생존을 막지 않음
@@ -180,6 +180,15 @@ class PaperRuntime:
             "health": self._last_health,
             "metrics": self.metrics.to_dict(),
         }
+        account = getattr(self.loop, "account", None)
+        if account is not None:
+            data["equity"] = {
+                "initial": account.initial_capital,
+                "current": account.last_equity,
+                "peak": account.peak_equity,
+                "drawdown_pct": account.last_drawdown_pct,
+                "daily_return_pct": account.last_daily_return_pct,
+            }
         status_dir = os.path.dirname(self.cfg.status_path)
         if status_dir:
             os.makedirs(status_dir, exist_ok=True)
@@ -239,7 +248,7 @@ class PaperRuntime:
         content = generate_markdown(
             self.metrics, self._last_health or self.health_check(), self.cfg,
             report_date=report_date, run_duration_s=self._monotonic() - self._run_start,
-            realized=self._realized_summary())
+            realized=self._realized_summary(), performance=self._performance_summary())
         return write_report(content, self.cfg.reports_dir, report_date)
 
     def _realized_summary(self) -> dict | None:
@@ -253,6 +262,19 @@ class PaperRuntime:
             return summary.to_dict()
         except Exception as e:
             self.loggers["error"].error(f"realized pnl summary failed: {e}")
+            return None
+
+    def _performance_summary(self) -> dict | None:
+        """자금관리 계좌(equity_curve/실현거래) → 공용 성과 지표(리포트용). 실패해도 종료를 막지 않음."""
+        account = getattr(self.loop, "account", None)
+        if account is None:
+            return None
+        try:
+            from src.portfolio.performance import performance_summary
+            return performance_summary(account.initial_capital, account.equity_curve,
+                                       account.realized_trades())
+        except Exception as e:
+            self.loggers["error"].error(f"performance summary failed: {e}")
             return None
 
 

@@ -59,6 +59,11 @@ class CycleMetric:
     exits: int = 0
     eods: int = 0
     reviews: int = 0                    # 런타임 루프는 회고 안 함(향후 System Review 대비)
+    # 자금관리(Portfolio) — account 가 있을 때만 채움
+    equity: float | None = None
+    peak_equity: float | None = None
+    drawdown_pct: float | None = None
+    daily_return_pct: float | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -75,7 +80,7 @@ def cycle_delta(before: dict, after: dict) -> dict:
 
 
 def build_cycle_metric(report, dt_s: float, health: dict, delta: dict, *,
-                       created_at: str | None) -> CycleMetric:
+                       created_at: str | None, account=None) -> CycleMetric:
     """report(없을 수 있음) + dt + health + per-cycle delta → CycleMetric."""
     health = health or {}
     if report is not None:
@@ -97,6 +102,11 @@ def build_cycle_metric(report, dt_s: float, health: dict, delta: dict, *,
         journal_ok=health.get("journal"), replay_ok=health.get("replay"))
     for k in COUNT_KEYS:
         setattr(cm, k, int(delta.get(k, 0)))
+    if account is not None:
+        cm.equity = account.last_equity
+        cm.peak_equity = account.peak_equity
+        cm.drawdown_pct = account.last_drawdown_pct
+        cm.daily_return_pct = account.last_daily_return_pct
     return cm
 
 
@@ -130,6 +140,7 @@ CREATE TABLE IF NOT EXISTS metric_cycle (
     candidates       INTEGER, ai_approve INTEGER, ai_wait INTEGER, ai_reject INTEGER,
     risk_block       INTEGER, orders INTEGER, buys INTEGER, sells INTEGER,
     exits            INTEGER, eods INTEGER, reviews INTEGER,
+    equity REAL, peak_equity REAL, drawdown_pct REAL, daily_return_pct REAL,
     data             TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_metric_created ON metric_cycle(created_at);
@@ -158,7 +169,8 @@ class SqliteMetricsStore:
     def record(self, cm: CycleMetric) -> None:
         d = cm.to_dict()
         cols = ["created_at", "cycle_id", "cycle_ts", "session", "status", "reason",
-                "loop_ms", "ai_ms", "fetch_latency_ms", "health_status", *COUNT_KEYS, "reviews"]
+                "loop_ms", "ai_ms", "fetch_latency_ms", "health_status", *COUNT_KEYS, "reviews",
+                "equity", "peak_equity", "drawdown_pct", "daily_return_pct"]
         vals = [d.get(c) for c in cols] + [json.dumps(d, ensure_ascii=False)]
         placeholders = ",".join(["?"] * (len(cols) + 1))
         self._conn.execute(
