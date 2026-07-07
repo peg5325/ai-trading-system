@@ -205,6 +205,27 @@ PaperTradingLoop 을 감싼 운영 런타임. **실주문 없음, 안정성·데
 - Recovery(API/Network/AI/SQLite Lock 자동 복구 — 생존 우선), Graceful Shutdown(flush+report)
 - 종료 리포트 자동 생성(reports/paper_report_YYYYMMDD.md): Cycle/AI/Order/Exception/지연/자원
 
+## AI Learning Dataset Builder (완료)
+Journal(+Candle)을 읽는 **read-only batch processor**. 실시간 매매에 관여하지 않음.
+한 row = 한 cycle×symbol 진입 관찰 지점의 **Feature(진입시점) + Label(사후 outcome) + Meta(재현성 버전)**.
+```bash
+./.venv/bin/pip install pyarrow        # Parquet export 용
+./.venv/bin/python scripts/build_dataset.py config/runtime_mixed.yaml \
+    --out-dir datasets --format both --primary-window 30 --windows 5,15,30,60
+```
+- **Feature**: market/session(종목별), 지표 스냅샷(close/ema/rsi/vwap/bb/stochrsi),
+  candidate(score/type/rank/risk_flags), AI(decision/confidence/quality/risk), risk_allowed, 포트폴리오(account_value/open_positions/kill_switch)
+- **Label**(Candle 로 계산, look-ahead 방지): 창별 `forward_return`/`mfe`/`mae`/`n_bars`(기본 5·15·30·60분),
+  대표 창 기준 `label_class`(WIN/LOSS/NEUTRAL, 임계 ±0.2%), `holding_minutes`, `complete`,
+  진입 체결 passthrough(`trade_taken`/`entry_fill_price`/`entry_qty`/`entry_side`)
+- **Meta**: `feature_version`/`dataset_version`/`prompt_version`/`strategy_version`/`model_name` (재현성 보장)
+- **Exporter**: `JsonlExporter`(중첩 `{feature,label,meta}` — GPT/Claude review·few-shot·회귀평가·XAI),
+  `ParquetExporter`(평탄화 컬럼 — Pandas/DuckDB/Polars·feature engineering·ML). CSV 는 후순위.
+- 구조: `Dataset ─ DatasetRecord(FeatureRecord/LabelRecord/MetaRecord) ─ DatasetExporter`.
+  `DatasetBuilder`만 Journal/Candle 을 앎(Replay/Review/Runtime 은 Dataset 을 모름). 결정론적(built_at 외부주입).
+- **MVP 범위 주의**: 라벨은 **관찰 기반 forward return 중심**. 진입↔청산 매칭에 의한
+  `realized_pnl`/`exit_reason` 은 후속(현재 `None`, entry 체결 정보만 passthrough).
+
 ## 테스트
 ```bash
 ./.venv/bin/python -m pytest -q
@@ -270,6 +291,10 @@ ai_trading_system/
       models.py            # AIReviewReport / AIReviewLog / REVIEW_SCHEMA
       engine.py            # AIReviewEngine
       providers.py         # FakeReviewProvider (실호출은 OpenAIProvider 재사용)
+    dataset/
+      models.py            # Feature/Label/Meta/Dataset Record + *_VERSION
+      builder.py           # DatasetBuilder + LabelConfig (Journal+Candle → Dataset, read-only)
+      exporters.py         # JsonlExporter / ParquetExporter
     runtime/
       config.py            # RuntimeConfig + load_yaml
       logging_setup.py     # rotating loggers
@@ -280,7 +305,9 @@ ai_trading_system/
   scripts/
     ai_entry_filter_manual.py   # 실제 OpenAI 수동 호출
     run_paper.py                # 운영 진입점 (Toss 시세 + Paper 체결)
-  tests/                   # 전 계층 (169 tests)
+    build_dataset.py            # AI Learning Dataset 빌드 (read-only batch)
+  tests/                   # 전 계층 (190 tests)
   data/                    # SQLite (git 무시)
+  datasets/                # 빌드된 학습 데이터셋 (git 무시)
 ```
 다음: 실 Toss 시세로 Paper 루프 장기 관찰 → (검증 + 승인 후) TossBrokerProvider 실주문.
