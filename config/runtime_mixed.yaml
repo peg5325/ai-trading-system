@@ -29,6 +29,8 @@ review:
   db: data/reviews_mixed.sqlite     # Review Batch Runner 의 Primary Storage
 metrics:
   db: data/metrics_mixed.sqlite     # cycle별 운영 지표/health 영속(Runtime Metrics Store)
+system_review:
+  db: data/system_reviews_mixed.sqlite   # System Review Engine 운영 회고 로그
 
 logging:
   dir: logs_mixed

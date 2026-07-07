@@ -261,6 +261,41 @@ System Review Engine / Dashboard 가 읽는 운영 지표의 Primary Source. `ru
 - 원천: cumulative `RuntimeMetrics` 는 그대로(status.json/종료리포트), MetricsStore 는 cycle 단위 SSoT.
   yaml `metrics.db`(runtime_mixed → data/metrics_mixed.sqlite).
 
+## Rule Improvement Aggregator (AI 자기개선 #2 — 완료)
+ReviewStore 의 회고를 집계해 **전략 개선 후보(제안)** 를 도출한다. **제안만 한다** —
+strategy.yaml / Rule Engine 을 자동 수정하지 않는다(실제 변경은 사람 승인 후 별도).
+```bash
+./.venv/bin/python scripts/aggregate_reviews.py config/runtime_mixed.yaml \
+    --review-version v1 --compare-review-version v2 --export-json reports/rule_improve.json
+```
+- **입력**: ReviewStore(read-only)만. 실시간 매매/주문/Runtime 무관. 결정론적(난수/시각/외부호출 없음).
+- **정규화 + 유사 그룹핑**: rule_improvement / missed_signals 텍스트를 소문자·구두점제거·공백정규화 후
+  토큰 Jaccard(기본 0.6)로 유사 개선안을 그리디 병합. 빈도 내림차순 `ClusterStat`(대표문구/count/변형/품질분포).
+- **집계**: decision_quality 분포, confidence_reassessment 통계(n/avg/min/max), Top-N 클러스터.
+- **비교**: `prompt_version`/`model_name`/`review_version`·기간 필터로 두 리포트 산출 →
+  `compare_reports`(대표문구별 빈도 delta)로 버전별·기간별 추이 비교.
+- **출력**: `RuleImprovementReport.to_dict()` + `export_report_json`(JSON 제안 산출물).
+- 구조: `RuleImprovementAggregator ─ RuleImprovementReport(ClusterStat) ─ compare_reports/export_report_json`.
+
+## System Review Engine (AI 자기개선 #4 — 완료)
+시스템 **자체(운영 품질)** 를 기간 단위로 GPT 회고. 매매 전략은 평가하지 않는다(그건 AIReviewEngine).
+Rule Engine/Trading Pipeline/OrderManager/RiskManager/strategy.yaml 에 **절대 영향 없음 — 제안만**.
+```bash
+./.venv/bin/python scripts/system_review.py config/runtime_mixed.yaml \
+    --start 2026-07-07T00:00:00Z --end 2026-07-08T00:00:00Z --provider fake
+# 실제 OpenAI 회고는 이 스크립트에서 --provider openai 로만(수동)
+```
+- **입력**: RuntimeMetricsStore(read-only) + JournalStore 뿐. Replay/TradingPipeline 미사용.
+- **window 요약(결정론)**: `build_window_summary` → runtime(health/api_errors/exceptions/sqlite_locks/
+  avg·max loop latency/candidates/AI approve·wait·reject 비율/risk_block 비율/orders/skipped/degraded) +
+  journal(status 분포/error_cycles) + data_quality. GPT 입력이자 report.runtime_window 로 저장.
+- **SystemReviewReport**: `{grade(A~F), summary, major_issues[], recommendations[], confidence}` + provenance.
+- **SystemReviewLog(별도 저장)**: prompt_version/model_name/latency/input_hash/runtime_window 모두 기록.
+  `SqliteSystemReviewStore`(인덱스: created_at/status/grade/model_name/window_start) + InMemory.
+- **실패 안전 종료**: timeout/rate limit/invalid JSON/schema mismatch → SYSTEM_REVIEW_FAILED(grade UNKNOWN).
+- 결정론: input_hash = window+prompt+model (created_at/latency 제외). Fake provider 기반 테스트.
+  yaml `system_review.db`(runtime_mixed → data/system_reviews_mixed.sqlite).
+
 ## 테스트
 ```bash
 ./.venv/bin/python -m pytest -q
@@ -334,6 +369,12 @@ ai_trading_system/
       store.py             # ReviewRecord / SqliteReviewStore(SSoT) / InMemoryReviewStore + REVIEW_VERSION/source
       batch_runner.py      # ReviewBatchRunner + RunnerConfig + RunSummary
       exporters.py         # ReviewJsonlExporter
+      aggregator.py        # RuleImprovementAggregator + RuleImprovementReport + compare_reports (제안 전용)
+    system_review/  (운영 회고 전용)
+      models.py            # SystemReviewReport / SystemReviewLog / SYSTEM_REVIEW_SCHEMA / GRADES
+      window.py            # build_window_summary (MetricsStore+Journal → 운영 요약, read-only)
+      engine.py            # SystemReviewEngine (GPT 회고, 실패 안전 종료)
+      store.py             # SqliteSystemReviewStore / InMemorySystemReviewStore
     runtime/
       config.py            # RuntimeConfig + load_yaml
       logging_setup.py     # rotating loggers
@@ -347,7 +388,9 @@ ai_trading_system/
     run_paper.py                # 운영 진입점 (Toss 시세 + Paper 체결)
     build_dataset.py            # AI Learning Dataset 빌드 (read-only batch)
     run_reviews.py              # Review Batch Runner (Replay→Review, read-only)
-  tests/                   # 전 계층 (205 tests)
+    aggregate_reviews.py        # Rule Improvement Aggregator (제안 전용, read-only)
+    system_review.py            # System Review Engine (운영 회고, read-only)
+  tests/                   # 전 계층 (224 tests)
   data/                    # SQLite (git 무시)
   datasets/                # 빌드된 학습 데이터셋 (git 무시)
 ```
