@@ -246,6 +246,21 @@ Journal(+Candle)을 읽는 **read-only batch processor**. 실시간 매매에 �
 - **ReviewJsonlExporter**: SSoT(SQLite)에서 조회한 회고를 JSONL 로 export(GPT/Claude 분석·회귀·LLM batch).
 - 구조: `ReviewStore(+ReviewRecord) ─ ReviewBatchRunner(+RunSummary) ─ ReviewJsonlExporter`.
 
+## Runtime Metrics Store (AI 자기개선 #3 — 완료)
+status.json 은 최신 스냅샷만 담지만, **매 cycle 을 SQLite 에 append-only 로 영속**한다.
+System Review Engine / Dashboard 가 읽는 운영 지표의 Primary Source. `run_paper.py` 에 자동 배선됨.
+- **CycleMetric (per-cycle delta)**: cycle_id/ts/session/status/reason, `loop_ms`, `ai_ms`,
+  `fetch_latency_ms`(루프 미측정 → None, 향후), health(status/api/ai/broker/journal/replay),
+  per-cycle 카운트(cycles_run/skipped/api_errors/pipeline_errors/exceptions/sqlite_locks/
+  candidates/ai_approve·wait·reject/risk_block/orders/buys/sells/exits/eods). created_at 외부 주입(결정론).
+- **SqliteMetricsStore**: `metric_cycle` append-only + 인덱스(created_at/cycle_id/status/health_status/cycle_ts).
+  `record` / `query`(status·health·기간 필터) / `aggregate`(누적 SUM·avg/max loop_ms·degraded_cycles).
+  `InMemoryMetricsStore` 동일 인터페이스(테스트).
+- **PaperRuntime 통합**: `record_cycle`+`health_check` 직후 per-cycle delta 계산→ MetricsStore 에 기록.
+  store 미주입 시 no-op(하위호환). 관측 실패가 매매/생존을 막지 않음(흡수+error 로그).
+- 원천: cumulative `RuntimeMetrics` 는 그대로(status.json/종료리포트), MetricsStore 는 cycle 단위 SSoT.
+  yaml `metrics.db`(runtime_mixed → data/metrics_mixed.sqlite).
+
 ## 테스트
 ```bash
 ./.venv/bin/python -m pytest -q
@@ -322,16 +337,17 @@ ai_trading_system/
     runtime/
       config.py            # RuntimeConfig + load_yaml
       logging_setup.py     # rotating loggers
-      metrics.py           # RuntimeMetrics
+      metrics.py           # RuntimeMetrics (누적 집계)
+      metrics_store.py     # CycleMetric + SqliteMetricsStore(SSoT) + InMemoryMetricsStore
       report.py            # 종료 리포트(markdown)
-      paper_runtime.py     # PaperRuntime (run/stop/pause/resume, recovery, shutdown)
+      paper_runtime.py     # PaperRuntime (run/stop/pause/resume, recovery, shutdown, cycle metrics)
   config/runtime.yaml      # 운영 설정
   scripts/
     ai_entry_filter_manual.py   # 실제 OpenAI 수동 호출
     run_paper.py                # 운영 진입점 (Toss 시세 + Paper 체결)
     build_dataset.py            # AI Learning Dataset 빌드 (read-only batch)
     run_reviews.py              # Review Batch Runner (Replay→Review, read-only)
-  tests/                   # 전 계층 (198 tests)
+  tests/                   # 전 계층 (205 tests)
   data/                    # SQLite (git 무시)
   datasets/                # 빌드된 학습 데이터셋 (git 무시)
 ```

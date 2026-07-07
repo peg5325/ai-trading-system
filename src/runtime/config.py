@@ -25,6 +25,7 @@ class RuntimeConfig:
     # stores
     journal_db: str = "data/journal.sqlite"
     candle_db: str = "data/market.sqlite"
+    metrics_db: str = "data/metrics.sqlite"
     # paper broker
     slippage_bps: float = 5.0
     fee_bps: float = 2.0
@@ -57,6 +58,7 @@ class RuntimeConfig:
             review_db=review.get("db", "data/reviews.sqlite"),
             journal_db=journal.get("db", "data/journal.sqlite"),
             candle_db=candles.get("db", "data/market.sqlite"),
+            metrics_db=d.get("metrics", {}).get("db", "data/metrics.sqlite"),
             slippage_bps=float(paper.get("slippage_bps", 5.0)),
             fee_bps=float(paper.get("fee_bps", 2.0)),
             log_dir=logging_.get("dir", "logs"),

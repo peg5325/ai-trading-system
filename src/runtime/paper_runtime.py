@@ -17,9 +17,12 @@ import time
 import traceback
 from typing import Callable
 
+from datetime import datetime
+
 from src.journal.models import ts_from_cycle_id
 from src.runtime.logging_setup import setup_loggers
 from src.runtime.metrics import RuntimeMetrics
+from src.runtime.metrics_store import build_cycle_metric, cycle_delta
 from src.runtime.report import generate_markdown, write_report
 
 # 상태
@@ -32,7 +35,8 @@ STOPPED = "STOPPED"
 class PaperRuntime:
     def __init__(self, loop, config, loggers=None,
                  monotonic: Callable[[], float] = time.monotonic,
-                 sleep: Callable[[float], None] = time.sleep):
+                 sleep: Callable[[float], None] = time.sleep,
+                 metrics_store=None, now_iso: Callable[[], str] | None = None):
         self.loop = loop
         self.cfg = config
         self.loggers = loggers or setup_loggers(
@@ -41,6 +45,9 @@ class PaperRuntime:
         self._sleep = sleep
         self.state = STOPPED
         self.metrics = RuntimeMetrics()
+        self.metrics_store = metrics_store            # 선택: cycle별 지표 영속(SSoT)
+        self._now_iso = now_iso or _utc_now_iso
+        self._metrics_prev = self.metrics.to_dict()   # per-cycle delta 기준
         self._last_report = None
         self._last_health: dict = {}
         self._run_start = 0.0
@@ -114,8 +121,23 @@ class PaperRuntime:
                 self.loggers["error"].error(f"{report.cycle_id} {report.reason}: {report.error}")
             self._last_report = report
         self._last_health = self.health_check()
+        self._record_metrics(report, dt)
         self._update_status(report)
         return report
+
+    def _record_metrics(self, report, dt_s: float) -> None:
+        """cycle별 지표(per-cycle delta) + health 를 MetricsStore 에 append."""
+        after = self.metrics.to_dict()
+        delta = cycle_delta(self._metrics_prev, after)
+        self._metrics_prev = after
+        if self.metrics_store is None:
+            return
+        cm = build_cycle_metric(report, dt_s, self._last_health, delta,
+                                created_at=self._now_iso())
+        try:
+            self.metrics_store.record(cm)
+        except Exception as e:                        # 관측 실패가 매매/생존을 막지 않음
+            self.loggers["error"].error(f"metrics_store record failed: {e}")
 
     # ---- Health Check ----
     def health_check(self) -> dict:
@@ -218,3 +240,7 @@ class PaperRuntime:
             self.metrics, self._last_health or self.health_check(), self.cfg,
             report_date=report_date, run_duration_s=self._monotonic() - self._run_start)
         return write_report(content, self.cfg.reports_dir, report_date)
+
+
+def _utc_now_iso() -> str:
+    return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")

@@ -27,6 +27,8 @@ candles:
   db: data/market_mixed.sqlite
 review:
   db: data/reviews_mixed.sqlite     # Review Batch Runner 의 Primary Storage
+metrics:
+  db: data/metrics_mixed.sqlite     # cycle별 운영 지표/health 영속(Runtime Metrics Store)
 
 logging:
   dir: logs_mixed

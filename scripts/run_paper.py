@@ -34,6 +34,7 @@ from src.providers.toss_client import TossClient  # noqa: E402
 from src.providers.toss_market_data import TossMarketDataProvider  # noqa: E402
 from src.risk.risk_manager import RiskManager  # noqa: E402
 from src.runtime.config import load_yaml  # noqa: E402
+from src.runtime.metrics_store import SqliteMetricsStore  # noqa: E402
 from src.runtime.paper_runtime import PaperRuntime  # noqa: E402
 from src.storage.candle_store import CandleStore  # noqa: E402
 from src.universe.screener import UniverseScreener  # noqa: E402
@@ -79,7 +80,8 @@ def main(config_path: str) -> None:
                    max_calls_per_session=cfg.max_calls_per_session),
         journal=journal)
 
-    runtime = PaperRuntime(loop, cfg)
+    metrics_store = SqliteMetricsStore(cfg.metrics_db)
+    runtime = PaperRuntime(loop, cfg, metrics_store=metrics_store)
     print(f"[run_paper] 운영 시작 — symbols={cfg.symbols}, Paper 체결만, Ctrl+C 로 graceful shutdown")
     report = runtime.run(install_signal_handler=True)
     print(f"[run_paper] 종료. report={report}")
@@ -87,6 +89,7 @@ def main(config_path: str) -> None:
         market.close()
         candle_store.close()
         journal.close()
+        metrics_store.close()
     except Exception:
         pass
 
