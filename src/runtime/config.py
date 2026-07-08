@@ -7,6 +7,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from src.exits.generator import ExitConfig
+
 
 @dataclass
 class RuntimeConfig:
@@ -19,6 +21,8 @@ class RuntimeConfig:
     initial_capital: float = 100_000.0
     max_positions: int = 2
     entry_notional_pct: float = 0.05
+    # 청산 규칙(Exit Signal Generator)
+    exit_config: ExitConfig = field(default_factory=ExitConfig)
     # AI
     ai_provider: str = "fake"          # "fake" | "openai"
     ai_model: str = "gpt-5.5-mini"
@@ -50,8 +54,18 @@ class RuntimeConfig:
         candles = d.get("candles", {})
         review = d.get("review", {})
         logging_ = d.get("logging", {})
+        ex = d.get("exits", {}) or {}
+        exit_config = ExitConfig(
+            stop_loss_pct=float(ex.get("stop_loss_pct", 0.0) or 0.0),
+            take_profit_pct=float(ex.get("take_profit_pct", 0.0) or 0.0),
+            time_exit_bars=ex.get("time_exit_bars"),
+            time_exit_minutes=ex.get("time_exit_minutes"),
+            enable_all_symbols_eod_flatten=bool(ex.get("enable_all_symbols_eod_flatten", False)),
+            leverage_eod_flatten=bool(ex.get("leverage_eod_flatten", True)),
+            exit_on_trend_break=bool(ex.get("exit_on_trend_break", False)))
         return cls(
             symbols=list(d.get("symbols", ["SOXL"])),
+            exit_config=exit_config,
             poll_interval_s=float(d.get("poll_interval_s", 20.0)),
             account_value=float(d.get("account_value", 100_000.0)),
             fetch_spacing_s=float(d.get("fetch_spacing_s", 0.0)),

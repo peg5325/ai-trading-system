@@ -10,10 +10,18 @@ from dataclasses import dataclass, field
 # ---- 주문 종류 ----
 NEW_ENTRY = "NEW_ENTRY"      # 신규 진입
 ADD = "ADD"                  # 추가 진입(분할매수)
-EXIT = "EXIT"                # 청산/손절/익절
+EXIT = "EXIT"                # 청산(일반/명시적)
 EOD_FLATTEN = "EOD_FLATTEN"  # 세션 마감 청산
+# 청산 사유별 종류 — ExitSignalGenerator 가 생성. kind 가 곧 exit_reason 으로 journal→FIFO 전파.
+STOP_LOSS = "STOP_LOSS"      # 고정 손절률 청산
+TAKE_PROFIT = "TAKE_PROFIT"  # 고정 익절률 청산
+TIME_EXIT = "TIME_EXIT"      # N봉/N분 보유 후 청산
+TREND_BREAK = "TREND_BREAK"  # 추세 이탈 청산(선택)
 
-RISK_REDUCING = frozenset({EXIT, EOD_FLATTEN})
+# 트리거 청산(세션마감 아님) — 지표/리포트에서 EOD 와 구분해 exit 로 집계
+TRIGGERED_EXITS = frozenset({EXIT, STOP_LOSS, TAKE_PROFIT, TIME_EXIT, TREND_BREAK})
+# 리스크 축소 주문(항상 허용): 트리거 청산 + 세션마감 청산
+RISK_REDUCING = TRIGGERED_EXITS | frozenset({EOD_FLATTEN})
 ENTRY_KINDS = frozenset({NEW_ENTRY, ADD})
 
 BUY = "BUY"

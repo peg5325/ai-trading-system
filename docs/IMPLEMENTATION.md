@@ -384,6 +384,29 @@ Paper Trading 이 **고정 계좌값이 아니라 실제 자금관리**로 성�
   통화 캐비어트: 자본은 KRW 명목, 종목가는 USD — 상대 성과 지표(수익률/PF/Sharpe/MDD)는 단위가
   상쇄돼 유효하지만 절대 금액은 참고용(v1 한계, 통화 분리는 향후 과제).
 
+## Exit Signal Generator (청산 신호 생성 — 완료)
+- **독립 모듈** `src/exits/generator.py`: `ExitSignalGenerator`(Stop Loss / Take Profit / Time Exit / EOD Flatten).
+  순수 결정론(현재시각/난수 미사용, AI 무관). live/paper/backtest 가 **동일 엔진 공유**.
+- **우선순위**: `STOP_LOSS > TAKE_PROFIT > TIME_EXIT > (TREND_BREAK) > EOD_FLATTEN`.
+- 사유는 곧 `OrderIntent.kind`(`STOP_LOSS`/`TAKE_PROFIT`/`TIME_EXIT`/`EOD_FLATTEN`, `RISK_REDUCING`에 포함)
+  → journal→FIFO 로 `RealizedTrade.exit_reason` 자동 전파. RiskManager 가 risk-reducing 으로 허용
+  (kill switch 에도), 보유수량으로 clamp. 청산 대상 포지션은 `PortfolioAccount`(FIFO, entry_time·재시작복원)에서 소스.
+- **설정(yaml `exits:` 섹션)** — 섹션이 없으면 보수적 기본(전종목 EOD off, SL/TP off, leverage EOD on):
+```yaml
+exits:
+  enable_all_symbols_eod_flatten: true   # 전 종목 세션마감 청산(Paper 검증: closed trade 보장)
+  stop_loss_pct: 0.01                    # -1.0% 손절 (0/미설정=끔)
+  take_profit_pct: 0.015                 # +1.5% 익절 (0/미설정=끔)
+  time_exit_minutes: 60                  # N분 보유 후 청산 (time_exit_bars 도 지원)
+  leverage_eod_flatten: true             # 레버리지 ETF(>1x) 당일청산
+```
+- 검증용 config: `config/runtime_krx_exit_test.yaml`, `config/runtime_us_exit_test.yaml`.
+- backtest 는 동일 generator 로 리팩터(engine.py) — 마감봉 EOD 는 close 체결, 신호청산은 next-open 로 기존 타이밍 보존(리팩터 전후 golden-diff 일치).
+
+## Toss stale-token 자동 복구 (완료)
+- `TossClient.get_candles` 가 **401 시 캐시 토큰을 강제 폐기하고 1회 재시도** → 장시간 운영 중 서버측
+  토큰 무효화(만료 전 revoke)를 무중단 자동 복구. (`expires_in` 만 믿고 죽은 토큰을 계속 쓰던 문제 해결.)
+
 ## 테스트
 ```bash
 ./.venv/bin/python -m pytest -q

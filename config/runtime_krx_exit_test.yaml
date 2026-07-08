@@ -1,0 +1,55 @@
+# KRX 청산/실현손익 검증 세션 (Session #003 목표: closed trade 생성 + 실현손익 검증)
+#
+# 목적: Exit Signal Generator(SL/TP/Time/EOD)로 closed trade 를 생성해
+#       Realized PnL / Win Rate / Profit Factor / Expectancy / Holding Time 이 정상 산출되는지 검증.
+#       수익 최적화가 아니라 청산 파이프라인 검증이 목적.
+# 원칙: 실주문 없음(PaperBroker only), FakeAI(dry_run), OpenAI 미호출.
+# 분리: Session #002/#001 과 섞지 않도록 *_krx_exit_test.sqlite fresh namespace 사용.
+symbols:
+  - "005930"   # 삼성전자
+  - "000660"   # SK하이닉스
+  - "402340"   # SK스퀘어
+
+poll_interval_s: 20
+initial_capital: 3000000        # 초기자본 3,000,000 KRW (fresh portfolio)
+entry_notional_pct: 0.20        # 종목당 최대 20%
+max_positions: 2                # 우선 2 유지(청산 검증 후 회전 부족하면 3으로)
+account_value: 3000000          # 후방호환(레거시)
+fetch_spacing_s: 0.5
+max_calls_per_session: 300
+
+paper_broker:                    # 실주문 없음 — PaperBrokerProvider 만
+  slippage_bps: 5
+  fee_bps: 2
+
+ai:
+  provider: fake                 # FakeAI(dry_run) — OpenAI 호출 금지
+  model: gpt-5.5-mini
+
+# ---- 청산 규칙(Exit Signal Generator) — 승인된 추천값 ----
+# 우선순위: STOP_LOSS > TAKE_PROFIT > TIME_EXIT > EOD_FLATTEN
+exits:
+  enable_all_symbols_eod_flatten: true   # 전 종목 세션마감 청산 → 매 세션 closed trade 보장(핵심)
+  stop_loss_pct: 0.01                    # -1.0% 손절
+  take_profit_pct: 0.015                 # +1.5% 익절
+  time_exit_minutes: 60                  # 60분 보유 후 청산(회전율↑)
+  leverage_eod_flatten: true             # 레버리지 ETF 당일청산 유지
+
+journal:
+  db: data/journal_krx_exit_test.sqlite
+candles:
+  db: data/market_krx_exit_test.sqlite
+review:
+  db: data/reviews_krx_exit_test.sqlite
+metrics:
+  db: data/metrics_krx_exit_test.sqlite
+system_review:
+  db: data/system_reviews_krx_exit_test.sqlite
+
+logging:
+  dir: logs_krx_exit_test
+  max_bytes: 1000000
+  backup_count: 3
+
+reports_dir: reports
+status_path: status_krx_exit_test.json

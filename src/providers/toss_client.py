@@ -55,15 +55,33 @@ class TossClient:
     def _auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._access_token()}"}
 
+    def _invalidate_token(self) -> None:
+        """캐시된 토큰 폐기 → 다음 요청 시 강제 재발급."""
+        self._token = None
+        self._token_exp = 0.0
+
     # ---- market data ----
     def get_candles(self, symbol: str, interval: str, count: int = 200,
                     before: str | None = None) -> dict[str, Any]:
         """GET /api/v1/candles. result 객체(candles[], nextBefore)를 반환.
-        Toss candles API 는 count 최대 200 → 초과 시 400. 방어적으로 클램프한다."""
+        Toss candles API 는 count 최대 200 → 초과 시 400. 방어적으로 클램프한다.
+
+        401(Unauthorized)은 서버측 토큰 무효화(만료 전 revoke)로 발생할 수 있다 — 이때
+        expires_in 만 믿고 있으면 죽은 토큰을 계속 쓰게 되므로, 토큰을 강제 재발급하고 1회
+        재시도한다(장시간 운영 stale-token 자동 복구; 생존 우선)."""
         count = max(1, min(int(count), 200))
         params: dict[str, Any] = {"symbol": symbol, "interval": interval, "count": count}
         if before:
             params["before"] = before
+        try:
+            return self._fetch_candles(params)
+        except httpx.HTTPStatusError as e:
+            if e.response is not None and e.response.status_code == 401:
+                self._invalidate_token()          # 강제 재발급 후 1회 재시도
+                return self._fetch_candles(params)
+            raise
+
+    def _fetch_candles(self, params: dict[str, Any]) -> dict[str, Any]:
         r = self._http.get(
             f"{self._s.toss_base}/api/v1/candles",
             headers=self._auth_headers(),

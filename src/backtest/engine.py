@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 from src.engines.indicator_engine import IndicatorEngine
+from src.exits.generator import ExitConfig, ExitContext, ExitSignalGenerator, PositionView
 from src.models import ET, classify_session
 from src.pnl.fifo import FifoMatcher
 from src.pnl.models import FillEvent
@@ -26,6 +27,21 @@ from src.backtest.models import (
     BacktestReport,
     Trade,
 )
+
+
+def _exit_config_from_backtest(cfg) -> ExitConfig:
+    """BacktestConfig → 공유 ExitConfig 매핑(청산 로직 단일화).
+    allow_overnight_non_leverage=False 는 전종목 EOD flatten 과 동치."""
+    return ExitConfig(
+        stop_loss_pct=cfg.stop_loss_pct or 0.0,
+        take_profit_pct=cfg.take_profit_pct or 0.0,
+        # BacktestConfig 는 아직 time-exit 필드가 없음 → 의도적으로 미배선(백테스트 TIME_EXIT off).
+        # BacktestConfig 에 time_exit_* 가 추가되면 여기서 연결.
+        time_exit_bars=None,
+        time_exit_minutes=None,
+        enable_all_symbols_eod_flatten=not cfg.allow_overnight_non_leverage,
+        leverage_eod_flatten=cfg.leverage_eod_flatten,
+        exit_on_trend_break=cfg.exit_on_trend_break)
 
 
 class ScreenerEntryStrategy:
@@ -54,6 +70,7 @@ class BacktestEngine:
         cfg = self.cfg
         strat = entry_strategy or ScreenerEntryStrategy()
         exe = cfg.execution
+        gen = ExitSignalGenerator(_exit_config_from_backtest(cfg))   # live/paper 와 동일 엔진
 
         ind = IndicatorEngine().compute(candles)   # live 와 동일 모듈
         n = len(ind)
@@ -90,8 +107,8 @@ class BacktestEngine:
                 ref_price=opens[i], timestamp=idx[i], bar_index=i, reason=tuple(reasons)))
             st["pos"] = {
                 "qty": fill.quantity, "entry_price": fill.price, "entry_fee": fill.fee,
-                "entry_time": idx[i], "reasons": reasons, "risk_decision": risk_decision,
-                "leverage": leverage_factor,
+                "entry_time": idx[i], "entry_bar": i, "reasons": reasons,
+                "risk_decision": risk_decision, "leverage": leverage_factor,
             }
 
         def close_position(i, ref_price, reasons, exit_time):
@@ -134,22 +151,27 @@ class BacktestEngine:
             daily_pnl_pct = ((equity - day_start_equity) / day_start_equity
                              if day_start_equity else 0.0)
 
-            # 3) EOD flatten: 레버리지 ETF 는 세션 마감 종가에 청산 (오버나잇 금지)
-            if (st["pos"] and cfg.leverage_eod_flatten
-                    and leverage_factor > 1 and is_session_end(i)):
-                close_position(i, c, ["EOD_FLATTEN"], idx[i])
-                continue
-            # 일반주 오버나잇 미허용 옵션이면 동일 처리
-            if (st["pos"] and not cfg.allow_overnight_non_leverage
-                    and is_session_end(i)):
+            # 3) EOD flatten: 세션(ET date) 마감 종가에 청산 (공유 generator 의 eod_applies).
+            #    레버리지 ETF(>1x) 또는 전종목 옵션(=not allow_overnight_non_leverage) 대상.
+            #    실행 타이밍은 마감봉 종가(같은 봉) — 백테스트 체결 모델 보존.
+            #    ⚠ 의도된 예외: 백테스트는 마감봉에서 EOD 를 신호청산보다 우선한다(마감가 체결
+            #    충실도 유지). live/paper 는 generator.evaluate() 로 SL>TP>TIME>EOD 우선순위를
+            #    따른다(다음봉 시가 개념 없음). 두 경로는 마감봉에서만 사유 라벨/체결시점이 갈릴 수
+            #    있으며, 그 외 모든 봉에서는 동일한 공유 규칙(evaluate_signal)을 쓴다.
+            if st["pos"] and is_session_end(i) and gen.eod_applies(leverage_factor):
                 close_position(i, c, ["EOD_FLATTEN"], idx[i])
                 continue
 
-            # 4) 다음 봉 체결을 위한 판단 (t 행까지만 사용 → look-ahead 없음)
+            # 4) 신호 청산(SL/TP/TIME/TREND) — 다음 봉 시가 체결. t 행까지만 사용(look-ahead 없음).
             if st["pos"]:
-                reasons = self._exit_reasons(c, st["pos"]["entry_price"], ema20[i], cfg)
-                if reasons:
-                    pending_exit = {"reasons": reasons}
+                pv = PositionView(
+                    symbol=symbol, quantity=st["pos"]["qty"],
+                    entry_price=st["pos"]["entry_price"], current_price=c,
+                    leverage_factor=leverage_factor, entry_time=st["pos"]["entry_time"],
+                    entry_bar=st["pos"]["entry_bar"], ema20=ema20[i])
+                reason = gen.evaluate_signal(pv, ExitContext(now_bar=i))
+                if reason is not None:
+                    pending_exit = {"reasons": [reason]}
             elif not is_session_end(i):   # 오버나잇으로 넘어가는 진입 금지
                 sig = strat.signal(symbol, ind, i, leverage_factor)
                 if sig is not None:
@@ -169,16 +191,6 @@ class BacktestEngine:
                             bars_in_pos, cfg)
 
     # ---- helpers ----
-    def _exit_reasons(self, close, entry_price, ema20_val, cfg) -> list[str]:
-        reasons = []
-        if cfg.stop_loss_pct and close <= entry_price * (1 - cfg.stop_loss_pct):
-            reasons.append("STOP_LOSS")
-        if cfg.take_profit_pct and close >= entry_price * (1 + cfg.take_profit_pct):
-            reasons.append("TAKE_PROFIT")
-        if cfg.exit_on_trend_break and ema20_val == ema20_val and close < ema20_val:
-            reasons.append("TREND_BREAK")
-        return reasons
-
     def _size_and_check(self, symbol, ref_price, lev, equity, session,
                         eod_window, daily_pnl_pct, cur_dd, consec):
         if ref_price <= 0 or equity <= 0:

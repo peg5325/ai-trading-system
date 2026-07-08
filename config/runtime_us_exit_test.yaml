@@ -1,0 +1,57 @@
+# US 청산/실현손익 검증 세션 (Session #003 목표: closed trade 생성 + 실현손익 검증)
+#
+# 목적: Exit Signal Generator(SL/TP/Time/EOD)로 closed trade 를 생성해
+#       Realized PnL / Win Rate / Profit Factor / Expectancy / Holding Time 이 정상 산출되는지 검증.
+# 원칙: 실주문 없음(PaperBroker only), FakeAI(dry_run), OpenAI 미호출.
+# 통화 주의(v1): initial_capital 은 KRW 명목이나 symbols 는 USD 가격 — 절대금액은 참고용,
+#              상대지표(%/승률/PF/Expectancy)만 유효. (혼합통화 계좌 분리는 라이브 전 별도 과제.)
+# universe: 표준 US 유니버스 유지(SOXL 전용 검증은 별도 후속 작업 — screener 왜곡 안 함).
+# 분리: *_us_exit_test.sqlite fresh namespace.
+symbols:
+  - SOXL
+  - QQQ
+  - NVDA
+
+poll_interval_s: 20
+initial_capital: 3000000
+entry_notional_pct: 0.20
+max_positions: 2                # 우선 2 유지(청산 검증 후 회전 부족하면 3으로)
+account_value: 3000000
+fetch_spacing_s: 0.5
+max_calls_per_session: 300
+
+paper_broker:
+  slippage_bps: 5
+  fee_bps: 2
+
+ai:
+  provider: fake
+  model: gpt-5.5-mini
+
+# ---- 청산 규칙(Exit Signal Generator) — 승인된 추천값 ----
+# 우선순위: STOP_LOSS > TAKE_PROFIT > TIME_EXIT > EOD_FLATTEN
+exits:
+  enable_all_symbols_eod_flatten: true   # 전 종목 세션마감 청산 → 매 세션 closed trade 보장(핵심)
+  stop_loss_pct: 0.01                    # -1.0% 손절
+  take_profit_pct: 0.015                 # +1.5% 익절
+  time_exit_minutes: 60                  # 60분 보유 후 청산(회전율↑)
+  leverage_eod_flatten: true             # 레버리지 ETF(SOXL) 당일청산 유지
+
+journal:
+  db: data/journal_us_exit_test.sqlite
+candles:
+  db: data/market_us_exit_test.sqlite
+review:
+  db: data/reviews_us_exit_test.sqlite
+metrics:
+  db: data/metrics_us_exit_test.sqlite
+system_review:
+  db: data/system_reviews_us_exit_test.sqlite
+
+logging:
+  dir: logs_us_exit_test
+  max_bytes: 1000000
+  backup_count: 3
+
+reports_dir: reports
+status_path: status_us_exit_test.json

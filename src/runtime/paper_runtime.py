@@ -198,7 +198,15 @@ class PaperRuntime:
         os.replace(tmp, self.cfg.status_path)          # 원자적 교체
 
     def _paper_pnl(self) -> dict:
-        positions = self.loop.positions.all() if hasattr(self.loop.positions, "all") else {}
+        # 단일 소스(PortfolioAccount FIFO). 매매/청산 로직과 대시보드가 같은 원장을 본다
+        # (position_store 와의 desync 방지). account 미존재 시 position_store 로 폴백.
+        account = getattr(self.loop, "account", None)
+        if account is not None:
+            positions = account.positions()
+        elif hasattr(self.loop.positions, "all"):
+            positions = self.loop.positions.all()
+        else:
+            positions = {}
         gross_cost = sum(p["quantity"] * p["avg_price"] for p in positions.values())
         return {"open_positions": len(positions), "gross_cost": round(gross_cost, 2),
                 "note": "v1: unrealized pnl 은 mark price 필요"}
@@ -258,8 +266,15 @@ class PaperRuntime:
             return None
         try:
             from src.pnl.journal_pnl import realized_from_journal
-            _, _, summary = realized_from_journal(journal)
-            return summary.to_dict()
+            trades, _, summary = realized_from_journal(journal)
+            d = summary.to_dict()
+            # 청산 사유별 집계(리포트용) — exit_reason 은 FIFO 로 전파된 kind.
+            reasons: dict[str, int] = {}
+            for t in trades:
+                for r in (t.exit_reason or ()):
+                    reasons[r] = reasons.get(r, 0) + 1
+            d["exit_reasons"] = reasons
+            return d
         except Exception as e:
             self.loggers["error"].error(f"realized pnl summary failed: {e}")
             return None

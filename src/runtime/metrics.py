@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 from src.ai.models import DEC_APPROVE, DEC_REJECT, DEC_WAIT
 from src.pipeline.models import R_RISK_BLOCK
-from src.risk.models import EOD_FLATTEN, EXIT
+from src.risk.models import EOD_FLATTEN, TRIGGERED_EXITS
 from src.order.models import BUY, ORD_FILLED, SELL
 
 
@@ -73,7 +73,7 @@ class RuntimeMetrics:
                     self.buys += 1
                 elif order.get("side") == SELL:
                     self.sells += 1
-                if order.get("kind") == EXIT:
+                if order.get("kind") in TRIGGERED_EXITS:
                     self.exits += 1
                 elif order.get("kind") == EOD_FLATTEN:
                     self.eods += 1

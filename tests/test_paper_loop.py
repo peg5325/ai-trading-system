@@ -25,6 +25,7 @@ from src.models import ET, Candle
 from src.order.models import InMemoryPositionStore
 from src.pipeline.models import PipelineResult
 from src.storage.candle_store import CandleStore
+from src.pnl.models import FillEvent
 from src.risk.models import EOD_FLATTEN
 
 
@@ -152,6 +153,7 @@ def test_eod_flatten_generates_exit_intents(tmp_path):
     ps.apply_fill("SOXL", "BUY", 10, 194, 0)              # 레버리지 보유
     pipe = RecordingPipeline()
     lp = loop(tmp_path, market, pipe, position_store=ps)
+    lp.account.apply_fill(FillEvent("SOXL", "BUY", 10.0, 194.0))  # 청산 소스=account(FIFO)
     rep = lp.tick()
     assert rep.status == ST_RAN
     exits = pipe.calls[0]["exit_intents"]
@@ -166,6 +168,7 @@ def test_kill_switch_reflected(tmp_path):
     ps.apply_fill("SOXL", "BUY", 10, 194, 0)
     pipe = RecordingPipeline()
     lp = loop(tmp_path, market, pipe, position_store=ps)
+    lp.account.apply_fill(FillEvent("SOXL", "BUY", 10.0, 194.0))  # 청산 소스=account(FIFO)
     lp.set_kill_switch(True)
     rep = lp.tick()
     assert pipe.calls[0]["system_state"].kill_switch is True

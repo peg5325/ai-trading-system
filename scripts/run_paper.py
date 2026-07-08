@@ -81,7 +81,8 @@ def main(config_path: str) -> None:
                    fetch_spacing_s=cfg.fetch_spacing_s,
                    max_calls_per_session=cfg.max_calls_per_session,
                    initial_capital=cfg.initial_capital,
-                   max_positions=cfg.max_positions),
+                   max_positions=cfg.max_positions,
+                   exit_config=cfg.exit_config),
         journal=journal)
 
     metrics_store = SqliteMetricsStore(cfg.metrics_db)

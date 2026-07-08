@@ -85,8 +85,12 @@ def generate_markdown(metrics, health: dict, cfg, *, report_date: str,
             f"- Open positions: {realized.get('open_positions', 0)} "
             f"(qty {realized.get('open_quantity', 0.0)})",
             "- 주: 통화 혼합 계좌는 금액 합산에 주의(관찰/검증용).",
-            "",
         ]
+        exit_reasons = realized.get("exit_reasons") or {}
+        if exit_reasons:
+            breakdown = ", ".join(f"{k}={v}" for k, v in sorted(exit_reasons.items()))
+            lines.append(f"- Exit reasons: {breakdown}")
+        lines.append("")
     if performance is not None:
         sharpe = performance.get("sharpe_ratio")
         pf = performance.get("profit_factor")
