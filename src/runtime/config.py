@@ -62,6 +62,7 @@ class RuntimeConfig:
             time_exit_minutes=ex.get("time_exit_minutes"),
             enable_all_symbols_eod_flatten=bool(ex.get("enable_all_symbols_eod_flatten", False)),
             leverage_eod_flatten=bool(ex.get("leverage_eod_flatten", True)),
+            eod_flatten_minutes_before_close=int(ex.get("eod_flatten_minutes_before_close", 10)),
             exit_on_trend_break=bool(ex.get("exit_on_trend_break", False)))
         return cls(
             symbols=list(d.get("symbols", ["SOXL"])),

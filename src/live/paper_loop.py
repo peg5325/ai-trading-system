@@ -18,7 +18,7 @@ from collections import defaultdict
 
 from src.engines.indicator_engine import candles_to_frame, resample
 from src.exits.generator import ExitContext, ExitSignalGenerator, PositionView
-from src.models import MARKET_US, SESSION_OVERNIGHT, SESSION_POST, Candle
+from src.models import Candle, in_eod_flatten_window
 from src.pipeline.models import SystemState
 from src.ai.models import MarketContext
 from src.pnl.models import FillEvent
@@ -165,12 +165,13 @@ class PaperTradingLoop:
 
         # 6) 포트폴리오/EOD flatten/시스템상태 구성
         last_prices = {s: cs[-1].close for s, cs in candles_5m.items() if cs}
-        # 알려진 한계: eod 는 대표(최근) 캔들 1개 기준 전역 플래그다. 단일시장 유니버스에선 정확하나
-        # US/KR 혼합 유니버스에선 종목별 마감창이 아닐 수 있다(현재 운영 config 는 단일시장).
-        eod = self._is_eod_flatten_window(newest_candle)
+        mins_before = self.cfg.exit_config.eod_flatten_minutes_before_close
+        # 포트폴리오 스냅샷/MarketContext 용 대표 eod(최근 캔들 기준, market-correct).
+        # 청산 판단은 아래 _exit_intents 에서 symbol 별 candle 로 개별 계산한다(혼합 유니버스 정확).
+        eod = in_eod_flatten_window(newest_candle, mins_before)
         portfolio = self._portfolio(last_prices, session, eod)
-        # 청산 신호는 매 사이클 평가(SL/TP/Time 은 마감 창 밖에서도 발동, EOD 는 마감 창에서).
-        exit_intents = self._exit_intents(last_prices, newest_candle, eod)
+        # 청산 신호는 매 사이클 평가(SL/TP/Time 은 마감 창 밖에서도 발동, EOD 는 각 시장 마감 창에서).
+        exit_intents = self._exit_intents(candles_5m, newest_candle)
         system_state = SystemState(kill_switch=self.kill_switch)
         market = MarketContext(session=session, is_eod_flatten_window=eod)
 
@@ -243,18 +244,6 @@ class PaperTradingLoop:
             self._session_day = day
             self._calls = 0
 
-    def _is_eod_flatten_window(self, candle) -> bool:
-        # 레버리지 EOD flatten 은 US 종목 정책. KR 등 타 시장은 대상 아님.
-        if candle.market != MARKET_US:
-            return False
-        ts_et, session = candle.ts_exchange, candle.session
-        if session == SESSION_OVERNIGHT:
-            return True
-        if session == SESSION_POST:
-            mins_to_close = self.cfg.extended_close_et_min - (ts_et.hour * 60 + ts_et.minute)
-            return 0 <= mins_to_close <= self.cfg.eod_flatten_before_min
-        return False
-
     def _portfolio(self, last_prices, session, eod):
         from src.risk.models import PortfolioSnapshot, Position
         self.account.mark_equity(last_prices, day_key=None)
@@ -269,10 +258,13 @@ class PaperTradingLoop:
             daily_pnl_pct=self.account.last_daily_return_pct,
             kill_switch=self.kill_switch, session=session, is_eod_flatten_window=eod)
 
-    def _open_positions_view(self, last_prices) -> list[PositionView]:
+    def _open_positions_view(self, candles_5m) -> list[PositionView]:
         """자금관리 계좌(FIFO 롯)를 종목별 PositionView 로 집계.
         진입가는 롯 가중평균, 보유시간은 가장 오래된(FIFO) 롯 기준. account 는 재시작 시
-        journal 로 복원되므로 재시작 후에도 청산 대상 포지션을 정확히 인식한다."""
+        journal 로 복원되므로 재시작 후에도 청산 대상 포지션을 정확히 인식한다.
+        현재가/EOD 창은 **각 종목의 최신 5분봉**에서 개별 계산한다(혼합 유니버스에서 symbol별
+        market 기준으로 마감 판단 — 대표 캔들 하나로 판단하지 않음)."""
+        mins_before = self.cfg.exit_config.eod_flatten_minutes_before_close
         lots_by_sym: dict[str, list] = defaultdict(list)
         for lot in self.account.open_lots():
             lots_by_sym[lot.symbol].append(lot)
@@ -284,21 +276,27 @@ class PaperTradingLoop:
             entry_price = sum(l.quantity * l.entry_price for l in lots) / qty
             entry_times = [l.entry_time for l in lots if l.entry_time is not None]
             oldest_entry = min(entry_times) if entry_times else None
+            cs = candles_5m.get(sym) or []
+            sym_candle = cs[-1] if cs else None
+            current_price = sym_candle.close if sym_candle is not None else entry_price
+            is_eod = in_eod_flatten_window(sym_candle, mins_before) if sym_candle is not None else False
             views.append(PositionView(
                 symbol=sym, quantity=qty, entry_price=entry_price,
-                current_price=last_prices.get(sym, entry_price),
+                current_price=current_price,
                 leverage_factor=leverage_for(sym),
                 entry_time=oldest_entry,
                 # bar_index 는 fill 에 저장되지 않으므로 진입 시각에서 5분봉 인덱스를 유도
                 # (time_exit_bars 가 paper 에서도 동작하도록; 절대시간 기반이라 재시작 안전).
-                entry_bar=_bar_index(oldest_entry)))
+                entry_bar=_bar_index(oldest_entry),
+                is_eod_window=is_eod))          # symbol별 market 마감 창
         return views
 
-    def _exit_intents(self, last_prices, newest_candle, eod):
-        """보유 포지션에 대한 청산 OrderIntent 생성(SL/TP/Time/EOD). AI 우회, Risk→Order 경로."""
-        views = self._open_positions_view(last_prices)
+    def _exit_intents(self, candles_5m, newest_candle):
+        """보유 포지션에 대한 청산 OrderIntent 생성(SL/TP/Time/EOD). AI 우회, Risk→Order 경로.
+        EOD 창은 종목별로 PositionView.is_eod_window 에 담겨 있으므로 ctx 는 시간정보만 전달."""
+        views = self._open_positions_view(candles_5m)
         if not views:
             return []
-        ctx = ExitContext(is_eod_window=eod, now_time=newest_candle.ts_utc,
+        ctx = ExitContext(is_eod_window=False, now_time=newest_candle.ts_utc,
                           now_bar=_bar_index(newest_candle.ts_utc))
         return self.exit_gen.generate_intents(views, ctx)

@@ -29,7 +29,8 @@ ai:
 # ---- 청산 규칙(Exit Signal Generator) — 승인된 추천값 ----
 # 우선순위: STOP_LOSS > TAKE_PROFIT > TIME_EXIT > EOD_FLATTEN
 exits:
-  enable_all_symbols_eod_flatten: true   # 전 종목 세션마감 청산 → 매 세션 closed trade 보장(핵심)
+  enable_all_symbols_eod_flatten: true   # 전 종목 각 시장 정규장 마감 청산(KR 15:30 KST 기준)
+  eod_flatten_minutes_before_close: 10   # 마감 10분 전부터 청산 창(KR 15:20~15:30)
   stop_loss_pct: 0.01                    # -1.0% 손절
   take_profit_pct: 0.015                 # +1.5% 익절
   time_exit_minutes: 60                  # 60분 보유 후 청산(회전율↑)

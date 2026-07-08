@@ -15,7 +15,7 @@ from src.engines.indicator_engine import IndicatorEngine
 from src.exits.generator import ExitConfig, ExitContext, ExitSignalGenerator, PositionView
 from src.live.models import FakeMarketDataProvider, LoopConfig
 from src.live.paper_loop import PaperTradingLoop
-from src.models import ET, Candle
+from src.models import ET, KST, Candle, in_eod_flatten_window
 from src.order.manager import OrderManager
 from src.order.models import InMemoryOrderStore, InMemoryPositionStore
 from src.order.paper_broker import PaperBrokerProvider
@@ -40,8 +40,21 @@ from src.storage.candle_store import CandleStore
 from src.universe.screener import UniverseScreener
 
 
-def pv(entry=100.0, cur=100.0, lev=1, qty=10.0, entry_time=None, entry_bar=None, ema20=None):
-    return PositionView("SOXL", qty, entry, cur, lev, entry_time, entry_bar, ema20)
+def pv(entry=100.0, cur=100.0, lev=1, qty=10.0, entry_time=None, entry_bar=None,
+       ema20=None, eod_win=False):
+    return PositionView("SOXL", qty, entry, cur, lev, entry_time, entry_bar, ema20, eod_win)
+
+
+def _candle(sym, ex_dt, currency, price=100.0):
+    return Candle.from_moment(sym, "5m", ex_dt, price, price, price, price, 1000.0, currency, True)
+
+
+def kr_candle(hh, mm, price=100.0):   # 거래소 로컬(KST) 시각으로 KR 캔들
+    return _candle("005930", datetime(2026, 7, 8, hh, mm, tzinfo=KST), "KRW", price)
+
+
+def us_candle(hh, mm, sym="QQQ", price=100.0):   # 거래소 로컬(ET) 시각으로 US 캔들
+    return _candle(sym, datetime(2026, 7, 8, hh, mm, tzinfo=ET), "USD", price)
 
 
 CTX = ExitContext(is_eod_window=False)
@@ -220,13 +233,72 @@ def _flat_1m(n, start_et, price):
     return out
 
 
+# ================= EOD flatten 창: market별 정규장 마감 기준 =================
+def test_eod_window_kr_regular_close():
+    # KR 정규장 마감 15:30 KST, 창 10분 → 15:20~15:30 발동, 15:10 미발동
+    assert in_eod_flatten_window(kr_candle(15, 20), 10) is True   # 마감 10분 전
+    assert in_eod_flatten_window(kr_candle(15, 25), 10) is True   # 마감 5분 전
+    assert in_eod_flatten_window(kr_candle(15, 10), 10) is False  # 마감 20분 전 → 미발동
+
+
+def test_eod_window_us_regular_close():
+    # US 정규장 마감 16:00 ET, 창 10분 → 15:50~16:00 발동, 15:40 미발동
+    assert in_eod_flatten_window(us_candle(15, 50), 10) is True
+    assert in_eod_flatten_window(us_candle(15, 55), 10) is True
+    assert in_eod_flatten_window(us_candle(15, 40), 10) is False
+
+
+def test_eod_window_us_afterhours_compat():
+    # 기존 US 애프터마켓(20:00 ET)/OVERNIGHT 정책 호환 유지
+    assert in_eod_flatten_window(us_candle(19, 55), 10) is True   # POST, 20:00 ET 5분 전
+    assert in_eod_flatten_window(us_candle(2, 0), 10) is True     # OVERNIGHT 상시
+
+
+def test_eod_window_configurable_minutes():
+    assert in_eod_flatten_window(kr_candle(15, 10), 20) is True   # N=20 이면 15:10도 창
+    assert in_eod_flatten_window(kr_candle(15, 10), 5) is False
+
+
+def test_eod_disabled_non_leverage_when_all_symbols_off():
+    # enable_all_symbols_eod_flatten=false → 비레버리지는 마감창이어도 미발동
+    g = ExitSignalGenerator(ExitConfig(enable_all_symbols_eod_flatten=False))
+    assert g.evaluate(pv(lev=1, eod_win=True), CTX) is None
+
+
+def test_eod_leverage_still_flattens_when_all_symbols_off():
+    # leverage_eod_flatten=true 는 기존 동작 유지(레버리지는 마감창에서 발동)
+    g = ExitSignalGenerator(ExitConfig(enable_all_symbols_eod_flatten=False, leverage_eod_flatten=True))
+    assert g.evaluate(pv(lev=3, eod_win=True), CTX) == EOD_FLATTEN
+
+
+def test_mixed_universe_per_symbol_eod(tmp_path):
+    """혼합 유니버스: KR/US 각각 자기 시장 close 기준으로 EOD 판단(대표 캔들 하나로 판단 안 함)."""
+    cfg = LoopConfig(universe=("005930", "QQQ"),
+                     exit_config=ExitConfig(enable_all_symbols_eod_flatten=True))
+    lp = PaperTradingLoop(FakeMarketDataProvider({}), CandleStore(tmp_path / "m.sqlite"),
+                          None, InMemoryPositionStore(), cfg, sleep=lambda s: None)
+    lp.account.apply_fill(FillEvent("005930", BUY, 10.0, 100.0))
+    lp.account.apply_fill(FillEvent("QQQ", BUY, 10.0, 100.0))
+
+    # (A) KR 마감창(15:25 KST) + US 마감창 밖(11:00 ET) → KR만 EOD
+    kr_in, us_out = kr_candle(15, 25), us_candle(11, 0)
+    kinds = {i.symbol: i.kind for i in lp._exit_intents({"005930": [kr_in], "QQQ": [us_out]}, kr_in)}
+    assert kinds.get("005930") == EOD_FLATTEN and "QQQ" not in kinds
+
+    # (B) 반대: US 마감창(15:55 ET) + KR 마감창 밖(11:00 KST) → US만 EOD
+    kr_out, us_in = kr_candle(11, 0), us_candle(15, 55)
+    kinds = {i.symbol: i.kind for i in lp._exit_intents({"005930": [kr_out], "QQQ": [us_in]}, us_in)}
+    assert kinds.get("QQQ") == EOD_FLATTEN and "005930" not in kinds
+
+
 def test_time_exit_bars_fires_in_paper_loop(tmp_path):
-    """time_exit_bars 가 paper 경로에서 타임스탬프 유도 5분봉 인덱스로 실제 발동하는지."""
+    """time_exit_bars 가 paper 경로에서 타임스탬프 유도 5분봉 인덱스로 실제 발동하는지.
+    EOD 창과 무관하도록 US REGULAR 중간 시간대(11:00 ET~) 사용."""
     cfg = LoopConfig(universe=("SOXL",), exit_config=ExitConfig(time_exit_bars=12))
     lp = PaperTradingLoop(FakeMarketDataProvider({"SOXL": []}),
                           CandleStore(tmp_path / "m.sqlite"), None,
                           InMemoryPositionStore(), cfg, sleep=lambda s: None)
-    t0 = datetime(2026, 7, 8, 0, 0, tzinfo=timezone.utc)
+    t0 = datetime(2026, 7, 8, 15, 0, tzinfo=timezone.utc)   # 11:00 ET (REGULAR, 마감창 밖)
     lp.account.apply_fill(FillEvent("SOXL", BUY, 10.0, 100.0, timestamp=t0, bar_index=0))
 
     def bar_at(mins):
@@ -234,10 +306,12 @@ def test_time_exit_bars_fires_in_paper_loop(tmp_path):
                                   100.0, 100.0, 100.0, 100.0, 1000.0, "USD", True)
 
     # 12봉(60분) 경과 → TIME_EXIT 발동
-    intents = lp._exit_intents({"SOXL": 100.0}, bar_at(60), eod=False)
+    now = bar_at(60)
+    intents = lp._exit_intents({"SOXL": [now]}, now)
     assert len(intents) == 1 and intents[0].kind == TIME_EXIT
     # 11봉(55분) 경과 → 미발동
-    assert lp._exit_intents({"SOXL": 100.0}, bar_at(55), eod=False) == []
+    b55 = bar_at(55)
+    assert lp._exit_intents({"SOXL": [b55]}, b55) == []
 
 
 def test_stop_loss_closed_trade_end_to_end(tmp_path):

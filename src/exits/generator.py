@@ -38,6 +38,7 @@ class ExitConfig:
     time_exit_minutes: float | None = None  # N분 보유 후 청산(진입/현재 timestamp 필요)
     enable_all_symbols_eod_flatten: bool = False   # True: 전 종목 세션마감 청산(Paper 검증용)
     leverage_eod_flatten: bool = True     # 레버리지 ETF(>1x)는 세션마감 청산(보수적 기본)
+    eod_flatten_minutes_before_close: int = 10   # 마감 몇 분 전부터 청산 창을 여는지(market별 close 기준)
     exit_on_trend_break: bool = False     # close < ema20 → 청산(선택; backtest 패리티)
 
 
@@ -52,6 +53,7 @@ class PositionView:
     entry_time: datetime | None = None
     entry_bar: int | None = None
     ema20: float | None = None       # 선택: trend break 판정용
+    is_eod_window: bool = False      # 이 종목(market)의 마감 청산 창 여부 — symbol별 주입(혼합 유니버스 정확)
 
 
 @dataclass(frozen=True)
@@ -121,7 +123,8 @@ class ExitSignalGenerator:
         reason = self.evaluate_signal(pos, ctx)
         if reason is not None:
             return reason
-        if ctx.is_eod_window and self.eod_applies(pos.leverage_factor):
+        # EOD 창은 symbol별(pos.is_eod_window, 혼합 유니버스 정확) 또는 컨텍스트(ctx) 중 하나로 판단.
+        if (pos.is_eod_window or ctx.is_eod_window) and self.eod_applies(pos.leverage_factor):
             return EOD_FLATTEN
         return None
 

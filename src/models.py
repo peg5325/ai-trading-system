@@ -58,6 +58,36 @@ def classify_session(ts_exchange: datetime, market: str = MARKET_US) -> str:
     return SESSION_OVERNIGHT
 
 
+# 정규장 마감 시각(거래소 로컬, 분): KR 15:30 KST / US 16:00 ET
+_REGULAR_CLOSE_MIN = {MARKET_US: 16 * 60, MARKET_KR: 15 * 60 + 30}
+# US 애프터마켓 마감(기존 레버리지 EOD 정책 호환): 20:00 ET
+_US_EXT_CLOSE_MIN = 20 * 60
+
+
+def in_eod_flatten_window(candle: "Candle", minutes_before_close: int) -> bool:
+    """이 candle 이 그 market 의 마감 청산 창(마감 N분 전 ~ 마감)에 있는가 — market/tz 별 판단.
+
+    - REGULAR: 각 시장 정규장 마감 기준(KR 15:30 KST / US 16:00 ET) N분 전 창.
+    - US POST/OVERNIGHT: 기존 레버리지 EOD 정책 호환(20:00 ET N분 전 창, OVERNIGHT 상시).
+    혼합 유니버스에서 symbol 별 candle 로 개별 판단하기 위한 순수 함수(현재시각/난수 미사용).
+    """
+    market = candle.market
+    ts = candle.ts_exchange
+    mod = ts.hour * 60 + ts.minute
+    # 1) 정규장 마감 창 (KR/US 공통, 각 시장 close time 기준)
+    if candle.session == SESSION_REGULAR:
+        close_min = _REGULAR_CLOSE_MIN.get(market)
+        if close_min is not None and 0 <= (close_min - mod) <= minutes_before_close:
+            return True
+    # 2) US 애프터마켓/심야 (기존 레버리지 정책 호환)
+    if market == MARKET_US:
+        if candle.session == SESSION_OVERNIGHT:
+            return True
+        if candle.session == SESSION_POST and 0 <= (_US_EXT_CLOSE_MIN - mod) <= minutes_before_close:
+            return True
+    return False
+
+
 @dataclass(frozen=True)
 class Candle:
     symbol: str

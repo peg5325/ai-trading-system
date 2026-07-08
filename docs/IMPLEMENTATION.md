@@ -391,14 +391,19 @@ Paper Trading 이 **고정 계좌값이 아니라 실제 자금관리**로 성�
 - 사유는 곧 `OrderIntent.kind`(`STOP_LOSS`/`TAKE_PROFIT`/`TIME_EXIT`/`EOD_FLATTEN`, `RISK_REDUCING`에 포함)
   → journal→FIFO 로 `RealizedTrade.exit_reason` 자동 전파. RiskManager 가 risk-reducing 으로 허용
   (kill switch 에도), 보유수량으로 clamp. 청산 대상 포지션은 `PortfolioAccount`(FIFO, entry_time·재시작복원)에서 소스.
+- **EOD flatten(마감 청산)은 market별 정규장 마감 기준**(`models.in_eod_flatten_window`): KR 15:30 KST /
+  US 16:00 ET 의 `eod_flatten_minutes_before_close` 분 전부터 창을 연다. US 애프터마켓(20:00 ET)/OVERNIGHT
+  는 기존 레버리지 정책 호환으로 유지. **혼합 유니버스에서 symbol별 candle(자기 market)로 개별 판단**
+  (대표 캔들 하나로 판단하지 않음 — `PositionView.is_eod_window`).
 - **설정(yaml `exits:` 섹션)** — 섹션이 없으면 보수적 기본(전종목 EOD off, SL/TP off, leverage EOD on):
 ```yaml
 exits:
-  enable_all_symbols_eod_flatten: true   # 전 종목 세션마감 청산(Paper 검증: closed trade 보장)
+  enable_all_symbols_eod_flatten: true   # 전 종목 각 시장 정규장 마감 청산(레버리지 무관)
+  eod_flatten_minutes_before_close: 10   # 마감 N분 전부터 창(KR 15:20~15:30 / US 15:50~16:00 ET)
   stop_loss_pct: 0.01                    # -1.0% 손절 (0/미설정=끔)
   take_profit_pct: 0.015                 # +1.5% 익절 (0/미설정=끔)
   time_exit_minutes: 60                  # N분 보유 후 청산 (time_exit_bars 도 지원)
-  leverage_eod_flatten: true             # 레버리지 ETF(>1x) 당일청산
+  leverage_eod_flatten: true             # 레버리지 ETF(>1x) 당일청산(기존 정책 유지)
 ```
 - 검증용 config: `config/runtime_krx_exit_test.yaml`, `config/runtime_us_exit_test.yaml`.
 - backtest 는 동일 generator 로 리팩터(engine.py) — 마감봉 EOD 는 close 체결, 신호청산은 next-open 로 기존 타이밍 보존(리팩터 전후 golden-diff 일치).
