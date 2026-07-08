@@ -108,10 +108,65 @@ Canonical Candle은 `market` 필드로 시장을 구분하고, 세션/타임존�
 
 혼합 유니버스에서 한 시장의 세션이 다른 시장 종목에 적용되지 않는다.
 
+## Module Guide
+
+`src/` 하위 각 폴더에 README.md 가 있다. 폴더 단위 역할·입출력·**금지사항**·테스트 위치를 담았다.
+(계층별 사용법과 구현 현황은 [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) 참고)
+
+### 데이터 → 판단 → 실행
+
+| 모듈 | 역할 | 핵심 금지사항 |
+|---|---|---|
+| [providers](src/providers/README.md) | Toss 시세 fetch + Canonical 변환 | 지표 계산 금지, 주문 메서드 금지 |
+| [storage](src/storage/README.md) | CandleStore (SQLite) | 지표 컬럼 저장 금지 |
+| [ingest](src/ingest/README.md) | 과거 캔들 백필 | 주문 금지, rate-limit 가드 제거 금지 |
+| [engines](src/engines/README.md) | IndicatorEngine (EMA/RSI/VWAP/BB/StochRSI) | Provider 접근 금지, 미완결 봉 사용 금지 |
+| [universe](src/universe/README.md) | UniverseScreener (후보 선별) | AI 가 종목 직접 선정 금지, 최종 BUY 금지 |
+| [ai](src/ai/README.md) | AIDecisionEngine (진입 필터) | **AI 가 청산 판단 금지**, 주문 실행 금지 |
+| [risk](src/risk/README.md) | RiskManager (최종 게이트) | **RiskManager 가 Broker 호출 금지**, 청산 차단 금지 |
+| [exits](src/exits/README.md) | ExitSignalGenerator (SL/TP/Time/EOD) | AI 관여 금지, 우선순위 변경 금지 |
+| [order](src/order/README.md) | OrderManager + PaperBroker | `risk_decision.allowed` 없이 브로커 호출 금지, 실주문 금지 |
+| [reconcile](src/reconcile/README.md) | 내부 vs 브로커 정합성 대조 | 상태 변경 금지 · ⚠️ 현재 미배선 |
+
+### 오케스트레이션 · 운영
+
+| 모듈 | 역할 | 핵심 금지사항 |
+|---|---|---|
+| [pipeline](src/pipeline/README.md) | TradingPipeline (한 사이클) | 비즈니스 로직 금지, 청산에 AI 태우기 금지 |
+| [live](src/live/README.md) | PaperTradingLoop (5분봉 마감마다) | 실주문 금지, 미완결 봉 거래 금지 |
+| [runtime](src/runtime/README.md) | PaperRuntime (상태/헬스/복구/리포트) | 주문 금지, 관측 실패로 매매 중단 금지 |
+| [cli](src/cli/README.md) | inspect CLI (조회 전용) | 쓰기 금지 (`mode=ro` + `query_only`) |
+
+### 성과 · 회고 루프
+
+| 모듈 | 역할 | 핵심 금지사항 |
+|---|---|---|
+| [pnl](src/pnl/README.md) | 실현손익 단일 엔진 (FIFO) | 두 번째 손익 계산기 금지, 불변식 파괴 금지 |
+| [portfolio](src/portfolio/README.md) | PortfolioAccount (현금/포지션/성과) | 자체 PnL 매칭 금지, 성과 산식 변경 금지 |
+| [backtest](src/backtest/README.md) | BacktestEngine + ExecutionModel | look-ahead 금지, 신호봉 종가 체결 금지 |
+| [journal](src/journal/README.md) | TradingJournal (감사 로그) | 매매 판단 금지, 주문 없는 사이클 누락 금지 |
+| [replay](src/replay/README.md) | ReplaySystem (cycle 재생) | **상태 변경 금지**, look-ahead 금지 |
+| [review](src/review/README.md) | AIReviewEngine (전략 회고 + 개선 제안) | 주문 금지, strategy 자동 수정 금지 |
+| [system_review](src/system_review/README.md) | 운영 품질 회고 (A–F 등급) | 전략 평가 금지, Rule Engine 영향 금지 |
+| [dataset](src/dataset/README.md) | AI 학습 데이터셋 빌더 | 원본 변경 금지, look-ahead 금지 |
+
+### 권한의 순서 (전 계층에서 중복 강제)
+
+```
+AI 는 자문 → RiskManager 가 결정 → OrderManager 가 실행 → Broker 가 체결
+청산은 AI 를 완전히 우회한다.
+```
+
+- `src/ai/engine.py` 는 브로커에 닿을 수 없다 (import 자체가 없음).
+- `src/order/manager.py:41` — `risk_decision.allowed` 가 False 면 브로커를 호출하지 않는다.
+- `src/risk/risk_manager.py:81` — `RISK_REDUCING` 주문은 모든 차단 검사보다 먼저 통과한다.
+  **kill switch 가 켜져 있어도 탈출은 가능하다.**
+
 ## 문서
 
 - **설계**: [docs/design/](docs/design/) — 01~15 + `FEASIBILITY_SPIKE.md`, `design_overview.html`
 - **구현 현황 / 계층별 사용법**: [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md)
+- **모듈별 상세**: 위 [Module Guide](#module-guide)
 
 ## 상태
 
