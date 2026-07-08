@@ -36,8 +36,9 @@ src/config.py ──► providers ──► src/models.py (Candle)
 
 ## 5. 절대 하면 안 되는 것
 
-- ❌ **지표를 계산하지 않는다.** 도크스트링 그대로: *"지표 계산/판단은 여기 없다. 오직 Toss 응답 → Canonical 변환만."*
-- ❌ **주문 메서드를 두지 않는다.** *"읽기 전용. 주문 메서드는 여기 없다."* 주문은 `src/order/` 의 `BrokerProvider` 책임.
+- ❌ **지표를 계산하지 않는다.** `toss_market_data.py:3`: *"지표 계산/판단은 여기 없다. 오직 Toss 응답 -> Canonical 변환만."*
+- ❌ **주문 메서드를 두지 않는다.** `toss_client.py:6`: *"읽기 전용. 주문 메서드는 여기 없다."*
+  주문은 `src/order/` 의 `BrokerProvider` 책임.
 - ❌ 종목 선별·매매 판단 금지. Provider 는 fetch/변환만 한다.
 - ❌ Provider 원시 dict 를 상위 계층으로 흘려보내지 말 것 — 경계에서 반드시 `Candle` 로 변환한다.
 

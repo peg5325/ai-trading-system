@@ -40,8 +40,9 @@ initial_capital, final_equity`.
 - ❌ **계좌가 자체 PnL 매칭을 구현하지 않는다.** 반드시 `FifoMatcher` 를 재사용한다(`account.py:4`).
 - ❌ **계좌는 가격을 모른다.** 평가금액·미실현손익은 항상 주입된 `marks` 로만 계산하고,
   누락 심볼은 `avg_price`/`entry_price` 로 폴백한다.
-- ❌ **`performance_summary` 의 산식을 바꾸지 않는다.** *"BacktestEngine._metrics 의 원래 산식과
-  정확히 일치해야 한다"*(`performance.py:5`) — backtest/paper 성과 비교가 무의미해진다.
+- ❌ **`performance_summary` 의 산식을 바꾸지 않는다.** `performance.py:5`:
+  *"BacktestEngine._metrics 의 기존 공식과 수치가 정확히 일치해야 한다(parity)."*
+  깨지면 backtest/paper 성과 비교가 무의미해진다.
 - ❌ 현재 시각·난수 사용 금지. 상태는 `FillEvent` 적용 순서의 순수 함수다
   (`test_from_fills_rebuild_equals_sequential_applies` 가 고정).
 

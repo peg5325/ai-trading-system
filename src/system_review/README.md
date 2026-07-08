@@ -31,7 +31,17 @@
 - `SystemReviewConfig(prompt_version="system_review_v1", temperature=0.0, timeout_s=20.0)` — `engine.py:54`
 - `build_window_summary(metrics_store, journal_store, *, start=None, end=None) -> dict` — `window.py:13`
 
-## 4. `review` 와 무엇이 다른가
+## 4. 다른 모듈과의 관계
+
+`src/` 에서 유일하게 import 하는 것은 `src.ai.models`(예외 타입 3개)뿐이다.
+`MetricsStore` / `JournalStore` 는 **duck-typed 로 주입**받으므로 `runtime`·`journal` 패키지에
+소스 레벨 의존이 없다.
+
+**이 모듈을 import 하는 `src/` 모듈은 없다.** 소비자는 `scripts/system_review.py`(실행)와
+`src/cli/inspect.py`(`system-review` 서브커맨드가 DB 를 read-only 로 직접 조회)다.
+`src/review/` 와도 소스 레벨 import 의존이 **양방향 모두 없다**(테스트에서만 `FakeReviewProvider` 를 공유).
+
+### `review` 와 무엇이 다른가
 
 | | `src/review/` | `src/system_review/` |
 |---|---|---|

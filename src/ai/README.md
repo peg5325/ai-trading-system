@@ -27,7 +27,7 @@ low confidence / dry_run / 호출한도 초과 → **전부 `WAIT`**. AI 가 죽
 
 ## 4. 다른 모듈과의 관계
 
-`src/` 의 **어떤 모듈도 import 하지 않는다** (의도된 leaf — 브로커에 닿을 수 없다).
+**`src/ai` 바깥의 어떤 모듈도 import 하지 않는다** (의도된 leaf — 브로커에 닿을 수 없다).
 사용처: `src/pipeline/pipeline.py`, `src/live/paper_loop.py`(`MarketContext`), `src/runtime/metrics.py`,
 `src/review/engine.py`, `src/system_review/engine.py`.
 

@@ -19,8 +19,21 @@
 - `.tick() -> CycleReport` — `paper_loop.py:111` (폴링 1회 — 테스트는 이걸 직접 부른다)
 - `.run() -> None` — `paper_loop.py:104` (tick 루프, `sleep` 주입 가능)
 - `.stop() / .pause() / .resume() / .set_kill_switch(on)` — `:99-102`
-- `LoopConfig` — `models.py:35`: `universe=("SOXL",), recent_1m_count=200, polling_interval_s=20.0,
-  eod_flatten_before_min=10, initial_capital=100_000.0, max_positions=2, exit_config=ExitConfig()`
+- `LoopConfig` (frozen) — `models.py:35`, 전체 11개 필드:
+  ```python
+  universe=("SOXL",)              # 대상 종목
+  account_value=100_000.0         # ⚠️ paper_loop 에서 읽히지 않음(아래 참조)
+  recent_1m_count=200             # Toss candles API 최대 count
+  polling_interval_s=20.0
+  fetch_spacing_s=0.0             # 종목간 시세 호출 간격(429 완화, 0=끔)
+  max_calls_per_session=None      # 세션당 API 호출 상한
+  eod_flatten_before_min=10
+  extended_close_et_min=20*60     # 20:00 ET (애프터마켓 마감)
+  initial_capital=100_000.0       # PortfolioAccount 초기자본
+  max_positions=2                 # ⚠️ paper_loop 에서 읽히지 않음(아래 참조)
+  exit_config=ExitConfig()        # 청산 규칙(SL/TP/Time/EOD)
+  ```
+  `fetch_spacing_s` / `max_calls_per_session` 은 **Toss API rate-limit 가드**다. 함부로 0/None 으로 두지 말 것.
 - `frame_to_candles(df, symbol) -> list[Candle]` — `:55` (`src/replay/system.py` 도 재사용)
 
 ### 생존 우선 설계
@@ -46,7 +59,7 @@
 > ⚠️ 알려진 한계:
 > - `eod` 는 대표 캔들 하나에서 뽑는 **전역 플래그**(`:168-169`) — 단일 시장 유니버스에서만 정확하고,
 >   US/KR 혼합에서는 부정확하다.
-> - EOD flatten 은 US 전용(`_is_eod_flatten_window` 가 `MARKET_US` 가 아니면 False, `:247`).
+> - EOD flatten 은 US 전용(`_is_eod_flatten_window` 가 `MARKET_US` 가 아니면 False, `:248`).
 > - `LoopConfig.account_value` / `max_positions` 는 이 파일에서 읽히지 않는다
 >   (계좌는 `initial_capital`, `max_positions` 는 `run_paper.py` 가 `RiskConfig` 로 넘긴다).
 

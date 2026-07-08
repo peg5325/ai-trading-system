@@ -21,7 +21,8 @@ Provider 나 Broker 에는 절대 닿지 않는다.
 - `.run(candles, symbol, leverage_factor=1, entry_strategy=None) -> BacktestReport` — `engine.py:68`
 - `.run_in_out(candles, symbol, leverage_factor=1, ratio=0.7, entry_strategy=None)` — `engine.py:220`
 - `.walk_forward(...)` — `engine.py:227`, **`NotImplementedError`** (예약)
-- `ExecutionModel(slippage_bps=5.0, fee_bps=2.0).execute(qty, ref_price, side) -> Fill` — `execution.py:20`
+- `ExecutionModel(slippage_bps=5.0, fee_bps=2.0)` — `execution.py:21`;
+  `.execute(requested_qty, ref_price, side) -> Fill` — `execution.py:32`
 - `BacktestConfig` (frozen) — `models.py:55`: `initial_capital=100_000.0, entry_notional_pct=0.05,
   stop_loss_pct=0.03, take_profit_pct=None, exit_on_trend_break=True, leverage_eod_flatten=True,
   allow_overnight_non_leverage=True, min_trades=100, execution=ExecutionModel(), risk=RiskConfig()`

@@ -66,5 +66,5 @@ Paper 루프가 같은 파일에 쓰는 **가동 중에도 안전하게** 조회
 
 ## 7. 테스트
 
-`tests/test_inspect_cli.py` (22개). 실제 Store 로 임시 DB 를 시딩한 뒤 닫고, read-only reader 로 읽는다.
+`tests/test_inspect_cli.py`. 실제 Store 로 임시 DB 를 시딩한 뒤 닫고, read-only reader 로 읽는다.
 ⚠️ `read_pnl` 은 import/테스트되지 않아 `pnl` 서브커맨드 경로가 미커버 상태다.

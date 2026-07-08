@@ -53,7 +53,7 @@ OrderIntent → (RiskManager) → OrderRequest → BrokerProvider → BrokerOrde
 - ❌ **AI 를 import 하지 않는다.** `OrderManager` 는 AI 의 존재를 모른다. AI→Risk 순서는 `src/pipeline` 이 강제한다.
 - ❌ **`risk_decision.allowed` 없이 브로커를 호출하지 않는다.** 도크스트링: *"RiskDecision.allowed=True 인
   주문만 브로커로 전달 (AI 승인만으로는 불가)."* AI 의 `APPROVE_ENTRY` 하나로는 아무 일도 일어나지 않는다.
-- ❌ **여기서 리스크를 재판정하지 않는다.** *"kill switch 등은 RiskManager 가 판단 → 여긴 allowed 만 신뢰."*
+- ❌ **여기서 리스크를 재판정하지 않는다.** `manager.py:8`: *"kill switch 등은 RiskManager 가 판단 → 여기선 allowed 만 신뢰"*
   그래서 kill switch 하에서도 RiskManager 가 허용한 EXIT / EOD_FLATTEN 은 실행된다.
 - ❌ **`TossBrokerProvider` 로 실주문을 붙이지 않는다.** *"실주문은 Paper Trading 통과 후 승인 단계에서 구현합니다."*
   현재 `place_order()` 는 `NotImplementedError` 이며 **참조하는 코드가 하나도 없다.**

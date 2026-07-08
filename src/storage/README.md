@@ -14,8 +14,8 @@ Canonical `Candle` 의 SQLite 저장/조회. 설계 `08_Database` 의 `candle` �
 
 스키마: 테이블 `candle`, PK `(symbol, interval, ts_utc)`. `ts_utc` 는 ISO8601 UTC TEXT.
 
-> ⚠️ `market` 은 컬럼이 아니다. 조회 시 `market_from_currency(currency)` 로 복원하고,
-> `ts_exchange` 도 `ts_utc` 에서 재계산한다 (`candle_store.py:123`).
+> ⚠️ `market` 은 컬럼이 아니다. 조회 시 `market_from_currency(currency)` 로 복원하고
+> (`candle_store.py:123`), `ts_exchange` 도 저장값이 아니라 `ts_utc` 에서 재계산한다 (`:126`).
 
 ## 3. 주요 클래스/함수
 

@@ -32,7 +32,7 @@
 - `summarize(trades, open_lots=None) -> PnlSummary` — `metrics.py:13`
 - `realized_from_journal(journal, *, symbol=None, start=None, end=None, bar_minutes=5.0)` — `journal_pnl.py:58`
 
-## 4. 핵심 불변식
+### 핵심 불변식
 
 ```
 net_pnl == gross_pnl - slippage - commission
@@ -43,16 +43,18 @@ net_pnl == (exit_price - entry_price) * quantity - commission
 `ref_price is None` 이면 `ref := price` → `slippage == 0`.
 `realized_pnl` 은 `net_pnl` 의 별칭(`models.py:48`).
 
-## 5. 다른 모듈과의 관계
+## 4. 다른 모듈과의 관계
 
 `src/risk/models.py` 의 `BUY`/`SELL` 상수만 import 하는 **최하위 leaf**.
 사용처(가장 넓은 fan-in): `backtest/engine.py`, `portfolio/account.py`, `live/paper_loop.py`,
 `cli/inspect.py`, `replay/system.py`, `runtime/paper_runtime.py`.
 
-`FifoMatcher` 가 프로덕션에서 인스턴스화되는 곳은 **정확히 3곳** — backtest / portfolio / journal.
+`FifoMatcher` 를 프로덕션에서 생성하는 **외부 호출자는 3곳뿐**이다 —
+`backtest/engine.py:92`, `portfolio/account.py:42`, `pnl/journal_pnl.py:63`
+(그 외에는 모듈 자체 편의함수 `fifo.py:127` 의 `match_fills` 내부 생성).
 "단일 엔진"은 구호가 아니라 사실이다.
 
-## 6. 절대 하면 안 되는 것
+## 5. 절대 하면 안 되는 것
 
 - ❌ **두 번째 손익 계산기를 만들지 않는다.** 어떤 모듈도 자체 PnL 산식을 갖지 않는다.
 - ❌ **불변식을 깨지 않는다.** `net_pnl == gross_pnl - slippage - commission` 은 테스트로 고정돼 있다.
@@ -61,7 +63,7 @@ net_pnl == (exit_price - entry_price) * quantity - commission
 - ❌ 초과 매도를 예외로 처리하지 않는다 — 감사용으로 `unmatched_sells` 에 방어적으로 기록한다(`fifo.py:118`).
 - ❌ 부분청산 시 SELL 당 1건이 아니라 **lot 매칭 단위마다** `RealizedTrade` 가 생긴다는 점을 잊지 말 것.
 
-## 7. 사용 예시
+## 6. 사용 예시
 
 ```python
 from src.pnl.fifo import FifoMatcher
@@ -80,7 +82,7 @@ summary = summarize(m.trades, m.open_lots())
 
 조회: `./.venv/bin/python scripts/inspect_cli.py pnl`
 
-## 8. 테스트
+## 7. 테스트
 
 `tests/test_pnl.py` — 부분청산, FIFO 순서, 수수료 배분, 슬리피지 분해 + 불변식,
 `ref_price=None`, 방어적 초과매도, `summarize`, 결정론, `realized_from_journal`.

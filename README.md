@@ -157,10 +157,11 @@ AI 는 자문 → RiskManager 가 결정 → OrderManager 가 실행 → Broker 
 청산은 AI 를 완전히 우회한다.
 ```
 
-- `src/ai/engine.py` 는 브로커에 닿을 수 없다 (import 자체가 없음).
+- `src/ai/engine.py` 는 브로커에 닿을 수 없다 (`src/ai` 바깥을 import 하지 않음).
 - `src/order/manager.py:41` — `risk_decision.allowed` 가 False 면 브로커를 호출하지 않는다.
-- `src/risk/risk_manager.py:81` — `RISK_REDUCING` 주문은 모든 차단 검사보다 먼저 통과한다.
-  **kill switch 가 켜져 있어도 탈출은 가능하다.**
+- `src/risk/risk_manager.py:81` — `RISK_REDUCING` 주문은 kill switch·일일손실·drawdown 검사보다
+  먼저 통과한다. **kill switch 가 켜져 있어도 탈출은 가능하다.**
+  (단 `quantity/price` 유효성 검사 `:77-78` 는 그보다 선행한다.)
 
 ## 문서
 

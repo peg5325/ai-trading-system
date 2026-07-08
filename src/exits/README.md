@@ -32,15 +32,16 @@ STOP_LOSS > TAKE_PROFIT > TIME_EXIT > (TREND_BREAK) > EOD_FLATTEN
 ## 4. 다른 모듈과의 관계
 
 `src/risk/models.py` 만 import (상수 + `OrderIntent`).
-사용처: `src/live/paper_loop.py`, `src/backtest/engine.py`, `src/runtime/config.py`.
+사용처: `src/live/paper_loop.py`, `src/live/models.py`(`LoopConfig.exit_config` 기본값),
+`src/backtest/engine.py`, `src/runtime/config.py`.
 
 생성된 청산은 `RISK_REDUCING` 주문이므로 **기존 RiskManager → OrderManager → Broker 경로를 그대로 재사용**한다.
 청산 전용 실행 배선이 따로 없는 이유다.
 
 ## 5. 절대 하면 안 되는 것
 
-- ❌ **AI 는 청산에 절대 관여하지 않는다.** 도크스트링: *"청산은 순수 결정론 코드(현재 시각/난수 미사용)."*
-  `src/ai` import 금지.
+- ❌ **AI 는 청산에 절대 관여하지 않는다.** `generator.py:4-5`: *"AI 는 청산에 절대 관여하지 않는다.
+  청산은 순수 결정론 코드(현재 시각/난수 미사용; 판단은 주입된 스냅샷 필드에만 의존)."* `src/ai` import 금지.
 - ❌ **현재 시각을 직접 읽지 않는다.** `ExitContext.is_eod_window` 등은 호출자가 market-correct 하게 주입한다.
 - ❌ **우선순위를 바꾸지 않는다.** 손절이 익절보다 항상 먼저다.
 - ❌ **사유 문자열(kind 상수)의 이름을 바꾸지 않는다.** 사유는 곧 `OrderIntent.kind` 이고,

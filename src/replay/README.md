@@ -24,7 +24,11 @@
 ## 4. 다른 모듈과의 관계
 
 `src/engines/indicator_engine`(`candles_to_frame`, `resample`) 을 import.
-`src/pnl/journal_pnl` 과 `src/live/paper_loop.frame_to_candles` 는 **lazy import**(순환 회피).
+`src/pnl/journal_pnl`(`:87`)과 `src/live/paper_loop.frame_to_candles`(`:103`)는 **함수 안에서 lazy import** 한다.
+`paper_loop` 를 최상위에서 import 하면 `src.pipeline.models` 가 전이적으로 딸려 들어와
+`system.py:5` 의 *"TradingPipeline 과 완전히 분리(파이프라인 미import)"* 불변식이 깨진다.
+(순환 import 는 없다 — `pnl`/`live` 모두 `replay` 를 import 하지 않는다.)
+
 사용처: `src/review/batch_runner.py`(duck-typed 주입), `scripts/run_reviews.py`.
 
 ## 5. 절대 하면 안 되는 것

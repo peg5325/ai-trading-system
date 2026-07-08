@@ -34,7 +34,9 @@
 
 ## 5. 절대 하면 안 되는 것
 
-- ❌ **Provider 에 접근하지 않는다.** 도크스트링: *"Provider 에 직접 접근하지 않는다. 입력은 pandas Series/DataFrame 뿐."*
+- ❌ **Provider 에 접근하지 않는다.**
+  `indicators.py:3`: *"Provider 에 접근하지 않는다. 입력은 pandas Series/DataFrame 뿐."*
+  `indicator_engine.py:4`: *"Provider 에 직접 접근하지 않는다."*
 - ❌ **진행 중(미완결) 캔들을 쓰지 않는다.** `resample` 은 마지막 부분 버킷을 버린다(`drop_partial=True`).
   이걸 끄면 look-ahead 가 생긴다.
 - ❌ backtest 전용 / live 전용 지표 분기 금지 — 두 경로가 갈라지는 순간 백테스트가 거짓말을 한다.

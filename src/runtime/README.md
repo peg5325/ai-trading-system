@@ -45,7 +45,7 @@
   모두 catch 후 로깅만 하고 넘어간다 (`paper_runtime.py:139`, `:278`, `:291`).
 - ❌ **`status.json` 을 직접 덮어쓰지 않는다.** 임시파일 + `os.replace` 로 원자적으로 쓴다(`:195-198`).
 - ❌ **`position_store` 를 실현손익의 원천으로 삼지 않는다.** `_paper_pnl()` 은 `loop.account`
-  (`PortfolioAccount`, FIFO)를 읽는다 — *"position_store 와의 desync 방지"* (`:201`).
+  (`PortfolioAccount`, FIFO)를 읽는다 — *"position_store 와의 desync 방지"* (`:202`).
 - ❌ 코어에 현재 시각을 박지 않는다. `created_at` 은 `now_iso` 로 주입한다.
 
 > `RuntimeMetrics` 는 **누적 총합**, `metric_cycle` 행은 **사이클 delta**(`cycle_delta(before, after)`).
