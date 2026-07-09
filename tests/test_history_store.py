@@ -24,6 +24,30 @@ def _row(sym="005930", ts="2026-07-07T00:00:00+00:00", tx="2026-07-07T09:00:00+0
     return (sym, "1m", ts, tx, session, close, close + 10, close - 10, close, 100.0, cur, adj)
 
 
+def _make_variant_db(path):
+    """candle 테이블에 컬럼이 빠진 변형 스키마(구버전 모사)."""
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE candle (symbol TEXT, interval TEXT, ts_utc TEXT)")  # 컬럼 부족
+    con.execute("INSERT INTO candle VALUES ('005930','1m','2026-07-07T00:00:00+00:00')")
+    con.commit()
+    con.close()
+
+
+def test_column_mismatch_isolated_not_aborting(tmp_path):
+    """변형 스키마 소스는 stats.errors 로 격리되고, 정상 소스 병합은 계속된다."""
+    good = str(tmp_path / "market_good.sqlite")
+    bad = str(tmp_path / "market_bad.sqlite")
+    _make_session_db(good, [_row(ts="2026-07-07T00:00:00+00:00")])
+    _make_variant_db(bad)
+    with HistoryStore(str(tmp_path / "market_history.sqlite")) as store:
+        results = store.import_glob(str(tmp_path / "market_*.sqlite"))
+        bad_stat = next(r for r in results if "market_bad" in r.source)
+        good_stat = next(r for r in results if "market_good" in r.source)
+        assert bad_stat.errors and "query:" in bad_stat.errors[0]  # 컬럼 부족 격리
+        assert good_stat.inserted == 1                              # 정상 소스는 병합됨
+        assert store.total_rows() == 1
+
+
 def test_schema_and_basic_import(tmp_path):
     src = str(tmp_path / "market_krx_s001.sqlite")
     _make_session_db(src, [_row(ts="2026-07-07T00:00:00+00:00"),

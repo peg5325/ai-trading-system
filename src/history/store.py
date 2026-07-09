@@ -226,22 +226,28 @@ class HistoryStore:
             if "candle" not in tabs:
                 stats.errors.append("no candle table")
                 return stats
-            for row in ro.execute(
-                "SELECT symbol,interval,ts_utc,ts_exchange,session,open,high,low,close,"
-                "volume,currency,adjusted FROM candle"
-            ):
-                d = dict(row)
-                try:
-                    d["market"] = market_from_currency(d["currency"])
-                except Exception:
-                    d["market"] = "US" if str(d["currency"]).upper() == "USD" else "KR"
-                d["source"] = source
-                stats.rows_seen += 1
-                if stats.earliest is None or d["ts_utc"] < stats.earliest:
-                    stats.earliest = d["ts_utc"]
-                if stats.latest is None or d["ts_utc"] > stats.latest:
-                    stats.latest = d["ts_utc"]
-                self._upsert_row(run_id, d, stats)
+            try:
+                for row in ro.execute(
+                    "SELECT symbol,interval,ts_utc,ts_exchange,session,open,high,low,close,"
+                    "volume,currency,adjusted FROM candle"
+                ):
+                    d = dict(row)
+                    # market_from_currency 는 문자열 비교만 하여 예외를 던지지 않으나,
+                    # 방어적 폴백은 원함수(KRW→KR, 그 외→US)와 규칙을 일치시킨다.
+                    try:
+                        d["market"] = market_from_currency(d["currency"])
+                    except Exception:
+                        d["market"] = "KR" if str(d["currency"]).upper() == "KRW" else "US"
+                    d["source"] = source
+                    stats.rows_seen += 1
+                    if stats.earliest is None or d["ts_utc"] < stats.earliest:
+                        stats.earliest = d["ts_utc"]
+                    if stats.latest is None or d["ts_utc"] > stats.latest:
+                        stats.latest = d["ts_utc"]
+                    self._upsert_row(run_id, d, stats)
+            except sqlite3.OperationalError as e:
+                # 컬럼 불일치 등 소스 스키마 문제 → 소스별 격리(import_glob 전체 중단 방지).
+                stats.errors.append(f"query: {e}")
         finally:
             ro.close()
         self._con.execute(
