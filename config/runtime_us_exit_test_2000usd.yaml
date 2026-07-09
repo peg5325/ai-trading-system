@@ -1,0 +1,58 @@
+# US 청산/실현손익 검증 세션 — Session #003 (US Exit Test, 2,000 USD 기준)
+#
+# 목적: Exit Signal Generator(SL/TP/Time/EOD)로 closed trade 생성 → Realized PnL /
+#       Win Rate / Profit Factor / Expectancy / Holding Time 정상 산출 검증.
+# 통화: initial_capital 2,000 은 **USD 기준**, symbols 도 USD 가격 → 통화 일치(절대금액 유효).
+#       (기존 3,000,000 KRW 기준 config 와 달리 KRW/USD 혼재 없음.)
+# 원칙: 실주문 없음(PaperBrokerProvider only), FakeAI(항상 APPROVE), OpenAI 미호출.
+# universe: 표준 US 3종목(SOXL/QQQ/NVDA). SOXL 전용 검증은 별도 후속(screener 미왜곡).
+# 분리: *_us_exit_test_2000usd.sqlite fresh namespace(다른 세션과 미혼합).
+symbols:
+  - SOXL
+  - QQQ
+  - NVDA
+
+poll_interval_s: 20
+initial_capital: 2000           # 2,000 USD 기준(통화 일치)
+entry_notional_pct: 0.20        # 종목당 20% (5종목×20%=100% → 현금버퍼 없음; 필요시 하향 조정)
+max_positions: 5                # 동시 최대 5종목
+account_value: 2000             # 후방호환(레거시)
+fetch_spacing_s: 0.5
+max_calls_per_session: 300
+
+paper_broker:                    # 실주문 없음 — PaperBrokerProvider 만
+  slippage_bps: 5
+  fee_bps: 2
+
+ai:
+  provider: fake                 # FakeAI(항상 APPROVE) — OpenAI 호출 금지
+  model: gpt-5.5-mini
+
+# ---- 청산 규칙(Exit Signal Generator) — 승인된 값 ----
+# 우선순위: STOP_LOSS > TAKE_PROFIT > TIME_EXIT > EOD_FLATTEN
+exits:
+  enable_all_symbols_eod_flatten: true   # 전 종목 US 정규장 마감(16:00 ET) 청산
+  eod_flatten_minutes_before_close: 10   # 마감 10분 전 창(US 15:50~16:00 ET)
+  stop_loss_pct: 0.01                    # -1.0% 손절
+  take_profit_pct: 0.015                 # +1.5% 익절
+  time_exit_minutes: 60                  # 60분 보유 후 청산
+  leverage_eod_flatten: true             # 레버리지 ETF(SOXL) 당일청산 유지
+
+journal:
+  db: data/journal_us_exit_test_2000usd.sqlite
+candles:
+  db: data/market_us_exit_test_2000usd.sqlite
+review:
+  db: data/reviews_us_exit_test_2000usd.sqlite
+metrics:
+  db: data/metrics_us_exit_test_2000usd.sqlite
+system_review:
+  db: data/system_reviews_us_exit_test_2000usd.sqlite
+
+logging:
+  dir: logs_us_exit_test_2000usd
+  max_bytes: 1000000
+  backup_count: 3
+
+reports_dir: reports
+status_path: status_us_exit_test_2000usd.json
