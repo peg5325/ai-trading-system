@@ -38,11 +38,10 @@ MarketData → Indicator → Screener → AI → Risk → Order(Paper) 를 **한
 - ❌ **실주문 금지.** `OrderManager` 는 반드시 `PaperBrokerProvider` 로 생성되어야 한다.
 - ❌ **청산에 AI 를 태우지 않는다.** `EXIT`/`EOD_FLATTEN` 은 AI 를 우회해 Risk→Order 로 직행한다.
 - ❌ 현재 시각·난수 사용 금지. 유니버스는 정렬해서 순회하고 `client_order_id` 도 결정론적이어야 한다.
-
-> ⚠️ **알려진 버그**: `pipeline.py:100` 이 `market` 파라미터(`MarketContext`)를 시장 문자열(`"US"`/`"KR"`)로
-> 덮어쓴다. 그 결과 `:117` 의 `ai.decide(...)` 에는 `MarketContext` 대신 문자열이 전달되고,
-> `session` / `is_eod_flatten_window` 가 AI 프롬프트·캐시 키에 **도달하지 못한다.**
-> (문서화만 해둠 — 수정은 별도 작업.)
+- ❌ **`MarketContext` 와 종목 시장코드를 섞지 않는다.** `_evaluate_entry` 에서 AI 에 넘기는
+  `market_ctx`(세션/EOD 창)와 Screener 에 넘기는 `symbol_market`(캔들의 `"US"`/`"KR"`)은 별개다.
+  같은 변수에 담으면 `session` / `is_eod_flatten_window` 가 AI 프롬프트·캐시 키에 도달하지 못한다
+  (과거 실제 버그, PR #2 에서 수정 — 회귀 테스트 `test_ai_receives_market_context_not_market_code`).
 
 ## 6. 사용 예시
 
