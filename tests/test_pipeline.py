@@ -188,3 +188,92 @@ def test_multi_symbol_sorted_order():
     res = run(build(), universe=("TQQQ", "SOXL"))
     syms = [o.symbol for o in res.outcomes]
     assert syms == sorted(syms)
+
+
+# ---- MarketContext 전파: AI 는 MarketContext, Screener 는 시장코드 문자열 ----
+class _StubCandle:
+    """market 속성을 가진 최소 캔들 (기존 테스트는 int 를 캔들로 써서 이 경로를 못 밟았다)."""
+    def __init__(self, market):
+        self.market = market
+
+
+class _SpyAI:
+    """decide() 에 전달된 market 인자를 그대로 포착하는 래퍼."""
+    def __init__(self, inner):
+        self._inner = inner
+        self.seen_market = None
+
+    def decide(self, candidate, indicators, portfolio, risk_decision, market):
+        self.seen_market = market
+        return self._inner.decide(candidate, indicators, portfolio, risk_decision, market)
+
+    @property
+    def last_log(self):
+        return getattr(self._inner, "last_log", None)
+
+
+class _SpyScreener(StubScreener):
+    """SymbolData.market 으로 넘어온 값을 포착."""
+    def __init__(self):
+        super().__init__(True)
+        self.seen_market = None
+
+    def screen(self, inputs):
+        self.seen_market = inputs[0].market
+        return super().screen(inputs)
+
+
+def _build_spied(screener=None, ai_provider=None):
+    inner = AIDecisionEngine(ai_provider or FakeAIProvider(response=approve_resp()), AIConfig())
+    spy_ai = _SpyAI(inner)
+    om = OrderManager(PaperBrokerProvider(ExecutionModel(0, 0)),
+                      InMemoryOrderStore(), InMemoryPositionStore())
+    pipe = TradingPipeline(StubEngine(), screener or StubScreener(), spy_ai, RiskManager(), om)
+    return pipe, spy_ai
+
+
+def _run_with(pipe, market, candles, cycle_id="20260706T1400"):
+    return pipe.run_once(
+        cycle_id=cycle_id, universe=["SOXL"], candles_by_symbol={"SOXL": candles},
+        portfolio=PortfolioSnapshot(account_value=100_000),
+        system_state=SystemState(), market=market)
+
+
+def test_ai_receives_market_context_not_market_code():
+    """회귀: _evaluate_entry 가 market 파라미터를 시장코드 문자열로 덮어쓰면 안 된다."""
+    pipe, spy_ai = _build_spied()
+    ctx = MarketContext("POST", is_eod_flatten_window=True)
+    _run_with(pipe, ctx, [_StubCandle("US")])
+
+    assert isinstance(spy_ai.seen_market, MarketContext), \
+        f"AI 는 MarketContext 를 받아야 한다 (실제: {spy_ai.seen_market!r})"
+    assert spy_ai.seen_market.session == "POST"
+    assert spy_ai.seen_market.is_eod_flatten_window is True
+
+
+def test_screener_still_receives_market_code_string():
+    """Screener 는 캔들에서 얻은 시장코드('US'/'KR')를 계속 받아야 한다."""
+    spy_screener = _SpyScreener()
+    pipe, spy_ai = _build_spied(screener=spy_screener)
+    _run_with(pipe, MarketContext("REGULAR"), [_StubCandle("KR")])
+
+    assert spy_screener.seen_market == "KR"                  # 시장코드
+    assert isinstance(spy_ai.seen_market, MarketContext)     # AI 는 컨텍스트
+
+
+def test_ai_cache_does_not_collide_across_sessions():
+    """세션이 다르면 AI 캐시 키도 달라야 한다 (market_context 가 해시에 들어가므로).
+
+    버그 상태에서는 market 이 'US' 문자열로 고정돼 두 세션의 input_hash 가 같아지고,
+    두 번째 호출이 첫 번째의 캐시된 결정을 재사용한다.
+    """
+    provider = FakeAIProvider(response=approve_resp())   # .calls 카운터 내장
+    pipe, _ = _build_spied(ai_provider=provider)
+    candles = [_StubCandle("US")]
+
+    _run_with(pipe, MarketContext("REGULAR"), candles, cycle_id="c1")
+    assert provider.calls == 1
+    _run_with(pipe, MarketContext("POST"), candles, cycle_id="c2")
+
+    assert provider.calls == 2, \
+        f"세션별로 AI 를 각각 호출해야 한다 (실제 호출 {provider.calls}회 — 캐시 충돌)"

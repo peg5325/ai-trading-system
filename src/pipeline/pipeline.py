@@ -87,7 +87,9 @@ class TradingPipeline:
         return result
 
     # ---- entry per symbol ----
-    def _evaluate_entry(self, symbol, cycle_id, candles, portfolio, risk_snap, market):
+    def _evaluate_entry(self, symbol, cycle_id, candles, portfolio, risk_snap, market_ctx):
+        """market_ctx 는 MarketContext(세션/EOD 창) — AI 에 그대로 전달한다.
+        종목의 시장코드('US'/'KR')는 캔들에서 따로 뽑아 Screener 에만 넘긴다(둘을 섞지 말 것)."""
         lev = self._lev.get(symbol) or leverage_for(symbol)
         if not candles:
             return SymbolOutcome(symbol, ACTION_SKIPPED, R_NO_DATA)
@@ -97,8 +99,8 @@ class TradingPipeline:
             return SymbolOutcome(symbol, ACTION_SKIPPED, R_NO_DATA)
 
         snapshot = self._indicator_snapshot(ind)
-        market = getattr(candles[-1], "market", MARKET_US) if candles else MARKET_US
-        cands = self.screener.screen([SymbolData(symbol, ind, lev, market=market)])
+        symbol_market = getattr(candles[-1], "market", MARKET_US)
+        cands = self.screener.screen([SymbolData(symbol, ind, lev, market=symbol_market)])
         if not cands:
             return SymbolOutcome(symbol, ACTION_SKIPPED, R_NO_CANDIDATE,
                                  indicator_snapshot=snapshot)
@@ -113,8 +115,8 @@ class TradingPipeline:
                              risk_flags=list(candidate.risk_flags))
         risk_decision = self.risk.evaluate(intent, risk_snap)
 
-        # AI entry filter
-        ai = self.ai.decide(candidate, snapshot, portfolio, risk_decision, market)
+        # AI entry filter — MarketContext(세션/EOD 창)를 전달
+        ai = self.ai.decide(candidate, snapshot, portfolio, risk_decision, market_ctx)
         ai_log = getattr(self.ai, "last_log", None)
         ai_log = ai_log.to_dict() if ai_log is not None else None
 
