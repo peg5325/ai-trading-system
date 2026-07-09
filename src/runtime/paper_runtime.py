@@ -265,6 +265,7 @@ class PaperRuntime:
         if journal is None:
             return None
         try:
+            from src.pnl.cost import cost_analysis
             from src.pnl.journal_pnl import realized_from_journal
             trades, _, summary = realized_from_journal(journal)
             d = summary.to_dict()
@@ -274,6 +275,8 @@ class PaperRuntime:
                 for r in (t.exit_reason or ()):
                     reasons[r] = reasons.get(r, 0) + 1
             d["exit_reasons"] = reasons
+            # 마찰비용 관측(read-only) — 계좌/종목별 cost drag.
+            d["cost"] = cost_analysis(trades).to_dict()
             return d
         except Exception as e:
             self.loggers["error"].error(f"realized pnl summary failed: {e}")

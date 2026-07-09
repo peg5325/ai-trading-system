@@ -20,6 +20,62 @@ def _resources() -> tuple[str, str]:
     return mem, cpu
 
 
+def _ratio_num(ratio) -> str:
+    """cost_ratio 숫자 표시. gross≈0 로 비율이 극단(≥10)이면 정수로 축약(가독성)."""
+    if ratio is None:
+        return "unstable"
+    return f"{ratio:.0f}" if ratio >= 10 else f"{ratio:.3f}"
+
+
+def _fmt_ratio(ratio, severity: str) -> str:
+    """cost_ratio 표시. None(unstable) 이면 gross≤0 안내 문구."""
+    if ratio is None:
+        return "unstable / not meaningful (gross ≤ 0)"
+    return f"{_ratio_num(ratio)} [{severity}]"
+
+
+def _cost_section(cost: dict | None) -> list[str]:
+    """마찰비용 관측 섹션(계좌 요약 + 종목별 Cost Drag 표). read-only 리포팅."""
+    if not cost:
+        return []
+    lines = [
+        "## Cost Analysis (마찰비용 관측)",
+        f"- Commission: {cost.get('commission', 0.0):,.2f} | "
+        f"Slippage: {cost.get('slippage', 0.0):,.2f} | "
+        f"Total cost: {cost.get('total_cost', 0.0):,.2f}",
+        f"- Gross PnL: {cost.get('gross_pnl', 0.0):,.2f} | "
+        f"Net PnL: {cost.get('net_pnl', 0.0):,.2f}",
+        f"- Cost ratio (cost/gross): {_fmt_ratio(cost.get('cost_ratio'), cost.get('severity', 'n/a'))}",
+    ]
+    impact = cost.get("cost_impact_net")
+    if impact is not None:
+        lines.append(f"- Cost impact (cost/|net|): {impact:.3f}")
+    lines.append(
+        f"- 기준: WARNING ≥ {cost.get('warning_ratio', 0.30):.2f}, "
+        f"SEVERE ≥ {cost.get('severe_ratio', 0.50):.2f} · "
+        "gross ≤ 0 은 비율 무의미(unstable) 처리")
+    per_symbol = cost.get("per_symbol") or []
+    if per_symbol:
+        lines += [
+            "",
+            "### Cost Drag by Symbol",
+            "| Symbol | Trades | Gross | Comm | Slippage | Net | CostRatio | AvgHold(m) | Turnover | Flag |",
+            "|---|--:|--:|--:|--:|--:|:--:|--:|--:|:--:|",
+        ]
+        for s in per_symbol:
+            ratio_cell = _ratio_num(s.get("cost_ratio"))
+            hold = s.get("avg_holding_minutes")
+            hold_cell = f"{hold:.1f}" if hold is not None else "n/a"
+            lines.append(
+                f"| {s.get('symbol')} | {s.get('trade_count', 0)} | "
+                f"{s.get('gross_pnl', 0.0):,.2f} | {s.get('commission', 0.0):,.2f} | "
+                f"{s.get('slippage', 0.0):,.2f} | {s.get('net_pnl', 0.0):,.2f} | "
+                f"{ratio_cell} | {hold_cell} | {s.get('turnover', 0.0):,.0f} | "
+                f"{s.get('severity', 'n/a')} |")
+    lines.append("")
+    return lines
+
+
 def generate_markdown(metrics, health: dict, cfg, *, report_date: str,
                       run_duration_s: float, realized: dict | None = None,
                       performance: dict | None = None) -> str:
@@ -91,6 +147,7 @@ def generate_markdown(metrics, health: dict, cfg, *, report_date: str,
             breakdown = ", ".join(f"{k}={v}" for k, v in sorted(exit_reasons.items()))
             lines.append(f"- Exit reasons: {breakdown}")
         lines.append("")
+        lines += _cost_section(realized.get("cost"))
     if performance is not None:
         sharpe = performance.get("sharpe_ratio")
         pf = performance.get("profit_factor")
