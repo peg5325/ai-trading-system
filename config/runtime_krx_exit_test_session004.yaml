@@ -1,0 +1,60 @@
+# KRX Exit Benchmark — Official Session #004 (2026-07-09)
+#
+# 목적: US Session #003(Exit Signal Generator 검증 성공)과 **동일한 Exit 정책**을 KRX 시장에 적용해
+#       시장 차이(수수료/슬리피지/회전율/Exit Reason 분포/Return/Win Rate/PF/Expectancy)를 비교.
+#       수익 최적화·전략 변경 아님. 시장만 바꾼 비교(benchmark) 세션.
+# 비교 기준선(US #003): Return +0.65% · closed 29 · Win 51.7% · PF 1.626 · Exp +0.4514 · AvgHold 37.1m · MDD -0.49%.
+#
+# Universe: US #003과 공정 비교 위해 3종목 유지(유니버스 크기·슬롯 수 동일 → 시장만 격리).
+# max_positions: 5 (US #003과 동일 슬롯). entry 20%.
+# 원칙: 실주문 없음(PaperBroker only), FakeAI(dry_run), OpenAI 미호출.
+# 분리: *_krx_exit_test_session004.sqlite fresh namespace(기준 config·타 세션과 미혼합).
+symbols:
+  - "005930"   # 삼성전자
+  - "000660"   # SK하이닉스
+  - "402340"   # HANARO AI반도체(402340)
+
+poll_interval_s: 20
+initial_capital: 3000000        # 초기자본 3,000,000 KRW (fresh portfolio)
+entry_notional_pct: 0.20        # 종목당 최대 20%
+max_positions: 5                # 동시 최대 5종목 (US #003과 동일 슬롯)
+account_value: 3000000          # 후방호환(레거시) — 런타임은 initial_capital 사용
+fetch_spacing_s: 0.5            # 종목간 시세 호출 간격(429 완화). 3종목×0.5s=1.5s < poll 20s
+max_calls_per_session: 300
+
+paper_broker:                    # 실주문 없음 — PaperBrokerProvider 만
+  slippage_bps: 5
+  fee_bps: 2
+
+ai:
+  provider: fake                 # FakeAI(dry_run) — OpenAI 호출 금지
+  model: gpt-5.5-mini
+
+# ---- 청산 규칙(Exit Signal Generator) — US #003과 동일 값 ----
+# 우선순위: STOP_LOSS > TAKE_PROFIT > TIME_EXIT > EOD_FLATTEN
+exits:
+  enable_all_symbols_eod_flatten: true   # 전 종목 KR 정규장 마감(15:30 KST) 청산
+  eod_flatten_minutes_before_close: 10   # 마감 10분 전 창(KR 15:20~15:30 KST)
+  stop_loss_pct: 0.01                    # -1.0% 손절
+  take_profit_pct: 0.015                 # +1.5% 익절
+  time_exit_minutes: 60                  # 60분 보유 후 청산
+  leverage_eod_flatten: true             # 레버리지 ETF 당일청산 유지
+
+journal:
+  db: data/journal_krx_exit_test_session004.sqlite
+candles:
+  db: data/market_krx_exit_test_session004.sqlite
+review:
+  db: data/reviews_krx_exit_test_session004.sqlite
+metrics:
+  db: data/metrics_krx_exit_test_session004.sqlite
+system_review:
+  db: data/system_reviews_krx_exit_test_session004.sqlite
+
+logging:
+  dir: logs_krx_exit_test_session004
+  max_bytes: 1000000
+  backup_count: 3
+
+reports_dir: reports
+status_path: status_krx_exit_test_session004.json
