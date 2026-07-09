@@ -31,7 +31,8 @@ description: AI 트레이딩 시스템(Python 3.10+/pytest/pandas/SQLite/Toss �
 
 ## 기술 스택 사실 (지어내지 말고 이 사실에 근거)
 
-- **Python 3.10+**, 표준 도구: `httpx`, `pandas>=2.0`, `python-dotenv`, `PyYAML`, `pytest>=8`.
+- **Python 3.10+** (`pyproject.toml` `requires-python = ">=3.10"`; `match` 문 사용), 표준 도구:
+  `httpx`, `pandas>=2.0`, `python-dotenv`, `PyYAML`, `pytest>=8`.
   `openai`(실제 AI entry filter 시에만), `pyarrow`(Dataset Parquet export 시에만)는 **선택적**이며
   테스트는 이를 요구하지 않는다.
 - 테스트는 `import src.*` 구조(conftest 가 루트를 sys.path 에 올림), 기본 AI는 `FakeAIProvider`,
