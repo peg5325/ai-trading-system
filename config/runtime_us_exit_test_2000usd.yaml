@@ -4,7 +4,7 @@
 #       Win Rate / Profit Factor / Expectancy / Holding Time 정상 산출 검증.
 # 통화: initial_capital 2,000 은 **USD 기준**, symbols 도 USD 가격 → 통화 일치(절대금액 유효).
 #       (기존 3,000,000 KRW 기준 config 와 달리 KRW/USD 혼재 없음.)
-# 원칙: 실주문 없음(PaperBrokerProvider only), FakeAI(dry_run), OpenAI 미호출.
+# 원칙: 실주문 없음(PaperBrokerProvider only), FakeAI(항상 APPROVE), OpenAI 미호출.
 # universe: 표준 US 3종목(SOXL/QQQ/NVDA). SOXL 전용 검증은 별도 후속(screener 미왜곡).
 # 분리: *_us_exit_test_2000usd.sqlite fresh namespace(다른 세션과 미혼합).
 symbols:
@@ -25,7 +25,7 @@ paper_broker:                    # 실주문 없음 — PaperBrokerProvider 만
   fee_bps: 2
 
 ai:
-  provider: fake                 # FakeAI(dry_run) — OpenAI 호출 금지
+  provider: fake                 # FakeAI(항상 APPROVE) — OpenAI 호출 금지
   model: gpt-5.5-mini
 
 # ---- 청산 규칙(Exit Signal Generator) — 승인된 값 ----

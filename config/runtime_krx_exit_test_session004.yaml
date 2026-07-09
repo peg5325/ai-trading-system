@@ -7,12 +7,12 @@
 #
 # Universe: US #003과 공정 비교 위해 3종목 유지(유니버스 크기·슬롯 수 동일 → 시장만 격리).
 # max_positions: 5 (US #003과 동일 슬롯). entry 20%.
-# 원칙: 실주문 없음(PaperBroker only), FakeAI(dry_run), OpenAI 미호출.
+# 원칙: 실주문 없음(PaperBroker only), FakeAI(항상 APPROVE), OpenAI 미호출.
 # 분리: *_krx_exit_test_session004.sqlite fresh namespace(기준 config·타 세션과 미혼합).
 symbols:
   - "005930"   # 삼성전자
   - "000660"   # SK하이닉스
-  - "402340"   # HANARO AI반도체(402340)
+  - "402340"   # SK스퀘어
 
 poll_interval_s: 20
 initial_capital: 3000000        # 초기자본 3,000,000 KRW (fresh portfolio)
@@ -27,7 +27,7 @@ paper_broker:                    # 실주문 없음 — PaperBrokerProvider 만
   fee_bps: 2
 
 ai:
-  provider: fake                 # FakeAI(dry_run) — OpenAI 호출 금지
+  provider: fake                 # FakeAI(항상 APPROVE) — OpenAI 호출 금지
   model: gpt-5.5-mini
 
 # ---- 청산 규칙(Exit Signal Generator) — US #003과 동일 값 ----

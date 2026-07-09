@@ -21,7 +21,7 @@ paper_broker:                    # 실주문 없음 — PaperBrokerProvider 만
   fee_bps: 2
 
 ai:
-  provider: fake                 # FakeAI(dry_run) — OpenAI 호출 금지
+  provider: fake                 # FakeAI(항상 APPROVE) — OpenAI 호출 금지
   model: gpt-5.5-mini
 
 journal:
