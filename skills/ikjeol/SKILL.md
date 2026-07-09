@@ -1,9 +1,13 @@
 ---
-name: ai-trading-pr-review
+name: ikjeol
 description: AI 트레이딩 시스템(Python 3.10+/pytest/pandas/SQLite/Toss 오픈API·모듈러 파이프라인, Paper Trading 전용)의 PR을 검수할 때 사용. 'PR 리뷰', 'PR 검수', '이 변경 봐줘', '이 diff 봐줘' 요청 시 발동. 정확성·자본 안전성(권한 순서 AI→Risk→Order→Broker·청산의 AI 독립성·kill switch)·모듈 경계·시크릿·PnL 불변식·look-ahead/결정론·통화 혼재를 점검하고 구조화된 리뷰 결과를 낸다.
 ---
 
-# AI Trading System — PR 검수 기준
+# 익절 (ikjeol) — AI Trading System PR 검수 기준
+
+> 이름의 뜻: 단타 대박의 핵심은 **익절**(이익 실현)이다. 이 스킬은 코드의 이익(품질 개선)은
+> 확정(approve = 익절)하고, 손실(버그·리스크)은 끊어낸다(request_changes = 손절). '판결'의
+> verdict 정신을 잇는 리뷰어다.
 
 이 스킬은 **검수 기준(두뇌)만** 담는다. PR 메타데이터·변경파일·diff를 어떻게 읽고, 코멘트를
 어떻게 등록하는지의 **도구별 메커니즘(손발)은 각 도구 환경에 위임**한다. 설치·연동 방법은

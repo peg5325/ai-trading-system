@@ -1,4 +1,4 @@
-# ai-trading-pr-review — 설치 & 연동
+# 익절 (ikjeol) — 설치 & 연동
 
 ## 개요
 
@@ -12,18 +12,18 @@
 
 ## 설치 경로
 
-폴더(`ai-trading-pr-review/`) 통째로 아래 위치 중 하나에 두면 된다.
+폴더(`ikjeol/`) 통째로 아래 위치 중 하나에 두면 된다.
 
 | 도구 | 전역 | 프로젝트 |
 |---|---|---|
-| **Claude Code** | `~/.claude/skills/ai-trading-pr-review/` | `<repo>/.claude/skills/ai-trading-pr-review/` |
-| **Codex CLI** | `~/.codex/skills/ai-trading-pr-review/` | `<repo>/.codex/skills/ai-trading-pr-review/` |
-| **Gemini CLI** | `~/.gemini/skills/ai-trading-pr-review/` | `<repo>/.gemini/skills/ai-trading-pr-review/` |
+| **Claude Code** | `~/.claude/skills/ikjeol/` | `<repo>/.claude/skills/ikjeol/` |
+| **Codex CLI** | `~/.codex/skills/ikjeol/` | `<repo>/.codex/skills/ikjeol/` |
+| **Gemini CLI** | `~/.gemini/skills/ikjeol/` | `<repo>/.gemini/skills/ikjeol/` |
 
-- 이 저장소에는 `skills/ai-trading-pr-review/` 로 커밋되어 있다. 각 도구에서 쓰려면 위 경로로
+- 이 저장소에는 `skills/ikjeol/` 로 커밋되어 있다. 각 도구에서 쓰려면 위 경로로
   **복사하거나 심볼릭 링크**한다. 예:
   ```bash
-  ln -s "$PWD/skills/ai-trading-pr-review" ~/.claude/skills/ai-trading-pr-review
+  ln -s "$PWD/skills/ikjeol" ~/.claude/skills/ikjeol
   ```
 - **Gemini CLI**: 최초 활성화 시 동의(consent) 프롬프트가 뜨며 스킬 폴더를 신뢰해야 한다.
 
