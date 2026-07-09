@@ -11,6 +11,8 @@
 
 주의 — gross_pnl 이 0 또는 음수이면 비율이 왜곡/발산하므로 계산하지 않고 unstable 로 표기한다
 (예: Session #004 초반처럼 gross≈0 인 구간). division-by-zero 및 오해를 방지한다.
+통화 한계 — 계좌 전체 집계는 종목 금액을 시장 무관하게 합산하므로 US(USD)·KR(KRW) 혼재 세션에서
+비율이 왜곡될 수 있다(v1 통화 미분리). 단일 통화 세션 전제이며, per-symbol 지표는 단일 통화라 안전하다.
 결정론적: 순수 집계 함수(clock/RNG 없음).
 """
 from __future__ import annotations
