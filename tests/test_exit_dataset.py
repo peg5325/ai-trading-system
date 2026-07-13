@@ -1,7 +1,7 @@
 """Exit Follow-up Dataset (청산 사후 관측) 테스트.
 
 SELL row 생성 · forward return · MFE · MAE · session_end_return · horizon 초과 NULL ·
-look-ahead 방지 · #003 closed trade 29건 · #004 동일 생성.
+look-ahead 방지 · journal→dataset 통합(고정 픽스처, 결정론) · #004 동일 생성.
 매매 로직 무관 read-only 배치. Look-ahead Bias 없음을 강하게 검증한다.
 """
 from __future__ import annotations
@@ -35,8 +35,7 @@ def _find_data(name: str) -> str:
 
 
 # data/*.sqlite 는 gitignore 세션 산출물 → 존재할 때만 통합 테스트 실행
-_US_DB = _find_data("journal_us_exit_test_2000usd.sqlite")
-_US_MKT = _find_data("market_us_exit_test_2000usd.sqlite")
+# (US #003 은 결정론적 고정 픽스처로 대체됨 — Issue #17)
 _KR_DB = _find_data("journal_krx_exit_test_session004.sqlite")
 _KR_MKT = _find_data("market_krx_exit_test_session004.sqlite")
 
@@ -215,24 +214,117 @@ def test_flat_schema_columns():
         assert col in flat, f"missing column: {col}"
 
 
-# ---- 8. #003 closed trade 29건 Dataset 생성 ----
+# ---- 8. Journal → Exit Dataset 결정론적 통합 (고정 픽스처 DB, 로컬 DB 비의존) ----
 import pytest
 
 
-@pytest.mark.skipif(not (os.path.exists(_US_DB) and os.path.exists(_US_MKT)),
-                    reason="#003 세션 데이터(data/*.sqlite) 없음 — 로컬 전용 통합")
-def test_session_003_29_records():
+def _candle1m(sym, ts_utc, o, h, l, c):
+    """CandleStore 저장/조회 계약(interval=1m, USD→US)에 맞춘 US 봉."""
+    return Candle(
+        symbol=sym, interval="1m", ts_utc=ts_utc,
+        ts_exchange=ts_utc.astimezone(exchange_tz("US")),
+        session="REGULAR", open=o, high=h, low=l, close=c, volume=1000.0,
+        currency="USD", adjusted=True, market="US")
+
+
+# 사유별 SELL 1건씩 — 알려진 소량 데이터. 가변 로컬 #003 DB(29↔54)를 대체한다.
+_FIX_EXITS = (
+    ("AAA", "STOP_LOSS", 100.0, 99.0),
+    ("BBB", "TAKE_PROFIT", 100.0, 101.5),
+    ("CCC", "TIME_EXIT", 100.0, 100.2),
+    ("DDD", "EOD_FLATTEN", 100.0, 100.0),
+)
+
+
+def _order_record(symbol, side, kind, qty, price):
+    from src.order.models import OrderRecord
+    return OrderRecord(
+        client_order_id=f"{symbol}-{side}-{kind}", broker_order_id=None,
+        symbol=symbol, side=side, kind=kind, order_type="MARKET",
+        requested_quantity=qty, filled_quantity=qty, avg_fill_price=price,
+        fee=0.0, status="FILLED", ref_price=price).to_dict()
+
+
+def _outcome(symbol, side, kind, qty, price):
+    return {"symbol": symbol, "action": "ORDERED", "reason": kind,
+            "order_record": _order_record(symbol, side, kind, qty, price)}
+
+
+def _write_fixture_dbs(tmp_path):
+    """알려진 소량 데이터로 journal + candle DB 를 생성(결정론적, 로컬 산출물 비의존)."""
+    from src.journal.models import JournalCycle
     from src.journal.sqlite_store import SqliteJournalStore
     from src.storage.candle_store import CandleStore
-    j = SqliteJournalStore(_US_DB)
-    with CandleStore(_US_MKT) as store:
-        ds = build_exit_dataset_from_journal(j, store, session_id="us_exit_test_2000usd")
-    assert len(ds) == 29                       # #003 closed trades = 29
+
+    jdb = str(tmp_path / "journal_fixture.sqlite")
+    mdb = str(tmp_path / "market_fixture.sqlite")
+    syms = [s for s, *_ in _FIX_EXITS]
+
+    j = SqliteJournalStore(jdb)
+    # 진입 사이클(BUY) → 청산 사이클(SELL). FIFO 를 위해 진입이 먼저 기록된다.
+    entries = [_outcome(s, "BUY", "ENTRY", 10.0, entry_px)
+               for s, _r, entry_px, _x in _FIX_EXITS]
+    exits = [_outcome(s, "SELL", reason, 10.0, exit_px)
+             for s, reason, _e, exit_px in _FIX_EXITS]
+    j.save_cycle(JournalCycle("20260708T133500Z", "2026-07-08T13:35:00Z", "REGULAR",
+                              syms, "RAN", None, None,
+                              outcomes=entries, order_count=len(entries)))
+    j.save_cycle(JournalCycle("20260708T140000Z", "2026-07-08T14:00:00Z", "REGULAR",
+                              syms, "RAN", None, None,
+                              outcomes=exits, order_count=len(exits)))
+    j.close()
+
+    # 청산 봉(T0=14:00) + 이후 같은 거래일 봉(T0+5..T0+30) → forward horizon 완결.
+    # 봉 label 은 interval="1m"(조회 계약)이나 배치 간격은 build_exit_dataset_from_journal
+    # 기본 bar_minutes=5.0 에 맞춰 5분(T0+5·i)이다 — builder 는 label 이 아닌 ts_utc 로만 판단.
+    candles = []
+    for s in syms:
+        for i in range(0, 7):
+            ts = T0 + timedelta(minutes=5 * i)
+            c = 100.0 + i * 0.1
+            candles.append(_candle1m(s, ts, c, c + 0.5, c - 0.5, c))
+    with CandleStore(mdb) as store:
+        store.upsert_many(candles)
+    return jdb, mdb
+
+
+def test_build_exit_dataset_from_journal_deterministic(tmp_path):
+    """journal → exit dataset 통합 경로를 고정 픽스처로 결정론적으로 검증.
+
+    로컬 누적 DB(data/*.sqlite)에 의존하지 않으므로 DB 없음/29건/54건과 무관하게
+    항상 동일하게 통과한다(Issue #17)."""
+    from src.journal.sqlite_store import SqliteJournalStore
+    from src.storage.candle_store import CandleStore
+
+    jdb, mdb = _write_fixture_dbs(tmp_path)
+    j = SqliteJournalStore(jdb)
+    with CandleStore(mdb) as store:
+        ds = build_exit_dataset_from_journal(j, store, session_id="fixture_us")
+    j.close()
+
+    assert len(ds) == len(_FIX_EXITS)          # 알려진 청산 4건(사유별 1건)
     reasons = {r.exit_reason for r in ds.records}
-    assert reasons <= {"STOP_LOSS", "TAKE_PROFIT", "TIME_EXIT", "EOD_FLATTEN"}
+    assert reasons == {"STOP_LOSS", "TAKE_PROFIT", "TIME_EXIT", "EOD_FLATTEN"}
     assert all(r.side == "SELL" and r.market == "US" for r in ds.records)
-    # 최소 일부 forward 는 완결(장중 청산)
-    assert any(r.forward_map()[15].complete for r in ds.records)
+    # 장중 청산이므로 forward(+15m)는 모두 완결(청산 이후 같은 날 봉 존재)
+    assert all(r.forward_map()[15].complete for r in ds.records)
+
+
+def test_exit_dataset_from_journal_is_reproducible(tmp_path):
+    """동일 입력 → 동일 출력(레코드 수·사유). 결정론 계약."""
+    from src.journal.sqlite_store import SqliteJournalStore
+    from src.storage.candle_store import CandleStore
+
+    jdb, mdb = _write_fixture_dbs(tmp_path)
+
+    def _run():
+        j = SqliteJournalStore(jdb)
+        with CandleStore(mdb) as store:
+            ds = build_exit_dataset_from_journal(j, store, session_id="fixture_us")
+        j.close()
+        return len(ds), sorted(r.exit_reason for r in ds.records)
+
+    assert _run() == _run()
 
 
 # ---- 9. #004 동일 Dataset 생성 ----
