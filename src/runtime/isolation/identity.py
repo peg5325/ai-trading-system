@@ -62,7 +62,9 @@ class SessionIdentity:
 
     @classmethod
     def from_dict(cls, d: dict) -> "SessionIdentity":
-        return cls(**{k: d.get(k) for k in cls.__dataclass_fields__})
+        # 존재하는 키만 전달 → 누락된(구/신버전) 필드는 dataclass 기본값 사용(forward-compat).
+        # 기본값 없는 필수 필드가 누락되면 TypeError → read_manifest 가 ManifestReadError 로 차단.
+        return cls(**{k: d[k] for k in cls.__dataclass_fields__ if k in d})
 
 
 def canonical_config_hash(cfg) -> str:

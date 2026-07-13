@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import socket
@@ -75,8 +76,13 @@ class SessionLock:
             _reject_or_takeover(path, is_process_alive, allow_stale_takeover)
             _atomic_write(path, payload)          # stale 회수(원자적 교체)
             return cls(path, info)
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(payload)                      # 원자적 신규 획득(O_EXCL 승자)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(payload)                  # 원자적 신규 획득(O_EXCL 승자)
+        except Exception:
+            with contextlib.suppress(OSError):    # 부분 기록된 lock 파일 제거
+                os.remove(path)
+            raise
         return cls(path, info)
 
     def release(self) -> None:
@@ -111,6 +117,11 @@ def read_lock(path: str) -> LockInfo | None:
 
 def _atomic_write(path: str, payload: str) -> None:
     tmp = f"{path}.{os.getpid()}.tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(payload)
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(payload)
+        os.replace(tmp, path)
+    except Exception:
+        with contextlib.suppress(OSError):        # 쓰기 실패 시 .tmp 잔류 방지
+            os.remove(tmp)
+        raise

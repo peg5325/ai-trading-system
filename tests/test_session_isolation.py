@@ -279,6 +279,22 @@ def test_manifest_roundtrip(tmp_path):
     assert SessionManifest.from_dict(d) == m
 
 
+# ---- identity from_dict: 누락된 기본값 필드는 기본값 사용(forward-compat) ----
+def test_identity_from_dict_defaults_missing_id_version():
+    d = _identity().to_dict()
+    d.pop("id_version")
+    assert SessionIdentity.from_dict(d).id_version == "1"
+
+
+# ---- identity 필수 필드 누락 manifest → 손상으로 차단 ----
+def test_manifest_missing_required_identity_field_blocks(tmp_path):
+    p = _paths(tmp_path)
+    Path(p["manifest_path"]).write_text(
+        '{"identity": {"session_id": "007"}, "lifecycle_state": "CREATED"}', encoding="utf-8")
+    with pytest.raises(ManifestReadError):
+        startup_guard(_identity(), now_iso=_CLOCK, is_process_alive=_DEAD, **p)
+
+
 # ---- lock 해제 후 재획득 가능 ----
 def test_lock_release_allows_reacquire(tmp_path):
     p = _paths(tmp_path)

@@ -110,10 +110,15 @@ def main(config_path: str) -> None:
         candle_store.close()
         journal.close()
         metrics_store.close()
-        if guard is not None:
-            guard.lock.release()      # 정상 종료 시 single-writer lock 해제
     except Exception:
         pass
+    finally:
+        # store close 실패와 무관하게 single-writer lock 해제 보장(lock 유출 방지)
+        if guard is not None:
+            try:
+                guard.lock.release()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

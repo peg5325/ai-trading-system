@@ -8,6 +8,7 @@ lifecycle finalize(RUNNING/TERMINATED)·completion·coverage 는 PR 1-B 에서 �
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 from dataclasses import dataclass, replace
@@ -74,6 +75,11 @@ def write_manifest(path: str, manifest: SessionManifest) -> None:
     if d:
         os.makedirs(d, exist_ok=True)
     tmp = f"{path}.{os.getpid()}.tmp"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(manifest.to_dict(), f, ensure_ascii=False, indent=2)
-    os.replace(tmp, path)
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(manifest.to_dict(), f, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+    except Exception:
+        with contextlib.suppress(OSError):    # 쓰기 실패 시 .tmp 잔류 방지
+            os.remove(tmp)
+        raise
