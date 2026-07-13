@@ -34,6 +34,8 @@ from src.providers.toss_client import TossClient  # noqa: E402
 from src.providers.toss_market_data import TossMarketDataProvider  # noqa: E402
 from src.risk.risk_manager import RiskConfig, RiskManager  # noqa: E402
 from src.runtime.config import load_yaml  # noqa: E402
+from src.runtime.isolation import (capture_identity, resolve_session_paths,  # noqa: E402
+                                   startup_guard)
 from src.runtime.metrics_store import SqliteMetricsStore  # noqa: E402
 from src.runtime.paper_runtime import PaperRuntime  # noqa: E402
 from src.storage.candle_store import CandleStore  # noqa: E402
@@ -60,6 +62,19 @@ def main(config_path: str) -> None:
         db_path=cfg.candle_db)
     if not settings.has_credentials:
         raise SystemExit("TOSS_CLIENT_ID / TOSS_CLIENT_SECRET 가 필요합니다 (.env)")
+
+    # Session Isolation Guard — 반드시 stateful store 생성 '이전'에.
+    # 과거 DB namespace 재사용/동시 실행을 시작 전에 fail-fast(실패 시 신규 쓰기 0).
+    # session.id 미지정 config 는 guard 비활성(기존 동작 유지).
+    guard = None
+    if cfg.session_id:
+        identity = capture_identity(cfg)
+        manifest_path, lock_path, db_paths = resolve_session_paths(cfg)
+        guard = startup_guard(identity, manifest_path=manifest_path,
+                              lock_path=lock_path, db_paths=db_paths)
+        print(f"[run_paper] session guard OK — {identity.session_id}/{identity.run_id} "
+              f"mode={identity.start_mode} market={identity.market} "
+              f"commit={identity.producer_commit}")
 
     market = TossMarketDataProvider(settings)
     candle_store = CandleStore(cfg.candle_db)
@@ -97,6 +112,13 @@ def main(config_path: str) -> None:
         metrics_store.close()
     except Exception:
         pass
+    finally:
+        # store close 실패와 무관하게 single-writer lock 해제 보장(lock 유출 방지)
+        if guard is not None:
+            try:
+                guard.lock.release()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":

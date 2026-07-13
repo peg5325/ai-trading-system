@@ -44,6 +44,15 @@ class RuntimeConfig:
     log_backup_count: int = 3
     reports_dir: str = "reports"
     status_path: str = "status.json"
+    # session isolation (v2.1 Phase 1) — 미지정 시 startup guard 비활성(기존 config 무영향)
+    session_id: str | None = None
+    run_id: str | None = None
+    parent_run_id: str | None = None
+    start_mode: str = "FRESH"          # FRESH | RESUME | RESTART
+    market: str | None = None          # US | KR (미지정 시 심볼로 추론)
+    currency: str | None = None        # USD | KRW
+    session_manifest_path: str | None = None   # 기본: <journal_db>.manifest.json
+    session_lock_path: str | None = None       # 기본: <journal_db>.lock
 
     @classmethod
     def from_dict(cls, d: dict) -> "RuntimeConfig":
@@ -54,6 +63,7 @@ class RuntimeConfig:
         candles = d.get("candles", {})
         review = d.get("review", {})
         logging_ = d.get("logging", {})
+        session = d.get("session", {}) or {}
         ex = d.get("exits", {}) or {}
         exit_config = ExitConfig(
             stop_loss_pct=float(ex.get("stop_loss_pct", 0.0) or 0.0),
@@ -90,6 +100,14 @@ class RuntimeConfig:
             log_backup_count=int(logging_.get("backup_count", 3)),
             reports_dir=d.get("reports_dir", "reports"),
             status_path=d.get("status_path", "status.json"),
+            session_id=session.get("id"),
+            run_id=session.get("run_id"),
+            parent_run_id=session.get("parent_run_id"),
+            start_mode=str(session.get("start_mode", "FRESH")),
+            market=session.get("market"),
+            currency=session.get("currency"),
+            session_manifest_path=session.get("manifest_path"),
+            session_lock_path=session.get("lock_path"),
         )
 
 
