@@ -275,6 +275,8 @@ def _write_fixture_dbs(tmp_path):
     j.close()
 
     # 청산 봉(T0=14:00) + 이후 같은 거래일 봉(T0+5..T0+30) → forward horizon 완결.
+    # 봉 label 은 interval="1m"(조회 계약)이나 배치 간격은 build_exit_dataset_from_journal
+    # 기본 bar_minutes=5.0 에 맞춰 5분(T0+5·i)이다 — builder 는 label 이 아닌 ts_utc 로만 판단.
     candles = []
     for s in syms:
         for i in range(0, 7):
