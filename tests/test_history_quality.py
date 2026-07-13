@@ -51,6 +51,24 @@ def test_partial_day_and_gap(tmp_path):
         assert s["resample_5m"] is False  # full-session day 0
 
 
+def test_missing_minutes_consistency_with_nonsession_day(tmp_path):
+    """정규봉 없는 비세션 날이 섞여도 per_day missing 합 == total_missing_intraday_min."""
+    dbp = str(tmp_path / "market_history.sqlite")
+    with HistoryStore(dbp) as store:
+        # day1: 부분 세션(09:00부터 195분) → miss 195
+        _seed(store, "005930", "KR", "KRW", date(2026, 7, 7), (9, 0), 195, tz_off=9)
+        # day2: 장전(08:00) 30분만 → 정규창(09:00~) 밖 → reg=0 → miss 0(비세션)
+        _seed(store, "005930", "KR", "KRW", date(2026, 7, 8), (8, 0), 30, tz_off=9)
+        rep = quality_report(dbp, today=date(2026, 7, 8))
+        s = rep["symbols"][0]
+        per_day_sum = sum(d["missing_minutes"] for d in s["per_day"])
+        assert per_day_sum == s["total_missing_intraday_min"] == 195
+        # 비세션 날은 reg_bars 0 / coverage 0 / missing 0 로 드러남
+        d2 = next(d for d in s["per_day"] if d["day"] == "2026-07-08")
+        assert d2["reg_bars"] == 0 and d2["coverage_pct"] == 0.0 and d2["missing_minutes"] == 0
+        assert s["full_session_days"] == 0
+
+
 def test_missing_days_counted(tmp_path):
     dbp = str(tmp_path / "market_history.sqlite")
     with HistoryStore(dbp) as store:

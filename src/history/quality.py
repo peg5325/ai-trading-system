@@ -7,15 +7,20 @@ market별 summary 포함. Toss API 호출 없음.
 from __future__ import annotations
 
 import sqlite3
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 # 정규장 창(거래소 로컬 minute-of-day). US 09:30-16:00 ET, KR 09:00-15:30 KST.
 REG_WINDOW = {"US": (9 * 60 + 30, 16 * 60), "KR": (9 * 60, 15 * 60 + 30)}
 
 
 def _mod(tx: str) -> int:
-    """ts_exchange 로컬 시:분 → minute-of-day."""
-    return int(tx[11:13]) * 60 + int(tx[14:16])
+    """ts_exchange 로컬 시:분 → minute-of-day.
+
+    구분자/포맷 변형(공백 vs 'T' 등)에도 견고하도록 fromisoformat 로 파싱한다
+    (고정 슬라이스 전제 제거).
+    """
+    dt = datetime.fromisoformat(tx)
+    return dt.hour * 60 + dt.minute
 
 
 def _weekdays(d0: date, d1: date) -> list[date]:
@@ -61,12 +66,15 @@ def quality_report(db_path: str, *, interval: str = "1m",
         for day, mods in sorted(by_day.items()):
             reg = sorted(set(m for m in mods if lo <= m < hi))
             cov = len(reg) / reg_span * 100 if reg_span else 0.0
-            miss = reg_span - len(reg) if reg else reg_span
+            # missing_minutes = 정규장 창 내 결측 분. 정규봉이 하나라도 있는 날(부분/완전
+            # 세션) 기준으로만 계산하고, 정규봉이 전혀 없는 날(비세션 캡처 — 장전/장후 조각만)은
+            # 0 으로 둔다. 그래야 per_day missing_minutes 의 합 == total_missing_intraday_min
+            # (리뷰 지적: per-day 와 total 불일치 제거). 비세션 날은 coverage/reg_bars/SPARSE 로 드러남.
+            miss = (reg_span - len(reg)) if reg else 0
             gaps = sum(1 for a, b in zip(reg, reg[1:]) if b - a > 1)
             is_full = cov >= min_coverage_pct
             full_days += int(is_full)
-            if reg:
-                total_missing_min += miss
+            total_missing_min += miss
             total_gaps += gaps
             per_day.append(dict(day=day, total_bars=len(mods), reg_bars=len(reg),
                                 coverage_pct=round(cov, 1), missing_minutes=miss,
@@ -75,7 +83,9 @@ def quality_report(db_path: str, *, interval: str = "1m",
         present_days = set(by_day)
         exp = [d.isoformat() for d in _weekdays(today - timedelta(days=calendar_days), today)]
         missing_days = [d for d in exp if d not in present_days]
-        # 5m 리샘플: full-session day 가 최소 1일이면 그 구간 리샘플 가능(gap→불완전 5m는 별도 표시)
+        # 5m 리샘플 가능 여부 = "종목 수준" 개략 판정: 완전 세션일이 최소 1일이면 True.
+        # 의도적으로 단순함 — 특정 구간의 gap 유무는 per_day.gaps 로 소비 측이 판단한다
+        # (이 플래그는 '리샘플할 온전한 날이 존재하는가'만 답한다).
         resample_5m = full_days >= 1
 
         per_symbol.append(dict(
