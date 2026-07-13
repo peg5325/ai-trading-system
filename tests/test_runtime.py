@@ -209,3 +209,24 @@ def test_config_from_dict():
 def test_config_fetch_spacing_default_zero():
     # 미지정 시 0.0(간격 끔) — 기존 단일종목 config 하위호환
     assert RuntimeConfig.from_dict({"symbols": ["SOXL"]}).fetch_spacing_s == 0.0
+
+
+# ---- session isolation config 매핑 (v2.1 Phase 1) ----
+def test_config_session_block_mapped():
+    cfg = RuntimeConfig.from_dict({
+        "symbols": ["SOXL"],
+        "session": {"id": "007", "run_id": "007R", "parent_run_id": "007",
+                    "start_mode": "RESTART", "market": "US", "currency": "USD",
+                    "manifest_path": "data/x.manifest.json", "lock_path": "data/x.lock"}})
+    assert cfg.session_id == "007" and cfg.run_id == "007R"
+    assert cfg.parent_run_id == "007" and cfg.start_mode == "RESTART"
+    assert cfg.market == "US" and cfg.currency == "USD"
+    assert cfg.session_manifest_path == "data/x.manifest.json"
+    assert cfg.session_lock_path == "data/x.lock"
+
+
+def test_config_session_absent_disables_guard():
+    # session 블록 없으면 guard 비활성(기존 config 무영향): session_id None, 기본 FRESH
+    cfg = RuntimeConfig.from_dict({"symbols": ["SOXL"]})
+    assert cfg.session_id is None and cfg.run_id is None
+    assert cfg.start_mode == "FRESH" and cfg.market is None
