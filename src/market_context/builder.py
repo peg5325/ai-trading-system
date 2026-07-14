@@ -55,13 +55,26 @@ def _trailing_return(closes: list[float], n_bars: int) -> float | None:
     return (closes[-1] - prev) / prev
 
 
+def _infer_tf_minutes(candles, fallback: str) -> int:
+    """완료봉 ts_utc 간격(중앙값, 분)으로 실제 timeframe 추론. trailing 윈도가 config 오설정에
+    흔들리지 않도록 데이터에서 직접 유도한다. 2봉 미만이면 라벨(fallback) 파싱."""
+    if len(candles) >= 2:
+        deltas = sorted((candles[i].ts_utc - candles[i - 1].ts_utc).total_seconds() / 60.0
+                        for i in range(1, len(candles)))
+        med = deltas[len(deltas) // 2]
+        if med > 0:
+            return max(1, int(round(med)))
+    return _tf_minutes(fallback)
+
+
 def _trend(close: float | None, ema20: float | None, slope: float | None) -> str | None:
-    if ema20 is None or close is None:
+    """UP/DOWN/NEUTRAL. 종가·EMA·slope 셋 다 필요 — 하나라도 결측이면 None(불확실)."""
+    if close is None or ema20 is None or slope is None:
         return None
     above = close > ema20
-    if above and slope is not None and slope > 0:
+    if above and slope > 0:
         return TREND_UP
-    if (not above) and slope is not None and slope < 0:
+    if (not above) and slope < 0:
         return TREND_DOWN
     return TREND_NEUTRAL
 
@@ -93,9 +106,10 @@ def build_benchmark_context(candles, *, decision_time: datetime, symbol: str,
     slope = ((ema_last - ema_prev) / ema_prev) if (ema_last is not None
                                                    and ema_prev not in (None, 0)) else None
 
-    tf_min = _tf_minutes(timeframe)
-    r30 = _trailing_return(closes, round(30 / tf_min)) if tf_min else None
-    r60 = _trailing_return(closes, round(60 / tf_min)) if tf_min else None
+    # trailing 윈도는 실제 봉 간격에서 유도(config timeframe 오설정에 흔들리지 않게).
+    tf_min = _infer_tf_minutes(completed, timeframe)
+    r30 = _trailing_return(closes, round(30 / tf_min))
+    r60 = _trailing_return(closes, round(60 / tf_min))
 
     return BenchmarkContext(
         benchmark_symbol=symbol,
@@ -106,8 +120,11 @@ def build_benchmark_context(candles, *, decision_time: datetime, symbol: str,
         benchmark_return_trailing_30m=r30,
         benchmark_return_trailing_60m=r60,
         benchmark_context_asof=iso_z(decision_time),
+        # source_bar_end: 마지막 완료봉의 canonical ts(= left-label, 봉 시작).
+        #   결정 그리드(cycle_id/candidate decision)와 동일 앵커라 source_bar_end ≤ decision_time
+        #   불변식이 성립한다("end" 는 '마지막 완료봉'의 의미 — 봉 종료시각이 아님).
         benchmark_source_bar_end=iso_z(source.ts_utc),
-        benchmark_timeframe=timeframe,
+        benchmark_timeframe=f"{tf_min}m",
         benchmark_trend=_trend(close, ema_last, slope),
         market_context_version=MARKET_CONTEXT_VERSION,
     )

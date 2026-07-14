@@ -45,7 +45,9 @@ class BenchmarkContext:
     benchmark_return_trailing_30m: float | None
     benchmark_return_trailing_60m: float | None
     benchmark_context_asof: str | None        # 결정 시점(as-of)
-    benchmark_source_bar_end: str | None      # 사용한 마지막 완료봉 시각
+    benchmark_source_bar_end: str | None      # 마지막 완료봉의 canonical ts(left-label=봉 시작)
+    #   ↑ 봉 종료시각이 아니라 '마지막 완료봉' 타임스탬프. 결정 그리드와 동일 앵커라
+    #     source_bar_end ≤ decision_time(=candidate decision) 불변식이 성립한다.
     benchmark_timeframe: str
     benchmark_trend: str | None               # UP | DOWN | NEUTRAL | None
     market_context_version: str = MARKET_CONTEXT_VERSION

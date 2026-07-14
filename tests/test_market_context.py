@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta, timezone
 
 from src.models import Candle
@@ -100,6 +101,28 @@ def test_warmup_insufficient_bars_nulls_not_crash():
     assert ctx.benchmark_vs_ema20 is None
     assert ctx.benchmark_ema20_slope is None
     assert ctx.benchmark_return_trailing_30m is None
+    assert ctx.benchmark_trend is None
+
+
+def test_trailing_window_uses_actual_bar_spacing():
+    """리뷰 반영: trailing 윈도는 config timeframe 이 아니라 실제 봉 간격으로 계산한다."""
+    candles = bench_candles(30)               # 실제 5분봉
+    ctx = build_benchmark_context(candles, decision_time=candles[-1].ts_utc,
+                                  symbol="QQQ", timeframe="1m",   # 잘못된 config
+                                  ema_period=20)
+    assert ctx.benchmark_timeframe == "5m"    # 실제 간격으로 추론(라벨 정정)
+    closes = [c.close for c in candles]
+    expected = (closes[-1] - closes[-7]) / closes[-7]   # 30m = 6봉 전(5분봉 기준)
+    assert math.isclose(ctx.benchmark_return_trailing_30m, expected)
+
+
+def test_trend_none_when_slope_unknown():
+    """리뷰 반영: slope 를 모르면 trend 는 NEUTRAL 이 아니라 None(불확실)."""
+    candles = bench_candles(20)               # 정확히 ema_period → ema 는 있으나 slope 없음
+    ctx = build_benchmark_context(candles, decision_time=candles[-1].ts_utc,
+                                  symbol="QQQ", timeframe="5m", ema_period=20)
+    assert ctx.benchmark_ema20 is not None
+    assert ctx.benchmark_ema20_slope is None
     assert ctx.benchmark_trend is None
 
 
