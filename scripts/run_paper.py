@@ -67,54 +67,63 @@ def main(config_path: str) -> None:
     # 과거 DB namespace 재사용/동시 실행을 시작 전에 fail-fast(실패 시 신규 쓰기 0).
     # session.id 미지정 config 는 guard 비활성(기존 동작 유지).
     guard = None
+    session_manifest_path = None
+    session_identity = None
     if cfg.session_id:
-        identity = capture_identity(cfg)
-        manifest_path, lock_path, db_paths = resolve_session_paths(cfg)
-        guard = startup_guard(identity, manifest_path=manifest_path,
+        session_identity = capture_identity(cfg)
+        session_manifest_path, lock_path, db_paths = resolve_session_paths(cfg)
+        guard = startup_guard(session_identity, manifest_path=session_manifest_path,
                               lock_path=lock_path, db_paths=db_paths)
-        print(f"[run_paper] session guard OK — {identity.session_id}/{identity.run_id} "
-              f"mode={identity.start_mode} market={identity.market} "
-              f"commit={identity.producer_commit}")
+        print(f"[run_paper] session guard OK — {session_identity.session_id}/{session_identity.run_id} "
+              f"mode={session_identity.start_mode} market={session_identity.market} "
+              f"commit={session_identity.producer_commit}")
 
-    market = TossMarketDataProvider(settings)
-    candle_store = CandleStore(cfg.candle_db)
-    position_store = InMemoryPositionStore()
-    order_manager = OrderManager(
-        PaperBrokerProvider(ExecutionModel(cfg.slippage_bps, cfg.fee_bps)),
-        InMemoryOrderStore(), position_store)
-    ai = AIDecisionEngine(_ai_provider(cfg),
-                          AIConfig(dry_run=cfg.ai_dry_run, max_calls_per_day=cfg.max_calls_per_session))
-    risk_manager = RiskManager(RiskConfig(max_positions=cfg.max_positions))
-    pipeline = TradingPipeline(IndicatorEngine(), UniverseScreener(), ai,
-                               risk_manager, order_manager,
-                               PipelineConfig(entry_notional_pct=cfg.entry_notional_pct))
-    journal = SqliteJournalStore(cfg.journal_db)
-    loop = PaperTradingLoop(
-        market, candle_store, pipeline, position_store,
-        LoopConfig(universe=tuple(cfg.symbols), account_value=cfg.account_value,
-                   polling_interval_s=cfg.poll_interval_s,
-                   fetch_spacing_s=cfg.fetch_spacing_s,
-                   max_calls_per_session=cfg.max_calls_per_session,
-                   initial_capital=cfg.initial_capital,
-                   max_positions=cfg.max_positions,
-                   exit_config=cfg.exit_config),
-        journal=journal)
-
-    metrics_store = SqliteMetricsStore(cfg.metrics_db)
-    runtime = PaperRuntime(loop, cfg, metrics_store=metrics_store)
-    print(f"[run_paper] 운영 시작 — symbols={cfg.symbols}, Paper 체결만, Ctrl+C 로 graceful shutdown")
-    report = runtime.run(install_signal_handler=True)
-    print(f"[run_paper] 종료. report={report}")
+    # 런타임 시작 전이면 lock 소유권이 run_paper 에 있고, 시작 후엔 _finalize_session 이 소유한다.
+    runtime_started = False
+    market = candle_store = journal = metrics_store = None
     try:
-        market.close()
-        candle_store.close()
-        journal.close()
-        metrics_store.close()
-    except Exception:
-        pass
+        market = TossMarketDataProvider(settings)
+        candle_store = CandleStore(cfg.candle_db)
+        position_store = InMemoryPositionStore()
+        order_manager = OrderManager(
+            PaperBrokerProvider(ExecutionModel(cfg.slippage_bps, cfg.fee_bps)),
+            InMemoryOrderStore(), position_store)
+        ai = AIDecisionEngine(_ai_provider(cfg),
+                              AIConfig(dry_run=cfg.ai_dry_run, max_calls_per_day=cfg.max_calls_per_session))
+        risk_manager = RiskManager(RiskConfig(max_positions=cfg.max_positions))
+        pipeline = TradingPipeline(IndicatorEngine(), UniverseScreener(), ai,
+                                   risk_manager, order_manager,
+                                   PipelineConfig(entry_notional_pct=cfg.entry_notional_pct))
+        journal = SqliteJournalStore(cfg.journal_db)
+        loop = PaperTradingLoop(
+            market, candle_store, pipeline, position_store,
+            LoopConfig(universe=tuple(cfg.symbols), account_value=cfg.account_value,
+                       polling_interval_s=cfg.poll_interval_s,
+                       fetch_spacing_s=cfg.fetch_spacing_s,
+                       max_calls_per_session=cfg.max_calls_per_session,
+                       initial_capital=cfg.initial_capital,
+                       max_positions=cfg.max_positions,
+                       exit_config=cfg.exit_config),
+            journal=journal)
+        metrics_store = SqliteMetricsStore(cfg.metrics_db)
+        runtime = PaperRuntime(loop, cfg, metrics_store=metrics_store,
+                               session_manifest_path=session_manifest_path,
+                               session_identity=session_identity,
+                               session_lock=(guard.lock if guard is not None else None))
+        print(f"[run_paper] 운영 시작 — symbols={cfg.symbols}, Paper 체결만, Ctrl+C 로 graceful shutdown")
+        runtime_started = True                     # 이 시점부터 lock 해제는 _finalize_session 담당
+        report = runtime.run(install_signal_handler=True)
+        print(f"[run_paper] 종료. report={report}")
     finally:
-        # store close 실패와 무관하게 single-writer lock 해제 보장(lock 유출 방지)
-        if guard is not None:
+        for closer in (market, candle_store, journal, metrics_store):
+            try:
+                if closer is not None:
+                    closer.close()
+            except Exception:
+                pass
+        # 런타임이 시작되지 못한 setup 실패에서만 lock 해제(런타임 시작 후엔 _finalize_session 이 소유:
+        # finalize 성공 시 해제, 실패 시 RUNNING+lock 을 남겨 crash-resume 신호 보존).
+        if guard is not None and not runtime_started:
             try:
                 guard.lock.release()
             except Exception:

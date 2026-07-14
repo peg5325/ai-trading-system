@@ -58,10 +58,21 @@ def classify_session(ts_exchange: datetime, market: str = MARKET_US) -> str:
     return SESSION_OVERNIGHT
 
 
+# 정규장 개장 시각(거래소 로컬, 분): KR 09:00 KST / US 09:30 ET
+_REGULAR_OPEN_MIN = {MARKET_US: 9 * 60 + 30, MARKET_KR: 9 * 60}
 # 정규장 마감 시각(거래소 로컬, 분): KR 15:30 KST / US 16:00 ET
 _REGULAR_CLOSE_MIN = {MARKET_US: 16 * 60, MARKET_KR: 15 * 60 + 30}
 # US 애프터마켓 마감(기존 레버리지 EOD 정책 호환): 20:00 ET
 _US_EXT_CLOSE_MIN = 20 * 60
+
+
+def regular_session_window(market: str) -> tuple[int, int]:
+    """market 정규장 [개장, 마감) 분(거래소 로컬). US 570~960 / KR 540~930(둘 다 390분).
+
+    expected bar 수 = (마감 - 개장) // timeframe. 78 을 하드코딩하지 않고 여기서 유도한다.
+    """
+    return (_REGULAR_OPEN_MIN.get(market, _REGULAR_OPEN_MIN[MARKET_US]),
+            _REGULAR_CLOSE_MIN.get(market, _REGULAR_CLOSE_MIN[MARKET_US]))
 
 
 def in_eod_flatten_window(candle: "Candle", minutes_before_close: int) -> bool:

@@ -3,8 +3,10 @@
 startup 게이트가 namespace 재사용/RESUME 정당성을 판정할 때 읽는 SSoT.
 원자적 기록(tmp + os.replace, PaperRuntime.status.json 과 동일 관례)으로 부분쓰기 방지.
 
-PR 1-A 범위: identity + lifecycle_state=CREATED + 타임스탬프.
-lifecycle finalize(RUNNING/TERMINATED)·completion·coverage 는 PR 1-B 에서 확장한다.
+- PR 1-A: identity + lifecycle_state=CREATED + 타임스탬프.
+- PR 1-B: lifecycle RUNNING/TERMINATED · completion_status · termination_reason ·
+  manual_flatten_count · coverage(bar 커버리지). start_mode ⟂ completion_status.
+비정상 종료 시 manifest 는 RUNNING 으로 남아 stale lock 과 함께 crash-resume 신호가 된다.
 """
 from __future__ import annotations
 
@@ -15,8 +17,11 @@ from dataclasses import dataclass, replace
 
 from src.runtime.isolation.errors import ManifestReadError
 from src.runtime.isolation.identity import SessionIdentity
-
-LIFECYCLE_CREATED = "CREATED"       # PR 1-B: RUNNING | TERMINATED 로 확장
+from src.runtime.isolation.lifecycle import (
+    LIFECYCLE_CREATED,
+    LIFECYCLE_RUNNING,
+    LIFECYCLE_TERMINATED,
+)
 
 
 @dataclass
@@ -25,6 +30,12 @@ class SessionManifest:
     lifecycle_state: str = LIFECYCLE_CREATED
     created_at: str | None = None
     updated_at: str | None = None
+    # PR 1-B: 종료 상태 + 커버리지 (TERMINATED 시 확정)
+    completion_status: str | None = None        # FULL | PARTIAL | ABORTED | FAILED
+    termination_reason: str | None = None
+    manual_flatten_count: int = 0
+    coverage: dict | None = None                # SessionCoverage.to_dict()
+    terminated_at: str | None = None
 
     @classmethod
     def create(cls, identity: SessionIdentity, now: str | None) -> "SessionManifest":
@@ -35,12 +46,31 @@ class SessionManifest:
         """RESUME 등에서 updated_at 만 갱신한 사본 반환."""
         return replace(self, updated_at=now)
 
+    def mark_running(self, now: str | None) -> "SessionManifest":
+        """세션 실행 시작 → RUNNING. 비정상 종료 시 이 상태로 남아 crash-resume 신호가 된다."""
+        return replace(self, lifecycle_state=LIFECYCLE_RUNNING, updated_at=now)
+
+    def finalize(self, now: str | None, *, completion_status: str,
+                 termination_reason: str | None = None, coverage: dict | None = None,
+                 manual_flatten_count: int = 0) -> "SessionManifest":
+        """정상 종료 → TERMINATED + completion/coverage 확정."""
+        return replace(self, lifecycle_state=LIFECYCLE_TERMINATED,
+                       completion_status=completion_status,
+                       termination_reason=termination_reason,
+                       coverage=coverage, manual_flatten_count=manual_flatten_count,
+                       updated_at=now, terminated_at=now)
+
     def to_dict(self) -> dict:
         return {
             "identity": self.identity.to_dict(),
             "lifecycle_state": self.lifecycle_state,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "completion_status": self.completion_status,
+            "termination_reason": self.termination_reason,
+            "manual_flatten_count": self.manual_flatten_count,
+            "coverage": self.coverage,
+            "terminated_at": self.terminated_at,
         }
 
     @classmethod
@@ -50,6 +80,11 @@ class SessionManifest:
             lifecycle_state=d.get("lifecycle_state", LIFECYCLE_CREATED),
             created_at=d.get("created_at"),
             updated_at=d.get("updated_at"),
+            completion_status=d.get("completion_status"),
+            termination_reason=d.get("termination_reason"),
+            manual_flatten_count=d.get("manual_flatten_count", 0),
+            coverage=d.get("coverage"),
+            terminated_at=d.get("terminated_at"),
         )
 
 

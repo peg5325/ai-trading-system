@@ -15,10 +15,21 @@ from src.runtime.isolation.errors import (
     StaleLockError,
     StartupGuardError,
 )
+from src.runtime.isolation.coverage import SessionCoverage, compute_coverage
 from src.runtime.isolation.guard import (
     GuardResult,
     resolve_session_paths,
     startup_guard,
+)
+from src.runtime.isolation.lifecycle import (
+    COMPLETION_ABORTED,
+    COMPLETION_FAILED,
+    COMPLETION_FULL,
+    COMPLETION_PARTIAL,
+    LIFECYCLE_CREATED,
+    LIFECYCLE_RUNNING,
+    LIFECYCLE_TERMINATED,
+    classify_completion,
 )
 from src.runtime.isolation.identity import (
     BROKER_PAPER,
@@ -53,6 +64,10 @@ __all__ = [
     "START_FRESH", "START_RESUME", "START_RESTART",
     # manifest
     "SessionManifest", "read_manifest", "write_manifest",
+    # lifecycle + coverage
+    "classify_completion", "SessionCoverage", "compute_coverage",
+    "LIFECYCLE_CREATED", "LIFECYCLE_RUNNING", "LIFECYCLE_TERMINATED",
+    "COMPLETION_FULL", "COMPLETION_PARTIAL", "COMPLETION_ABORTED", "COMPLETION_FAILED",
     # lock
     "SessionLock", "LockInfo", "read_lock", "default_is_alive",
     # guard

@@ -20,6 +20,11 @@ from typing import Callable
 from datetime import datetime
 
 from src.journal.models import ts_from_cycle_id
+from src.runtime.isolation import (classify_completion, compute_coverage,
+                                   read_manifest, write_manifest)
+from src.runtime.isolation.lifecycle import (REASON_ENDED, REASON_ERROR,
+                                             REASON_INTERRUPTED, REASON_SESSION_END,
+                                             REASON_STOPPED)
 from src.runtime.logging_setup import setup_loggers
 from src.runtime.metrics import RuntimeMetrics
 from src.runtime.metrics_store import build_cycle_metric, cycle_delta
@@ -36,7 +41,8 @@ class PaperRuntime:
     def __init__(self, loop, config, loggers=None,
                  monotonic: Callable[[], float] = time.monotonic,
                  sleep: Callable[[float], None] = time.sleep,
-                 metrics_store=None, now_iso: Callable[[], str] | None = None):
+                 metrics_store=None, now_iso: Callable[[], str] | None = None,
+                 session_manifest_path=None, session_identity=None, session_lock=None):
         self.loop = loop
         self.cfg = config
         self.loggers = loggers or setup_loggers(
@@ -51,6 +57,13 @@ class PaperRuntime:
         self._last_report = None
         self._last_health: dict = {}
         self._run_start = 0.0
+        # session lifecycle (PR 1-B) — 미주입 시 전부 no-op(기존 동작 유지)
+        self.session_manifest_path = session_manifest_path
+        self.session_identity = session_identity
+        self.session_lock = session_lock
+        self._manual_flatten_count = 0
+        self._interrupted = False        # KeyboardInterrupt 로 종료됨
+        self._stop_called = False        # 외부 stop()/시그널로 종료됨
 
     # ---- 제어 ----
     def run(self, max_iterations: int | None = None, install_signal_handler: bool = False,
@@ -58,6 +71,7 @@ class PaperRuntime:
         if self.state == STOPPED:
             self.state = RUNNING          # 새 시작 (PAUSED 로 들어오면 유지)
         self._run_start = self._monotonic()
+        self._mark_session_running()      # manifest CREATED → RUNNING (비정상 종료 시 crash-resume 신호)
         self.loggers["runtime"].info(f"runtime START symbols={self.cfg.symbols} poll={self.cfg.poll_interval_s}s")
         if install_signal_handler:
             import signal
@@ -76,12 +90,18 @@ class PaperRuntime:
                     after_cycle(self)         # 테스트/운영 훅 (stop/pause 트리거)
                 self._sleep(self.cfg.poll_interval_s)
         except KeyboardInterrupt:
+            self._interrupted = True
             self.loggers["runtime"].info("KeyboardInterrupt → graceful shutdown")
         finally:
             return self._shutdown()
 
     def stop(self) -> None:
         self.state = STOPPED
+        self._stop_called = True
+
+    def record_manual_flatten(self) -> None:
+        """운영자 수동 청산 관측 카운터 — 매매 행동이 아니라 manifest 기록용(manual_flatten_count)."""
+        self._manual_flatten_count += 1
 
     def pause(self) -> None:
         if self.state == RUNNING:
@@ -231,10 +251,69 @@ class PaperRuntime:
         except Exception:
             pass
         self._flush_stores()
+        self._finalize_session()          # 세션 상태 먼저 확정(리포트 실패와 무관)
         path = self._generate_report()
         self._update_status(self._last_report)
         self.loggers["runtime"].info(f"graceful SHUTDOWN, report={path}")
         return path
+
+    # ---- Session Lifecycle (PR 1-B) ----
+    def _mark_session_running(self) -> None:
+        """세션 실행 시작 시 manifest 를 RUNNING 으로. 미주입/부재 시 no-op."""
+        if not self.session_manifest_path:
+            return
+        try:
+            m = read_manifest(self.session_manifest_path)
+            if m is not None:
+                write_manifest(self.session_manifest_path, m.mark_running(self._now_iso()))
+        except Exception as e:                        # 관측 실패가 매매/생존을 막지 않음
+            self.loggers["error"].error(f"session mark_running failed: {e}")
+
+    def _finalize_session(self) -> None:
+        """정상 종료 시 coverage 계산 → completion 분류 → manifest finalize → lock 해제.
+
+        - 단일 시장/세션일 가정: coverage 는 session_identity.market 창 기준(혼합 시장·다중
+          거래일은 1-B 범위 밖; paper_loop 은 세션일 변경 시 관측봉을 reset 한다).
+        - manifest finalize 가 성공한 경우에만 lock 을 해제한다. 기록 실패 시 RUNNING+lock
+          쌍을 남겨 crash-resume 신호를 보존한다(정상 종료라도 기록이 안 됐으면 crash 취급).
+        """
+        if not self.session_manifest_path:
+            return
+        finalized = False
+        try:
+            observed = (self.loop.observed_bar_exchange_times()
+                        if hasattr(self.loop, "observed_bar_exchange_times") else [])
+            market = getattr(self.session_identity, "market", None) or "US"
+            bar_min = int(self.loop.bar_minutes()) if hasattr(self.loop, "bar_minutes") else 5
+            # 조기폐장(휴장 캘린더)은 자동 감지하지 않는다 → session_close_min 미전달(1-B 범위 밖).
+            cov = compute_coverage(market, bar_min, observed)
+            # cycles_run==0 & 오류 존재 = 정상 사이클(RAN) 없이 오류로 종료.
+            # api/pipeline/generic 예외를 모두 포함(모든 사이클이 파이프라인 예외로 끝난 경우도 FAILED).
+            failed = (self.metrics.cycles_run == 0
+                      and (self.metrics.exceptions + self.metrics.api_errors
+                           + self.metrics.pipeline_errors) > 0)
+            aborted = (self._interrupted or self._stop_called) and not cov.reached_end
+            status = classify_completion(reached_session_end=cov.reached_end,
+                                         coverage_complete=cov.complete,
+                                         aborted=aborted, failed=failed)
+            # 세션말 도달(정상 완료)이면 이후 중단 신호보다 SESSION_END 를 원인으로 우선한다.
+            reason = (REASON_ERROR if failed else
+                      REASON_SESSION_END if cov.reached_end else
+                      REASON_INTERRUPTED if self._interrupted else
+                      REASON_STOPPED if self._stop_called else REASON_ENDED)
+            m = read_manifest(self.session_manifest_path)
+            if m is not None:
+                write_manifest(self.session_manifest_path, m.finalize(
+                    self._now_iso(), completion_status=status, termination_reason=reason,
+                    coverage=cov.to_dict(), manual_flatten_count=self._manual_flatten_count))
+            finalized = True
+        except Exception as e:                        # 기록 실패 시 lock 유지(crash 신호 보존)
+            self.loggers["error"].error(f"session finalize failed: {e}")
+        if finalized and self.session_lock is not None:
+            try:
+                self.session_lock.release()           # finalize 성공 후에만 single-writer lock 해제
+            except Exception:
+                pass
 
     def _flush_stores(self) -> None:
         for store in (getattr(self.loop, "store", None), getattr(self.loop, "journal", None)):
