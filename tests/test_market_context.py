@@ -42,12 +42,13 @@ def test_builder_produces_v1_fields_uptrend():
     assert ctx is not None
     d = ctx.to_dict()
     assert set(d) == {
-        "benchmark_symbol", "benchmark_close", "benchmark_ema20", "benchmark_vs_ema20",
-        "benchmark_ema20_slope", "benchmark_return_trailing_30m",
+        "benchmark_symbol", "benchmark_close", "benchmark_ema20", "benchmark_ema_period",
+        "benchmark_vs_ema20", "benchmark_ema20_slope", "benchmark_return_trailing_30m",
         "benchmark_return_trailing_60m", "benchmark_context_asof",
         "benchmark_source_bar_end", "benchmark_timeframe", "benchmark_trend",
         "market_context_version"}
     assert d["benchmark_symbol"] == "QQQ"
+    assert d["benchmark_ema_period"] == 20         # 실제 EMA 기간 자기기술(라벨 모호성 해소)
     assert d["benchmark_close"] == candles[-1].close
     assert d["benchmark_ema20"] is not None
     assert d["benchmark_vs_ema20"] > 0            # 상승: 종가 > EMA
@@ -114,6 +115,15 @@ def test_trailing_window_uses_actual_bar_spacing():
     closes = [c.close for c in candles]
     expected = (closes[-1] - closes[-7]) / closes[-7]   # 30m = 6봉 전(5분봉 기준)
     assert math.isclose(ctx.benchmark_return_trailing_30m, expected)
+
+
+def test_ema_period_is_self_describing():
+    """리뷰 반영: ema_period 가 config 로 가변이므로 실제 기간을 필드로 기록(라벨-의미 불일치 방지)."""
+    candles = bench_candles(30)
+    ctx = build_benchmark_context(candles, decision_time=candles[-1].ts_utc,
+                                  symbol="QQQ", timeframe="5m", ema_period=10)
+    assert ctx.benchmark_ema_period == 10          # 필드명은 ema20 이지만 실제 기간은 기록됨
+    assert ctx.benchmark_ema20 is not None
 
 
 def test_trend_none_when_slope_unknown():

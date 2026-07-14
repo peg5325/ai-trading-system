@@ -255,6 +255,7 @@ def test_dataset_schema_version_bumped():
 # ---- v2.1 PR 2-B: benchmark market context 전파 ----
 _BENCH = {
     "benchmark_symbol": "QQQ", "benchmark_close": 400.0, "benchmark_ema20": 398.0,
+    "benchmark_ema_period": 20,
     "benchmark_vs_ema20": 0.005, "benchmark_ema20_slope": 0.001,
     "benchmark_return_trailing_30m": 0.002, "benchmark_return_trailing_60m": 0.004,
     "benchmark_trend": "UP", "benchmark_source_bar_end": "2026-07-07T04:15:00Z",
@@ -273,7 +274,7 @@ def test_dataset_propagates_benchmark_context(tmp_path):
     rec = DatasetBuilder(journal, store).build().records[0]
     f = rec.feature
     assert f.benchmark_symbol == "QQQ" and f.benchmark_close == 400.0
-    assert f.benchmark_ema20 == 398.0 and f.benchmark_trend == "UP"
+    assert f.benchmark_ema20 == 398.0 and f.benchmark_ema_period == 20 and f.benchmark_trend == "UP"
     assert f.benchmark_return_trailing_30m == 0.002 and f.benchmark_return_trailing_60m == 0.004
     assert f.market_context_version == "1.0"
     flat = rec.to_flat()

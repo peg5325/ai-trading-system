@@ -70,6 +70,7 @@ class FeatureRecord:
     benchmark_symbol: str | None = None
     benchmark_close: float | None = None
     benchmark_ema20: float | None = None
+    benchmark_ema_period: int | None = None
     benchmark_vs_ema20: float | None = None
     benchmark_ema20_slope: float | None = None
     benchmark_return_trailing_30m: float | None = None
@@ -178,7 +179,8 @@ class DatasetRecord:
             "volume": f.volume, "volume_sma20": f.volume_sma20,
             "volume_ratio": f.volume_ratio, "dollar_volume": f.dollar_volume,
             "benchmark_symbol": f.benchmark_symbol, "benchmark_close": f.benchmark_close,
-            "benchmark_ema20": f.benchmark_ema20, "benchmark_vs_ema20": f.benchmark_vs_ema20,
+            "benchmark_ema20": f.benchmark_ema20, "benchmark_ema_period": f.benchmark_ema_period,
+            "benchmark_vs_ema20": f.benchmark_vs_ema20,
             "benchmark_ema20_slope": f.benchmark_ema20_slope,
             "benchmark_return_trailing_30m": f.benchmark_return_trailing_30m,
             "benchmark_return_trailing_60m": f.benchmark_return_trailing_60m,

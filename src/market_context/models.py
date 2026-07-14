@@ -23,6 +23,10 @@ class MarketContextConfig:
 
     benchmark 는 이미 universe 에서 가져온 candle 을 재사용한다(추가 API 0). universe 에
     없으면 관측을 생략한다(별도 fetch 금지 → KRX benchmark 는 자연히 비활성).
+
+    ⚠ v1 트레이드오프: 관측을 켜려면 benchmark_symbol 이 universe 에 있어야 하며,
+    그러면 그 심볼도 매매 후보(진입 필터 대상)가 된다. "국면 지표 전용(매매 제외)" 벤치마크는
+    별도 fetch 예산/경로가 필요해 이후 단계로 미룬다(계약서 §3-6: US 는 QQQ 재사용부터).
     """
     enabled: bool = False
     benchmark_symbol: str = "QQQ"
@@ -40,6 +44,8 @@ class BenchmarkContext:
     benchmark_symbol: str
     benchmark_close: float | None
     benchmark_ema20: float | None
+    benchmark_ema_period: int                 # 실제 EMA 기간(필드명은 ema20 이지만 config 로 가변 →
+    #   기간을 명시해 다운스트림 라벨-의미 불일치를 막는다).
     benchmark_vs_ema20: float | None          # (close - ema20) / ema20
     benchmark_ema20_slope: float | None       # (ema20_t - ema20_{t-1}) / ema20_{t-1}
     benchmark_return_trailing_30m: float | None
@@ -48,7 +54,8 @@ class BenchmarkContext:
     benchmark_source_bar_end: str | None      # 마지막 완료봉의 canonical ts(left-label=봉 시작)
     #   ↑ 봉 종료시각이 아니라 '마지막 완료봉' 타임스탬프. 결정 그리드와 동일 앵커라
     #     source_bar_end ≤ decision_time(=candidate decision) 불변식이 성립한다.
-    benchmark_timeframe: str
+    benchmark_timeframe: str                   # config 라벨이 아니라 실제 봉 간격 추론값
+    #   (builder._infer_tf_minutes — 오설정 정정). config timeframe 과 혼동 금지.
     benchmark_trend: str | None               # UP | DOWN | NEUTRAL | None
     market_context_version: str = MARKET_CONTEXT_VERSION
 

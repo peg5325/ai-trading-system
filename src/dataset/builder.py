@@ -154,6 +154,7 @@ class DatasetBuilder:
             benchmark_symbol=bench.get("benchmark_symbol"),
             benchmark_close=_f(bench.get("benchmark_close")),
             benchmark_ema20=_f(bench.get("benchmark_ema20")),
+            benchmark_ema_period=bench.get("benchmark_ema_period"),
             benchmark_vs_ema20=_f(bench.get("benchmark_vs_ema20")),
             benchmark_ema20_slope=_f(bench.get("benchmark_ema20_slope")),
             benchmark_return_trailing_30m=_f(bench.get("benchmark_return_trailing_30m")),

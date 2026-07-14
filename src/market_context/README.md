@@ -37,5 +37,8 @@ market_context_version`
   `run_once` **이후**에만 관측을 만든다.
 - **추가 API/fetch 금지.** 이미 universe 에서 가져온 candle 만 재사용한다. benchmark 가
   universe 에 없으면 관측을 생략한다(→ KRX benchmark 는 별도 예산 전 자연히 비활성).
+  - **v1 트레이드오프**: 관측을 켜려면 `benchmark_symbol` 이 universe 에 있어야 하고, 그러면
+    그 심볼도 매매 후보가 된다. "국면 지표 전용(매매 제외)" 벤치마크는 별도 fetch 경로가 필요해
+    이후 단계로 미룬다(추가 API 0 이라는 §3-6 제약과 맞바꾼 의도된 결합).
 - **미완료봉/미래봉 사용 금지.** `ts_utc ≤ decision_time` 필터 밖의 봉은 쓰지 않는다.
 - Provider/Broker/Order/Risk 에 접근하지 않는다(순수 계산 + config 뿐).

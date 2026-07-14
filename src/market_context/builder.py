@@ -115,6 +115,7 @@ def build_benchmark_context(candles, *, decision_time: datetime, symbol: str,
         benchmark_symbol=symbol,
         benchmark_close=close,
         benchmark_ema20=ema_last,
+        benchmark_ema_period=int(ema_period),   # 필드명(ema20) 과 무관하게 실제 기간 기록
         benchmark_vs_ema20=vs_ema,
         benchmark_ema20_slope=slope,
         benchmark_return_trailing_30m=r30,
