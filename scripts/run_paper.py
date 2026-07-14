@@ -67,14 +67,16 @@ def main(config_path: str) -> None:
     # 과거 DB namespace 재사용/동시 실행을 시작 전에 fail-fast(실패 시 신규 쓰기 0).
     # session.id 미지정 config 는 guard 비활성(기존 동작 유지).
     guard = None
+    session_manifest_path = None
+    session_identity = None
     if cfg.session_id:
-        identity = capture_identity(cfg)
-        manifest_path, lock_path, db_paths = resolve_session_paths(cfg)
-        guard = startup_guard(identity, manifest_path=manifest_path,
+        session_identity = capture_identity(cfg)
+        session_manifest_path, lock_path, db_paths = resolve_session_paths(cfg)
+        guard = startup_guard(session_identity, manifest_path=session_manifest_path,
                               lock_path=lock_path, db_paths=db_paths)
-        print(f"[run_paper] session guard OK — {identity.session_id}/{identity.run_id} "
-              f"mode={identity.start_mode} market={identity.market} "
-              f"commit={identity.producer_commit}")
+        print(f"[run_paper] session guard OK — {session_identity.session_id}/{session_identity.run_id} "
+              f"mode={session_identity.start_mode} market={session_identity.market} "
+              f"commit={session_identity.producer_commit}")
 
     market = TossMarketDataProvider(settings)
     candle_store = CandleStore(cfg.candle_db)
@@ -101,7 +103,10 @@ def main(config_path: str) -> None:
         journal=journal)
 
     metrics_store = SqliteMetricsStore(cfg.metrics_db)
-    runtime = PaperRuntime(loop, cfg, metrics_store=metrics_store)
+    runtime = PaperRuntime(loop, cfg, metrics_store=metrics_store,
+                           session_manifest_path=session_manifest_path,
+                           session_identity=session_identity,
+                           session_lock=(guard.lock if guard is not None else None))
     print(f"[run_paper] 운영 시작 — symbols={cfg.symbols}, Paper 체결만, Ctrl+C 로 graceful shutdown")
     report = runtime.run(install_signal_handler=True)
     print(f"[run_paper] 종료. report={report}")

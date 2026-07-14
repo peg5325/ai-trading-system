@@ -94,6 +94,15 @@ class PaperTradingLoop:
         self._last_processed = None      # 마지막 처리한 5분봉 ts_utc
         self._calls = 0
         self._session_day = None
+        self._observed_bars: list = []   # 이번 세션 관측한 5분봉 ts_exchange(coverage용, 관측만)
+
+    # ---- session coverage 관측 (매매 무관, PR 1-B) ----
+    def bar_minutes(self) -> float:
+        return _BAR_SECONDS / 60.0
+
+    def observed_bar_exchange_times(self) -> list:
+        """이번 세션에서 관측한 5분봉의 거래소 로컬 시각(coverage 계산 입력)."""
+        return list(self._observed_bars)
 
     # ---- 제어 (요구사항 13, 14) ----
     def stop(self) -> None: self.stopped = True
@@ -156,6 +165,8 @@ class PaperTradingLoop:
 
         session = newest_candle.session                        # market-correct (US/KR)
         self._maybe_reset_session(newest_candle.ts_exchange)
+        # 새로 닫힌 봉을 관측봉으로 기록(데이터 가용성 기준 — 이후 rate-limit/error 여부 무관)
+        self._observed_bars.append(newest_candle.ts_exchange)
 
         # 5) rate limit 보호
         if (self.cfg.max_calls_per_session is not None
@@ -243,6 +254,7 @@ class PaperTradingLoop:
         if self._session_day != day:
             self._session_day = day
             self._calls = 0
+            self._observed_bars = []          # 새 세션 → 관측봉 초기화
 
     def _portfolio(self, last_prices, session, eod):
         from src.risk.models import PortfolioSnapshot, Position
