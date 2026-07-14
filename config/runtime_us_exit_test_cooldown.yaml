@@ -1,0 +1,56 @@
+# US Exit Test + Re-entry Cooldown 실험 config (신규 — 기존 config 덮어쓰기 없음).
+# Re-entry Cooldown 은 과매매/whipsaw 방지 안전장치이며 수익 개선 기능이 아니다.
+# 사용 전 Backtest A/B(scripts/compare_cooldown.py)로 검증할 것. DB/로그/상태는 별도 네임스페이스.
+symbols:
+  - SOXL
+  - QQQ
+  - NVDA
+poll_interval_s: 20
+initial_capital: 2000
+entry_notional_pct: 0.20
+max_positions: 5
+account_value: 2000
+fetch_spacing_s: 0.5
+max_calls_per_session: 300
+paper_broker:
+  slippage_bps: 5
+  fee_bps: 2
+ai:
+  provider: fake                 # FakeAI(dry_run) — OpenAI 호출 금지
+  model: gpt-5.5-mini
+exits:
+  enable_all_symbols_eod_flatten: true
+  eod_flatten_minutes_before_close: 10
+  stop_loss_pct: 0.01
+  take_profit_pct: 0.015
+  time_exit_minutes: 60
+  leverage_eod_flatten: true
+reentry_cooldown:
+  enabled: true                  # 이 실험 config 에서만 활성(opt-in). 기본 config 은 미포함=off.
+  unit: trading_bars             # trading_bars | elapsed_minutes (timeframe 기반, 절대버킷 미사용)
+  timeframe_minutes: 5           # 봉 길이(trading_bars ↔ 분 환산)
+  reset_on_new_session: true     # 세션(거래일) 전환 시 초기화 → 오버나잇 갭 넘어 번지지 않음
+  mode: hard                     # v1: hard 만 구현. conditional 은 스키마 예약(설정 시 경고).
+  scope: symbol                  # v1: symbol. market/session 은 예약.
+  durations:
+    stop_loss: 6                 # 1차 목적: 손절 후 6봉(30분) 재진입 차단
+    take_profit: 0               # 별도 정책(분리 검토) — 기본 미적용
+    time_exit: 0
+    eod_flatten: 0
+  override: []                   # conditional 예외 재진입 조건(v1 미구현, 자리 예약)
+journal:
+  db: data/journal_us_exit_test_cooldown.sqlite
+candles:
+  db: data/market_us_exit_test_cooldown.sqlite
+review:
+  db: data/reviews_us_exit_test_cooldown.sqlite
+metrics:
+  db: data/metrics_us_exit_test_cooldown.sqlite
+system_review:
+  db: data/system_reviews_us_exit_test_cooldown.sqlite
+logging:
+  dir: logs_us_exit_test_cooldown
+  max_bytes: 1000000
+  backup_count: 3
+reports_dir: reports
+status_path: status_us_exit_test_cooldown.json

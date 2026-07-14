@@ -6,6 +6,7 @@ Broker/Provider 에 접근하지 않는다. RiskManager 는 오직 이 스냅샷
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime   # PortfolioSnapshot 쿨다운 필드 타입(get_type_hints/타입체커용)
 
 # ---- 주문 종류 ----
 NEW_ENTRY = "NEW_ENTRY"      # 신규 진입
@@ -84,6 +85,11 @@ class PortfolioSnapshot:
     session: str = "REGULAR"                   # PRE / REGULAR / POST / OVERNIGHT (스냅샷 기준)
     is_eod_flatten_window: bool = False        # 세션 마감 임박(레버리지 flatten 창)
     cash: float | None = None                  # 가용 현금(자금관리) — None 이면 현금 체크 미적용
+    # 재진입 쿨다운(timestamp 기반, clock-free): 현재 봉 시각 + 종목별 마지막 청산(시각/사유).
+    # 미주입 시 쿨다운 미적용(기본 off 경로와 동일).
+    now_time: datetime | None = None
+    last_exit_time: dict[str, datetime] = field(default_factory=dict)
+    last_exit_reason: dict[str, str] = field(default_factory=dict)
 
     @property
     def total_effective_exposure(self) -> float:
@@ -98,6 +104,9 @@ class PortfolioSnapshot:
             "session": self.session, "is_eod_flatten_window": self.is_eod_flatten_window,
             "total_effective_exposure": self.total_effective_exposure,
             "cash": self.cash,
+            "now_time": self.now_time.isoformat() if self.now_time else None,
+            "last_exit_time": {s: t.isoformat() for s, t in self.last_exit_time.items()},
+            "last_exit_reason": dict(self.last_exit_reason),
         }
 
 
