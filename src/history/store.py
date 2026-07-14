@@ -269,3 +269,58 @@ class HistoryStore:
                 continue  # 자기 자신 제외
             out.append(self.import_session_db(src, run_id=run_id))
         return out
+
+    def commit(self) -> None:
+        """드라이버가 페이지 단위로 커밋해 resume 내구성을 확보하도록 노출."""
+        self._con.commit()
+
+    # ---- backfill 지원(PR 3-A): canonical Candle upsert + cursor + 감사 로그 ----
+    @staticmethod
+    def _candle_to_row(candle, source: str) -> dict:
+        """canonical Candle → candle_history row dict. ts 는 import 경로와 동일하게
+        isoformat 문자열로 저장해 PK(symbol,interval,ts_utc)를 정합시킨다."""
+        return {
+            "symbol": candle.symbol, "market": candle.market, "interval": candle.interval,
+            "ts_utc": candle.ts_utc.isoformat(), "ts_exchange": candle.ts_exchange.isoformat(),
+            "session": candle.session,
+            "open": candle.open, "high": candle.high, "low": candle.low,
+            "close": candle.close, "volume": candle.volume,
+            "currency": candle.currency, "adjusted": 1 if candle.adjusted else 0,
+            "source": source,
+        }
+
+    def upsert_candles(self, candles: list, *, source: str, run_id: str,
+                       stats: ImportStats) -> None:
+        """canonical Candle 목록을 멱등 upsert(기존 _upsert_row 재사용). 커밋은 호출측."""
+        for c in candles:
+            self._upsert_row(run_id, self._candle_to_row(c, source), stats)
+
+    def get_cursor(self, symbol: str, interval: str) -> dict | None:
+        row = self._con.execute(
+            "SELECT symbol, interval, oldest_ts_utc, next_before, exhausted, updated_at "
+            "FROM backfill_cursor WHERE symbol=? AND interval=?", (symbol, interval),
+        ).fetchone()
+        if row is None:
+            return None
+        d = dict(row)
+        d["exhausted"] = bool(d["exhausted"])
+        return d
+
+    def save_cursor(self, symbol: str, interval: str, *, oldest_ts_utc: str | None,
+                    next_before: str | None, exhausted: bool) -> None:
+        self._con.execute(
+            "INSERT OR REPLACE INTO backfill_cursor "
+            "(symbol, interval, oldest_ts_utc, next_before, exhausted, updated_at) "
+            "VALUES (?,?,?,?,?,?)",
+            (symbol, interval, oldest_ts_utc, next_before, 1 if exhausted else 0, _now()),
+        )
+
+    def write_ingest_log(self, run_id: str, *, source: str, stats: ImportStats,
+                         rows_seen: int, earliest: str | None, latest: str | None,
+                         note: str | None) -> None:
+        self._con.execute(
+            "INSERT INTO ingest_log (run_id,ts,source,rows_seen,rows_inserted,rows_updated,"
+            "rows_duplicate,rows_conflict,earliest,latest,note) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (run_id, _now(), source, rows_seen, stats.inserted, stats.updated,
+             stats.duplicate, stats.conflict, earliest, latest, note),
+        )
