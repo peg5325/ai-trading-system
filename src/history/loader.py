@@ -33,10 +33,15 @@ def load_candles(db_path: str, symbol: str, interval: str, *,
                  market: str | None = None) -> list[Candle]:
     """통합 저장소에서 (symbol, interval) 캔들을 시간 오름차순으로 반환(read-only).
 
-    start/end 는 UTC 로 정규화해 [start, end) 반개구간 필터(end 배타적, look-ahead 안전).
+    start/end 는 **tz-aware 필수**(UTC 로 정규화해 [start, end) 반개구간 필터, end 배타적·
+    look-ahead 안전). naive datetime 은 실행 환경 TZ 로 해석돼 경계가 비결정적이 되므로 거부.
     market 지정 시 해당 시장으로 격리(시장 분리 평가 — 동일 티커가 두 시장 행을 가질 때
     통화/시장 혼재 방지). 미지정 시 종목의 전 시장.
     """
+    for _name, _ts in (("start", start), ("end", end)):
+        if _ts is not None and _ts.tzinfo is None:
+            raise ValueError(
+                f"{_name} 는 tz-aware 여야 한다(naive datetime 은 실행 환경 TZ 의존 → 결정론 위배).")
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     con.row_factory = sqlite3.Row
     try:

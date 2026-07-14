@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
+
 from src.history import HistoryStore, load_candles
 from src.history.store import ImportStats
 from src.models import Candle
@@ -69,6 +71,17 @@ def test_load_candles_unknown_symbol_empty(tmp_path):
     dbp = str(tmp_path / "market_history.sqlite")
     _make_history(dbp, [_c("QQQ", 7, 0)])
     assert load_candles(dbp, "NOPE", "1m") == []
+
+
+def test_load_candles_rejects_naive_datetime(tmp_path):
+    """naive datetime 은 실행 환경 TZ 의존 → 결정론 위배로 거부."""
+    dbp = str(tmp_path / "market_history.sqlite")
+    _make_history(dbp, [_c("QQQ", 7, 0)])
+    naive = datetime(2026, 7, 7, 14, 0)  # tzinfo 없음
+    with pytest.raises(ValueError):
+        load_candles(dbp, "QQQ", "1m", start=naive)
+    with pytest.raises(ValueError):
+        load_candles(dbp, "QQQ", "1m", end=naive)
 
 
 def test_load_candles_market_filter(tmp_path):

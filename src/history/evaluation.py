@@ -94,7 +94,12 @@ def leave_one_session_out(candles: list[Candle]):
 
 def official_split(candles: list[Candle], method: str, *, ratio: float = 0.7,
                    embargo_bars: int = 0):
-    """공식 평가 split 디스패치. random 은 거부(계약 §3-7)."""
+    """공식 평가 split 디스패치. random 은 거부(계약 §3-7).
+
+    ★ 반환 형태는 method 에 따라 다르므로 소비 측은 method 를 알고 해석해야 한다:
+      - "chronological" / "embargo" → tuple(train, test)  (2-way holdout)
+      - "loso"                       → list[(held_date, train, test)]  (N-fold)
+    method 가 config/외부에서 오는 경우 호출부는 반드시 형태를 분기할 것."""
     if method == "random":
         raise ValueError(
             f"random split is {RANDOM_CV_WATERMARK}: 공식 평가/모델선택·승격 판정에서 금지. "
