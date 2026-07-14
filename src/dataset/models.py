@@ -12,9 +12,10 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 # ---- 스키마 버전 (스키마 변경 시 반드시 갱신) ----
-# v2.1 PR 2-A: candidate_id/trade_id 조인키 + score 분해 + volume 피처 추가로 bump.
-FEATURE_VERSION = "1.1"      # FeatureRecord 필드 구성
-DATASET_VERSION = "1.1"      # Dataset row(=feature+label+meta) 구성
+# v2.1 PR 2-A: candidate_id/trade_id 조인키 + score 분해 + volume 피처.
+# v2.1 PR 2-B: benchmark market context 필드 추가로 1.1 → 1.2.
+FEATURE_VERSION = "1.2"      # FeatureRecord 필드 구성
+DATASET_VERSION = "1.2"      # Dataset row(=feature+label+meta) 구성
 
 
 @dataclass
@@ -65,6 +66,20 @@ class FeatureRecord:
     volume_sma20: float | None = None
     volume_ratio: float | None = None
     dollar_volume: float | None = None
+    # v2.1 PR 2-B: benchmark market context (사이클 관측, 매매 무관) — 없으면 None
+    benchmark_symbol: str | None = None
+    benchmark_close: float | None = None
+    benchmark_ema20: float | None = None
+    benchmark_ema_period: int | None = None
+    benchmark_vs_ema20: float | None = None
+    benchmark_ema20_slope: float | None = None
+    benchmark_return_trailing_30m: float | None = None
+    benchmark_return_trailing_60m: float | None = None
+    benchmark_trend: str | None = None
+    benchmark_source_bar_end: str | None = None
+    benchmark_context_asof: str | None = None
+    benchmark_timeframe: str | None = None
+    market_context_version: str | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -163,6 +178,17 @@ class DatasetRecord:
             "penalty_score": f.penalty_score, "pre_clamp_score": f.pre_clamp_score,
             "volume": f.volume, "volume_sma20": f.volume_sma20,
             "volume_ratio": f.volume_ratio, "dollar_volume": f.dollar_volume,
+            "benchmark_symbol": f.benchmark_symbol, "benchmark_close": f.benchmark_close,
+            "benchmark_ema20": f.benchmark_ema20, "benchmark_ema_period": f.benchmark_ema_period,
+            "benchmark_vs_ema20": f.benchmark_vs_ema20,
+            "benchmark_ema20_slope": f.benchmark_ema20_slope,
+            "benchmark_return_trailing_30m": f.benchmark_return_trailing_30m,
+            "benchmark_return_trailing_60m": f.benchmark_return_trailing_60m,
+            "benchmark_trend": f.benchmark_trend,
+            "benchmark_source_bar_end": f.benchmark_source_bar_end,
+            "benchmark_context_asof": f.benchmark_context_asof,
+            "benchmark_timeframe": f.benchmark_timeframe,
+            "market_context_version": f.market_context_version,
             "risk_flags": ",".join(f.risk_flags) if f.risk_flags else "",
             "risk_flag_count": len(f.risk_flags),
             "ai_decision": f.ai_decision, "ai_confidence": f.ai_confidence,

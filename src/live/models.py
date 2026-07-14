@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from src.exits.generator import ExitConfig
+from src.market_context.models import MarketContextConfig
 from src.risk.reentry_cooldown import ReentryCooldownConfig
 from src.models import Candle
 
@@ -46,6 +47,7 @@ class LoopConfig:
     max_positions: int = 2                    # 동시 보유 최대 종목 수
     exit_config: ExitConfig = field(default_factory=ExitConfig)   # 청산 규칙(SL/TP/Time/EOD)
     reentry_cooldown: ReentryCooldownConfig = field(default_factory=ReentryCooldownConfig)
+    market_context: MarketContextConfig = field(default_factory=MarketContextConfig)  # PR 2-B 관측
 
 
 @dataclass

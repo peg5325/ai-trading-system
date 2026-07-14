@@ -99,6 +99,7 @@ class DatasetBuilder:
         snap = o.get("indicator_snapshot") or {}
         cand = o.get("candidate") or {}
         feats = cand.get("features") or {}
+        bench = getattr(cycle, "benchmark_context", None) or {}   # 사이클 국면(PR 2-B)
         ai = o.get("ai_decision") or {}
         risk = o.get("risk_decision") or {}
         order = o.get("order_record")
@@ -149,6 +150,20 @@ class DatasetBuilder:
             volume=_f(feats.get("volume_last")), volume_sma20=_f(feats.get("volume_sma20")),
             volume_ratio=_f(feats.get("volume_ratio")),
             dollar_volume=_f(feats.get("dollar_volume")),
+            # v2.1 PR 2-B: 사이클 benchmark 국면(없으면 None)
+            benchmark_symbol=bench.get("benchmark_symbol"),
+            benchmark_close=_f(bench.get("benchmark_close")),
+            benchmark_ema20=_f(bench.get("benchmark_ema20")),
+            benchmark_ema_period=bench.get("benchmark_ema_period"),
+            benchmark_vs_ema20=_f(bench.get("benchmark_vs_ema20")),
+            benchmark_ema20_slope=_f(bench.get("benchmark_ema20_slope")),
+            benchmark_return_trailing_30m=_f(bench.get("benchmark_return_trailing_30m")),
+            benchmark_return_trailing_60m=_f(bench.get("benchmark_return_trailing_60m")),
+            benchmark_trend=bench.get("benchmark_trend"),
+            benchmark_source_bar_end=bench.get("benchmark_source_bar_end"),
+            benchmark_context_asof=bench.get("benchmark_context_asof"),
+            benchmark_timeframe=bench.get("benchmark_timeframe"),
+            market_context_version=bench.get("market_context_version"),
         )
         label = self._label(entry_price, as_of, ts_list, candles, order)
         if self.cfg.drop_incomplete_labels and not label.complete:
