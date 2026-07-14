@@ -180,7 +180,9 @@ class BacktestEngine:
                     entry_price=st["pos"]["entry_price"], current_price=c,
                     leverage_factor=leverage_factor, entry_time=st["pos"]["entry_time"],
                     entry_bar=st["pos"]["entry_bar"], ema20=ema20[i])
-                reason = gen.evaluate_signal(pv, ExitContext(now_bar=i))
+                # now_time=idx[i] 전달로 time_exit_minutes 도 백테스트에서 발화(live/paper 대칭).
+                # time_exit_minutes=None 이면 minutes 분기는 건너뛰므로 기존 동작 무변경.
+                reason = gen.evaluate_signal(pv, ExitContext(now_bar=i, now_time=idx[i]))
                 if reason is not None:
                     pending_exit = {"reasons": [reason]}
             elif not is_session_end(i):   # 오버나잇으로 넘어가는 진입 금지

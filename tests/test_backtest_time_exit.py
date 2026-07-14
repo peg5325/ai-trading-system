@@ -56,6 +56,18 @@ def test_time_exit_bars_fires_in_backtest():
     assert rep.trades[0].exit_reason == ["TIME_EXIT"]
 
 
+def test_time_exit_minutes_fires_in_backtest():
+    """time_exit_minutes 도 백테스트에서 발화(엔진이 now_time 전달 — live/paper 대칭).
+
+    봉 간격 1분이므로 time_exit_minutes=1.0 → 진입 다음다음 봉(보유 1분)에서 TIME_EXIT."""
+    candles = _flat_day(1, 5)  # 1분 간격 5봉
+    cfg = BacktestConfig(time_exit_minutes=1.0, **_NO_RULE)
+    rep = BacktestEngine(cfg).run(candles, "SOXL", leverage_factor=3,
+                                  entry_strategy=_Stub([0]))
+    assert len(rep.trades) == 1
+    assert rep.trades[0].exit_reason == ["TIME_EXIT"]
+
+
 def test_default_no_time_exit_holds_to_eod():
     """기본(time_exit=None) → TIME_EXIT 미발화, 세션말 EOD_FLATTEN 로 청산(기존 동작)."""
     candles = _flat_day(1, 5)

@@ -31,15 +31,21 @@ def main(argv: list[str]) -> int:
     slices = list_slices(args.db, args.interval)
     out = []
     for s in slices:
-        candles = load_candles(args.db, s.symbol, args.interval)
-        train, test = chronological_split(candles, ratio=args.ratio,
-                                          embargo_bars=args.embargo_bars)
-        out.append({
+        # market 격리 로드(시장 분리 평가 — 동일 티커의 통화/시장 혼재 방지)
+        candles = load_candles(args.db, s.symbol, args.interval, market=s.market)
+        row = {
             "market": s.market, "symbol": s.symbol, "interval": s.interval,
             "bars": s.bars, "days": s.days, "earliest": s.earliest, "latest": s.latest,
-            "oot_train_bars": len(train), "oot_test_bars": len(test),
-            "oot_boundary": (test[0].ts_utc.isoformat() if test else None),
-        })
+        }
+        try:
+            train, test = chronological_split(candles, ratio=args.ratio,
+                                              embargo_bars=args.embargo_bars)
+            row.update(oot_train_bars=len(train), oot_test_bars=len(test),
+                       oot_boundary=test[0].ts_utc.isoformat())
+        except ValueError as e:
+            row.update(oot_train_bars=None, oot_test_bars=None,
+                       oot_boundary=None, oot_note=f"split 불가: {e}")
+        out.append(row)
 
     if args.json:
         print(json.dumps({"official_methods": list(OFFICIAL_SPLIT_METHODS),
@@ -55,9 +61,13 @@ def main(argv: list[str]) -> int:
             print(f"\n## 시장 {cur_market}")
         print(f"  {r['symbol']:<8} [{r['interval']}] bars={r['bars']} days={r['days']}  "
               f"{r['earliest']} ~ {r['latest']}")
-        print(f"    out-of-time(ratio={args.ratio}, embargo={args.embargo_bars}): "
-              f"train={r['oot_train_bars']} test={r['oot_test_bars']} "
-              f"경계={r['oot_boundary']}")
+        if r.get("oot_note"):
+            print(f"    out-of-time(ratio={args.ratio}, embargo={args.embargo_bars}): "
+                  f"{r['oot_note']}")
+        else:
+            print(f"    out-of-time(ratio={args.ratio}, embargo={args.embargo_bars}): "
+                  f"train={r['oot_train_bars']} test={r['oot_test_bars']} "
+                  f"경계={r['oot_boundary']}")
     return 0
 
 

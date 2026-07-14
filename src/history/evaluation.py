@@ -60,18 +60,30 @@ def group_by_session(candles: list[Candle]) -> dict[date, list[Candle]]:
 
 def chronological_split(candles: list[Candle], ratio: float = 0.7,
                         embargo_bars: int = 0) -> tuple[list[Candle], list[Candle]]:
-    """out-of-time 분할(시간순). embargo_bars 만큼 train/test 사이 봉을 버려 누수 방지."""
+    """out-of-time 분할(시간순). embargo_bars 만큼 train/test 사이 봉을 버려 누수 방지.
+
+    표본이 작아 한쪽이 비는 degenerate split 은 거부한다(빈 train/test 는 평가 메트릭을
+    무의미하게 만들고 모델선택을 오도하므로 조용히 통과시키지 않는다)."""
     if not 0.0 < ratio < 1.0:
         raise ValueError("ratio must be in (0,1)")
     if embargo_bars < 0:
         raise ValueError("embargo_bars must be >= 0")
     ordered = sorted(candles, key=lambda c: c.ts_utc)
     k = int(len(ordered) * ratio)
-    return ordered[:k], ordered[k + embargo_bars:]
+    train, test = ordered[:k], ordered[k + embargo_bars:]
+    if not train or not test:
+        raise ValueError(
+            f"degenerate split: train={len(train)} test={len(test)} "
+            f"(n={len(ordered)}, ratio={ratio}, embargo={embargo_bars}) — 표본 부족")
+    return train, test
 
 
 def leave_one_session_out(candles: list[Candle]):
-    """LOSO: 각 세션(거래일)을 test, 나머지를 train 으로 yield. (held_date, train, test)."""
+    """LOSO: 각 세션(거래일)을 test, 나머지를 train 으로 yield. (held_date, train, test).
+
+    세션 단위 atomic hold-out 이라 세션 내 누수는 없으나 train 에 held 이후 미래 세션이
+    포함될 수 있다(시간 보증은 chronological/embargo 보다 약함). 최종 OOS 승격 판정은
+    chronological/embargo 를 우선할 것(계약 §3-7 는 LOSO 를 공식 방법으로 허용)."""
     groups = group_by_session(candles)
     days = list(groups)
     for held in days:
@@ -95,22 +107,28 @@ def official_split(candles: list[Candle], method: str, *, ratio: float = 0.7,
         if embargo_bars <= 0:
             raise ValueError("embargo split 은 embargo_bars>=1 이 필요하다(gap 강제).")
         return chronological_split(candles, ratio=ratio, embargo_bars=embargo_bars)
-    # loso → 리스트로 구체화
-    return list(leave_one_session_out(candles))
+    # loso → 리스트로 구체화. 단일 세션은 train 이 비어 hold-out 불가.
+    folds = list(leave_one_session_out(candles))
+    if len(folds) < 2:
+        raise ValueError(
+            f"loso 는 최소 2개 세션이 필요하다(현재 {len(folds)}개) — train 이 비면 무의미.")
+    return folds
 
 
 def random_split_diagnostic(candles: list[Candle], ratio: float = 0.7, *,
                             seed: int) -> tuple[list[Candle], list[Candle], str]:
     """⚠ 진단 전용(누수 시연). 모델선택/승격 판정 금지. seed 고정 결정론.
 
-    반환 3번째 원소는 워터마크(RANDOM_CV_WATERMARK) — 소비 측이 무효 표식을 강제 인지."""
+    반환 3번째 원소는 워터마크(RANDOM_CV_WATERMARK) — 소비 측이 무효 표식을 강제 인지.
+    입력 순서와 무관하도록 ts_utc 로 먼저 정렬한 뒤 shuffle 한다(seed 고정 결정론)."""
     if not 0.0 < ratio < 1.0:
         raise ValueError("ratio must be in (0,1)")
+    ordered = sorted(candles, key=lambda c: c.ts_utc)
     rng = random.Random(seed)
-    idx = list(range(len(candles)))
+    idx = list(range(len(ordered)))
     rng.shuffle(idx)
-    k = int(len(candles) * ratio)
-    train_idx, test_idx = set(idx[:k]), set(idx[k:])
-    train = [candles[i] for i in range(len(candles)) if i in train_idx]
-    test = [candles[i] for i in range(len(candles)) if i in test_idx]
+    k = int(len(ordered) * ratio)
+    train_idx = set(idx[:k])
+    train = [ordered[i] for i in range(len(ordered)) if i in train_idx]
+    test = [ordered[i] for i in range(len(ordered)) if i not in train_idx]
     return train, test, RANDOM_CV_WATERMARK

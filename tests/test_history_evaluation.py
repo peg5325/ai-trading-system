@@ -119,6 +119,25 @@ def test_official_split_unknown_method_raises():
         official_split(candles, "kfold_random")
 
 
+def test_chronological_split_rejects_degenerate():
+    # 빈 train (ratio 너무 작아 k=0)
+    with pytest.raises(ValueError):
+        chronological_split([_c("QQQ", 7, 0), _c("QQQ", 7, 1)], ratio=0.3)
+    # 빈 test (embargo 가 잔여 봉 이상)
+    with pytest.raises(ValueError):
+        chronological_split([_c("QQQ", 7, m) for m in range(5)], ratio=0.6, embargo_bars=10)
+
+
+def test_official_split_loso_requires_two_sessions():
+    single = [_c("QQQ", 7, 0), _c("QQQ", 7, 1)]  # 세션(거래일) 1개
+    with pytest.raises(ValueError):
+        official_split(single, "loso")
+    # 2개 세션이면 정상
+    two = single + [_c("QQQ", 8, 0)]
+    folds = official_split(two, "loso")
+    assert len(folds) == 2
+
+
 def test_random_split_diagnostic_deterministic_and_watermarked():
     candles = [_c("QQQ", 7, m) for m in range(10)]
     tr1, te1, wm = random_split_diagnostic(candles, ratio=0.7, seed=42)
@@ -128,3 +147,6 @@ def test_random_split_diagnostic_deterministic_and_watermarked():
     assert len(tr1) == 7 and len(te1) == 3
     # train/test 무겹침(전체 커버)
     assert len(tr1) + len(te1) == len(candles)
+    # 입력 순서와 무관(정렬 후 shuffle) — 뒤섞어 넣어도 동일 결과
+    tr3, te3, _ = random_split_diagnostic(list(reversed(candles)), ratio=0.7, seed=42)
+    assert [c.ts_utc for c in tr3] == [c.ts_utc for c in tr1]

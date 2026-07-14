@@ -69,3 +69,11 @@ def test_load_candles_unknown_symbol_empty(tmp_path):
     dbp = str(tmp_path / "market_history.sqlite")
     _make_history(dbp, [_c("QQQ", 7, 0)])
     assert load_candles(dbp, "NOPE", "1m") == []
+
+
+def test_load_candles_market_filter(tmp_path):
+    """market 지정 시 해당 시장으로 격리(시장 분리 평가 — 통화/시장 혼재 방지)."""
+    dbp = str(tmp_path / "market_history.sqlite")
+    _make_history(dbp, [_c("QQQ", 7, 0)])  # US
+    assert len(load_candles(dbp, "QQQ", "1m", market="US")) == 1
+    assert load_candles(dbp, "QQQ", "1m", market="KR") == []  # 다른 시장 격리
