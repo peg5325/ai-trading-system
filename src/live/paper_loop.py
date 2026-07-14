@@ -293,6 +293,8 @@ class PaperTradingLoop:
             lev = leverage_for(sym)
             positions[sym] = Position(sym, p["quantity"], p["avg_price"],
                                       last_prices.get(sym, p["avg_price"]), lev)
+        # now_time 은 유니버스 전역 최신봉 시각(단일 스냅샷). 자기 캔들이 stale 한 종목은 경과가
+        # 소폭 과대 → 쿨다운이 조금 일찍 만료될 수 있으나 fail-open(진입 허용)이고 봉/fetch 간격으로 유계.
         return PortfolioSnapshot(
             now_time=now_time, last_exit_time=dict(self._last_exit_time),
             last_exit_reason=dict(self._last_exit_reason),

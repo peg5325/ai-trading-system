@@ -267,6 +267,38 @@ def test_006R_missed_opportunity_counterexample():
     assert mo["blocked_entries"] > 0
 
 
+def _two_day_downtrend(sym="X", per_day=22):
+    """2거래일 연속 하락(-0.6%/봉). 경계를 넘는 오버나잇 청산 발생 가능."""
+    out = []
+    price = 100.0
+    base = datetime(2026, 7, 8, 14, 0, tzinfo=timezone.utc)   # 10:00 ET REGULAR
+    for day in range(2):
+        for k in range(per_day):
+            ts = base + timedelta(days=day) + timedelta(minutes=5 * k)
+            o = price
+            price = price * 0.994
+            c = price
+            out.append(_candle(sym, ts, o, max(o, c), min(o, c) * 0.999, c))
+    return out
+
+
+def test_backtest_multiday_cooldown_gap_invariant():
+    # 파리티(리셋 순서) 검증: 세션 경계를 넘어도 '같은 날' STOP_LOSS 후 재진입은 쿨다운 gap 을 지킨다.
+    # (오버나잇 청산이 새 세션 첫 봉에 체결돼도 쿨다운이 즉시 지워지지 않음.)
+    K, TF = 6, 5
+    trades = _bt_trades(_two_day_downtrend(), K)
+    assert len(trades) >= 3
+    days = set()
+    for a, b in zip(trades, trades[1:]):
+        aex = a.exit_time.astimezone(exchange_tz("US"))
+        bent = b.entry_time.astimezone(exchange_tz("US"))
+        days.add(bent.date())
+        if a.exit_reason and a.exit_reason[0] == STOP_LOSS and aex.date() == bent.date():
+            gap_min = (b.entry_time - a.exit_time).total_seconds() / 60.0
+            assert gap_min >= K * TF - 1e-6, f"cooldown gap 위반: {gap_min}min"
+    assert len(days) >= 2          # 2거래일에 걸쳐 거래 발생(경계 통과 실검)
+
+
 def test_compare_outputs_all_metrics():
     from scripts.compare_cooldown import compare
     r = compare(_series([100.0 * (0.994 ** i) for i in range(48)]), "X", cooldown_bars=8)

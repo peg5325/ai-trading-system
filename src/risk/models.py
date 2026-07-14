@@ -6,6 +6,7 @@ Broker/Provider 에 접근하지 않는다. RiskManager 는 오직 이 스냅샷
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime   # PortfolioSnapshot 쿨다운 필드 타입(get_type_hints/타입체커용)
 
 # ---- 주문 종류 ----
 NEW_ENTRY = "NEW_ENTRY"      # 신규 진입

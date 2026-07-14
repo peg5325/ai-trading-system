@@ -132,6 +132,14 @@ class BacktestEngine:
         for i in range(n):
             o, c = opens[i], closes[i]
 
+            # 0) 재진입 쿨다운 세션 리셋 — 거래일 전환 시 '직전 봉 pending 체결보다 먼저' 초기화.
+            #    paper(_maybe_reset_session 이 _apply_fills 보다 선행)와 순서를 일치시켜, 새 세션
+            #    첫 봉 시가에 체결되는 오버나잇 청산의 쿨다운은 보존한다(Paper/Backtest 동일 정책).
+            if (cfg.risk.reentry_cooldown.reset_on_new_session and i > 0
+                    and et_dates[i] != et_dates[i - 1]):
+                st["last_exit_time"] = None
+                st["last_exit_reason"] = None
+
             # 1) 직전 봉에서 결정된 주문을 이번 봉 시가로 체결
             if pending_exit and st["pos"] is not None:
                 close_position(i, o, pending_exit["reasons"], idx[i])
@@ -147,11 +155,7 @@ class BacktestEngine:
             equity = st["cash"] + (st["pos"]["qty"] * c if st["pos"] else 0.0)
             if et_dates[i] != cur_date:
                 cur_date = et_dates[i]
-                day_start_equity = equity
-                # 재진입 쿨다운: 세션(거래일) 전환 시 초기화 → 오버나잇 갭 넘어 번지지 않음(Paper 와 동일).
-                if cfg.risk.reentry_cooldown.reset_on_new_session:
-                    st["last_exit_time"] = None
-                    st["last_exit_reason"] = None
+                day_start_equity = equity          # 쿨다운 세션 리셋은 위 0) 에서 처리(순서 일치)
             equity_curve.append(equity)
             peak = max(peak, equity)
             cur_dd = (equity - peak) / peak if peak > 0 else 0.0
