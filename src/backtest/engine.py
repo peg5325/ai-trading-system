@@ -88,7 +88,8 @@ class BacktestEngine:
         def is_session_end(i: int) -> bool:
             return i == n - 1 or et_dates[i + 1] != et_dates[i]
 
-        st = {"cash": cfg.initial_capital, "pos": None, "consec": 0}
+        st = {"cash": cfg.initial_capital, "pos": None, "consec": 0,
+              "last_exit_time": None, "last_exit_reason": None}   # 재진입 쿨다운(Paper 와 동일 정책)
         matcher = FifoMatcher(bar_minutes=5.0)     # 실현손익: live/paper 와 동일 엔진
         trades: list[Trade] = []
         equity_curve: list[float] = []
@@ -124,6 +125,8 @@ class BacktestEngine:
                 rt.quantity, rt.net_pnl, rt.realized_return_pct, p["reasons"], reasons,
                 p["risk_decision"]))
             st["consec"] = st["consec"] + 1 if rt.net_pnl < 0 else 0
+            st["last_exit_time"] = exit_time                    # 재진입 쿨다운용(timestamp)
+            st["last_exit_reason"] = reasons[0] if reasons else None
             st["pos"] = None
 
         for i in range(n):
@@ -145,6 +148,10 @@ class BacktestEngine:
             if et_dates[i] != cur_date:
                 cur_date = et_dates[i]
                 day_start_equity = equity
+                # 재진입 쿨다운: 세션(거래일) 전환 시 초기화 → 오버나잇 갭 넘어 번지지 않음(Paper 와 동일).
+                if cfg.risk.reentry_cooldown.reset_on_new_session:
+                    st["last_exit_time"] = None
+                    st["last_exit_reason"] = None
             equity_curve.append(equity)
             peak = max(peak, equity)
             cur_dd = (equity - peak) / peak if peak > 0 else 0.0
@@ -177,7 +184,9 @@ class BacktestEngine:
                 if sig is not None:
                     decision = self._size_and_check(
                         symbol, c, leverage_factor, equity, sessions[i],
-                        is_session_end(i), daily_pnl_pct, cur_dd, st["consec"])
+                        is_session_end(i), daily_pnl_pct, cur_dd, st["consec"],
+                        now_time=idx[i], last_exit_time=st["last_exit_time"],
+                        last_exit_reason=st["last_exit_reason"])
                     if decision is not None and decision.allowed and decision.adjusted_quantity > 0:
                         pending_entry = {"qty": decision.adjusted_quantity,
                                          "reasons": sig, "risk_decision": decision.to_dict()}
@@ -192,7 +201,8 @@ class BacktestEngine:
 
     # ---- helpers ----
     def _size_and_check(self, symbol, ref_price, lev, equity, session,
-                        eod_window, daily_pnl_pct, cur_dd, consec):
+                        eod_window, daily_pnl_pct, cur_dd, consec,
+                        now_time=None, last_exit_time=None, last_exit_reason=None):
         if ref_price <= 0 or equity <= 0:
             return None
         desired_notional = equity * self.cfg.entry_notional_pct
@@ -202,7 +212,10 @@ class BacktestEngine:
             account_value=equity, positions={},
             daily_pnl_pct=daily_pnl_pct, drawdown_pct=cur_dd,
             consecutive_losses=consec, kill_switch=False,
-            session=session, is_eod_flatten_window=eod_window)
+            session=session, is_eod_flatten_window=eod_window,
+            now_time=now_time,
+            last_exit_time=({symbol: last_exit_time} if last_exit_time is not None else {}),
+            last_exit_reason=({symbol: last_exit_reason} if last_exit_reason else {}))
         return self.risk.evaluate(intent, snap)
 
     def _report(self, symbol, start, end, trades, equity_curve, bars_in_pos, cfg):

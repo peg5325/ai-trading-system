@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from src.exits.generator import ExitConfig
+from src.risk.reentry_cooldown import ReentryCooldownConfig
 from src.models import Candle
 
 # ---- 사이클 상태 ----
@@ -44,6 +45,7 @@ class LoopConfig:
     initial_capital: float = 100_000.0        # 자금관리(PortfolioAccount) 초기자본
     max_positions: int = 2                    # 동시 보유 최대 종목 수
     exit_config: ExitConfig = field(default_factory=ExitConfig)   # 청산 규칙(SL/TP/Time/EOD)
+    reentry_cooldown: ReentryCooldownConfig = field(default_factory=ReentryCooldownConfig)
 
 
 @dataclass

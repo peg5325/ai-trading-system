@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.exits.generator import ExitConfig
+from src.risk.reentry_cooldown import ReentryCooldownConfig
 
 
 @dataclass
@@ -23,6 +24,8 @@ class RuntimeConfig:
     entry_notional_pct: float = 0.05
     # 청산 규칙(Exit Signal Generator)
     exit_config: ExitConfig = field(default_factory=ExitConfig)
+    # 재진입 쿨다운(과매매/whipsaw 안전장치; 기본 off)
+    reentry_cooldown: ReentryCooldownConfig = field(default_factory=ReentryCooldownConfig)
     # AI
     ai_provider: str = "fake"          # "fake" | "openai"
     ai_model: str = "gpt-5.5-mini"
@@ -74,9 +77,25 @@ class RuntimeConfig:
             leverage_eod_flatten=bool(ex.get("leverage_eod_flatten", True)),
             eod_flatten_minutes_before_close=int(ex.get("eod_flatten_minutes_before_close", 10)),
             exit_on_trend_break=bool(ex.get("exit_on_trend_break", False)))
+        # 신규 top-level 블록 — 기존 config 는 이 키가 없어 기본(비활성) 유지(덮어쓰기 없음).
+        rc = d.get("reentry_cooldown", {}) or {}
+        rc_dur = rc.get("durations", {}) or {}
+        reentry_cooldown = ReentryCooldownConfig(
+            enabled=bool(rc.get("enabled", False)),
+            mode=str(rc.get("mode", "hard")),
+            scope=str(rc.get("scope", "symbol")),
+            unit=str(rc.get("unit", "trading_bars")),
+            reset_on_new_session=bool(rc.get("reset_on_new_session", True)),
+            timeframe_minutes=float(rc.get("timeframe_minutes", 5.0)),
+            stop_loss=int(rc_dur.get("stop_loss", 0) or 0),
+            take_profit=int(rc_dur.get("take_profit", 0) or 0),
+            time_exit=int(rc_dur.get("time_exit", 0) or 0),
+            eod_flatten=int(rc_dur.get("eod_flatten", 0) or 0),
+            override_conditions=tuple(rc.get("override", []) or ()))
         return cls(
             symbols=list(d.get("symbols", ["SOXL"])),
             exit_config=exit_config,
+            reentry_cooldown=reentry_cooldown,
             poll_interval_s=float(d.get("poll_interval_s", 20.0)),
             account_value=float(d.get("account_value", 100_000.0)),
             fetch_spacing_s=float(d.get("fetch_spacing_s", 0.0)),

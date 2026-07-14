@@ -95,6 +95,26 @@ class PaperTradingLoop:
         self._calls = 0
         self._session_day = None
         self._observed_bars: list = []   # 이번 세션 관측한 5분봉 ts_exchange(coverage용, 관측만)
+        # 재진입 쿨다운용 종목별 마지막 청산(시각/사유). 시작 시 계좌 실현거래로 복원(재시작 안전).
+        self._last_exit_time: dict = {}
+        self._last_exit_reason: dict[str, str] = {}
+        self._rebuild_last_exit()
+
+    def _rebuild_last_exit(self) -> None:
+        """계좌 실현거래에서 종목별 '마지막' 청산(시각/사유) 복원(재진입 쿨다운, 재시작 안전).
+        timestamp 기반이라 세션내 재시작 시 쿨다운이 그대로 이어진다(세션 전환 시 초기화)."""
+        try:
+            for t in self.account.realized_trades():
+                et = getattr(t, "exit_time", None)
+                reason = t.exit_reason[0] if getattr(t, "exit_reason", None) else None
+                if et is None or reason is None:
+                    continue
+                prev = self._last_exit_time.get(t.symbol)
+                if prev is None or et >= prev:
+                    self._last_exit_time[t.symbol] = et
+                    self._last_exit_reason[t.symbol] = reason
+        except Exception:
+            pass
 
     # ---- session coverage 관측 (매매 무관, PR 1-B) ----
     def bar_minutes(self) -> float:
@@ -180,7 +200,7 @@ class PaperTradingLoop:
         # 포트폴리오 스냅샷/MarketContext 용 대표 eod(최근 캔들 기준, market-correct).
         # 청산 판단은 아래 _exit_intents 에서 symbol 별 candle 로 개별 계산한다(혼합 유니버스 정확).
         eod = in_eod_flatten_window(newest_candle, mins_before)
-        portfolio = self._portfolio(last_prices, session, eod)
+        portfolio = self._portfolio(last_prices, session, eod, now_time=newest)
         # 청산 신호는 매 사이클 평가(SL/TP/Time 은 마감 창 밖에서도 발동, EOD 는 각 시장 마감 창에서).
         exit_intents = self._exit_intents(candles_5m, newest_candle)
         system_state = SystemState(kill_switch=self.kill_switch)
@@ -228,6 +248,10 @@ class PaperTradingLoop:
                 symbol=rec.get("symbol"), side=side, quantity=float(qty),
                 price=float(rec.get("avg_fill_price") or 0.0), fee=float(rec.get("fee") or 0.0),
                 ref_price=rec.get("ref_price"), timestamp=ts, reason=(rec.get("kind"),) if rec.get("kind") else ()))
+            # 청산(SELL) 체결 → 종목별 마지막 청산(시각/사유) 갱신(재진입 쿨다운용).
+            if side == SELL and ts is not None and rec.get("kind"):
+                self._last_exit_time[rec.get("symbol")] = ts
+                self._last_exit_reason[rec.get("symbol")] = rec.get("kind")
 
     def _journal_cycle(self, cycle_id, session, result, portfolio, market, error=None) -> None:
         if self.journal is None:
@@ -252,11 +276,16 @@ class PaperTradingLoop:
     def _maybe_reset_session(self, ts_et) -> None:
         day = ts_et.date()
         if self._session_day != day:
+            prev = self._session_day
             self._session_day = day
             self._calls = 0
             self._observed_bars = []          # 새 세션 → 관측봉 초기화
+            # 재진입 쿨다운: '실제' 세션 전환(첫 확립 제외)에서만 초기화 → 재시작 복원은 보존.
+            if prev is not None and self.cfg.reentry_cooldown.reset_on_new_session:
+                self._last_exit_time.clear()
+                self._last_exit_reason.clear()
 
-    def _portfolio(self, last_prices, session, eod):
+    def _portfolio(self, last_prices, session, eod, now_time=None):
         from src.risk.models import PortfolioSnapshot, Position
         self.account.mark_equity(last_prices, day_key=None)
         positions = {}
@@ -265,6 +294,8 @@ class PaperTradingLoop:
             positions[sym] = Position(sym, p["quantity"], p["avg_price"],
                                       last_prices.get(sym, p["avg_price"]), lev)
         return PortfolioSnapshot(
+            now_time=now_time, last_exit_time=dict(self._last_exit_time),
+            last_exit_reason=dict(self._last_exit_reason),
             account_value=self.account.last_equity, positions=positions,
             cash=self.account.cash, drawdown_pct=self.account.last_drawdown_pct,
             daily_pnl_pct=self.account.last_daily_return_pct,

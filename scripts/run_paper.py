@@ -90,7 +90,8 @@ def main(config_path: str) -> None:
             InMemoryOrderStore(), position_store)
         ai = AIDecisionEngine(_ai_provider(cfg),
                               AIConfig(dry_run=cfg.ai_dry_run, max_calls_per_day=cfg.max_calls_per_session))
-        risk_manager = RiskManager(RiskConfig(max_positions=cfg.max_positions))
+        risk_manager = RiskManager(RiskConfig(max_positions=cfg.max_positions,
+                                              reentry_cooldown=cfg.reentry_cooldown))
         pipeline = TradingPipeline(
             IndicatorEngine(), UniverseScreener(), ai, risk_manager, order_manager,
             PipelineConfig(
@@ -107,7 +108,8 @@ def main(config_path: str) -> None:
                        max_calls_per_session=cfg.max_calls_per_session,
                        initial_capital=cfg.initial_capital,
                        max_positions=cfg.max_positions,
-                       exit_config=cfg.exit_config),
+                       exit_config=cfg.exit_config,
+                       reentry_cooldown=cfg.reentry_cooldown),
             journal=journal)
         metrics_store = SqliteMetricsStore(cfg.metrics_db)
         runtime = PaperRuntime(loop, cfg, metrics_store=metrics_store,
