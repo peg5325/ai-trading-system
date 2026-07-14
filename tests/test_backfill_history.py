@@ -166,6 +166,38 @@ def test_no_progress_guard_prevents_infinite_loop(tmp_path):
         res = backfill_symbol(store, prov, "QQQ", "1m", max_pages=1000, sleep=sleep)
         assert res.stopped_reason == "no_progress"
         assert res.pages_fetched <= 2  # max_pages 까지 폭주하지 않는다
+        # 커서를 종료성으로 마킹 → 다음 실행이 같은 stale 커서를 무한 재fetch 하지 않음
+        cur = store.get_cursor("QQQ", "1m")
+        assert cur is not None and cur["exhausted"] is True
+
+
+def test_resume_seeds_prev_oldest_detects_immediate_stall(tmp_path):
+    """resume 시 커서 oldest 로 prev_oldest 시드 → 재개 첫 페이지에서 즉시 no_progress."""
+    prov = FakeProvider({("QQQ", "loop"): ([_c("QQQ", 5)], "loop2")})  # oldest 00:05 (비감소)
+    dbp = str(tmp_path / "market_history.sqlite")
+    _, sleep = _no_sleep()
+    with HistoryStore(dbp) as store:
+        # 미완 커서 사전 저장(oldest=00:05, next_before=loop)
+        store.save_cursor("QQQ", "1m", oldest_ts_utc="2026-07-07T00:05:00+00:00",
+                          next_before="loop", exhausted=False)
+        store.commit()
+        res = backfill_symbol(store, prov, "QQQ", "1m", max_pages=1000, sleep=sleep)
+        assert res.stopped_reason == "no_progress"
+        assert res.pages_fetched == 1  # 재개 첫 페이지에서 즉시 감지(1페이지 낭비 제거)
+
+
+def test_ingest_log_attribution_and_unique_run_id(tmp_path):
+    """감사 로그에 symbol/interval 귀속 + run_id 는 정적이 아님(실행 구분 가능)."""
+    prov = FakeProvider({("QQQ", None): ([_c("QQQ", 0)], None)})
+    dbp = str(tmp_path / "market_history.sqlite")
+    _, sleep = _no_sleep()
+    with HistoryStore(dbp) as store:
+        backfill_symbol(store, prov, "QQQ", "1m", max_pages=10, sleep=sleep)
+        row = store._con.execute(
+            "SELECT run_id, symbol, interval FROM ingest_log WHERE source='toss_backfill'"
+        ).fetchone()
+        assert row["symbol"] == "QQQ" and row["interval"] == "1m"
+        assert row["run_id"] != "backfill-1m" and "1m" in row["run_id"]  # 정적 아님
 
 
 def test_429_backoff_retry_then_success(tmp_path):
@@ -224,8 +256,10 @@ def test_non_retryable_error_isolated(tmp_path):
 
 
 def test_no_order_or_broker_import():
-    """자본 안전: backfill 드라이버는 주문/broker/pipeline 을 import 하지 않는다."""
-    src = Path("src/ingest/backfill_history.py").read_text(encoding="utf-8")
-    for banned in ("src.order", "src.broker", "src.pipeline", "src.execution",
-                   "place_order", "submit_order", "PaperBroker", "TossBroker"):
-        assert banned not in src, f"backfill 드라이버가 매매 경로({banned})를 참조하면 안 됨"
+    """자본 안전: backfill 드라이버·CLI 는 주문/broker/pipeline 을 import 하지 않는다."""
+    banned = ("src.order", "src.broker", "src.pipeline", "src.execution",
+              "place_order", "submit_order", "PaperBroker", "TossBroker")
+    for path in ("src/ingest/backfill_history.py", "scripts/history_backfill.py"):
+        src = Path(path).read_text(encoding="utf-8")
+        for token in banned:
+            assert token not in src, f"{path} 가 매매 경로({token})를 참조하면 안 됨"

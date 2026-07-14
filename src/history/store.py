@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS ingest_log (
     run_id       TEXT NOT NULL,
     ts           TEXT NOT NULL,
     source       TEXT NOT NULL,
+    symbol       TEXT,
+    interval     TEXT,
     rows_seen    INTEGER NOT NULL,
     rows_inserted INTEGER NOT NULL,
     rows_updated INTEGER NOT NULL,
@@ -124,7 +126,18 @@ class HistoryStore:
         self._con.row_factory = sqlite3.Row
         self._con.execute("PRAGMA journal_mode=WAL")
         self._con.executescript(SCHEMA)
+        self._ensure_ingest_log_columns()
         self._con.commit()
+
+    def _ensure_ingest_log_columns(self) -> None:
+        """기존 DB(구 스키마)에도 ingest_log.symbol/interval 을 안전하게 추가(멱등).
+
+        CREATE TABLE IF NOT EXISTS 는 기존 테이블에 컬럼을 더하지 못하므로,
+        provenance 귀속용 컬럼을 ALTER 로 보강한다(신규 DB 는 이미 존재 → no-op)."""
+        cols = {r[1] for r in self._con.execute("PRAGMA table_info(ingest_log)")}
+        for col in ("symbol", "interval"):
+            if col not in cols:
+                self._con.execute(f"ALTER TABLE ingest_log ADD COLUMN {col} TEXT")
 
     def close(self) -> None:
         self._con.close()
@@ -317,10 +330,12 @@ class HistoryStore:
 
     def write_ingest_log(self, run_id: str, *, source: str, stats: ImportStats,
                          rows_seen: int, earliest: str | None, latest: str | None,
-                         note: str | None) -> None:
+                         note: str | None, symbol: str | None = None,
+                         interval: str | None = None) -> None:
         self._con.execute(
-            "INSERT INTO ingest_log (run_id,ts,source,rows_seen,rows_inserted,rows_updated,"
-            "rows_duplicate,rows_conflict,earliest,latest,note) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-            (run_id, _now(), source, rows_seen, stats.inserted, stats.updated,
+            "INSERT INTO ingest_log (run_id,ts,source,symbol,interval,rows_seen,rows_inserted,"
+            "rows_updated,rows_duplicate,rows_conflict,earliest,latest,note) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (run_id, _now(), source, symbol, interval, rows_seen, stats.inserted, stats.updated,
              stats.duplicate, stats.conflict, earliest, latest, note),
         )

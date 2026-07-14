@@ -12,14 +12,23 @@
 """
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Callable, Protocol
 
 from src.history.store import HistoryStore, ImportStats
 from src.models import Candle
 
 BACKFILL_SOURCE = "toss_backfill"
+
+logger = logging.getLogger(__name__)
+
+
+def _new_run_id(interval: str) -> str:
+    """실행마다 유니크한 run_id — ingest_log/conflict provenance 를 실행별로 구분."""
+    return f"backfill-{interval}-{datetime.now(timezone.utc).isoformat()}"
 
 
 class MarketDataPort(Protocol):
@@ -98,18 +107,21 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
                     max_retries: int = 3, backoff_base: float = 0.5,
                     resume: bool = True, run_id: str | None = None) -> SymbolBackfillResult:
     """한 종목을 과거로 backfill. 페이지마다 upsert + cursor 저장 + 커밋."""
-    run_id = run_id or f"backfill-{interval}"
+    run_id = run_id or _new_run_id(interval)
     stats = ImportStats(source=BACKFILL_SOURCE)
     result = SymbolBackfillResult(symbol=symbol, interval=interval)
 
-    # resume: 미완(exhausted=False) 커서가 있으면 next_before 부터. 완료 커서는 처음부터 재스캔.
+    # resume: 미완(exhausted=False) 커서가 있으면 next_before 부터 + prev_oldest 시드(재개
+    # 첫 페이지에서 즉시 no_progress 판정 가능). 완료/stalled 커서는 처음부터 재스캔.
     before: str | None = None
+    prev_oldest: datetime | None = None
     if resume:
         cur = store.get_cursor(symbol, interval)
         if cur and not cur["exhausted"] and cur["next_before"]:
             before = cur["next_before"]
+            if cur["oldest_ts_utc"]:
+                prev_oldest = datetime.fromisoformat(cur["oldest_ts_utc"])
 
-    prev_oldest: str | None = None
     pages = 0
     try:
         while pages < max_pages:
@@ -119,39 +131,43 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
             if not candles:
                 result.exhausted = True
                 result.stopped_reason = "empty_page"
-                store.save_cursor(symbol, interval, oldest_ts_utc=prev_oldest,
+                store.save_cursor(symbol, interval,
+                                  oldest_ts_utc=prev_oldest.isoformat() if prev_oldest else None,
                                   next_before=None, exhausted=True)
                 store.commit()
                 break
 
             pages += 1
             result.rows_seen += len(candles)
-            oldest = min(c.ts_utc for c in candles).isoformat()
-            newest = max(c.ts_utc for c in candles).isoformat()
-            if result.earliest is None or oldest < result.earliest:
+            # 시간 비교는 datetime 으로(문자열 사전식 비교의 오프셋/서브초 가정 회피).
+            oldest_dt = min(c.ts_utc for c in candles)
+            newest_dt = max(c.ts_utc for c in candles)
+            oldest, newest = oldest_dt.isoformat(), newest_dt.isoformat()
+            if result.earliest is None or oldest_dt < datetime.fromisoformat(result.earliest):
                 result.earliest = oldest
-            if result.latest is None or newest > result.latest:
+            if result.latest is None or newest_dt > datetime.fromisoformat(result.latest):
                 result.latest = newest
 
             store.upsert_candles(candles, source=BACKFILL_SOURCE, run_id=run_id, stats=stats)
 
-            exhausted = nxt is None
-            if exhausted:
+            if nxt is None:
                 store.save_cursor(symbol, interval, oldest_ts_utc=oldest,
                                   next_before=None, exhausted=True)
                 store.commit()
                 result.exhausted = True
                 result.stopped_reason = "nextbefore_null"
                 break
-            # stale 커서로 더 과거로 진행하지 못하면(oldest 비감소) 무한루프 차단.
-            if prev_oldest is not None and oldest >= prev_oldest:
+            # stale 커서로 더 과거로 진행하지 못하면(oldest 비감소) → 종료성 정지.
+            # 커서를 exhausted 로 마킹해 다음 실행이 같은 stale 커서를 무한 재fetch 하지 않고
+            # 처음부터 재스캔하도록(영구 미완/API 낭비 방지).
+            if prev_oldest is not None and oldest_dt >= prev_oldest:
                 store.save_cursor(symbol, interval, oldest_ts_utc=oldest,
-                                  next_before=nxt, exhausted=False)
+                                  next_before=nxt, exhausted=True)
                 store.commit()
                 result.stopped_reason = "no_progress"
                 break
 
-            prev_oldest = oldest
+            prev_oldest = oldest_dt
             store.save_cursor(symbol, interval, oldest_ts_utc=oldest,
                               next_before=nxt, exhausted=False)
             store.commit()
@@ -161,6 +177,9 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
         else:
             result.stopped_reason = "max_pages"
     except Exception as exc:  # noqa: BLE001 — 종목 격리(부분 진행분은 커밋 유지)
+        # 격리하되 조용한 실패 방지: 전체 traceback 을 로그로 남긴다.
+        logger.warning("backfill 종목 %s(%s) 실패 — 격리하고 다음 종목 진행: %s",
+                       symbol, interval, exc, exc_info=True)
         store.commit()
         result.error = repr(exc)
         result.stopped_reason = result.stopped_reason or "error"
@@ -172,7 +191,8 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
     result.conflict = stats.conflict
     store.write_ingest_log(run_id, source=BACKFILL_SOURCE, stats=stats,
                            rows_seen=result.rows_seen, earliest=result.earliest,
-                           latest=result.latest, note=result.error or result.stopped_reason)
+                           latest=result.latest, note=result.error or result.stopped_reason,
+                           symbol=symbol, interval=interval)
     store.commit()
     return result
 
@@ -183,7 +203,7 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
                      max_retries: int = 3, backoff_base: float = 0.5,
                      resume: bool = True, run_id: str | None = None) -> BackfillReport:
     """여러 종목을 순차 backfill. 종목 격리: 한 종목 실패가 나머지를 막지 않는다."""
-    run_id = run_id or f"backfill-{interval}"
+    run_id = run_id or _new_run_id(interval)
     report = BackfillReport(interval=interval)
     for sym in symbols:
         try:
