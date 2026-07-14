@@ -284,3 +284,19 @@ def test_legacy_feature_keys_preserved():
     for k in ("trend", "momentum", "volume", "vwap_position", "volatility",
               "bb_width", "avg_volume", "session", "penalties", "leverage_factor"):
         assert k in c.features
+
+
+def test_nan_last_volume_records_none_not_nan():
+    """마지막 봉 volume 이 NaN 이면 volume 계측은 None (비표준 JSON NaN 방지).
+    점수 계산 경로(_volume 이 NaN 을 30.0 으로 흡수)는 영향받지 않는다."""
+    df = strong_setup()
+    df.iloc[-1, df.columns.get_loc("volume")] = float("nan")
+    ev = UniverseScreener().screen_all([SymbolData("SOXL", df, 3)])[0]
+    f = ev.features
+    assert f["volume_last"] is None
+    assert f["volume_ratio"] is None
+    assert f["dollar_volume"] is None
+    assert f["score_components"]["volume"]["raw_inputs"]["last_volume"] is None
+    # NaN 이 점수/집계로 새지 않는다
+    assert not math.isnan(ev.score)
+    assert f["candidate_score"] == round(max(0.0, min(100.0, f["pre_clamp_score"])), 1)

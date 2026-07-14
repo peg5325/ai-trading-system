@@ -206,7 +206,7 @@ class UniverseScreener:
         components = self._score_components(ind, avg_vol, bb_width,
                                             f_trend, f_mom, f_vol, f_vwap, f_volat)
         weighted_component_sum = sum(c["weighted_score"] for c in components.values())
-        last_vol = float(ind["volume"].iloc[-1])
+        last_vol = _opt_float(ind["volume"].iloc[-1])   # NaN → None (JSON/dataset hygiene)
         last_close = float(last["close"])
 
         features = {
@@ -222,11 +222,11 @@ class UniverseScreener:
             "penalty_score": penalties,
             "pre_clamp_score": base - penalties,        # 매매 base 그대로(재계산 금지)
             "candidate_score": candidate_score,
-            # volume 계측
+            # volume 계측 (last_vol NaN → None; 파생값도 None)
             "volume_last": last_vol,
             "volume_sma20": avg_vol,
-            "volume_ratio": (last_vol / avg_vol) if avg_vol > 0 else None,
-            "dollar_volume": last_vol * last_close,
+            "volume_ratio": (last_vol / avg_vol) if (last_vol is not None and avg_vol > 0) else None,
+            "dollar_volume": (last_vol * last_close) if last_vol is not None else None,
             "feature_schema_version": CANDIDATE_FEATURE_VERSION,
         }
 
@@ -243,7 +243,7 @@ class UniverseScreener:
         정규화 점수(f_*)는 이미 산출된 값을 그대로 쓴다 — 여기서 점수를 재계산하지 않는다."""
         last = ind.iloc[-1]
         w = self.cfg.weights
-        last_vol = float(ind["volume"].iloc[-1])
+        last_vol = _opt_float(ind["volume"].iloc[-1])   # NaN → None (비표준 JSON NaN 방지)
         close, vwap = float(last["close"]), float(last["vwap"])
         prev_rsi = ind["rsi14"].iloc[-2] if len(ind) >= 2 else None
         raw = {
@@ -254,7 +254,8 @@ class UniverseScreener:
                          "stochrsi_k": _opt_float(last.get("stochrsi_k")),
                          "stochrsi_d": _opt_float(last.get("stochrsi_d"))},
             "volume": {"last_volume": last_vol, "volume_sma20": avg_vol,
-                       "volume_ratio": (last_vol / avg_vol) if avg_vol > 0 else None},
+                       "volume_ratio": (last_vol / avg_vol)
+                       if (last_vol is not None and avg_vol > 0) else None},
             "vwap_position": {"close": close, "vwap": vwap,
                               "vwap_distance": ((close - vwap) / vwap) if vwap else None},
             "volatility": {"bb_width": round(bb_width, 4)},
