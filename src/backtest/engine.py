@@ -35,10 +35,10 @@ def _exit_config_from_backtest(cfg) -> ExitConfig:
     return ExitConfig(
         stop_loss_pct=cfg.stop_loss_pct or 0.0,
         take_profit_pct=cfg.take_profit_pct or 0.0,
-        # BacktestConfig 는 아직 time-exit 필드가 없음 → 의도적으로 미배선(백테스트 TIME_EXIT off).
-        # BacktestConfig 에 time_exit_* 가 추가되면 여기서 연결.
-        time_exit_bars=None,
-        time_exit_minutes=None,
+        # PR 3-B: BacktestConfig.time_exit_* 배선(Time 스윕 가능). 기본 None → TIME_EXIT off
+        # 이므로 미설정 시 기존 백테스트 동작 무변경. live/paper 와 동일 ExitConfig 계약.
+        time_exit_bars=cfg.time_exit_bars,
+        time_exit_minutes=cfg.time_exit_minutes,
         enable_all_symbols_eod_flatten=not cfg.allow_overnight_non_leverage,
         leverage_eod_flatten=cfg.leverage_eod_flatten,
         exit_on_trend_break=cfg.exit_on_trend_break)
@@ -180,7 +180,9 @@ class BacktestEngine:
                     entry_price=st["pos"]["entry_price"], current_price=c,
                     leverage_factor=leverage_factor, entry_time=st["pos"]["entry_time"],
                     entry_bar=st["pos"]["entry_bar"], ema20=ema20[i])
-                reason = gen.evaluate_signal(pv, ExitContext(now_bar=i))
+                # now_time=idx[i] 전달로 time_exit_minutes 도 백테스트에서 발화(live/paper 대칭).
+                # time_exit_minutes=None 이면 minutes 분기는 건너뛰므로 기존 동작 무변경.
+                reason = gen.evaluate_signal(pv, ExitContext(now_bar=i, now_time=idx[i]))
                 if reason is not None:
                     pending_exit = {"reasons": [reason]}
             elif not is_session_end(i):   # 오버나잇으로 넘어가는 진입 금지

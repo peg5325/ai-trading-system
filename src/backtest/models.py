@@ -58,6 +58,8 @@ class BacktestConfig:
     entry_notional_pct: float = 0.05        # 진입 시 계좌 명목 노출 비율
     stop_loss_pct: float = 0.03             # -3% 손절
     take_profit_pct: float | None = None    # 익절(옵션)
+    time_exit_minutes: float | None = None  # N분 보유 후 청산(기본 off — 백테스트 동작 무변경)
+    time_exit_bars: int | None = None       # N봉 보유 후 청산(기본 off)
     exit_on_trend_break: bool = True        # close < EMA20 → 청산
     leverage_eod_flatten: bool = True       # 레버리지 ETF 는 세션(ET date) 마감 청산
     allow_overnight_non_leverage: bool = True   # 일반주 오버나잇 허용(레버리지 차등)
