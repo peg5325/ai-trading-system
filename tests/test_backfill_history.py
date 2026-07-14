@@ -169,6 +169,8 @@ def test_no_progress_guard_prevents_infinite_loop(tmp_path):
         # 커서를 종료성으로 마킹 → 다음 실행이 같은 stale 커서를 무한 재fetch 하지 않음
         cur = store.get_cursor("QQQ", "1m")
         assert cur is not None and cur["exhausted"] is True
+        # exhausted 커서라 소비되지 않으므로 다른 종료 경로와 동일하게 next_before=None
+        assert cur["next_before"] is None
 
 
 def test_resume_seeds_prev_oldest_detects_immediate_stall(tmp_path):
@@ -235,6 +237,22 @@ def test_symbol_isolation_on_persistent_429(tmp_path):
         assert by_sym["BAD"].error is not None and "429" in by_sym["BAD"].error
         assert by_sym["QQQ"].error is None and by_sym["QQQ"].inserted == 1
         assert store.total_rows() == 1  # 정상 종목 데이터는 보존
+
+
+def test_spacing_between_but_not_after_last_symbol(tmp_path):
+    """spacing 은 종목 사이에만 — N종목이면 N-1회. 마지막 뒤 불필요 대기 없음."""
+    prov = FakeProvider({
+        ("A", None): ([_c("A", 0)], None),
+        ("B", None): ([_c("B", 0)], None),
+        ("C", None): ([_c("C", 0)], None),
+    })
+    dbp = str(tmp_path / "market_history.sqlite")
+    sleeps, sleep = _no_sleep()
+    with HistoryStore(dbp) as store:
+        backfill_symbols(store, prov, ["A", "B", "C"], "1m",
+                         max_pages=10, spacing=0.5, sleep=sleep)
+        # 종목당 페이지 1개(nextBefore=None)라 페이지 간 sleep 은 없고, 종목 간 sleep 만 발생
+        assert sleeps == [0.5, 0.5]  # A→B, B→C. C 뒤에는 없음
 
 
 def test_non_retryable_error_isolated(tmp_path):

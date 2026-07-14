@@ -159,10 +159,11 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
                 break
             # stale 커서로 더 과거로 진행하지 못하면(oldest 비감소) → 종료성 정지.
             # 커서를 exhausted 로 마킹해 다음 실행이 같은 stale 커서를 무한 재fetch 하지 않고
-            # 처음부터 재스캔하도록(영구 미완/API 낭비 방지).
+            # 처음부터 재스캔하도록(영구 미완/API 낭비 방지). next_before 는 exhausted 커서라
+            # 어차피 소비되지 않으므로 다른 종료 경로와 동일하게 None(일관성).
             if prev_oldest is not None and oldest_dt >= prev_oldest:
                 store.save_cursor(symbol, interval, oldest_ts_utc=oldest,
-                                  next_before=nxt, exhausted=True)
+                                  next_before=None, exhausted=True)
                 store.commit()
                 result.stopped_reason = "no_progress"
                 break
@@ -205,7 +206,8 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
     """여러 종목을 순차 backfill. 종목 격리: 한 종목 실패가 나머지를 막지 않는다."""
     run_id = run_id or _new_run_id(interval)
     report = BackfillReport(interval=interval)
-    for sym in symbols:
+    last = len(symbols) - 1
+    for i, sym in enumerate(symbols):
         try:
             res = backfill_symbol(
                 store, provider, sym, interval, max_pages=max_pages, page_size=page_size,
@@ -215,6 +217,6 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
             res = SymbolBackfillResult(symbol=sym, interval=interval,
                                        error=repr(exc), stopped_reason="error")
         report.results.append(res)
-        if spacing:
+        if spacing and i < last:  # 마지막 종목 뒤 불필요한 대기 제거
             sleep(spacing)
     return report
