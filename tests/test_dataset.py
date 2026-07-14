@@ -252,6 +252,44 @@ def test_dataset_schema_version_bumped():
     assert FEATURE_VERSION != "1.0" and DATASET_VERSION != "1.0"
 
 
+# ---- v2.1 PR 2-B: benchmark market context 전파 ----
+_BENCH = {
+    "benchmark_symbol": "QQQ", "benchmark_close": 400.0, "benchmark_ema20": 398.0,
+    "benchmark_vs_ema20": 0.005, "benchmark_ema20_slope": 0.001,
+    "benchmark_return_trailing_30m": 0.002, "benchmark_return_trailing_60m": 0.004,
+    "benchmark_trend": "UP", "benchmark_source_bar_end": "2026-07-07T04:15:00Z",
+    "benchmark_context_asof": "2026-07-07T04:15:00Z", "benchmark_timeframe": "5m",
+    "market_context_version": "1.0",
+}
+
+
+def test_dataset_propagates_benchmark_context(tmp_path):
+    store = _store(tmp_path)
+    _fill_candles(store, "SOXL", n=40)
+    journal = InMemoryJournalStore()
+    cyc = _cycle([_outcome("SOXL")])
+    cyc.benchmark_context = dict(_BENCH)
+    journal.save_cycle(cyc)
+    rec = DatasetBuilder(journal, store).build().records[0]
+    f = rec.feature
+    assert f.benchmark_symbol == "QQQ" and f.benchmark_close == 400.0
+    assert f.benchmark_ema20 == 398.0 and f.benchmark_trend == "UP"
+    assert f.benchmark_return_trailing_30m == 0.002 and f.benchmark_return_trailing_60m == 0.004
+    assert f.market_context_version == "1.0"
+    flat = rec.to_flat()
+    assert flat["benchmark_symbol"] == "QQQ" and flat["benchmark_vs_ema20"] == 0.005
+
+
+def test_dataset_benchmark_context_null_when_absent(tmp_path):
+    store = _store(tmp_path)
+    _fill_candles(store, "SOXL", n=40)
+    journal = InMemoryJournalStore()
+    journal.save_cycle(_cycle([_outcome("SOXL")]))     # benchmark_context 없음
+    f = DatasetBuilder(journal, store).build().records[0].feature
+    assert f.benchmark_symbol is None and f.benchmark_close is None
+    assert f.market_context_version is None
+
+
 def test_parquet_exporter_roundtrip(tmp_path):
     import importlib.util
     if importlib.util.find_spec("pyarrow") is None:      # pragma: no cover

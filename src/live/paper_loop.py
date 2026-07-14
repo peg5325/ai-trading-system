@@ -18,6 +18,7 @@ from collections import defaultdict
 
 from src.engines.indicator_engine import candles_to_frame, resample
 from src.exits.generator import ExitContext, ExitSignalGenerator, PositionView
+from src.market_context.builder import build_benchmark_context
 from src.models import Candle, in_eod_flatten_window
 from src.pipeline.models import SystemState
 from src.ai.models import MarketContext
@@ -221,9 +222,28 @@ class PaperTradingLoop:
         self._last_processed = newest
         err = "; ".join(f"{k}:{v}" for k, v in data_errors.items()) or None
         self._apply_fills(cycle_id, result)
-        self._journal_cycle(cycle_id, session, result, portfolio, market, err)
+        # 국면 관측(PR 2-B) — run_once '이후'에만 만든다(구조적으로 매매에 영향 불가).
+        benchmark_ctx = self._benchmark_context(candles_5m, newest)
+        self._journal_cycle(cycle_id, session, result, portfolio, market, err, benchmark_ctx)
         return self._save(CycleReport(cycle_id, ST_RAN, R_OK, session,
                                       pipeline_result=result.to_dict(), error=err))
+
+    def _benchmark_context(self, candles_5m, decision_time) -> dict | None:
+        """벤치마크 국면 관측(PR 2-B). config off / benchmark 미보유 / 실패 → None.
+        이미 수집한 candle 만 재사용(추가 fetch 0 → 호출예산 불변). 실패해도 매매/저널 무중단."""
+        mc = self.cfg.market_context
+        if not getattr(mc, "enabled", False):
+            return None
+        candles = candles_5m.get(mc.benchmark_symbol)
+        if not candles:                     # universe 에 없으면 관측 생략(별도 fetch 금지)
+            return None
+        try:
+            ctx = build_benchmark_context(
+                candles, decision_time=decision_time, symbol=mc.benchmark_symbol,
+                timeframe=mc.timeframe, ema_period=mc.ema_period)
+        except Exception:
+            return None                     # 관측 실패가 거래를 게이팅하지 않는다
+        return ctx.to_dict() if ctx is not None else None
 
     def _apply_fills(self, cycle_id, result) -> None:
         """이번 사이클의 FILLED 체결을 자금관리 계좌(cash/FIFO)에 반영(다음 사이클 스냅샷 정확도)."""
@@ -253,13 +273,15 @@ class PaperTradingLoop:
                 self._last_exit_time[rec.get("symbol")] = ts
                 self._last_exit_reason[rec.get("symbol")] = rec.get("kind")
 
-    def _journal_cycle(self, cycle_id, session, result, portfolio, market, error=None) -> None:
+    def _journal_cycle(self, cycle_id, session, result, portfolio, market,
+                       error=None, benchmark_context=None) -> None:
         if self.journal is None:
             return
         from src.journal.models import JournalCycle
         self.journal.save_cycle(JournalCycle.from_pipeline(
             cycle_id, session, list(self.cfg.universe), result,
-            portfolio=portfolio, market=market, error=error))
+            portfolio=portfolio, market=market, error=error,
+            benchmark_context=benchmark_context))
 
     def _journal_error(self, cycle_id, session, error) -> None:
         if self.journal is None:

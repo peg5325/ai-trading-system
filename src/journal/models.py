@@ -38,7 +38,8 @@ class JournalCycle:
     outcomes: list[dict] = field(default_factory=list)   # per-symbol outcome dict
     order_count: int = 0
     portfolio: dict | None = None       # 사이클 시점 포트폴리오 스냅샷 (replay 복원용)
-    market: dict | None = None          # 사이클 시점 market context
+    market: dict | None = None          # 사이클 시점 market context (세션/EOD, AI 용)
+    benchmark_context: dict | None = None   # 벤치마크 국면 관측(v2.1 PR 2-B, 매매 무관)
 
     def to_dict(self) -> dict:
         return {
@@ -46,6 +47,7 @@ class JournalCycle:
             "universe": self.universe, "status": self.status, "reason": self.reason,
             "error": self.error, "outcomes": self.outcomes, "order_count": self.order_count,
             "portfolio": self.portfolio, "market": self.market,
+            "benchmark_context": self.benchmark_context,
         }
 
     @classmethod
@@ -55,16 +57,18 @@ class JournalCycle:
             universe=list(d.get("universe", [])), status=d.get("status", "RAN"),
             reason=d.get("reason"), error=d.get("error"),
             outcomes=list(d.get("outcomes", [])), order_count=d.get("order_count", 0),
-            portfolio=d.get("portfolio"), market=d.get("market"))
+            portfolio=d.get("portfolio"), market=d.get("market"),
+            benchmark_context=d.get("benchmark_context"))
 
     @classmethod
     def from_pipeline(cls, cycle_id, session, universe, result, *,
                       cycle_ts=None, status="RAN", error=None,
-                      portfolio=None, market=None) -> "JournalCycle":
+                      portfolio=None, market=None, benchmark_context=None) -> "JournalCycle":
         outs = [o.to_dict() for o in result.outcomes]
         return cls(cycle_id, cycle_ts or ts_from_cycle_id(cycle_id), session,
                    list(universe), status, None, error, outs, len(result.orders()),
-                   portfolio=_as_dict(portfolio), market=_as_dict(market))
+                   portfolio=_as_dict(portfolio), market=_as_dict(market),
+                   benchmark_context=benchmark_context)
 
     @classmethod
     def error_cycle(cls, cycle_id, universe, error, *, session=None,

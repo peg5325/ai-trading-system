@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from src.exits.generator import ExitConfig
+from src.market_context.models import MarketContextConfig
 from src.risk.reentry_cooldown import ReentryCooldownConfig
 
 
@@ -26,6 +27,8 @@ class RuntimeConfig:
     exit_config: ExitConfig = field(default_factory=ExitConfig)
     # 재진입 쿨다운(과매매/whipsaw 안전장치; 기본 off)
     reentry_cooldown: ReentryCooldownConfig = field(default_factory=ReentryCooldownConfig)
+    # US 시장 국면 관측(v2.1 PR 2-B; 기본 off, 켜져도 매매 무변경)
+    market_context: MarketContextConfig = field(default_factory=MarketContextConfig)
     # AI
     ai_provider: str = "fake"          # "fake" | "openai"
     ai_model: str = "gpt-5.5-mini"
@@ -92,10 +95,17 @@ class RuntimeConfig:
             time_exit=int(rc_dur.get("time_exit", 0) or 0),
             eod_flatten=int(rc_dur.get("eod_flatten", 0) or 0),
             override_conditions=tuple(rc.get("override", []) or ()))
+        mc = d.get("market_context", {}) or {}
+        market_context = MarketContextConfig(
+            enabled=bool(mc.get("enabled", False)),
+            benchmark_symbol=str(mc.get("benchmark_symbol", "QQQ")),
+            timeframe=str(mc.get("timeframe", "5m")),
+            ema_period=int(mc.get("ema_period", 20)))
         return cls(
             symbols=list(d.get("symbols", ["SOXL"])),
             exit_config=exit_config,
             reentry_cooldown=reentry_cooldown,
+            market_context=market_context,
             poll_interval_s=float(d.get("poll_interval_s", 20.0)),
             account_value=float(d.get("account_value", 100_000.0)),
             fetch_spacing_s=float(d.get("fetch_spacing_s", 0.0)),

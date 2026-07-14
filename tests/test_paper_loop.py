@@ -29,13 +29,13 @@ from src.pnl.models import FillEvent
 from src.risk.models import EOD_FLATTEN
 
 
-def make_1m(n, start_et, base=100.0):
+def make_1m(n, start_et, base=100.0, symbol="SOXL"):
     """정규장 시작(start_et)부터 연속 1분봉 n개."""
     out, prev = [], base
     for i in range(n):
         m = start_et + timedelta(minutes=i)
         c = base + (i % 10) * 0.1
-        out.append(Candle.from_moment("SOXL", "1m", m, prev, max(prev, c) + 0.1,
+        out.append(Candle.from_moment(symbol, "1m", m, prev, max(prev, c) + 0.1,
                                       min(prev, c) - 0.1, c, 1000 + i, "USD", True))
         prev = c
     return out
@@ -273,3 +273,105 @@ def test_real_pipeline_wiring_with_fake_ai(tmp_path):
     rep = lp.tick()
     assert rep.status == ST_RAN            # 실 Toss/OpenAI 없이 사이클 완주
     assert rep.pipeline_result is not None
+
+
+# ---- v2.1 PR 2-B: Market Context 관측 (매매 무영향, §3-6) ----
+from src.market_context.models import MarketContextConfig     # noqa: E402
+
+
+class _CountingMarket:
+    """market.recent 호출 수를 세는 스파이 (호출예산 검증)."""
+    def __init__(self, inner):
+        self.inner = inner
+        self.calls = 0
+
+    def recent(self, symbol, interval, count):
+        self.calls += 1
+        return self.inner.recent(symbol, interval, count)
+
+
+def _mc_loop(tmp_path, market, journal, *, enabled, name="m", universe=("QQQ",),
+             benchmark="QQQ"):
+    return PaperTradingLoop(
+        market, CandleStore(tmp_path / f"{name}.sqlite"), RecordingPipeline(),
+        InMemoryPositionStore(),
+        LoopConfig(universe=universe,
+                   market_context=MarketContextConfig(enabled=enabled,
+                                                      benchmark_symbol=benchmark)),
+        journal=journal, sleep=lambda s: None)
+
+
+def test_market_context_journaled_when_enabled(tmp_path):
+    from src.journal.models import InMemoryJournalStore
+    market = FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")})
+    journal = InMemoryJournalStore()
+    rep = _mc_loop(tmp_path, market, journal, enabled=True).tick()
+    assert rep.status == ST_RAN
+    bc = journal.get_cycle(rep.cycle_id).benchmark_context
+    assert bc is not None and bc["benchmark_symbol"] == "QQQ"
+    assert bc["market_context_version"]
+
+
+def test_market_context_absent_when_disabled(tmp_path):
+    from src.journal.models import InMemoryJournalStore
+    market = FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")})
+    journal = InMemoryJournalStore()
+    rep = _mc_loop(tmp_path, market, journal, enabled=False).tick()
+    assert journal.get_cycle(rep.cycle_id).benchmark_context is None
+
+
+def test_market_context_no_extra_fetch_budget(tmp_path):
+    """ON/OFF 호출예산 동일 — benchmark 는 이미 가져온 candle 재사용(추가 fetch 0)."""
+    from src.journal.models import InMemoryJournalStore
+    off_m = _CountingMarket(FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")}))
+    on_m = _CountingMarket(FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")}))
+    _mc_loop(tmp_path, off_m, InMemoryJournalStore(), enabled=False, name="off").tick()
+    _mc_loop(tmp_path, on_m, InMemoryJournalStore(), enabled=True, name="on").tick()
+    assert on_m.calls == off_m.calls and on_m.calls > 0
+
+
+def test_market_context_failure_does_not_block_trading(tmp_path, monkeypatch):
+    """builder 예외가 나도 사이클은 RAN, context 는 null (관측이 거래 게이팅 금지)."""
+    from src.journal.models import InMemoryJournalStore
+    def boom(*a, **k):
+        raise RuntimeError("benchmark calc failed")
+    monkeypatch.setattr("src.live.paper_loop.build_benchmark_context", boom)
+    market = FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")})
+    journal = InMemoryJournalStore()
+    rep = _mc_loop(tmp_path, market, journal, enabled=True).tick()
+    assert rep.status == ST_RAN
+    assert journal.get_cycle(rep.cycle_id).benchmark_context is None
+
+
+def test_market_context_skipped_when_benchmark_not_in_universe(tmp_path):
+    """benchmark 가 universe 에 없으면 관측 생략(추가 fetch 금지) — KRX benchmark 비활성과 동일 원리."""
+    from src.journal.models import InMemoryJournalStore
+    market = FakeMarketDataProvider({"SOXL": make_1m(130, REG)})
+    journal = InMemoryJournalStore()
+    rep = _mc_loop(tmp_path, market, journal, enabled=True,
+                   universe=("SOXL",), benchmark="QQQ").tick()
+    assert rep.status == ST_RAN
+    assert journal.get_cycle(rep.cycle_id).benchmark_context is None
+
+
+def test_market_context_does_not_change_pipeline_inputs(tmp_path):
+    """ON/OFF 에서 파이프라인에 전달되는 매매 입력이 동일(계측 무영향)."""
+    from src.journal.models import InMemoryJournalStore
+
+    def run(enabled, name):
+        market = FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")})
+        pipe = RecordingPipeline()
+        lp = PaperTradingLoop(
+            market, CandleStore(tmp_path / f"{name}.sqlite"), pipe,
+            InMemoryPositionStore(),
+            LoopConfig(universe=("QQQ",),
+                       market_context=MarketContextConfig(enabled=enabled, benchmark_symbol="QQQ")),
+            journal=InMemoryJournalStore(), sleep=lambda s: None)
+        lp.tick()
+        return pipe.calls[0]
+
+    on, off = run(True, "on"), run(False, "off")
+    assert on["cycle_id"] == off["cycle_id"]
+    assert on["universe"] == off["universe"]
+    assert on["exit_intents"] == off["exit_intents"]
+    assert on["system_state"].kill_switch == off["system_state"].kill_switch

@@ -109,7 +109,8 @@ def main(config_path: str) -> None:
                        initial_capital=cfg.initial_capital,
                        max_positions=cfg.max_positions,
                        exit_config=cfg.exit_config,
-                       reentry_cooldown=cfg.reentry_cooldown),
+                       reentry_cooldown=cfg.reentry_cooldown,
+                       market_context=cfg.market_context),
             journal=journal)
         metrics_store = SqliteMetricsStore(cfg.metrics_db)
         runtime = PaperRuntime(loop, cfg, metrics_store=metrics_store,
