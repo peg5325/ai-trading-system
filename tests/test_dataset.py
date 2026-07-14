@@ -211,6 +211,47 @@ def test_jsonl_exporter(tmp_path):
     assert row["label"]["label_class"] == "WIN"
 
 
+# ---- v2.1 계측(PR 2-A): candidate_id / trade_id / feature 전파 ----
+def test_dataset_propagates_candidate_and_trade_id(tmp_path):
+    store = _store(tmp_path)
+    _fill_candles(store, "SOXL", n=40)
+    journal = InMemoryJournalStore()
+    o = _outcome("SOXL")
+    o["candidate_id"] = "abc123"
+    o["trade_id"] = "paper-SOXL:c1"
+    o["candidate"]["features"] = {
+        "weighted_component_sum": 80.0, "penalty_score": 5.0, "pre_clamp_score": 75.0,
+        "candidate_score": 72.5, "volume_last": 2000.0, "volume_sma20": 1050.0,
+        "volume_ratio": 1.9, "dollar_volume": 202000.0,
+    }
+    journal.save_cycle(_cycle([o]))
+    ds = DatasetBuilder(journal, store).build()
+    f = ds.records[0].feature
+    assert f.candidate_id == "abc123" and f.trade_id == "paper-SOXL:c1"
+    assert f.weighted_component_sum == 80.0 and f.penalty_score == 5.0
+    assert f.pre_clamp_score == 75.0
+    assert f.volume == 2000.0 and f.volume_sma20 == 1050.0
+    assert f.volume_ratio == 1.9 and f.dollar_volume == 202000.0
+    flat = ds.records[0].to_flat()
+    assert flat["candidate_id"] == "abc123" and flat["trade_id"] == "paper-SOXL:c1"
+    assert flat["volume"] == 2000.0 and flat["dollar_volume"] == 202000.0
+
+
+def test_dataset_handles_missing_candidate_id(tmp_path):
+    """레거시 outcome(candidate_id/trade_id 없음) → None 으로 안전 처리."""
+    store = _store(tmp_path)
+    _fill_candles(store, "SOXL", n=40)
+    journal = InMemoryJournalStore()
+    journal.save_cycle(_cycle([_outcome("SOXL")]))
+    f = DatasetBuilder(journal, store).build().records[0].feature
+    assert f.candidate_id is None and f.trade_id is None
+    assert f.volume is None and f.dollar_volume is None
+
+
+def test_dataset_schema_version_bumped():
+    assert FEATURE_VERSION != "1.0" and DATASET_VERSION != "1.0"
+
+
 def test_parquet_exporter_roundtrip(tmp_path):
     import importlib.util
     if importlib.util.find_spec("pyarrow") is None:      # pragma: no cover

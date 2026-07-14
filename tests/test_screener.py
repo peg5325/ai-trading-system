@@ -1,6 +1,7 @@
 """UniverseScreener 테스트: 랭킹, 필터링, 동점, 빈/부족 데이터, 레버리지 플래그."""
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -9,6 +10,7 @@ from src.engines.indicator_engine import OUTPUT_COLUMNS
 from src.models import ET
 from src.universe.screener import (
     CANDIDATE_EXCLUDED,
+    CANDIDATE_FEATURE_VERSION,
     CANDIDATE_LONG,
     FLAG_EXT_HOURS,
     FLAG_EXTREME_VOL,
@@ -203,3 +205,82 @@ def test_reasons_reflect_setup():
     c = scr.screen([SymbolData("SOXL", strong_setup(), 3)])[0]
     assert "EMA7 above EMA20 (uptrend)" in c.reasons
     assert "price near VWAP" in c.reasons
+
+
+# ---- v2.1 계측(PR 2-A): score component 분해 ----
+_COMPONENTS = ("trend", "momentum", "volume", "vwap_position", "volatility")
+
+
+def test_score_components_recorded_with_subfields():
+    c = UniverseScreener().screen([SymbolData("SOXL", strong_setup(), 3)])[0]
+    comps = c.features["score_components"]
+    assert set(comps) == set(_COMPONENTS)
+    for name, comp in comps.items():
+        assert set(comp) == {"raw_inputs", "normalized_score", "weight", "weighted_score"}
+        assert isinstance(comp["raw_inputs"], dict) and comp["raw_inputs"]
+        assert math.isclose(comp["weighted_score"], comp["weight"] * comp["normalized_score"])
+    assert c.features["feature_schema_version"] == CANDIDATE_FEATURE_VERSION
+
+
+def test_weighted_component_sum_matches_components():
+    c = UniverseScreener().screen([SymbolData("SOXL", strong_setup(), 3)])[0]
+    comps = c.features["score_components"]
+    assert math.isclose(c.features["weighted_component_sum"],
+                        sum(comp["weighted_score"] for comp in comps.values()))
+
+
+def test_pre_clamp_score_invariant():
+    """불변식: pre_clamp_score == weighted_component_sum - penalty_score."""
+    c = UniverseScreener().screen([SymbolData("A", strong_setup(bb_width=0.10), 1)])[0]
+    f = c.features
+    assert f["penalty_score"] > 0                       # HIGH_VOLATILITY 감점 발생
+    assert math.isclose(f["pre_clamp_score"],
+                        f["weighted_component_sum"] - f["penalty_score"])
+
+
+def test_candidate_score_equals_clamp_round_of_pre_clamp():
+    """최종 candidate_score 는 기존 clamp+round 결과와 동일(경계 포함)."""
+    for sd in (SymbolData("SOXL", strong_setup(), 3),
+               SymbolData("A", strong_setup(bb_width=0.10), 1)):
+        c = UniverseScreener().screen([sd])[0]
+        f = c.features
+        expected = round(max(0.0, min(100.0, f["pre_clamp_score"])), 1)
+        assert f["candidate_score"] == expected == c.score
+
+
+def test_upper_clamp_boundary_capped_at_100():
+    cfg = ScreenerConfig(weights={"trend": 0.6, "momentum": 0.6, "volume": 0.6,
+                                  "vwap_position": 0.6, "volatility": 0.6})  # 합=3.0
+    c = UniverseScreener(cfg).screen([SymbolData("SOXL", strong_setup(), 3)])[0]
+    assert c.features["pre_clamp_score"] > 100.0
+    assert c.features["candidate_score"] == 100.0 == c.score
+
+
+def test_below_min_candidate_keeps_decomposition():
+    """BELOW_MIN 로 제외돼도 점수 분해는 기록되고 불변식이 성립한다."""
+    weak = weak_setup(rsi=40.0, prev_rsi=45.0, vwap=101.0, volume=500.0, stoch_k=30.0,
+                      stoch_d=40.0)
+    ev = UniverseScreener().screen_all([SymbolData("W", weak, 1)])[0]
+    if ev.candidate_type == CANDIDATE_EXCLUDED and ev.features:
+        f = ev.features
+        assert math.isclose(f["pre_clamp_score"],
+                            f["weighted_component_sum"] - f["penalty_score"])
+        assert f["candidate_score"] == round(max(0.0, min(100.0, f["pre_clamp_score"])), 1)
+
+
+# ---- v2.1 계측(PR 2-A): volume 피처 ----
+def test_volume_features_recorded():
+    c = UniverseScreener().screen([SymbolData("SOXL", strong_setup(), 3)])[0]
+    f = c.features
+    assert f["volume_last"] == 2000.0
+    assert math.isclose(f["volume_sma20"], 1050.0)         # 19*1000 + 2000 = 21000/20
+    assert math.isclose(f["volume_ratio"], 2000.0 / 1050.0)
+    assert math.isclose(f["dollar_volume"], 2000.0 * 101.0)  # last_volume * close
+
+
+def test_legacy_feature_keys_preserved():
+    """하위호환: 기존 스칼라 피처 키를 계속 유지한다."""
+    c = UniverseScreener().screen([SymbolData("SOXL", strong_setup(), 3)])[0]
+    for k in ("trend", "momentum", "volume", "vwap_position", "volatility",
+              "bb_width", "avg_volume", "session", "penalties", "leverage_factor"):
+        assert k in c.features

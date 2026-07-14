@@ -91,9 +91,13 @@ def main(config_path: str) -> None:
         ai = AIDecisionEngine(_ai_provider(cfg),
                               AIConfig(dry_run=cfg.ai_dry_run, max_calls_per_day=cfg.max_calls_per_session))
         risk_manager = RiskManager(RiskConfig(max_positions=cfg.max_positions))
-        pipeline = TradingPipeline(IndicatorEngine(), UniverseScreener(), ai,
-                                   risk_manager, order_manager,
-                                   PipelineConfig(entry_notional_pct=cfg.entry_notional_pct))
+        pipeline = TradingPipeline(
+            IndicatorEngine(), UniverseScreener(), ai, risk_manager, order_manager,
+            PipelineConfig(
+                entry_notional_pct=cfg.entry_notional_pct,
+                # candidate_id 해시 입력 — 격리 미설정이면 raw config 값(둘 다 None 가능).
+                session_id=(session_identity.session_id if session_identity else cfg.session_id),
+                run_id=(session_identity.run_id if session_identity else cfg.run_id)))
         journal = SqliteJournalStore(cfg.journal_db)
         loop = PaperTradingLoop(
             market, candle_store, pipeline, position_store,

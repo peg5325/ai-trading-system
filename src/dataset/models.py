@@ -12,8 +12,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 # ---- 스키마 버전 (스키마 변경 시 반드시 갱신) ----
-FEATURE_VERSION = "1.0"      # FeatureRecord 필드 구성
-DATASET_VERSION = "1.0"      # Dataset row(=feature+label+meta) 구성
+# v2.1 PR 2-A: candidate_id/trade_id 조인키 + score 분해 + volume 피처 추가로 bump.
+FEATURE_VERSION = "1.1"      # FeatureRecord 필드 구성
+DATASET_VERSION = "1.1"      # Dataset row(=feature+label+meta) 구성
 
 
 @dataclass
@@ -52,6 +53,18 @@ class FeatureRecord:
     account_value: float | None = None
     open_positions: int | None = None
     kill_switch: bool | None = None
+    # v2.1 계측(§2-2): 공통 조인키 (candidate_id 항상 존재, trade_id 체결 시에만)
+    candidate_id: str | None = None
+    trade_id: str | None = None
+    # score 분해 (불변식: pre_clamp_score == weighted_component_sum - penalty_score)
+    weighted_component_sum: float | None = None
+    penalty_score: float | None = None
+    pre_clamp_score: float | None = None
+    # volume 계측
+    volume: float | None = None
+    volume_sma20: float | None = None
+    volume_ratio: float | None = None
+    dollar_volume: float | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -137,6 +150,7 @@ class DatasetRecord:
         out: dict = {}
         f = self.feature
         out.update({
+            "candidate_id": f.candidate_id, "trade_id": f.trade_id,
             "cycle_id": f.cycle_id, "cycle_ts": f.cycle_ts, "symbol": f.symbol,
             "market": f.market, "session": f.session,
             "action": f.action, "reason": f.reason,
@@ -145,6 +159,10 @@ class DatasetRecord:
             "stochrsi_k": f.stochrsi_k, "stochrsi_d": f.stochrsi_d,
             "candidate_score": f.candidate_score, "candidate_type": f.candidate_type,
             "candidate_rank": f.candidate_rank,
+            "weighted_component_sum": f.weighted_component_sum,
+            "penalty_score": f.penalty_score, "pre_clamp_score": f.pre_clamp_score,
+            "volume": f.volume, "volume_sma20": f.volume_sma20,
+            "volume_ratio": f.volume_ratio, "dollar_volume": f.dollar_volume,
             "risk_flags": ",".join(f.risk_flags) if f.risk_flags else "",
             "risk_flag_count": len(f.risk_flags),
             "ai_decision": f.ai_decision, "ai_confidence": f.ai_confidence,

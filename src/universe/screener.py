@@ -29,6 +29,9 @@ from src.models import (
 CANDIDATE_LONG = "LONG_SETUP"
 CANDIDATE_EXCLUDED = "EXCLUDED"
 
+# candidate features(dict) 스키마 버전. v2.1 계측(score component 분해 + volume) 추가로 bump.
+CANDIDATE_FEATURE_VERSION = "1.1"
+
 FLAG_LEVERAGED = "LEVERAGED_ETF"
 FLAG_HIGH_VOL = "HIGH_VOLATILITY"
 FLAG_EXTREME_VOL = "EXTREME_VOLATILITY"
@@ -52,6 +55,13 @@ def leverage_for(symbol: str, override: int | None = None) -> int:
     if override is not None:
         return override
     return KNOWN_LEVERAGE.get(symbol.upper(), 1)
+
+
+def _opt_float(v) -> float | None:
+    """NaN/None 을 None 으로, 그 외는 float 로 (계측 raw_inputs 용)."""
+    if v is None or pd.isna(v):
+        return None
+    return float(v)
 
 
 # ---- 입출력 구조 ----
@@ -189,22 +199,72 @@ class UniverseScreener:
         base = (w["trend"] * f_trend + w["momentum"] * f_mom + w["volume"] * f_vol
                 + w["vwap_position"] * f_vwap + w["volatility"] * f_volat)
         score = max(0.0, min(100.0, base - penalties))
+        candidate_score = round(score, 1)               # = Candidate.score (매매 소스 그대로)
+
+        # ---- v2.1 계측(§2-2): 점수 분해 + volume. 점수 계산 경로는 위에서 확정됐고,
+        #      아래는 이미 산출된 값을 기록만 한다(매매 무영향).
+        components = self._score_components(ind, avg_vol, bb_width,
+                                            f_trend, f_mom, f_vol, f_vwap, f_volat)
+        weighted_component_sum = sum(c["weighted_score"] for c in components.values())
+        last_vol = float(ind["volume"].iloc[-1])
+        last_close = float(last["close"])
 
         features = {
+            # 기존 스칼라 피처(하위호환)
             "trend": f_trend, "momentum": f_mom, "volume": f_vol,
             "vwap_position": f_vwap, "volatility": f_volat,
             "bb_width": round(bb_width, 4), "avg_volume": round(avg_vol, 1),
             "session": session, "penalties": penalties,
             "leverage_factor": sd.leverage_factor,
+            # score component 분해 + 집계 (불변식: pre_clamp = Σweighted - penalty)
+            "score_components": components,
+            "weighted_component_sum": weighted_component_sum,
+            "penalty_score": penalties,
+            "pre_clamp_score": base - penalties,        # 매매 base 그대로(재계산 금지)
+            "candidate_score": candidate_score,
+            # volume 계측
+            "volume_last": last_vol,
+            "volume_sma20": avg_vol,
+            "volume_ratio": (last_vol / avg_vol) if avg_vol > 0 else None,
+            "dollar_volume": last_vol * last_close,
+            "feature_schema_version": CANDIDATE_FEATURE_VERSION,
         }
 
         if score < self.cfg.min_score:
-            return Candidate(sd.symbol, round(score, 1), 0, CANDIDATE_EXCLUDED,
+            return Candidate(sd.symbol, candidate_score, 0, CANDIDATE_EXCLUDED,
                              reasons, [FLAG_BELOW_MIN] + risk, features)
-        return Candidate(sd.symbol, round(score, 1), 0, CANDIDATE_LONG,
+        return Candidate(sd.symbol, candidate_score, 0, CANDIDATE_LONG,
                          reasons, risk, features)
 
     # ---- helpers ----
+    def _score_components(self, ind: pd.DataFrame, avg_vol: float, bb_width: float,
+                          f_trend, f_mom, f_vol, f_vwap, f_volat) -> dict:
+        """각 점수 요소를 raw_inputs/normalized_score/weight/weighted_score 로 분해(§2-2).
+        정규화 점수(f_*)는 이미 산출된 값을 그대로 쓴다 — 여기서 점수를 재계산하지 않는다."""
+        last = ind.iloc[-1]
+        w = self.cfg.weights
+        last_vol = float(ind["volume"].iloc[-1])
+        close, vwap = float(last["close"]), float(last["vwap"])
+        prev_rsi = ind["rsi14"].iloc[-2] if len(ind) >= 2 else None
+        raw = {
+            "trend": {"close": close, "ema7": float(last["ema7"]),
+                      "ema20": float(last["ema20"])},
+            "momentum": {"rsi14": float(last["rsi14"]),
+                         "prev_rsi14": _opt_float(prev_rsi),
+                         "stochrsi_k": _opt_float(last.get("stochrsi_k")),
+                         "stochrsi_d": _opt_float(last.get("stochrsi_d"))},
+            "volume": {"last_volume": last_vol, "volume_sma20": avg_vol,
+                       "volume_ratio": (last_vol / avg_vol) if avg_vol > 0 else None},
+            "vwap_position": {"close": close, "vwap": vwap,
+                              "vwap_distance": ((close - vwap) / vwap) if vwap else None},
+            "volatility": {"bb_width": round(bb_width, 4)},
+        }
+        norm = {"trend": f_trend, "momentum": f_mom, "volume": f_vol,
+                "vwap_position": f_vwap, "volatility": f_volat}
+        return {name: {"raw_inputs": raw[name], "normalized_score": norm[name],
+                       "weight": w[name], "weighted_score": w[name] * norm[name]}
+                for name in ("trend", "momentum", "volume", "vwap_position", "volatility")}
+
     def _excluded(self, sd: SymbolData, risk: list[str], reason: str) -> Candidate:
         return Candidate(sd.symbol, 0.0, 0, CANDIDATE_EXCLUDED, [reason], risk, {})
 
