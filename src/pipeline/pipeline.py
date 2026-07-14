@@ -15,6 +15,7 @@ import pandas as pd
 
 from src.ai.engine import is_entry_permitted
 from src.ai.models import DEC_APPROVE, DEC_WAIT
+from src.pipeline.candidate_id import canonical_candidate_id
 from src.pipeline.models import (
     ACTION_ORDERED,
     ACTION_SKIPPED,
@@ -30,6 +31,7 @@ from src.pipeline.models import (
     SymbolOutcome,
 )
 from src.models import MARKET_US
+from src.order.models import ORD_FILLED
 from src.risk.models import BUY, NEW_ENTRY, OrderIntent
 from src.universe.screener import SymbolData, leverage_for
 
@@ -37,9 +39,20 @@ _SNAP_COLS = ["close", "ema7", "ema20", "rsi14", "vwap",
               "bb_upper", "bb_lower", "stochrsi_k", "stochrsi_d"]
 
 
+def _trade_id(rec) -> str | None:
+    """체결(FILLED) 시에만 trade_id 부여(§2-2). 미체결/거부는 null.
+    dataset 의 trade_taken(=status FILLED) 판정과 일관되게 broker_order_id 를 쓴다."""
+    if getattr(rec, "status", None) != ORD_FILLED:
+        return None
+    return getattr(rec, "broker_order_id", None) or rec.client_order_id
+
+
 @dataclass(frozen=True)
 class PipelineConfig:
     entry_notional_pct: float = 0.05
+    # v2.1 계측(§2-2): candidate_id 해시 입력. 미설정(None)이면 빈 문자열로 canonicalize.
+    session_id: str | None = None
+    run_id: str | None = None
 
 
 class TradingPipeline:
@@ -100,12 +113,16 @@ class TradingPipeline:
 
         snapshot = self._indicator_snapshot(ind)
         symbol_market = getattr(candles[-1], "market", MARKET_US)
+        # candidate_id 는 관찰이 존재하면 후보 유무와 무관하게 항상 부여(공통 조인키).
+        candidate_id = self._candidate_id(cycle_id, symbol, symbol_market)
         cands = self.screener.screen([SymbolData(symbol, ind, lev, market=symbol_market)])
         if not cands:
             return SymbolOutcome(symbol, ACTION_SKIPPED, R_NO_CANDIDATE,
-                                 indicator_snapshot=snapshot)
+                                 indicator_snapshot=snapshot, candidate_id=candidate_id)
         candidate = cands[0]
-        cand_dict = candidate.to_dict()
+        cand_dict = candidate.to_dict(include_features=True)   # journal 직렬화엔 feature 포함
+        #   ※ AI 는 candidate 객체를 받아 to_dict() 기본값(feature 제외)으로 해싱한다 →
+        #     여기서 feature 를 붙여도 AI/risk/order 입력은 불변(계측이 매매를 바꾸지 않음).
 
         ref_price = float(ind["close"].iloc[-1])
 
@@ -123,7 +140,8 @@ class TradingPipeline:
         def outcome(action, reason):
             return SymbolOutcome(symbol, action, reason,
                                  ai_decision=ai.to_dict(), risk_decision=risk_decision.to_dict(),
-                                 indicator_snapshot=snapshot, candidate=cand_dict, ai_log=ai_log)
+                                 indicator_snapshot=snapshot, candidate=cand_dict, ai_log=ai_log,
+                                 candidate_id=candidate_id)
 
         if ai.decision == DEC_WAIT:
             return outcome(ACTION_SKIPPED, R_AI_WAIT)
@@ -138,7 +156,13 @@ class TradingPipeline:
         rec = self.orders.submit(intent, risk_decision, client_order_id=coid, ref_price=ref_price)
         o = outcome(ACTION_ORDERED, R_ORDERED)
         o.order_record = rec.to_dict()
+        o.trade_id = _trade_id(rec)                # 체결 시에만(미체결/거부 null)
         return o
+
+    def _candidate_id(self, cycle_id, symbol, market) -> str:
+        return canonical_candidate_id(
+            session_id=self.cfg.session_id, run_id=self.cfg.run_id,
+            cycle_id=cycle_id, symbol=symbol, market=market)
 
     def _indicator_snapshot(self, ind) -> dict:
         row = ind.iloc[-1]

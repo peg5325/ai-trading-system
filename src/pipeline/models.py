@@ -39,6 +39,10 @@ class SymbolOutcome:
     indicator_snapshot: dict | None = None
     candidate: dict | None = None
     ai_log: dict | None = None
+    # v2.1 계측(§2-2): 공통 조인키. candidate_id 는 관찰이 존재하면 항상 부여,
+    # trade_id 는 체결 시에만(미체결 null). 어떤 결정에도 되먹임되지 않는 식별자.
+    candidate_id: str | None = None
+    trade_id: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -51,6 +55,8 @@ class SymbolOutcome:
             "indicator_snapshot": self.indicator_snapshot,
             "candidate": self.candidate,
             "ai_log": self.ai_log,
+            "candidate_id": self.candidate_id,
+            "trade_id": self.trade_id,
         }
 
 

@@ -98,6 +98,7 @@ class DatasetBuilder:
                 source: str | None) -> DatasetRecord | None:
         snap = o.get("indicator_snapshot") or {}
         cand = o.get("candidate") or {}
+        feats = cand.get("features") or {}
         ai = o.get("ai_decision") or {}
         risk = o.get("risk_decision") or {}
         order = o.get("order_record")
@@ -140,6 +141,14 @@ class DatasetBuilder:
             account_value=_f((cycle.portfolio or {}).get("account_value")),
             open_positions=_open_positions(cycle.portfolio),
             kill_switch=(cycle.portfolio or {}).get("kill_switch"),
+            # v2.1 계측(§2-2): 조인키 + score 분해 + volume (없으면 None)
+            candidate_id=o.get("candidate_id"), trade_id=o.get("trade_id"),
+            weighted_component_sum=_f(feats.get("weighted_component_sum")),
+            penalty_score=_f(feats.get("penalty_score")),
+            pre_clamp_score=_f(feats.get("pre_clamp_score")),
+            volume=_f(feats.get("volume_last")), volume_sma20=_f(feats.get("volume_sma20")),
+            volume_ratio=_f(feats.get("volume_ratio")),
+            dollar_volume=_f(feats.get("dollar_volume")),
         )
         label = self._label(entry_price, as_of, ts_list, candles, order)
         if self.cfg.drop_incomplete_labels and not label.complete:

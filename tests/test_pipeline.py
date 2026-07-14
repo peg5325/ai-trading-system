@@ -20,7 +20,8 @@ from src.pipeline.models import (
     R_RISK_BLOCK,
     SystemState,
 )
-from src.pipeline.pipeline import TradingPipeline
+from src.pipeline.candidate_id import canonical_candidate_id
+from src.pipeline.pipeline import PipelineConfig, TradingPipeline
 from src.risk.models import BUY, EOD_FLATTEN, EXIT, SELL, OrderIntent, PortfolioSnapshot, Position
 from src.risk.risk_manager import RiskManager
 from src.universe.screener import CANDIDATE_LONG, Candidate
@@ -277,3 +278,59 @@ def test_ai_cache_does_not_collide_across_sessions():
 
     assert provider.calls == 2, \
         f"세션별로 AI 를 각각 호출해야 한다 (실제 호출 {provider.calls}회 — 캐시 충돌)"
+
+
+# ---- v2.1 계측(PR 2-A): candidate_id / trade_id / feature 직렬화 ----
+def _build_session(session_id="006", run_id="006R", *, candidates=True, ai_provider=None):
+    ai = AIDecisionEngine(ai_provider or FakeAIProvider(response=approve_resp()), AIConfig())
+    om = OrderManager(PaperBrokerProvider(ExecutionModel(0, 0)),
+                      InMemoryOrderStore(), InMemoryPositionStore())
+    return TradingPipeline(StubEngine(), StubScreener(candidates), ai, RiskManager(), om,
+                           PipelineConfig(session_id=session_id, run_id=run_id))
+
+
+def test_entry_outcome_has_candidate_id():
+    o = run(_build_session()).outcomes[0]
+    assert o.candidate_id is not None and len(o.candidate_id) == 64
+    d = o.to_dict()
+    assert d["candidate_id"] == o.candidate_id
+
+
+def test_candidate_id_matches_canonical_function():
+    o = run(_build_session(session_id="006", run_id="006R")).outcomes[0]
+    expected = canonical_candidate_id(session_id="006", run_id="006R",
+                                      cycle_id="20260706T1400", symbol="SOXL", market="US")
+    assert o.candidate_id == expected
+
+
+def test_no_candidate_outcome_still_has_candidate_id():
+    """후보가 없어도(관찰이 존재하면) candidate_id 는 부여된다 — 공통 조인키."""
+    o = run(_build_session(candidates=False)).outcomes[0]
+    assert o.reason == R_NO_CANDIDATE
+    assert o.candidate_id is not None and len(o.candidate_id) == 64
+
+
+def test_candidate_dict_includes_features():
+    o = run(_build_session()).outcomes[0]
+    assert o.candidate is not None and "features" in o.candidate
+
+
+def test_trade_id_set_on_fill_and_null_otherwise():
+    filled = run(_build_session()).outcomes[0]
+    assert filled.order_record["status"] == "FILLED"
+    assert filled.trade_id == filled.order_record["broker_order_id"]
+    assert filled.trade_id is not None
+    # AI WAIT → 미체결 → trade_id null
+    waited = run(_build_session(ai_provider=FakeAIProvider(raise_exc=AITimeoutError("t")))).outcomes[0]
+    assert waited.order_record is None and waited.trade_id is None
+
+
+def test_instrumentation_does_not_change_decisions_across_sessions():
+    """계측 핵심 증명: session_id 가 달라 candidate_id 는 바뀌어도
+    candidate/AI/risk/order 결정 시퀀스는 byte-동일하다 (매매 무변경)."""
+    a = run(_build_session(session_id="A", run_id="A"))
+    b = run(_build_session(session_id="B", run_id="B"))
+    ids_a = [o.candidate_id for o in a.outcomes]
+    ids_b = [o.candidate_id for o in b.outcomes]
+    assert ids_a != ids_b and all(ids_a) and all(ids_b)     # candidate_id 는 세션마다 다름
+    assert _decision_view(a) == _decision_view(b)           # 결정은 동일
