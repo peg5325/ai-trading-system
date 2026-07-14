@@ -194,13 +194,18 @@ class _EmptyPipeline:
         return PipelineResult(kw["cycle_id"], [])
 
 
-def _runtime_with_session(tmp_path, *, after_cycle_stop=False):
+class _RaisingPipeline:
+    def run_once(self, **kw):
+        raise RuntimeError("pipeline boom")       # loop 이 ST_ERROR(pipeline_errors)로 흡수
+
+
+def _runtime_with_session(tmp_path, *, pipeline=None):
     cfg = RuntimeConfig(symbols=["SOXL"], poll_interval_s=0.0,
                         log_dir=str(tmp_path / "logs"), status_path=str(tmp_path / "status.json"),
                         reports_dir=str(tmp_path / "reports"))
     loop = PaperTradingLoop(
         FakeMarketDataProvider({"SOXL": _make_1m(20)}), CandleStore(tmp_path / "m.sqlite"),
-        _EmptyPipeline(), InMemoryPositionStore(),
+        pipeline or _EmptyPipeline(), InMemoryPositionStore(),
         LoopConfig(universe=("SOXL",)), journal=InMemoryJournalStore(), sleep=lambda s: None)
     manifest_path = str(tmp_path / "session_manifest.json")
     lock_path = str(tmp_path / "session.lock")
@@ -264,6 +269,16 @@ def test_runtime_failed_when_all_ticks_error(tmp_path):
         raise RuntimeError("tick boom")
     rt.loop.tick = _boom                                  # 모든 tick 예외 → 흡수, cycles_run=0
     rt.run(max_iterations=1)
+    m = read_manifest(manifest_path)
+    assert m.completion_status == COMPLETION_FAILED
+    assert m.termination_reason == "ERROR"
+
+
+# ---- 모든 사이클이 파이프라인 예외 → FAILED (pipeline_errors 포함) ----
+def test_runtime_failed_on_pipeline_errors(tmp_path):
+    rt, manifest_path, _ = _runtime_with_session(tmp_path, pipeline=_RaisingPipeline())
+    rt.run(max_iterations=1)                              # 파이프라인 예외 → ST_ERROR, cycles_run=0
+    assert rt.metrics.pipeline_errors >= 1 and rt.metrics.cycles_run == 0
     m = read_manifest(manifest_path)
     assert m.completion_status == COMPLETION_FAILED
     assert m.termination_reason == "ERROR"

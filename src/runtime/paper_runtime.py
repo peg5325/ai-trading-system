@@ -287,9 +287,11 @@ class PaperRuntime:
             bar_min = int(self.loop.bar_minutes()) if hasattr(self.loop, "bar_minutes") else 5
             # 조기폐장(휴장 캘린더)은 자동 감지하지 않는다 → session_close_min 미전달(1-B 범위 밖).
             cov = compute_coverage(market, bar_min, observed)
-            # cycles_run==0 & 오류 존재 = 정상 사이클 없이 오류로 종료(생존 흡수 특성상 좁은 정의).
+            # cycles_run==0 & 오류 존재 = 정상 사이클(RAN) 없이 오류로 종료.
+            # api/pipeline/generic 예외를 모두 포함(모든 사이클이 파이프라인 예외로 끝난 경우도 FAILED).
             failed = (self.metrics.cycles_run == 0
-                      and (self.metrics.exceptions + self.metrics.api_errors) > 0)
+                      and (self.metrics.exceptions + self.metrics.api_errors
+                           + self.metrics.pipeline_errors) > 0)
             aborted = (self._interrupted or self._stop_called) and not cov.reached_end
             status = classify_completion(reached_session_end=cov.reached_end,
                                          coverage_complete=cov.complete,
