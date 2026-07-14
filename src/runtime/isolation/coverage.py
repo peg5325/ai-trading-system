@@ -34,11 +34,8 @@ class SessionCoverage:
         return self.expected_bars > 0 and self.missing_bars == 0
 
     def to_dict(self) -> dict:
+        # manifest 에는 raw dict 로 영속(SessionCoverage 로 역직렬화하지 않음).
         return asdict(self)
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "SessionCoverage":
-        return cls(**{k: d[k] for k in cls.__dataclass_fields__ if k in d})
 
 
 def compute_coverage(market: str, bar_minutes: int, observed_exchange_times,

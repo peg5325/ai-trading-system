@@ -251,9 +251,9 @@ class PaperRuntime:
         except Exception:
             pass
         self._flush_stores()
+        self._finalize_session()          # 세션 상태 먼저 확정(리포트 실패와 무관)
         path = self._generate_report()
         self._update_status(self._last_report)
-        self._finalize_session()          # manifest finalize(TERMINATED) 후 lock 해제
         self.loggers["runtime"].info(f"graceful SHUTDOWN, report={path}")
         return path
 
@@ -270,38 +270,48 @@ class PaperRuntime:
             self.loggers["error"].error(f"session mark_running failed: {e}")
 
     def _finalize_session(self) -> None:
-        """정상 종료 시 coverage 계산 → completion 분류 → manifest finalize → lock 해제."""
+        """정상 종료 시 coverage 계산 → completion 분류 → manifest finalize → lock 해제.
+
+        - 단일 시장/세션일 가정: coverage 는 session_identity.market 창 기준(혼합 시장·다중
+          거래일은 1-B 범위 밖; paper_loop 은 세션일 변경 시 관측봉을 reset 한다).
+        - manifest finalize 가 성공한 경우에만 lock 을 해제한다. 기록 실패 시 RUNNING+lock
+          쌍을 남겨 crash-resume 신호를 보존한다(정상 종료라도 기록이 안 됐으면 crash 취급).
+        """
         if not self.session_manifest_path:
             return
+        finalized = False
         try:
             observed = (self.loop.observed_bar_exchange_times()
                         if hasattr(self.loop, "observed_bar_exchange_times") else [])
             market = getattr(self.session_identity, "market", None) or "US"
             bar_min = int(self.loop.bar_minutes()) if hasattr(self.loop, "bar_minutes") else 5
+            # 조기폐장(휴장 캘린더)은 자동 감지하지 않는다 → session_close_min 미전달(1-B 범위 밖).
             cov = compute_coverage(market, bar_min, observed)
+            # cycles_run==0 & 오류 존재 = 정상 사이클 없이 오류로 종료(생존 흡수 특성상 좁은 정의).
             failed = (self.metrics.cycles_run == 0
                       and (self.metrics.exceptions + self.metrics.api_errors) > 0)
             aborted = (self._interrupted or self._stop_called) and not cov.reached_end
             status = classify_completion(reached_session_end=cov.reached_end,
                                          coverage_complete=cov.complete,
                                          aborted=aborted, failed=failed)
+            # 세션말 도달(정상 완료)이면 이후 중단 신호보다 SESSION_END 를 원인으로 우선한다.
             reason = (REASON_ERROR if failed else
+                      REASON_SESSION_END if cov.reached_end else
                       REASON_INTERRUPTED if self._interrupted else
-                      REASON_STOPPED if self._stop_called else
-                      REASON_SESSION_END if cov.reached_end else REASON_ENDED)
+                      REASON_STOPPED if self._stop_called else REASON_ENDED)
             m = read_manifest(self.session_manifest_path)
             if m is not None:
                 write_manifest(self.session_manifest_path, m.finalize(
                     self._now_iso(), completion_status=status, termination_reason=reason,
                     coverage=cov.to_dict(), manual_flatten_count=self._manual_flatten_count))
-        except Exception as e:                        # 관측 실패가 종료를 막지 않음
+            finalized = True
+        except Exception as e:                        # 기록 실패 시 lock 유지(crash 신호 보존)
             self.loggers["error"].error(f"session finalize failed: {e}")
-        finally:
-            if self.session_lock is not None:         # finalize 후 single-writer lock 해제
-                try:
-                    self.session_lock.release()
-                except Exception:
-                    pass
+        if finalized and self.session_lock is not None:
+            try:
+                self.session_lock.release()           # finalize 성공 후에만 single-writer lock 해제
+            except Exception:
+                pass
 
     def _flush_stores(self) -> None:
         for store in (getattr(self.loop, "store", None), getattr(self.loop, "journal", None)):

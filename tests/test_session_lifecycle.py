@@ -245,6 +245,50 @@ def test_runtime_aborted_on_external_stop(tmp_path):
     assert m.termination_reason == "STOPPED"
 
 
+# ---- 세션말 도달 + 완결 관측 → FULL (런타임 분류 경로) ----
+def test_runtime_full_when_session_complete(tmp_path):
+    rt, manifest_path, lock_path = _runtime_with_session(tmp_path)
+    rt.loop.observed_bar_exchange_times = lambda: _us_bars(range(78))   # 78봉 완결 관측
+    rt.run(max_iterations=0)                              # tick 없이 즉시 종료 → finalize
+    m = read_manifest(manifest_path)
+    assert m.completion_status == COMPLETION_FULL
+    assert m.termination_reason == "SESSION_END"
+    assert m.coverage["observed_bars"] == 78 and m.coverage["missing_bars"] == 0
+    assert not os.path.exists(lock_path)                 # finalize 성공 → lock 해제
+
+
+# ---- 정상 사이클 없이 오류로 종료 → FAILED (런타임 분류 경로) ----
+def test_runtime_failed_when_all_ticks_error(tmp_path):
+    rt, manifest_path, _ = _runtime_with_session(tmp_path)
+    def _boom():
+        raise RuntimeError("tick boom")
+    rt.loop.tick = _boom                                  # 모든 tick 예외 → 흡수, cycles_run=0
+    rt.run(max_iterations=1)
+    m = read_manifest(manifest_path)
+    assert m.completion_status == COMPLETION_FAILED
+    assert m.termination_reason == "ERROR"
+
+
+# ---- finalize(manifest 기록) 실패 시 lock 을 남긴다(RUNNING+lock = crash 신호 보존) ----
+def test_runtime_keeps_lock_when_finalize_write_fails(tmp_path):
+    rt, manifest_path, lock_path = _runtime_with_session(tmp_path)
+    import src.runtime.paper_runtime as pr
+    orig = pr.write_manifest
+    calls = {"n": 0}
+    def _flaky(path, manifest):
+        calls["n"] += 1
+        if manifest.lifecycle_state == LIFECYCLE_TERMINATED:   # finalize 쓰기만 실패시킴
+            raise OSError("disk full")
+        return orig(path, manifest)
+    pr.write_manifest = _flaky
+    try:
+        rt.run(max_iterations=1)
+    finally:
+        pr.write_manifest = orig
+    assert os.path.exists(lock_path)                     # 기록 실패 → lock 유지
+    assert read_manifest(manifest_path).lifecycle_state == LIFECYCLE_RUNNING
+
+
 # ---- manual flatten 관측 카운터가 manifest 에 반영 ----
 def test_runtime_records_manual_flatten(tmp_path):
     rt, manifest_path, _ = _runtime_with_session(tmp_path)

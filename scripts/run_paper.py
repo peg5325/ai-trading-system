@@ -117,13 +117,8 @@ def main(config_path: str) -> None:
         metrics_store.close()
     except Exception:
         pass
-    finally:
-        # store close 실패와 무관하게 single-writer lock 해제 보장(lock 유출 방지)
-        if guard is not None:
-            try:
-                guard.lock.release()
-            except Exception:
-                pass
+    # single-writer lock 해제는 PaperRuntime._finalize_session 이 담당한다
+    # (manifest finalize 성공 후에만 해제 → 기록 실패 시 RUNNING+lock 을 남겨 crash-resume 신호 보존).
 
 
 if __name__ == "__main__":
