@@ -243,13 +243,15 @@ class UniverseScreener:
         정규화 점수(f_*)는 이미 산출된 값을 그대로 쓴다 — 여기서 점수를 재계산하지 않는다."""
         last = ind.iloc[-1]
         w = self.cfg.weights
-        last_vol = _opt_float(ind["volume"].iloc[-1])   # NaN → None (비표준 JSON NaN 방지)
-        close, vwap = float(last["close"]), float(last["vwap"])
+        # raw_inputs 기록값은 일괄 _opt_float 로 통일(NaN → None, JSON/dataset 위생 일관).
+        # _REQUIRED 컬럼은 게이트 통과 시 non-NaN 보장이라 실사용상 float 그대로지만 방어적.
+        last_vol = _opt_float(ind["volume"].iloc[-1])
+        close, vwap = _opt_float(last["close"]), _opt_float(last["vwap"])
         prev_rsi = ind["rsi14"].iloc[-2] if len(ind) >= 2 else None
         raw = {
-            "trend": {"close": close, "ema7": float(last["ema7"]),
-                      "ema20": float(last["ema20"])},
-            "momentum": {"rsi14": float(last["rsi14"]),
+            "trend": {"close": close, "ema7": _opt_float(last["ema7"]),
+                      "ema20": _opt_float(last["ema20"])},
+            "momentum": {"rsi14": _opt_float(last["rsi14"]),
                          "prev_rsi14": _opt_float(prev_rsi),
                          "stochrsi_k": _opt_float(last.get("stochrsi_k")),
                          "stochrsi_d": _opt_float(last.get("stochrsi_d"))},
@@ -257,7 +259,8 @@ class UniverseScreener:
                        "volume_ratio": (last_vol / avg_vol)
                        if (last_vol is not None and avg_vol > 0) else None},
             "vwap_position": {"close": close, "vwap": vwap,
-                              "vwap_distance": ((close - vwap) / vwap) if vwap else None},
+                              "vwap_distance": ((close - vwap) / vwap)
+                              if (close is not None and vwap) else None},
             "volatility": {"bb_width": round(bb_width, 4)},
         }
         norm = {"trend": f_trend, "momentum": f_mom, "volume": f_vol,
