@@ -17,10 +17,20 @@ from src.shadow.outcome_models import (
     ShadowOutcomeDataset,
     ShadowOutcomeRecord,
 )
+from src.shadow.promotion import (
+    PromotionReport,
+    SessionSignal,
+    classify_session_regime,
+    evaluate_promotion,
+)
+from src.shadow.promotion_io import analyze_session, to_signal
 
 __all__ = [
     "ShadowConfig", "ShadowDecision", "evaluate_shadow_policies", "build_shadow_record",
     "SHADOW_VERSION", "SHADOW_POLICY_VERSION",
     "build_shadow_outcomes", "aggregate_by_policy", "ShadowOutcomeDataset",
     "ShadowOutcomeRecord", "SHADOW_OUTCOME_VERSION",
+    # Phase 6 승격조건 판정(PR #38, read-only 분석 — 런타임 무관)
+    "evaluate_promotion", "PromotionReport", "SessionSignal", "classify_session_regime",
+    "analyze_session", "to_signal",
 ]
