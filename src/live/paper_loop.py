@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import logging
 import time
 from typing import Callable
 
@@ -45,6 +46,8 @@ from src.live.models import (
     LoopConfig,
 )
 
+
+logger = logging.getLogger(__name__)
 
 _BAR_SECONDS = 300      # 5분봉. time_exit_bars 를 타임스탬프에서 유도(재시작 안전).
 
@@ -260,8 +263,10 @@ class PaperTradingLoop:
             cand_ids = [o.candidate_id for o in result.outcomes if o.candidate_id]
             return build_shadow_record(benchmark_ctx, decision_time=decision_time,
                                        candidate_ids=cand_ids)
-        except Exception:
-            return None                     # shadow 실패가 거래를 게이팅하지 않는다
+        except Exception as e:
+            # 관측 유실 진단용 로그(생존 우선 — 거래는 게이팅하지 않는다).
+            logger.debug("shadow decision skipped: %s", e)
+            return None
 
     def _apply_fills(self, cycle_id, result) -> None:
         """이번 사이클의 FILLED 체결을 자금관리 계좌(cash/FIFO)에 반영(다음 사이클 스냅샷 정확도)."""

@@ -439,6 +439,19 @@ def test_shadow_failure_does_not_block_trading(tmp_path, monkeypatch):
     assert journal.get_cycle(rep.cycle_id).shadow is None
 
 
+def test_shadow_failure_is_logged(tmp_path, monkeypatch, caplog):
+    """shadow 실패는 조용히 삼키되 진단용 debug 로그를 남긴다(관측 유실 추적)."""
+    import logging
+    from src.journal.models import InMemoryJournalStore
+    def boom(*a, **k):
+        raise RuntimeError("shadow calc failed")
+    monkeypatch.setattr("src.live.paper_loop.build_shadow_record", boom)
+    market = FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")})
+    with caplog.at_level(logging.DEBUG, logger="src.live.paper_loop"):
+        _shadow_loop(tmp_path, market, InMemoryJournalStore(), shadow_on=True).tick()
+    assert any("shadow decision skipped" in r.message for r in caplog.records)
+
+
 class _CandidatePipeline:
     """진입 후보(candidate_id 부여)를 반환하는 가짜 파이프라인 — 조인 키 검증용."""
     def __init__(self, cand_ids):
