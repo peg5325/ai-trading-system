@@ -10,6 +10,7 @@ from typing import Protocol
 from src.exits.generator import ExitConfig
 from src.market_context.models import MarketContextConfig
 from src.risk.reentry_cooldown import ReentryCooldownConfig
+from src.shadow.models import ShadowConfig
 from src.models import Candle
 
 # ---- 사이클 상태 ----
@@ -48,6 +49,7 @@ class LoopConfig:
     exit_config: ExitConfig = field(default_factory=ExitConfig)   # 청산 규칙(SL/TP/Time/EOD)
     reentry_cooldown: ReentryCooldownConfig = field(default_factory=ReentryCooldownConfig)
     market_context: MarketContextConfig = field(default_factory=MarketContextConfig)  # PR 2-B 관측
+    shadow: ShadowConfig = field(default_factory=ShadowConfig)  # PR 4-A Online Shadow Decision
 
 
 @dataclass

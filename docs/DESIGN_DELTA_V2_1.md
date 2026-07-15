@@ -86,11 +86,12 @@ avoided_loss·missed_opportunity·forward_return은 판단시점 미지.
 ```yaml
 # Runtime(온라인) — hypothetical decision만
 shadow_policy_version / would_allow / shadow_reason_codes /
-decision_time / market_context_snapshot / candidate_id
+decision_time / market_context_snapshot / candidate_ids   # 사이클 단위 리스트(아래 조인 규약)
 # Offline batch(세션 후, read-only) — 결과 부착
 forward_return_30m/60m / avoided_loss / missed_opportunity /
 outcome_complete / horizon_end
 ```
+> **조인 규약(PR 4-A 구현 반영):** 정책 결정은 벤치마크 국면 단위(사이클당 A/B 1쌍)라 사이클 내 모든 후보에 동일 적용된다. 따라서 온라인 레코드는 단수 `candidate_id` 대신 **사이클 단위 `candidate_ids` 리스트**를 담고, **오프라인 batch(4-B)가 리스트를 per-candidate 로 fan-out** 해 각 candidate_id 에 동일 국면 결정을 부여한다(국면-단위 결정을 후보마다 복제하지 않아 컨텍스트 중복 회피). 조인키 자체는 여전히 candidate_id(§2-2).
 > **Claude 보강:** 오프라인 batch는 기존 exit-followup의 **엄격 look-ahead 윈도잉(bisect_right, `> decision_time`) 재사용**. 세션말 잘린 미완결 horizon은 `outcome_complete=false`로 **집계 자동 제외**(조용히 drop도, 0 포함도 금지).
 
 ---
