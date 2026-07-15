@@ -183,6 +183,21 @@ def test_direction_stability_fails_when_leave_one_out_flips_sign():
     assert _crit(r, "direction_stability").status == FAIL
 
 
+def test_direction_stability_order_key_total_and_deterministic():
+    # started_at 일부 결측(실경로 미발동이나 방어적 총순서) → 반복 호출 동일 + 크래시 없음.
+    sigs = [
+        _sig("zzz", regime="UP", avoided=0.02, missed=0.0, started_at=None),
+        _sig("aaa", regime="DOWN", avoided=0.02, missed=0.0, started_at="2026-08-05T13:30:00Z"),
+        _sig("mmm", regime="FLAT", avoided=0.02, missed=0.0, started_at="2026-08-01T13:30:00Z"),
+        _sig("bbb", regime="UP", avoided=0.02, missed=0.0, started_at=None),
+        _sig("ccc", regime="DOWN", avoided=0.02, missed=0.0, started_at="2026-08-03T13:30:00Z"),
+    ]
+    r1 = evaluate_promotion(sigs, policy_id="A", horizon_min=30, market="US")
+    r2 = evaluate_promotion(sigs, policy_id="A", horizon_min=30, market="US")
+    assert r1.to_dict() == r2.to_dict()          # 총순서라 결정론
+    assert _crit(r1, "direction_stability").status == PASS   # 전부 net>0 → 부호 안정
+
+
 def test_cost_mdd_is_always_defer():
     r = evaluate_promotion(_healthy_signals(), policy_id="A", horizon_min=30, market="US")
     c = _crit(r, "cost_mdd")

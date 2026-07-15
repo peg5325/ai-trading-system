@@ -75,8 +75,12 @@ class SessionSignal:
         """세션 shadow net = avoided_loss − missed_profit(>0 이면 gate 차단이 유리했음)."""
         return self.blocked_avoided_loss - self.blocked_missed_profit
 
-    def _order_key(self) -> str:
-        return self.started_at or self.session_id
+    def _order_key(self) -> tuple[bool, str, str]:
+        """chronological 정렬 키(총순서). started_at(ISO) 보유 세션이 먼저 ISO 순, 결측은
+        뒤에서 session_id 순으로 결정론 배치 — ISO 문자열과 session_id 가 사전순으로 뒤섞이지
+        않게 강제한다. 실경로에선 primary 가 항상 manifest.created_at 을 가져 fallback 미발동
+        (불변식: primary ⇒ started_at not None). 리뷰 반영(PR #38)."""
+        return (self.started_at is None, self.started_at or "", self.session_id)
 
 
 @dataclass(frozen=True)
