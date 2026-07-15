@@ -11,8 +11,16 @@ from src.shadow.models import (
     ShadowConfig,
     ShadowDecision,
 )
+from src.shadow.outcome import aggregate_by_policy, build_shadow_outcomes
+from src.shadow.outcome_models import (
+    SHADOW_OUTCOME_VERSION,
+    ShadowOutcomeDataset,
+    ShadowOutcomeRecord,
+)
 
 __all__ = [
     "ShadowConfig", "ShadowDecision", "evaluate_shadow_policies", "build_shadow_record",
     "SHADOW_VERSION", "SHADOW_POLICY_VERSION",
+    "build_shadow_outcomes", "aggregate_by_policy", "ShadowOutcomeDataset",
+    "ShadowOutcomeRecord", "SHADOW_OUTCOME_VERSION",
 ]
