@@ -24,7 +24,8 @@ R_CLOSE_BELOW_EMA = "CLOSE_BELOW_EMA"
 R_SLOPE_UP = "EMA_SLOPE_UP"
 R_SLOPE_DOWN_FLAT = "EMA_SLOPE_DOWN_OR_FLAT"
 R_NO_CONTEXT = "NO_CONTEXT"     # 국면 스냅샷 없음(관측 미가용)
-R_EMA_WARMUP = "EMA_WARMUP"     # 지표 warm-up/결측(close/ema/slope 중 결측)
+R_EMA_WARMUP = "EMA_WARMUP"     # close/ema warm-up·결측(정책 판단 불가)
+R_SLOPE_WARMUP = "SLOPE_WARMUP"  # ema slope warm-up·결측(Policy B 만 — 원인 구분)
 
 
 @dataclass(frozen=True)

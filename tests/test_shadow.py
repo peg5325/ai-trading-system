@@ -19,6 +19,7 @@ from src.shadow.models import (
     R_NO_CONTEXT,
     R_SLOPE_DOWN_FLAT,
     R_SLOPE_UP,
+    R_SLOPE_WARMUP,
     SHADOW_POLICY_VERSION,
     SHADOW_VERSION,
     ShadowConfig,
@@ -73,9 +74,12 @@ def test_null_context_yields_none_not_block():
 def test_warmup_missing_ema_yields_none():
     a = _by_policy(_ctx(101.0, None, 0.001))[POLICY_A]
     assert a.would_allow is None and a.reason_codes == [R_EMA_WARMUP]
-    # B 도 slope 결측 시 None
-    b = _by_policy(_ctx(101.0, 100.0, None))[POLICY_B]
-    assert b.would_allow is None and b.reason_codes == [R_EMA_WARMUP]
+    # ema 결측 → B 도 EMA_WARMUP
+    b_ema = _by_policy(_ctx(101.0, None, 0.001))[POLICY_B]
+    assert b_ema.would_allow is None and b_ema.reason_codes == [R_EMA_WARMUP]
+    # close/ema 있고 slope 만 결측 → B 는 SLOPE_WARMUP(원인 구분)
+    b_slope = _by_policy(_ctx(101.0, 100.0, None))[POLICY_B]
+    assert b_slope.would_allow is None and b_slope.reason_codes == [R_SLOPE_WARMUP]
 
 
 def _all_keys(obj):

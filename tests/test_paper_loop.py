@@ -23,7 +23,7 @@ from src.live.models import (
 from src.live.paper_loop import PaperTradingLoop
 from src.models import ET, Candle
 from src.order.models import InMemoryPositionStore
-from src.pipeline.models import PipelineResult
+from src.pipeline.models import PipelineResult, SymbolOutcome
 from src.storage.candle_store import CandleStore
 from src.pnl.models import FillEvent
 from src.risk.models import EOD_FLATTEN
@@ -437,3 +437,56 @@ def test_shadow_failure_does_not_block_trading(tmp_path, monkeypatch):
     rep = _shadow_loop(tmp_path, market, journal, shadow_on=True).tick()
     assert rep.status == ST_RAN
     assert journal.get_cycle(rep.cycle_id).shadow is None
+
+
+class _CandidatePipeline:
+    """진입 후보(candidate_id 부여)를 반환하는 가짜 파이프라인 — 조인 키 검증용."""
+    def __init__(self, cand_ids):
+        self._cids = cand_ids
+        self.calls = []
+
+    def run_once(self, **kw):
+        self.calls.append(kw)
+        outs = [SymbolOutcome(symbol=f"S{i}", action="SKIPPED", reason="X", candidate_id=cid)
+                for i, cid in enumerate(self._cids)]
+        return PipelineResult(kw["cycle_id"], outs)
+
+
+def test_shadow_candidate_ids_populated_and_filtered(tmp_path):
+    """candidate_ids(4-B 조인 키)가 실제 후보로 채워지고 결측(None)은 제외된다."""
+    from src.journal.models import InMemoryJournalStore
+    market = FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")})
+    journal = InMemoryJournalStore()
+    pipe = _CandidatePipeline(["cid1", None, "cid2"])   # None 은 제외돼야 함
+    lp = PaperTradingLoop(
+        market, CandleStore(tmp_path / "cand.sqlite"), pipe, InMemoryPositionStore(),
+        LoopConfig(universe=("QQQ",),
+                   market_context=MarketContextConfig(enabled=True, benchmark_symbol="QQQ"),
+                   shadow=ShadowConfig(enabled=True)),
+        journal=journal, sleep=lambda s: None)
+    rep = lp.tick()
+    sh = journal.get_cycle(rep.cycle_id).shadow
+    assert sh["candidate_ids"] == ["cid1", "cid2"]
+
+
+def test_shadow_does_not_change_pipeline_inputs(tmp_path):
+    """shadow ON/OFF 에서 파이프라인 매매 입력 동일(run_once 이후 관측 — 구조 회귀 잠금)."""
+    from src.journal.models import InMemoryJournalStore
+
+    def run(shadow_on, name):
+        market = FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")})
+        pipe = RecordingPipeline()
+        lp = PaperTradingLoop(
+            market, CandleStore(tmp_path / f"{name}.sqlite"), pipe, InMemoryPositionStore(),
+            LoopConfig(universe=("QQQ",),
+                       market_context=MarketContextConfig(enabled=True, benchmark_symbol="QQQ"),
+                       shadow=ShadowConfig(enabled=shadow_on)),
+            journal=InMemoryJournalStore(), sleep=lambda s: None)
+        lp.tick()
+        return pipe.calls[0]
+
+    on, off = run(True, "son"), run(False, "soff")
+    assert on["cycle_id"] == off["cycle_id"]
+    assert on["universe"] == off["universe"]
+    assert on["exit_intents"] == off["exit_intents"]
+    assert on["system_state"].kill_switch == off["system_state"].kill_switch
