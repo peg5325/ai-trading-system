@@ -375,3 +375,65 @@ def test_market_context_does_not_change_pipeline_inputs(tmp_path):
     assert on["universe"] == off["universe"]
     assert on["exit_intents"] == off["exit_intents"]
     assert on["system_state"].kill_switch == off["system_state"].kill_switch
+
+
+# ---- Online Shadow Decision (PR 4-A) — 가상 결정 관측 배선 ----
+from src.shadow.models import ShadowConfig     # noqa: E402
+
+
+def _shadow_loop(tmp_path, market, journal, *, shadow_on, mc_on=True, name="s",
+                 universe=("QQQ",), benchmark="QQQ"):
+    return PaperTradingLoop(
+        market, CandleStore(tmp_path / f"{name}.sqlite"), RecordingPipeline(),
+        InMemoryPositionStore(),
+        LoopConfig(universe=universe,
+                   market_context=MarketContextConfig(enabled=mc_on, benchmark_symbol=benchmark),
+                   shadow=ShadowConfig(enabled=shadow_on)),
+        journal=journal, sleep=lambda s: None)
+
+
+def test_shadow_journaled_when_enabled(tmp_path):
+    from src.journal.models import InMemoryJournalStore
+    market = FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")})
+    journal = InMemoryJournalStore()
+    rep = _shadow_loop(tmp_path, market, journal, shadow_on=True).tick()
+    assert rep.status == ST_RAN
+    sh = journal.get_cycle(rep.cycle_id).shadow
+    assert sh is not None
+    assert {p["policy_id"] for p in sh["policies"]} == {"A", "B"}
+    assert sh["market_context_snapshot"] is not None    # benchmark_ctx 재사용(2-B)
+    assert isinstance(sh["candidate_ids"], list)
+    # 미래 outcome 필드는 런타임 레코드에 없다(4-B 오프라인 전용)
+    assert "forward_return_30m" not in str(sh) and "avoided_loss" not in str(sh)
+
+
+def test_shadow_absent_when_disabled(tmp_path):
+    from src.journal.models import InMemoryJournalStore
+    market = FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")})
+    journal = InMemoryJournalStore()
+    rep = _shadow_loop(tmp_path, market, journal, shadow_on=False).tick()
+    assert journal.get_cycle(rep.cycle_id).shadow is None
+
+
+def test_shadow_records_no_context_when_market_context_off(tmp_path):
+    """shadow 는 market_context 관측을 소비 → mc off 면 context None(would_allow=None)."""
+    from src.journal.models import InMemoryJournalStore
+    market = FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")})
+    journal = InMemoryJournalStore()
+    rep = _shadow_loop(tmp_path, market, journal, shadow_on=True, mc_on=False).tick()
+    sh = journal.get_cycle(rep.cycle_id).shadow
+    assert sh is not None and sh["market_context_snapshot"] is None
+    assert all(p["would_allow"] is None for p in sh["policies"])
+
+
+def test_shadow_failure_does_not_block_trading(tmp_path, monkeypatch):
+    """shadow builder 예외 → 사이클 RAN, shadow null(관측이 거래 게이팅 금지)."""
+    from src.journal.models import InMemoryJournalStore
+    def boom(*a, **k):
+        raise RuntimeError("shadow calc failed")
+    monkeypatch.setattr("src.live.paper_loop.build_shadow_record", boom)
+    market = FakeMarketDataProvider({"QQQ": make_1m(130, REG, symbol="QQQ")})
+    journal = InMemoryJournalStore()
+    rep = _shadow_loop(tmp_path, market, journal, shadow_on=True).tick()
+    assert rep.status == ST_RAN
+    assert journal.get_cycle(rep.cycle_id).shadow is None

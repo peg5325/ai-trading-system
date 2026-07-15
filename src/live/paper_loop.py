@@ -19,6 +19,7 @@ from collections import defaultdict
 from src.engines.indicator_engine import candles_to_frame, resample
 from src.exits.generator import ExitContext, ExitSignalGenerator, PositionView
 from src.market_context.builder import build_benchmark_context
+from src.shadow.decider import build_shadow_record
 from src.models import Candle, in_eod_flatten_window
 from src.pipeline.models import SystemState
 from src.ai.models import MarketContext
@@ -224,7 +225,10 @@ class PaperTradingLoop:
         self._apply_fills(cycle_id, result)
         # 국면 관측(PR 2-B) — run_once '이후'에만 만든다(구조적으로 매매에 영향 불가).
         benchmark_ctx = self._benchmark_context(candles_5m, newest)
-        self._journal_cycle(cycle_id, session, result, portfolio, market, err, benchmark_ctx)
+        # Shadow 결정(PR 4-A) — 역시 run_once '이후', benchmark_ctx 재사용(가상 결정만 기록).
+        shadow = self._shadow_decision(benchmark_ctx, result, newest)
+        self._journal_cycle(cycle_id, session, result, portfolio, market, err,
+                            benchmark_ctx, shadow)
         return self._save(CycleReport(cycle_id, ST_RAN, R_OK, session,
                                       pipeline_result=result.to_dict(), error=err))
 
@@ -244,6 +248,20 @@ class PaperTradingLoop:
         except Exception:
             return None                     # 관측 실패가 거래를 게이팅하지 않는다
         return ctx.to_dict() if ctx is not None else None
+
+    def _shadow_decision(self, benchmark_ctx, result, decision_time) -> dict | None:
+        """Online Shadow Decision(PR 4-A). config off → None. run_once '이후' 생성이라
+        구조적으로 매매 무영향. benchmark_ctx(2-B 산출)를 그대로 소비 → Paper=Backtest 국면
+        패리티. 실패해도 매매/저널 무중단(관측이 거래를 게이팅 금지). 미래 outcome 미기록."""
+        sh = getattr(self.cfg, "shadow", None)
+        if not getattr(sh, "enabled", False):
+            return None
+        try:
+            cand_ids = [o.candidate_id for o in result.outcomes if o.candidate_id]
+            return build_shadow_record(benchmark_ctx, decision_time=decision_time,
+                                       candidate_ids=cand_ids)
+        except Exception:
+            return None                     # shadow 실패가 거래를 게이팅하지 않는다
 
     def _apply_fills(self, cycle_id, result) -> None:
         """이번 사이클의 FILLED 체결을 자금관리 계좌(cash/FIFO)에 반영(다음 사이클 스냅샷 정확도)."""
@@ -274,14 +292,14 @@ class PaperTradingLoop:
                 self._last_exit_reason[rec.get("symbol")] = rec.get("kind")
 
     def _journal_cycle(self, cycle_id, session, result, portfolio, market,
-                       error=None, benchmark_context=None) -> None:
+                       error=None, benchmark_context=None, shadow=None) -> None:
         if self.journal is None:
             return
         from src.journal.models import JournalCycle
         self.journal.save_cycle(JournalCycle.from_pipeline(
             cycle_id, session, list(self.cfg.universe), result,
             portfolio=portfolio, market=market, error=error,
-            benchmark_context=benchmark_context))
+            benchmark_context=benchmark_context, shadow=shadow))
 
     def _journal_error(self, cycle_id, session, error) -> None:
         if self.journal is None:
