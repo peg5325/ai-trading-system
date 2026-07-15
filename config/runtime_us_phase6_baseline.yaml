@@ -1,0 +1,87 @@
+# Phase 6 US 공식 Baseline — 데이터 축적용 (Market Context + Shadow 만 ON)
+#
+# 목적(plan §Phase 6): 매매 행동을 바꾸지 않고 Market Context(2-B)/Shadow(4-A) 관측을 켜서
+#   승격 판정용 운영 데이터를 축적한다. 세션 후 scripts/shadow_outcomes.py +
+#   scripts/phase6_promotion_report.py 로 게이트 상태를 판독한다.
+# 원칙: 실주문 없음(PaperBrokerProvider only), FakeAI(항상 APPROVE), OpenAI 미호출,
+#   Cooldown/Regime Gate 실제 행동 OFF. 전략 파라미터(SL/TP/TIME/EOD)는 기존 baseline 과 동일.
+# universe: 표준 US 3종목(SOXL/QQQ/NVDA). QQQ 는 이미 universe 에 있어 benchmark 관측이
+#   추가 API 호출 0 으로 이뤄진다(§3-6, market_context v1 트레이드오프: benchmark 도 매매 후보).
+# 통화 일치: initial_capital 2,000 은 USD 기준, symbols 도 USD → 절대금액 유효(KRW/USD 미혼재).
+# 분리: 매 공식 세션마다 fresh namespace. 첫 세션 = s001. 2번째부터 아래 sNNN + session.id 를
+#   복사·증분해 별도 네임스페이스로 실행한다(startup guard 가 FRESH 에서 기존 namespace 거부).
+symbols:
+  - SOXL
+  - QQQ
+  - NVDA
+
+poll_interval_s: 20
+initial_capital: 2000           # 2,000 USD 기준(통화 일치)
+entry_notional_pct: 0.20        # 종목당 20%. max_positions 5 → 최대 100%(현금버퍼 0); 단 현 universe 3종목이라 실제 최대 60%
+max_positions: 5                # 동시 최대 5종목
+account_value: 2000             # 후방호환(레거시)
+fetch_spacing_s: 0.5
+max_calls_per_session: 300
+
+# ---- Session Isolation (v2.1 Phase 1) — fresh identity + namespace ----
+session:
+  id: us-phase6-s001            # 공식 세션마다 sNNN 증분(fresh)
+  start_mode: FRESH             # 기존 namespace/DB 발견 시 startup guard 가 거부(재사용 금지)
+  market: US
+  currency: USD
+  # manifest_path/lock_path 미지정 → 기본 <journal_db>.manifest.json / .lock
+
+paper_broker:                    # 실주문 없음 — PaperBrokerProvider 만
+  slippage_bps: 5
+  fee_bps: 2
+
+ai:
+  provider: fake                 # FakeAI(항상 APPROVE) — OpenAI 호출 금지
+  model: gpt-5.5-mini
+
+# ---- 청산 규칙(Exit Signal Generator) — 기존 baseline 과 동일(변경 없음) ----
+# 우선순위: STOP_LOSS > TAKE_PROFIT > TIME_EXIT > EOD_FLATTEN
+exits:
+  enable_all_symbols_eod_flatten: true   # 전 종목 US 정규장 마감(16:00 ET) 청산
+  eod_flatten_minutes_before_close: 10   # 마감 10분 전 창(US 15:50~16:00 ET)
+  stop_loss_pct: 0.01                    # -1.0% 손절
+  take_profit_pct: 0.015                 # +1.5% 익절
+  time_exit_minutes: 60                  # 60분 보유 후 청산
+  leverage_eod_flatten: true             # 레버리지 ETF(SOXL) 당일청산 유지
+
+# ---- Market Context 관측 (v2.1 PR 2-B) — ON ----
+# 관측 전용(매매 무영향). benchmark(QQQ)는 이미 가져온 5m 캔들 재사용 → 추가 fetch 0.
+market_context:
+  enabled: true
+  benchmark_symbol: QQQ
+  timeframe: 5m
+  ema_period: 20
+
+# ---- Shadow Decision 관측 (v2.1 PR 4-A) — ON ----
+# 가상 진입 정책 A/B 관측만 기록(would_allow), 실주문·매매 무영향. 미래 outcome 은
+# 세션 후 scripts/shadow_outcomes.py(4-B) 배치에서만 부착.
+shadow:
+  enabled: true
+
+# ---- Re-entry Cooldown (v2.1 Phase 5) — OFF (Phase 6 게이트 통과 전 실 행동 금지) ----
+reentry_cooldown:
+  enabled: false
+
+journal:
+  db: data/journal_us_phase6_s001.sqlite
+candles:
+  db: data/market_us_phase6_s001.sqlite
+review:
+  db: data/reviews_us_phase6_s001.sqlite
+metrics:
+  db: data/metrics_us_phase6_s001.sqlite
+system_review:
+  db: data/system_reviews_us_phase6_s001.sqlite
+
+logging:
+  dir: logs_us_phase6_s001
+  max_bytes: 1000000
+  backup_count: 3
+
+reports_dir: reports
+status_path: status_us_phase6_s001.json
