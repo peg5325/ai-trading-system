@@ -14,6 +14,7 @@ from __future__ import annotations
 from bisect import bisect_right
 from datetime import datetime, timedelta, timezone
 
+from src.models import exchange_tz
 from src.shadow.outcome_models import (
     ShadowForwardPoint,
     ShadowOutcomeDataset,
@@ -59,33 +60,45 @@ class ShadowOutcomeBuilder:
     def build(self, journal, *, session_id: str | None = None,
               source: str | None = None) -> ShadowOutcomeDataset:
         records: list[ShadowOutcomeRecord] = []
+        n_bad_time = 0
         for cycle in journal.get_by_time_range():
             shadow = getattr(cycle, "shadow", None)
             if not shadow:
                 continue
             decision_time = _parse_iso_z(shadow.get("decision_time"))
             if decision_time is None:
+                n_bad_time += 1            # shadow 있으나 시각 파싱 실패 → 데이터 품질 카운트
                 continue
             policies = shadow.get("policies", []) or []
-            for o in cycle.outcomes:
-                cid = o.get("candidate_id")
-                symbol = o.get("symbol")
-                if not cid or not symbol:
-                    continue
-                records.append(self._record(cid, symbol, decision_time, policies))
+            # 4-A 가 기록한 authoritative candidate_ids 를 조인 기준으로 사용(outcomes 재스캔 아님).
+            # symbol/action 은 outcomes 에서 candidate_id 로 해소한다(둘의 정합은 4-A 가 보장).
+            by_cid = {o.get("candidate_id"): o for o in cycle.outcomes if o.get("candidate_id")}
+            for cid in (shadow.get("candidate_ids") or []):
+                o = by_cid.get(cid)
+                if o is None or not o.get("symbol"):
+                    continue                # 레코드된 후보에 대응 outcome 없으면 방어적 skip
+                records.append(self._record(cid, o["symbol"], o.get("action"),
+                                            decision_time, policies))
         meta = ShadowOutcomeMeta(
             session_id=session_id, interval=self._interval, horizons_min=self._horizons,
-            source=source, built_at=self._built_at)
+            source=source, built_at=self._built_at, n_bad_decision_time=n_bad_time)
         return ShadowOutcomeDataset(records=records, meta=meta)
 
-    def _record(self, cid, symbol, decision_time, policies) -> ShadowOutcomeRecord:
+    def _record(self, cid, symbol, action, decision_time, policies) -> ShadowOutcomeRecord:
         ts_list, candles = self._candles(symbol)
         # 결정봉 = decision_time 이하 마지막 봉(결정 시점에 알려진 종가 → look-ahead 없음).
         di = bisect_right(ts_list, decision_time) - 1
         decision_bar = candles[di] if 0 <= di < len(candles) else None
+        market = getattr(decision_bar, "market", None) if decision_bar else None
+
+        # 결정봉이 결정일 이전 거래일이면(장초 데이터 갭) stale → 참조 없음 취급.
+        # 그러면 아래 세션 clip 으로 forward 는 전부 INCOMPLETE(집계 제외)가 된다.
+        if decision_bar is not None:
+            dec_exch_date = decision_time.astimezone(exchange_tz(market)).date()
+            if decision_bar.ts_exchange.date() < dec_exch_date:
+                decision_bar = None
         ref_price = _f(decision_bar.close) if decision_bar else None
         decision_date = decision_bar.ts_exchange.date() if decision_bar else None
-        market = getattr(decision_bar, "market", None) if decision_bar else None
 
         day_bars = [c for c in candles if decision_date is not None
                     and c.ts_exchange.date() == decision_date]
@@ -95,7 +108,7 @@ class ShadowOutcomeBuilder:
         rec = ShadowOutcomeRecord(
             candidate_id=cid, symbol=symbol, market=market,
             decision_time=iso(decision_time), reference_price=ref_price,
-            policies=list(policies))
+            action=action, policies=[dict(p) for p in policies])   # 정책 dict 깊은 복사(원본 격리)
         for h in self._horizons:
             rec.forwards.append(self._forward_point(decision_time, ref_price, post,
                                                     sess_end_ts, h))
@@ -110,6 +123,9 @@ class ShadowOutcomeBuilder:
         win = [c for c in post if c.ts_utc <= target]      # (decision, target] 같은 날
         if not win:
             return ShadowForwardPoint(horizon_min, iso(target), None, None, None, False)
+        # 'complete'=target 이하 마지막 close 존재(≤ target). 데이터 갭이 크면 target 보다
+        # 오래된 봉일 수 있다(exit_builder 와 동일한 의도된 한계 — 봉이 target 에 '정확히'
+        # 있음을 뜻하지 않는다). 희소 구간 정확도가 필요하면 staleness 가드는 후속 과제.
         price = win[-1].close                              # target 이하 마지막 close
         fwd = (price - ref_price) / ref_price
         return ShadowForwardPoint(
@@ -121,7 +137,9 @@ class ShadowOutcomeBuilder:
             return self._cache[symbol]
         candles: list = []
         if self._store is not None:
-            candles = self._store.query(symbol, self._interval)   # asc, read-only
+            candles = self._store.query(symbol, self._interval)   # read-only
+        # bisect/윈도 슬라이싱은 ts_utc 오름차순을 전제 — 주입 store 무관하게 방어적 정렬.
+        candles = sorted(candles, key=lambda c: c.ts_utc)
         ts_list = [c.ts_utc for c in candles]
         self._cache[symbol] = (ts_list, candles)
         return ts_list, candles
@@ -138,11 +156,20 @@ def build_shadow_outcomes(journal, candle_store, *,
     return builder.build(journal, session_id=session_id, source=source)
 
 
-def aggregate_by_policy(dataset: ShadowOutcomeDataset, horizon_min: int) -> dict:
+def aggregate_by_policy(dataset: ShadowOutcomeDataset, horizon_min: int, *,
+                        entry_only: bool = False) -> dict:
     """정책별 집계(해당 horizon). INCOMPLETE 는 제외. gate 가 차단(would_allow=False)한 후보의
-    avoided_loss/missed_profit 합이 Phase 6 승격 신호('avoided loss > missed profit')."""
+    avoided_loss/missed_profit 합이 Phase 6 승격 신호('avoided loss > missed profit').
+
+    ★ 분모 주의: 기본은 사이클의 **전 관측 후보(candidate_id 부여된 모든 outcome)**를 센다.
+    pipeline 은 진입 여부와 무관하게 관측 심볼마다 candidate_id 를 부여하므로(NO_CANDIDATE/
+    AI_WAIT/REJECT 포함), 이 기본 집계는 '관측 유니버스 전체' 기준이다. **Phase 6 승격 판정처럼
+    '국면 gate 가 실제 진입을 막았을 때의 가치'를 재려면 `entry_only=True`** 로 실제 진입(ORDERED)
+    후보만 필터해야 한다(그 외는 애초에 진입 안 했을 후보라 신호를 희석/편향한다)."""
     out: dict[str, dict] = {}
     for rec in dataset.records:
+        if entry_only and rec.action != "ORDERED":   # 실제 진입 후보만(승격 신호용)
+            continue
         fp = rec.forward_map().get(horizon_min)
         if fp is None or not fp.complete:     # 미완결 horizon 자동 제외
             continue

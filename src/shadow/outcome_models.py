@@ -54,6 +54,7 @@ class ShadowOutcomeRecord:
     market: str | None
     decision_time: str | None
     reference_price: float | None            # 결정봉 종가(진입 프록시 기준가)
+    action: str | None = None                # 사이클 outcome action(ORDERED/SKIPPED) — 진입후보 필터용
     policies: list[dict] = field(default_factory=list)   # [{policy_id, would_allow, ...}]
     forwards: list[ShadowForwardPoint] = field(default_factory=list)
     schema_version: str = SHADOW_OUTCOME_VERSION
@@ -75,6 +76,7 @@ class ShadowOutcomeMeta:
     horizons_min: tuple[int, ...] = (30, 60)
     source: str | None = None
     built_at: str | None = None
+    n_bad_decision_time: int = 0     # shadow 있으나 decision_time 파싱 실패로 스킵한 사이클(데이터 품질)
 
     def to_dict(self) -> dict:
         d = asdict(self)
