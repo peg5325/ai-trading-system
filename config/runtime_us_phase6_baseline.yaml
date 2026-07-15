@@ -17,7 +17,7 @@ symbols:
 
 poll_interval_s: 20
 initial_capital: 2000           # 2,000 USD 기준(통화 일치)
-entry_notional_pct: 0.20        # 종목당 20% (5종목×20%=100% → 현금버퍼 없음; 필요시 하향 조정)
+entry_notional_pct: 0.20        # 종목당 20%. max_positions 5 → 최대 100%(현금버퍼 0); 단 현 universe 3종목이라 실제 최대 60%
 max_positions: 5                # 동시 최대 5종목
 account_value: 2000             # 후방호환(레거시)
 fetch_spacing_s: 0.5

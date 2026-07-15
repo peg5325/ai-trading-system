@@ -178,7 +178,7 @@ def test_phase6_exit_intents_invariant_on_off(tmp_path):
     보유 포지션 + EOD flatten 창에서 실제 청산 intent 를 만들어 ON/OFF 를 대조한다
     (포지션 없는 진입-only 케이스의 공허한 []==[] 비교 보강)."""
     from src.pnl.models import FillEvent
-    post_eod = datetime(2026, 7, 6, 19, 55, tzinfo=ET)   # 20:00 ET EOD flatten 창(POST)
+    post_eod = datetime(2026, 7, 6, 19, 55, tzinfo=ET)   # 20:00 ET 애프터마켓 마감 5분 전(EOD flatten 창, POST)
 
     def run(mc_on, shadow_on, name):
         market = FakeMarketDataProvider({"SOXL": _make_1m(20, "SOXL", start=post_eod)})
