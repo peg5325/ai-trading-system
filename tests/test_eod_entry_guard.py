@@ -178,15 +178,56 @@ def test_config_hash_changes_with_toggle():
 
 
 def test_run_paper_wires_exit_config_flag_into_risk_config():
-    """run_paper 가 exits.* 값을 RiskConfig 까지 명시적으로 배선하는지(배선 누락 회귀 방지).
+    """run_paper 배선을 **값으로** 검증 — exits.* → RiskConfig 전달이 실제로 일어나는가.
 
-    RiskConfig 는 exit_config 를 통째로 받지 않으므로, 이 한 줄이 빠지면 옵션이 조용히
-    무력화된다 — 소스에서 배선 존재를 강제한다."""
-    import inspect
+    RiskConfig 는 exit_config 를 통째로 받지 않으므로 이 배선이 빠지면 옵션이 조용히
+    무력화된다. 소스 문자열 검사는 주석 처리된 배선도 통과시키므로(리뷰 지적) 실제
+    RiskManager 를 만들어 값이 도착했는지 본다."""
+    from scripts.run_paper import build_risk_manager
 
-    import scripts.run_paper as rp
-    src = inspect.getsource(rp)
-    assert "block_all_entries_in_eod_window=cfg.exit_config.block_all_entries_in_eod_window" in src
+    on = RuntimeConfig.from_dict({"exits": {"block_all_entries_in_eod_window": True}})
+    off = RuntimeConfig.from_dict({"exits": {"block_all_entries_in_eod_window": False}})
+    assert build_risk_manager(on).cfg.block_all_entries_in_eod_window is True
+    assert build_risk_manager(off).cfg.block_all_entries_in_eod_window is False
+    # 키 자체가 없는 기존 config → 기본 false 가 도착(회귀 0)
+    legacy = RuntimeConfig.from_dict({"exits": {"stop_loss_pct": 0.01}})
+    assert build_risk_manager(legacy).cfg.block_all_entries_in_eod_window is False
+
+
+def test_run_paper_wiring_actually_blocks_entry_end_to_end():
+    """배선된 RiskManager 가 실제로 EOD 창 진입을 막는지 — 값 전달 + 동작을 한 번에."""
+    from scripts.run_paper import build_risk_manager
+
+    on = RuntimeConfig.from_dict({"exits": {"block_all_entries_in_eod_window": True}})
+    d = build_risk_manager(on).evaluate(entry(), snap(eod=True))
+    assert d.allowed is False and RC_NEAR_CLOSE_NO_ENTRY in d.reason_codes
+
+
+def test_absent_key_hashes_same_as_explicit_false():
+    """키 부재 == 명시 false — 같은 행동이면 같은 hash(계약 모호성 없음).
+
+    hash 는 '거래 행동'의 지문이므로, 옵션을 안 쓴 config 와 명시적으로 끈 config 는
+    같은 세션 계약이어야 한다."""
+    absent = RuntimeConfig.from_dict({"exits": {"stop_loss_pct": 0.01}})
+    explicit = RuntimeConfig.from_dict(
+        {"exits": {"stop_loss_pct": 0.01, "block_all_entries_in_eod_window": False}})
+    assert canonical_config_hash(absent) == canonical_config_hash(explicit)
+
+
+def test_backtest_can_express_the_guard_contract():
+    """백테스트도 신규 계약을 표현할 수 있다 — live/backtest 패리티(리뷰 지적 검증).
+
+    BacktestEngine 은 BacktestConfig.risk(RiskConfig)를 그대로 쓰므로 별도 필드 추가 없이
+    가드를 켤 수 있고, 기본은 false 라 기존 백테스트는 무영향이다. (ExitConfig 쪽 사본은
+    ExitSignalGenerator 가 읽지 않는 진입 정책이라 backtest ExitConfig 매핑과 무관.)"""
+    from src.backtest.engine import BacktestEngine
+    from src.backtest.models import BacktestConfig
+
+    assert BacktestEngine(BacktestConfig(
+        risk=RiskConfig(block_all_entries_in_eod_window=True)
+    )).risk.cfg.block_all_entries_in_eod_window is True
+    # 기본 백테스트는 기존 행동 유지(회귀 0)
+    assert BacktestEngine(BacktestConfig()).risk.cfg.block_all_entries_in_eod_window is False
 
 
 

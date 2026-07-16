@@ -4,10 +4,22 @@
 # 차이는 exits.block_all_entries_in_eod_window: true 하나다(이슈 #42).
 #
 # 왜 새 파일인가(기존 baseline 을 덮어쓰지 않는 이유):
-#   - us-phase6-s001 은 이미 실행된 세션이고 그 manifest/리포트는 역사적 재현성을 위해 보존한다.
+#   - us-phase6-s001 은 이미 실행된 세션이고 그 manifest/리포트/raw 산출물은 그대로 보존한다.
 #   - 이 옵션은 '거래 행동' 계약이라 config_hash 가 baseline 과 달라진다 → 다른 계약 = 다른 cohort.
 #     따라서 namespace 도 fresh(us-phase6-eodguard-s001)로 분리하고, 이전 s001 을 이 cohort 에
 #     섞지 않는다(승격 판정은 동일 계약 세션끼리만 누적).
+#
+# ⚠️ 정확히 해둘 것 — '보존'은 파일 보존이지 hash 재현성이 아니다:
+#   canonical_config_hash 는 exit_config 를 통째로(asdict) 접어 넣으므로, ExitConfig 에 필드가
+#   하나 늘어난 것만으로 **이 키를 쓰지 않는 기존 config 들의 hash 도 전부 바뀐다**. 실측:
+#   runtime_us_phase6_baseline.yaml → 79ce7afe4810(구 코드, s001 manifest 기록값)
+#                                   → 363630c5b9e0(신 코드). 즉 기존 manifest 의 config_hash 는
+#   새 코드로 **재도출되지 않는다**. 이는 "다른 계약 = 다른 hash" 불변식을 지키기 위한 의도적
+#   트레이드오프다(신규 필드를 hash 에서 빼면 가드 ON/OFF 가 같은 hash 를 갖게 됨).
+#   영향은 닫힌 방향으로만 난다: 기존 세션을 RESUME 하면 startup guard 가 config_hash 불일치로
+#   **차단**한다(계약이 실제로 바뀌었으므로 옳은 실패). s001 은 TERMINATED/FULL 이라 RESUME
+#   대상이 아니고, config_hash 소비처는 startup guard 뿐이라 승격 리포트에는 영향이 없다.
+#   → 이 PR 이후 세션은 **fresh namespace 로만** 시작할 것.
 #
 # 배경(무엇을 고치는가): baseline s001 에서 15:50 ET EOD 전종목 청산 후 15:55 ET(창 내) NVDA·QQQ
 #   가 재진입해 오버나잇 잔여 포지션 2개가 남았다. near-close 진입차단이 leverage>1 에만 걸려
