@@ -82,7 +82,10 @@ class RuntimeConfig:
             enable_all_symbols_eod_flatten=bool(ex.get("enable_all_symbols_eod_flatten", False)),
             leverage_eod_flatten=bool(ex.get("leverage_eod_flatten", True)),
             eod_flatten_minutes_before_close=int(ex.get("eod_flatten_minutes_before_close", 10)),
-            exit_on_trend_break=bool(ex.get("exit_on_trend_break", False)))
+            exit_on_trend_break=bool(ex.get("exit_on_trend_break", False)),
+            # 기존 config 는 이 키가 없어 기본 False → 진입 차단 확대 없음(행동 보존).
+            block_all_entries_in_eod_window=bool(
+                ex.get("block_all_entries_in_eod_window", False)))
         # 신규 top-level 블록 — 기존 config 는 이 키가 없어 기본(비활성) 유지(덮어쓰기 없음).
         rc = d.get("reentry_cooldown", {}) or {}
         rc_dur = rc.get("durations", {}) or {}

@@ -90,8 +90,12 @@ def main(config_path: str) -> None:
             InMemoryOrderStore(), position_store)
         ai = AIDecisionEngine(_ai_provider(cfg),
                               AIConfig(dry_run=cfg.ai_dry_run, max_calls_per_day=cfg.max_calls_per_session))
-        risk_manager = RiskManager(RiskConfig(max_positions=cfg.max_positions,
-                                              reentry_cooldown=cfg.reentry_cooldown))
+        # exits.block_all_entries_in_eod_window 는 진입 정책이라 소비처가 RiskManager 다.
+        # RiskConfig 는 exit_config 를 통째로 받지 않으므로 이 배선이 유일한 전달 경로.
+        risk_manager = RiskManager(RiskConfig(
+            max_positions=cfg.max_positions,
+            reentry_cooldown=cfg.reentry_cooldown,
+            block_all_entries_in_eod_window=cfg.exit_config.block_all_entries_in_eod_window))
         pipeline = TradingPipeline(
             IndicatorEngine(), UniverseScreener(), ai, risk_manager, order_manager,
             PipelineConfig(

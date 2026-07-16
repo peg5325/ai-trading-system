@@ -21,7 +21,12 @@
 - `.generate_intents(positions, ctx) -> list[OrderIntent]` — `generator.py:129`
 - `ExitConfig` (frozen) — `generator.py:32`: `stop_loss_pct=0.0, take_profit_pct=0.0,
   time_exit_bars=None, time_exit_minutes=None, enable_all_symbols_eod_flatten=False,
-  leverage_eod_flatten=True, exit_on_trend_break=False` (0/None = 끔)
+  leverage_eod_flatten=True, exit_on_trend_break=False,
+  block_all_entries_in_eod_window=False` (0/None = 끔)
+  - `block_all_entries_in_eod_window` 는 **청산 규칙이 아니라 진입 정책**이다(이 생성기는 읽지
+    않는다). 청산 창의 정의(`eod_flatten_minutes_before_close`)와 짝이라 여기 함께 두고,
+    실제 소비는 `RiskManager` 가 한다 — `run_paper.py` 가 `RiskConfig` 로 배선. 자세한 표는
+    `src/risk/README.md` 참조.
 
 ### 고정 우선순위
 

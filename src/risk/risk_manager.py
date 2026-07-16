@@ -68,6 +68,10 @@ class RiskConfig:
     extended_hours_qty_factor: float = 0.5      # 감량 모드일 때 수량 배수
     max_positions: int = 2                      # 동시 보유 가능한 최대 종목 수(신규 진입 기준)
     reentry_cooldown: ReentryCooldownConfig = field(default_factory=ReentryCooldownConfig)
+    # EOD 청산 창에서 전 종목(leverage 무관) 신규/추가 진입 차단(기본 off = 기존 행동).
+    # 청산 창 안 재진입 → 오버나잇 잔여 포지션을 막는 opt-in 안전장치. 값 출처는
+    # exits.block_all_entries_in_eod_window(run_paper 가 배선).
+    block_all_entries_in_eod_window: bool = False
 
 
 class RiskManager:
@@ -123,8 +127,14 @@ class RiskManager:
         if snapshot.consecutive_losses >= self.cfg.max_consecutive_losses:
             blocks.append(RC_CONSEC_LOSS)
 
-        # 레버리지 ETF 는 마감 청산 대상 → flatten 창에서 신규/추가 진입 금지
-        if snapshot.is_eod_flatten_window and intent.leverage_factor > 1:
+        # 마감 청산 창에서는 청산 대상 종목의 신규/추가 진입 금지 — 창 안에서 재진입하면
+        # 다음 EOD 사이클이 창 밖(POST)이라 미청산 오버나잇 포지션이 남는다(US s001 실측).
+        # 기본은 기존대로 레버리지만. block_all_entries_in_eod_window=True 면 전 종목으로 확대
+        # (enable_all_symbols_eod_flatten 과 짝 — 전 종목을 청산한다면 진입도 전 종목 차단).
+        # ※ 이 경로는 ENTRY_KINDS 전용 — RISK_REDUCING 은 evaluate() 상단에서 이미 분기되어
+        #   여기 도달하지 않는다(청산은 구조적으로 미차단).
+        if snapshot.is_eod_flatten_window and (
+                intent.leverage_factor > 1 or self.cfg.block_all_entries_in_eod_window):
             blocks.append(RC_NEAR_CLOSE_NO_ENTRY)
 
         # 연장시간 유동성/스프레드 리스크 — 종목별 플래그 기준(포트폴리오 대표 세션 아님).

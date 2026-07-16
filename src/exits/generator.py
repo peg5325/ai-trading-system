@@ -40,6 +40,10 @@ class ExitConfig:
     leverage_eod_flatten: bool = True     # 레버리지 ETF(>1x)는 세션마감 청산(보수적 기본)
     eod_flatten_minutes_before_close: int = 10   # 마감 몇 분 전부터 청산 창을 여는지(market별 close 기준)
     exit_on_trend_break: bool = False     # close < ema20 → 청산(선택; backtest 패리티)
+    # 청산 창 안에서 신규/추가 진입을 전 종목 차단(기본 off = 기존 행동). 청산 규칙이 아니라
+    # RiskManager 가 소비하는 진입 정책이지만, 창의 정의(위 두 필드)와 짝이라 여기 둔다.
+    # RiskConfig 로는 run_paper 가 명시 배선한다.
+    block_all_entries_in_eod_window: bool = False
 
 
 @dataclass(frozen=True)
