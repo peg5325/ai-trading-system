@@ -53,6 +53,19 @@ def _ai_provider(cfg):
         "warnings": ["leveraged ETF"]}, model_name=cfg.ai_model)
 
 
+def build_risk_manager(cfg) -> RiskManager:
+    """RuntimeConfig → RiskManager. main() 밖으로 뺀 이유는 배선을 **값으로** 검증하기 위함.
+
+    RiskConfig 는 exit_config 를 통째로 받지 않으므로, exits.* 진입 정책은 여기서 필드 단위로
+    옮겨야 한다. 이 함수가 유일한 live 배선 경로다(백테스트는 BacktestConfig.risk 를 직접 받음).
+    """
+    return RiskManager(RiskConfig(
+        max_positions=cfg.max_positions,
+        reentry_cooldown=cfg.reentry_cooldown,
+        # EOD 청산창 전종목 진입차단(기본 false). 이 줄이 빠지면 옵션이 조용히 무력화된다.
+        block_all_entries_in_eod_window=cfg.exit_config.block_all_entries_in_eod_window))
+
+
 def main(config_path: str) -> None:
     cfg = load_yaml(config_path)
     settings = Settings(  # Toss 자격증명 (.env)
@@ -90,8 +103,7 @@ def main(config_path: str) -> None:
             InMemoryOrderStore(), position_store)
         ai = AIDecisionEngine(_ai_provider(cfg),
                               AIConfig(dry_run=cfg.ai_dry_run, max_calls_per_day=cfg.max_calls_per_session))
-        risk_manager = RiskManager(RiskConfig(max_positions=cfg.max_positions,
-                                              reentry_cooldown=cfg.reentry_cooldown))
+        risk_manager = build_risk_manager(cfg)
         pipeline = TradingPipeline(
             IndicatorEngine(), UniverseScreener(), ai, risk_manager, order_manager,
             PipelineConfig(

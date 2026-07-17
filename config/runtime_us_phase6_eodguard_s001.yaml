@@ -1,0 +1,104 @@
+# Phase 6 US Baseline (EOD 진입가드 계약) — eodguard-s001 — 데이터 축적용
+#
+# runtime_us_phase6_baseline.yaml 의 후속 계약. baseline(us-phase6-s001)과의 유일한 매매계약
+# 차이는 exits.block_all_entries_in_eod_window: true 하나다(이슈 #42).
+#
+# 왜 새 파일인가(기존 baseline 을 덮어쓰지 않는 이유):
+#   - us-phase6-s001 은 이미 실행된 세션이고 그 manifest/리포트/raw 산출물은 그대로 보존한다.
+#   - 이 옵션은 '거래 행동' 계약이라 config_hash 가 baseline 과 달라진다 → 다른 계약 = 다른 cohort.
+#     따라서 namespace 도 fresh(us-phase6-eodguard-s001)로 분리하고, 이전 s001 을 이 cohort 에
+#     섞지 않는다(승격 판정은 동일 계약 세션끼리만 누적).
+#
+# ⚠️ 정확히 해둘 것 — '보존'은 파일 보존이지 hash 재현성이 아니다:
+#   canonical_config_hash 는 exit_config 를 통째로(asdict) 접어 넣으므로, ExitConfig 에 필드가
+#   하나 늘어난 것만으로 **이 키를 쓰지 않는 기존 config 들의 hash 도 전부 바뀐다**. 실측:
+#   runtime_us_phase6_baseline.yaml → 79ce7afe4810(구 코드, s001 manifest 기록값)
+#                                   → 363630c5b9e0(신 코드). 즉 기존 manifest 의 config_hash 는
+#   새 코드로 **재도출되지 않는다**. 이는 "다른 계약 = 다른 hash" 불변식을 지키기 위한 의도적
+#   트레이드오프다(신규 필드를 hash 에서 빼면 가드 ON/OFF 가 같은 hash 를 갖게 됨).
+#   영향은 닫힌 방향으로만 난다: 기존 세션을 RESUME 하면 startup guard 가 config_hash 불일치로
+#   **차단**한다(계약이 실제로 바뀌었으므로 옳은 실패). s001 은 TERMINATED/FULL 이라 RESUME
+#   대상이 아니고, config_hash 소비처는 startup guard 뿐이라 승격 리포트에는 영향이 없다.
+#   → 이 PR 이후 세션은 **fresh namespace 로만** 시작할 것.
+#
+# 배경(무엇을 고치는가): baseline s001 에서 15:50 ET EOD 전종목 청산 후 15:55 ET(창 내) NVDA·QQQ
+#   가 재진입해 오버나잇 잔여 포지션 2개가 남았다. near-close 진입차단이 leverage>1 에만 걸려
+#   있었기 때문. 이 config 는 청산창 안 신규/추가 진입을 전 종목 차단한다(청산은 항상 허용).
+#
+# 원칙(baseline 과 동일): 실주문 없음(PaperBrokerProvider only), FakeAI(항상 APPROVE), OpenAI
+#   미호출, Cooldown/Regime Gate 실제 행동 OFF, 전략 파라미터(SL/TP/TIME/EOD) 불변.
+symbols:
+  - SOXL
+  - QQQ
+  - NVDA
+
+poll_interval_s: 20
+initial_capital: 2000           # 2,000 USD 기준(통화 일치)
+entry_notional_pct: 0.20        # 종목당 20% — baseline 과 동일
+max_positions: 5                # 동시 최대 5종목 — baseline 과 동일
+account_value: 2000             # 후방호환(레거시)
+fetch_spacing_s: 0.5
+max_calls_per_session: 300
+
+# ---- Session Isolation (v2.1 Phase 1) — fresh identity + namespace ----
+session:
+  id: us-phase6-eodguard-s001   # 신규 계약의 첫 세션(이전 us-phase6-s001 과 별도 cohort)
+  start_mode: FRESH             # 기존 namespace/DB 발견 시 startup guard 가 거부(재사용 금지)
+  market: US
+  currency: USD
+
+paper_broker:                    # 실주문 없음 — PaperBrokerProvider 만
+  slippage_bps: 5
+  fee_bps: 2
+
+ai:
+  provider: fake                 # FakeAI(항상 APPROVE) — OpenAI 호출 금지
+  model: gpt-5.5-mini
+
+# ---- 청산 규칙(Exit Signal Generator) — 전략 파라미터는 baseline 과 동일 ----
+# 우선순위: STOP_LOSS > TAKE_PROFIT > TIME_EXIT > EOD_FLATTEN
+exits:
+  enable_all_symbols_eod_flatten: true   # 전 종목 US 정규장 마감(16:00 ET) 청산
+  eod_flatten_minutes_before_close: 10   # 마감 10분 전 창(US 15:50~16:00 ET)
+  stop_loss_pct: 0.01                    # -1.0% 손절
+  take_profit_pct: 0.015                 # +1.5% 익절
+  time_exit_minutes: 60                  # 60분 보유 후 청산
+  leverage_eod_flatten: true             # 레버리지 ETF(SOXL) 당일청산 유지
+  # ★ 이 config 의 유일한 계약 변경(이슈 #42): 청산창(15:50~16:00 ET) 안에서는 전 종목
+  #   신규/추가 진입을 차단한다. 전 종목을 청산한다면 진입도 전 종목 차단해야 대칭.
+  #   청산(SL/TP/TIME/EOD 등 RISK_REDUCING)은 이 옵션과 무관하게 항상 허용된다.
+  block_all_entries_in_eod_window: true
+
+# ---- Market Context 관측 (v2.1 PR 2-B) — ON (baseline 과 동일) ----
+market_context:
+  enabled: true
+  benchmark_symbol: QQQ
+  timeframe: 5m
+  ema_period: 20
+
+# ---- Shadow Decision 관측 (v2.1 PR 4-A) — ON (baseline 과 동일) ----
+shadow:
+  enabled: true
+
+# ---- Re-entry Cooldown (v2.1 Phase 5) — OFF (Phase 6 게이트 통과 전 실 행동 금지) ----
+reentry_cooldown:
+  enabled: false
+
+journal:
+  db: data/journal_us_phase6_eodguard_s001.sqlite
+candles:
+  db: data/market_us_phase6_eodguard_s001.sqlite
+review:
+  db: data/reviews_us_phase6_eodguard_s001.sqlite
+metrics:
+  db: data/metrics_us_phase6_eodguard_s001.sqlite
+system_review:
+  db: data/system_reviews_us_phase6_eodguard_s001.sqlite
+
+logging:
+  dir: logs_us_phase6_eodguard_s001
+  max_bytes: 1000000
+  backup_count: 3
+
+reports_dir: reports
+status_path: status_us_phase6_eodguard_s001.json

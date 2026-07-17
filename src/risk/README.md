@@ -21,7 +21,7 @@ TAKE_PROFIT, TIME_EXIT, TREND_BREAK` + `BUY/SELL` + 집합 `TRIGGERED_EXITS`, `R
 
 - `RiskManager(config: RiskConfig | None = None)` — `risk_manager.py:71`
 - `.evaluate(intent, snapshot) -> RiskDecision` — `risk_manager.py:74`
-- `RiskConfig` (frozen) — `risk_manager.py:56`, 전체 10개 필드:
+- `RiskConfig` (frozen) — `risk_manager.py:56`, 전체 12개 필드:
   ```python
   max_symbol_notional_pct=0.20        # 단일 종목 최대 명목 노출
   max_symbol_effective_pct=0.30       # 단일 종목 최대 실질 노출
@@ -33,8 +33,27 @@ TAKE_PROFIT, TIME_EXIT, TREND_BREAK` + `BUY/SELL` + 집합 `TRIGGERED_EXITS`, `R
   block_extended_hours_risky=True     # 연장시간 리스크 주문 차단(False=감량 모드)
   extended_hours_qty_factor=0.5       # ↑ 가 False 일 때만 적용되는 수량 배수
   max_positions=2                     # 동시 보유 최대 종목 수(신규 진입 기준)
+  reentry_cooldown=ReentryCooldownConfig()        # 재진입 쿨다운(기본 off, NEW_ENTRY 만)
+  block_all_entries_in_eod_window=False           # EOD 청산창 전종목 진입차단(기본 off)
   ```
   `extended_hours_qty_factor` 는 **`block_extended_hours_risky=False` 일 때만** 의미가 있다.
+
+### EOD 청산창 진입 차단 (`block_all_entries_in_eod_window`)
+
+`snapshot.is_eod_flatten_window=True` 인 창에서 신규/추가 진입을 막는 규칙:
+
+| 옵션 | 레버리지(>1x) | 일반 종목(1x) |
+|---|---|---|
+| `False`(기본) | 차단 | **허용** — 기존 동작 |
+| `True` | 차단 | 차단 |
+
+둘 다 사유는 `NEAR_CLOSE_NO_NEW_ENTRY`. **청산(RISK_REDUCING)은 어느 쪽이든 미차단** — 이
+검사는 `_evaluate_entry`(진입 전용 경로) 안에 있고 청산은 그 앞에서 이미 분기된다.
+
+`True` 가 필요한 이유(US s001 실측): `exits.enable_all_symbols_eod_flatten=true` 로 전 종목을
+청산해도 진입 차단은 레버리지에만 걸려 있어, 15:50 청산 → 15:55 재진입 → 다음 EOD 사이클이
+창 밖(POST)이라 미청산 → **오버나잇 잔여 포지션**이 남았다. 값 출처는
+`exits.block_all_entries_in_eod_window`(`run_paper.py` 가 `RiskConfig` 로 배선).
 - `Position.effective_exposure` = `notional * leverage_factor` — `models.py:45`
 - 수량이 한도를 넘으면 **거절이 아니라 축소**될 수 있다 → `allowed=True` + `RC_QTY_REDUCED`
   (`risk_manager.py:194-198`, `_apply_exposure` 내부)
