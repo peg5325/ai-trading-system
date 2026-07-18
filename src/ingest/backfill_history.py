@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Protocol
 
 from src.history.store import HistoryStore, ImportStats
@@ -54,6 +54,7 @@ class SymbolBackfillResult:
     exhausted: bool = False
     stopped_reason: str | None = None
     error: str | None = None
+    gap_skips: int = 0
 
     def as_dict(self) -> dict:
         return {
@@ -63,7 +64,7 @@ class SymbolBackfillResult:
             "duplicate": self.duplicate, "conflict": self.conflict,
             "earliest": self.earliest, "latest": self.latest,
             "exhausted": self.exhausted, "stopped_reason": self.stopped_reason,
-            "error": self.error,
+            "error": self.error, "gap_skips": self.gap_skips,
         }
 
 
@@ -83,6 +84,19 @@ def _status_code(exc: Exception) -> int | None:
     if code is None:
         code = getattr(exc, "status_code", None)
     return code
+
+
+def _shift_before(before: str, minutes: int) -> str:
+    """`before` 커서를 minutes 만큼 과거로 이동(UTC ISO8601 'Z' 표기로 정규화).
+
+    Toss 는 오프셋 표기(+09:00)로 nextBefore 를 돌려주므로 UTC 로 정규화해
+    일자 경계 계산이 로컬 오프셋에 흔들리지 않게 한다.
+    """
+    dt = datetime.fromisoformat(before.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    shifted = dt.astimezone(timezone.utc) - timedelta(minutes=minutes)
+    return shifted.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _fetch_with_retry(provider: MarketDataPort, symbol: str, interval: str, *,
@@ -105,8 +119,28 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
                     interval: str, *, max_pages: int, page_size: int = 200,
                     spacing: float = 0.0, sleep: Callable[[float], None] = time.sleep,
                     max_retries: int = 3, backoff_base: float = 0.5,
-                    resume: bool = True, run_id: str | None = None) -> SymbolBackfillResult:
-    """한 종목을 과거로 backfill. 페이지마다 upsert + cursor 저장 + 커밋."""
+                    resume: bool = True, run_id: str | None = None,
+                    gap_skip_minutes: int = 0,
+                    max_consecutive_empty: int = 40) -> SymbolBackfillResult:
+    """한 종목을 과거로 backfill. 페이지마다 upsert + cursor 저장 + 커밋.
+
+    gap_skip_minutes > 0 이면 **gap-skip 모드**(opt-in). Toss 1m 캔들 API 는
+    `before` 기준 [before - count*interval, before] 구간만 돌려주고 **UTC 일자 경계를
+    넘지 않는다**. 따라서 00:01Z 까지 페이징하면 nextBefore=null / 빈 페이지가 되어
+    (실제로는 더 과거 데이터가 있는데도) 종목이 하루치에서 영구 정지한다.
+
+    gap-skip 은 그 두 신호를 **종료가 아니라 경계**로 해석한다:
+      - 데이터가 있는데 nextBefore=null  → before = oldest - 1min 로 경계를 넘어 계속
+      - 빈 페이지                        → before = before - gap_skip_minutes 로 건너뜀
+
+    빈 페이지 건너뛰기가 **데이터를 유실하지 않는 이유**: 빈 응답은 해당 조회창
+    [before - count*interval, before] 에 캔들이 없음을 API 가 확인해 준 것이므로,
+    그 창 크기(=gap_skip_minutes, 기본 page_size 와 동일)만큼은 안전하게 건너뛸 수 있다.
+    연속 빈 페이지가 max_consecutive_empty 를 넘으면 진짜 소진으로 보고 정지한다
+    (기본 40 × 200분 ≈ 5.5일 → 연휴 포함 장기 휴장 커버).
+
+    gap_skip_minutes = 0(기본)이면 기존 동작(빈 페이지/nextBefore=null → exhausted) 유지.
+    """
     run_id = run_id or _new_run_id(interval)
     stats = ImportStats(source=BACKFILL_SOURCE)
     result = SymbolBackfillResult(symbol=symbol, interval=interval)
@@ -123,12 +157,30 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
                 prev_oldest = datetime.fromisoformat(cur["oldest_ts_utc"])
 
     pages = 0
+    consecutive_empty = 0
     try:
         while pages < max_pages:
             candles, nxt = _fetch_with_retry(
                 provider, symbol, interval, count=page_size, before=before,
                 max_retries=max_retries, backoff_base=backoff_base, sleep=sleep)
             if not candles:
+                # gap-skip: 빈 창은 "확인된 공백"이므로 창 크기만큼 건너뛰고 계속.
+                # before 가 None(=최신부터)인데 비었으면 건너뛸 기준점이 없어 종료.
+                if gap_skip_minutes > 0 and before is not None:
+                    consecutive_empty += 1
+                    if consecutive_empty <= max_consecutive_empty:
+                        result.gap_skips += 1
+                        before = _shift_before(before, gap_skip_minutes)
+                        if spacing:
+                            sleep(spacing)
+                        continue
+                    result.exhausted = True
+                    result.stopped_reason = "empty_budget_exhausted"
+                    store.save_cursor(symbol, interval,
+                                      oldest_ts_utc=prev_oldest.isoformat() if prev_oldest else None,
+                                      next_before=None, exhausted=True)
+                    store.commit()
+                    break
                 result.exhausted = True
                 result.stopped_reason = "empty_page"
                 store.save_cursor(symbol, interval,
@@ -136,6 +188,7 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
                                   next_before=None, exhausted=True)
                 store.commit()
                 break
+            consecutive_empty = 0
 
             pages += 1
             result.rows_seen += len(candles)
@@ -151,6 +204,18 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
             store.upsert_candles(candles, source=BACKFILL_SOURCE, run_id=run_id, stats=stats)
 
             if nxt is None:
+                # gap-skip: nextBefore=null 은 UTC 일자 경계일 뿐 소진이 아니다.
+                # oldest 직전으로 before 를 옮겨 경계를 넘어 계속 페이징한다.
+                if gap_skip_minutes > 0:
+                    result.gap_skips += 1
+                    prev_oldest = oldest_dt
+                    before = _shift_before(oldest, 1)
+                    store.save_cursor(symbol, interval, oldest_ts_utc=oldest,
+                                      next_before=before, exhausted=False)
+                    store.commit()
+                    if spacing:
+                        sleep(spacing)
+                    continue
                 store.save_cursor(symbol, interval, oldest_ts_utc=oldest,
                                   next_before=None, exhausted=True)
                 store.commit()
@@ -202,7 +267,8 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
                      interval: str, *, max_pages: int, page_size: int = 200,
                      spacing: float = 0.0, sleep: Callable[[float], None] = time.sleep,
                      max_retries: int = 3, backoff_base: float = 0.5,
-                     resume: bool = True, run_id: str | None = None) -> BackfillReport:
+                     resume: bool = True, run_id: str | None = None,
+                     gap_skip_minutes: int = 0, max_consecutive_empty: int = 40) -> BackfillReport:
     """여러 종목을 순차 backfill. 종목 격리: 한 종목 실패가 나머지를 막지 않는다."""
     run_id = run_id or _new_run_id(interval)
     report = BackfillReport(interval=interval)
@@ -212,7 +278,9 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
             res = backfill_symbol(
                 store, provider, sym, interval, max_pages=max_pages, page_size=page_size,
                 spacing=spacing, sleep=sleep, max_retries=max_retries,
-                backoff_base=backoff_base, resume=resume, run_id=run_id)
+                backoff_base=backoff_base, resume=resume, run_id=run_id,
+                gap_skip_minutes=gap_skip_minutes,
+                max_consecutive_empty=max_consecutive_empty)
         except Exception as exc:  # noqa: BLE001 — 방어적 격리(backfill_symbol 은 내부 격리하지만 이중 안전)
             res = SymbolBackfillResult(symbol=sym, interval=interval,
                                        error=repr(exc), stopped_reason="error")

@@ -9,7 +9,7 @@ FakeProvider 로 실 Toss API·실 sleep 없이 계약 불변식을 강제한다
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from src.history import HistoryStore
@@ -281,3 +281,146 @@ def test_no_order_or_broker_import():
         src = Path(path).read_text(encoding="utf-8")
         for token in banned:
             assert token not in src, f"{path} 가 매매 경로({token})를 참조하면 안 됨"
+
+
+# ---------------------------------------------------------------------------
+# gap-skip (opt-in): Toss 1m API 의 UTC 일자 경계 절단 대응
+#
+# 실측(2026-07-18, SOXL/SPY)한 Toss 계약:
+#   - before 기준 [before - count*1min, before] 구간만 반환
+#   - **UTC 일자 경계를 넘지 않는다** → 00:01Z 까지 가면 nextBefore=null
+#   - 경계 시각(00:00Z)으로 조회하면 빈 페이지 + nextBefore=null
+#   그 결과 gap-skip 없이는 종목이 "하루치"에서 영구 정지한다.
+# ---------------------------------------------------------------------------
+from src.ingest.backfill_history import _shift_before  # noqa: E402
+
+
+def _c_at(symbol: str, iso: str, close: float = 100.0) -> Candle:
+    m = datetime.fromisoformat(iso)
+    return Candle.from_moment(symbol=symbol, interval="1m", moment=m,
+                              o=close, h=close + 1, low=close - 1, c=close, v=1000.0,
+                              currency="USD", adjusted=True)
+
+
+class UtcDayBoundaryProvider:
+    """Toss 실계약 모사: 요청창을 UTC 일자 안으로 자르고, 하루 시작에 닿으면 nextBefore=None.
+
+    데이터는 days 에 준 각 UTC 일자의 00:01~23:59 에 1분봉이 존재한다고 본다.
+    """
+
+    def __init__(self, days: set[str], window: int = 200):
+        self.days = days
+        self.window = window
+        self.calls: list[str | None] = []
+
+    def fetch_page(self, symbol, interval, *, count=200, before=None):
+        self.calls.append(before)
+        assert before is not None, "테스트는 항상 명시적 before 로 시작한다"
+        end = datetime.fromisoformat(before.replace("Z", "+00:00"))
+        day = end.date().isoformat()
+        start_of_day = end.replace(hour=0, minute=1, second=0, microsecond=0)
+        # 일자 경계 밖(00:00Z 정각 등) 또는 데이터 없는 날 → 빈 페이지
+        if day not in self.days or end < start_of_day:
+            return ([], None)
+        win_start = max(start_of_day, end - timedelta(minutes=self.window - 1))
+        bars = []
+        t = win_start
+        while t <= end:
+            bars.append(_c_at(symbol, t.isoformat()))
+            t += timedelta(minutes=1)
+        if not bars:
+            return ([], None)
+        nxt = None if win_start <= start_of_day else (win_start - timedelta(minutes=1)).strftime(
+            "%Y-%m-%dT%H:%M:%SZ")
+        return (bars, nxt)
+
+
+def test_shift_before_normalizes_offset_to_utc():
+    """Toss 는 +09:00 오프셋으로 nextBefore 를 준다 → UTC 정규화 후 이동."""
+    assert _shift_before("2026-07-17T09:40:00.000+09:00", 1) == "2026-07-17T00:39:00Z"
+    assert _shift_before("2026-07-17T00:01:00Z", 1) == "2026-07-17T00:00:00Z"
+    assert _shift_before("2026-07-17T00:00:00Z", 200) == "2026-07-16T20:40:00Z"
+
+
+def _seed_cursor(store, symbol, before):
+    store.save_cursor(symbol, "1m", oldest_ts_utc=None, next_before=before, exhausted=False)
+    store.commit()
+
+
+def test_without_gap_skip_stops_at_utc_day_boundary(tmp_path):
+    """회귀 고정: gap-skip 없으면 하루치에서 멈춘다(= 현재까지의 backfill 이 얕았던 원인)."""
+    prov = UtcDayBoundaryProvider(days={"2026-07-17", "2026-07-16", "2026-07-15"})
+    _, sleeper = _no_sleep()
+    with HistoryStore(str(tmp_path / "h.sqlite")) as store:
+        _seed_cursor(store, "SOXL", "2026-07-17T04:00:00Z")
+        res = backfill_symbol(store, prov, "SOXL", "1m", max_pages=50,
+                              sleep=sleeper, resume=True,
+                              run_id="t", page_size=200)
+    assert res.stopped_reason in {"nextbefore_null", "empty_page"}
+    assert res.exhausted is True
+
+
+def test_gap_skip_crosses_utc_day_boundary_and_collects_multiple_days(tmp_path):
+    """gap-skip 켜면 nextBefore=null(경계)을 넘어 이전 UTC 일자까지 계속 수집한다."""
+    prov = UtcDayBoundaryProvider(days={"2026-07-17", "2026-07-16", "2026-07-15"})
+    _, sleeper = _no_sleep()
+    db = str(tmp_path / "h.sqlite")
+    with HistoryStore(db) as store:
+        _seed_cursor(store, "SOXL", "2026-07-17T04:00:00Z")
+        res = backfill_symbol(store, prov, "SOXL", "1m", max_pages=100,
+                              sleep=sleeper, resume=True, run_id="t",
+                              page_size=200, gap_skip_minutes=200,
+                              max_consecutive_empty=10)
+        rows = store._con.execute(
+            "SELECT COUNT(*), COUNT(DISTINCT substr(ts_utc,1,10)) FROM candle_history "
+            "WHERE symbol='SOXL'").fetchone()
+    assert res.gap_skips >= 2, "일자 경계를 최소 2회(17→16→15) 넘어야 한다"
+    assert rows[1] >= 3, f"3개 UTC 일자를 수집해야 한다(실제 {rows[1]})"
+    assert rows[0] > 1000, "하루치(≈240봉)보다 훨씬 많아야 한다"
+
+
+def test_gap_skip_steps_over_empty_window_without_losing_data(tmp_path):
+    """휴장일(빈 창)은 건너뛰고 그 이전 거래일 데이터를 정상 수집한다."""
+    # 07-16 은 휴장(데이터 없음) → 07-17 에서 07-15 로 건너뛰어야 한다
+    prov = UtcDayBoundaryProvider(days={"2026-07-17", "2026-07-15"})
+    _, sleeper = _no_sleep()
+    db = str(tmp_path / "h.sqlite")
+    with HistoryStore(db) as store:
+        _seed_cursor(store, "SOXL", "2026-07-17T04:00:00Z")
+        res = backfill_symbol(store, prov, "SOXL", "1m", max_pages=100,
+                              sleep=sleeper, resume=True, run_id="t",
+                              page_size=200, gap_skip_minutes=200,
+                              max_consecutive_empty=20)
+        days = [r[0] for r in store._con.execute(
+            "SELECT DISTINCT substr(ts_utc,1,10) FROM candle_history WHERE symbol='SOXL' "
+            "ORDER BY 1").fetchall()]
+    assert days == ["2026-07-15", "2026-07-17"], f"휴장일 건너뛰고 양쪽 수집해야 한다: {days}"
+    assert res.gap_skips >= 1
+
+
+def test_gap_skip_budget_stops_on_true_exhaustion(tmp_path):
+    """연속 빈 창이 예산을 넘으면 진짜 소진으로 판정하고 정지(무한 호출 방지)."""
+    prov = UtcDayBoundaryProvider(days={"2026-07-17"})
+    _, sleeper = _no_sleep()
+    db = str(tmp_path / "h.sqlite")
+    with HistoryStore(db) as store:
+        _seed_cursor(store, "SOXL", "2026-07-17T04:00:00Z")
+        res = backfill_symbol(store, prov, "SOXL", "1m", max_pages=200,
+                              sleep=sleeper, resume=True, run_id="t",
+                              page_size=200, gap_skip_minutes=200,
+                              max_consecutive_empty=5)
+    assert res.stopped_reason == "empty_budget_exhausted"
+    assert res.exhausted is True
+    assert res.gap_skips >= 5
+
+
+def test_gap_skip_default_off_preserves_legacy_behavior(tmp_path):
+    """기본값(0)에서는 기존 계약 그대로 — 기존 호출자 영향 0."""
+    pages = {("AAA", None): ([_c("AAA", 5)], None)}
+    prov = FakeProvider(pages)
+    _, sleeper = _no_sleep()
+    with HistoryStore(str(tmp_path / "h.sqlite")) as store:
+        res = backfill_symbol(store, prov, "AAA", "1m", max_pages=10,
+                              sleep=sleeper, resume=False, run_id="t")
+    assert res.stopped_reason == "nextbefore_null" and res.exhausted is True
+    assert res.gap_skips == 0
