@@ -14,8 +14,20 @@ from dataclasses import asdict, dataclass, field
 # ---- 스키마 버전 (스키마 변경 시 반드시 갱신) ----
 # v2.1 PR 2-A: candidate_id/trade_id 조인키 + score 분해 + volume 피처.
 # v2.1 PR 2-B: benchmark market context 필드 추가로 1.1 → 1.2.
-FEATURE_VERSION = "1.2"      # FeatureRecord 필드 구성
-DATASET_VERSION = "1.2"      # Dataset row(=feature+label+meta) 구성
+# v2.1 PR A(H2): score_components 개별 컴포넌트 export 로 1.2 → 1.3.
+FEATURE_VERSION = "1.3"      # FeatureRecord 필드 구성
+DATASET_VERSION = "1.3"      # Dataset row(=feature+label+meta) 구성
+
+# 스크리너 score_components 의 컴포넌트 이름(순서 = 리포트/평탄화 컬럼 순서).
+# screener.ScreenerConfig.weights 와 같은 5종이며, builder/to_flat 이 공유해
+# 한쪽만 추가되어 export 에서 조용히 누락되는 일을 막는다.
+SCORE_COMPONENT_NAMES = ("trend", "momentum", "volume", "vwap_position", "volatility")
+SCORE_COMPONENT_FIELDS = ("normalized_score", "weight", "weighted_score")
+
+
+def score_component_field_names() -> tuple[str, ...]:
+    """FeatureRecord 의 컴포넌트 필드명 15개(<component>_<field>)."""
+    return tuple(f"{c}_{f}" for c in SCORE_COMPONENT_NAMES for f in SCORE_COMPONENT_FIELDS)
 
 
 @dataclass
@@ -61,6 +73,26 @@ class FeatureRecord:
     weighted_component_sum: float | None = None
     penalty_score: float | None = None
     pre_clamp_score: float | None = None
+    # v2.1 PR A(H2): 컴포넌트 개별 export.
+    # 지금까지는 합계(weighted_component_sum)만 있어 "어떤 컴포넌트가 예측력을 갖는가"(H2)를
+    # 표준 데이터셋 경로로 분석할 수 없었다(원본 저널 직접 파싱 필요).
+    # 불변식: Σ(<c>_weighted_score) == weighted_component_sum,
+    #         <c>_weighted_score == <c>_normalized_score * <c>_weight
+    trend_normalized_score: float | None = None
+    trend_weight: float | None = None
+    trend_weighted_score: float | None = None
+    momentum_normalized_score: float | None = None
+    momentum_weight: float | None = None
+    momentum_weighted_score: float | None = None
+    volume_normalized_score: float | None = None
+    volume_weight: float | None = None
+    volume_weighted_score: float | None = None
+    vwap_position_normalized_score: float | None = None
+    vwap_position_weight: float | None = None
+    vwap_position_weighted_score: float | None = None
+    volatility_normalized_score: float | None = None
+    volatility_weight: float | None = None
+    volatility_weighted_score: float | None = None
     # volume 계측
     volume: float | None = None
     volume_sma20: float | None = None
@@ -176,6 +208,9 @@ class DatasetRecord:
             "candidate_rank": f.candidate_rank,
             "weighted_component_sum": f.weighted_component_sum,
             "penalty_score": f.penalty_score, "pre_clamp_score": f.pre_clamp_score,
+            # 컴포넌트 개별 export(H2 분석 표준 경로). to_flat 은 수동 dict 라
+            # 필드를 여기 넣지 않으면 CSV/Parquet 에서 조용히 사라진다 → 상수로 공유.
+            **{name: getattr(f, name) for name in score_component_field_names()},
             "volume": f.volume, "volume_sma20": f.volume_sma20,
             "volume_ratio": f.volume_ratio, "dollar_volume": f.dollar_volume,
             "benchmark_symbol": f.benchmark_symbol, "benchmark_close": f.benchmark_close,
