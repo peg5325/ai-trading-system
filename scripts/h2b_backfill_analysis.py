@@ -393,6 +393,17 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
         rep, conf = "inconclusive", "weak"
         limits.append(f"H2-b 4개 검정(2 feature × 2 지평) 중 {n_pass}개만 통과 — 부분 재현")
 
+    # 항상 명시하는 방법론적 한계 — 조용히 넘어가면 리포트가 실제보다 강해 보인다.
+    limits.append(
+        "추출기는 종목을 개별 스크리닝하므로 candidate.rank 가 항상 1 이다(라이브는 종목 간 "
+        "순위 경쟁). 점수·컴포넌트에는 영향이 없어 패리티는 성립하지만, rank 기반 분석에는 쓸 수 없다.")
+    limits.append(
+        "후보는 스크리너가 min_score(45) 이상으로 뽑은 것만이라 표본이 이미 선택편향돼 있다. "
+        "여기의 상관은 '후보 안에서의 서열-수익 관계'이지 '전 구간에서의 예측력'이 아니다.")
+    limits.append(
+        "1분봉을 5분봉으로 재구성한 뒤의 관측이며, 라이브의 체결/슬리피지/비용은 반영하지 않은 "
+        "종가 기준 forward return 이다.")
+
     detail = "; ".join(f"{f}@{h}m {msg}" for f, h, _, msg in checks)
     summary = (f"패리티 PASS 하에 H2-b 판정 = {rep}. "
                f"vwap_position/volume 4개 검정 중 {n_pass}개가 음(−)+Bonferroni 통과. "
