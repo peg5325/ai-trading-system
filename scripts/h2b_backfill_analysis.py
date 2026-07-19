@@ -61,6 +61,23 @@ H2B_FEATURES = ("vwap_position", "volume")
 # s001 에서 한쪽 지평만 유의 → 위양성 후보.
 SUSPECT_FEATURES = ("momentum", "volatility")
 
+# 선행 관측(reports/h2_h3_preliminary_s001.md §1) — 재현 여부는 이 값과의 **방향 비교**다.
+# 이 기준선이 없으면 "유의함"이 곧 "재현됨"으로 오독된다.
+S001_BASELINE = {
+    ("vwap_position", 30): -0.329, ("vwap_position", 60): -0.285,
+    ("volume", 30): -0.162, ("volume", 60): -0.249,
+    ("candidate_score", 30): 0.116, ("candidate_score", 60): 0.107,
+    ("trend", 30): 0.128, ("trend", 60): 0.106,
+    ("momentum", 30): 0.178, ("momentum", 60): 0.071,
+    ("volatility", 30): 0.074, ("volatility", 60): 0.196,
+    ("volume_ratio", 30): -0.179, ("volume_ratio", 60): -0.255,
+}
+
+# 실용적 유의미성 하한. n 이 7만이면 rho=0.02 도 p<1e-8 이 된다 — 통계적 유의성만으로
+# "재현됨"을 말하면 안 된다. |rho|=0.05 는 설명력(rho^2) 0.25% 로, s001 최소 효과(0.162)의
+# 약 1/3 이다. 이 아래는 "부호는 있으나 크기는 사실상 0" 으로 분류한다.
+MIN_PRACTICAL_RHO = 0.05
+
 PARITY_TOLERANCE = 1e-6
 
 
@@ -337,18 +354,41 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
     stab = {(r["feature"], r["horizon_min"]): r for r in h2b["sign_stability"]}
     thr = h2b["multiple_comparison"]["bonferroni_threshold"]
 
+    # 각 검정을 s001 기준선과 **방향 비교**해 분류한다.
+    #   replicated : 같은 부호 + Bonferroni 통과 + 실용적 크기(|rho|>=MIN_PRACTICAL_RHO)
+    #   negligible : 같은 부호지만 크기가 사실상 0 (n 이 커서 유의하기만 함)
+    #   reversed   : 반대 부호 + Bonferroni 통과 → 재현 실패를 넘어 **적극적 반증**
+    #   null       : 유의하지 않음
     checks = []
+    classes = {}
     for f in H2B_FEATURES:
         for h in horizons:
             r = idx.get((f, h))
+            base = S001_BASELINE.get((f, h))
             if not r or r["rho"] is None:
+                classes[(f, h)] = "insufficient"
                 checks.append((f, h, False, "표본 부족"))
                 continue
-            neg = r["rho"] < 0
-            sig = r["p"] is not None and r["p"] < thr
-            checks.append((f, h, neg and sig,
-                           f"rho={r['rho']:+.3f} p={r['p']:.4g} neg={neg} bonf={sig}"))
+            rho, p = r["rho"], r["p"]
+            sig = p is not None and p < thr
+            same_sign = base is not None and (rho < 0) == (base < 0)
+            big = abs(rho) >= MIN_PRACTICAL_RHO
+            if sig and not same_sign:
+                cls = "reversed"
+            elif sig and same_sign and big:
+                cls = "replicated"
+            elif same_sign and sig:
+                cls = "negligible"
+            else:
+                cls = "null"
+            classes[(f, h)] = cls
+            ratio = (abs(rho) / abs(base)) if base else float("nan")
+            checks.append((f, h, cls == "replicated",
+                           f"rho={rho:+.3f} (s001 {base:+.3f}, 크기 {ratio:.0%}) "
+                           f"p={p:.3g} → {cls}"))
     n_pass = sum(1 for c in checks if c[2])
+    n_reversed = sum(1 for v in classes.values() if v == "reversed")
+    n_negligible = sum(1 for v in classes.values() if v == "negligible")
 
     # 레버리지 의존성 — 그룹별 부호가 갈리면 "효과가 레버리지 때문"이라는 신호.
     lev_rows = [r for r in h2b["by_leverage"]
@@ -365,6 +405,11 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
         same_across = len({next(iter(v)) for v in signs.values() if len(v) == 1}) == 1
         lev_dep = "no" if (consistent and same_across) else "yes"
 
+    # LOSO 부호 일치율 — 판정의 확신도는 p값이 아니라 이 안정성에서 나온다.
+    ratios = [stab[(f, h)]["same_sign_ratio"] for f in H2B_FEATURES for h in horizons
+              if (f, h) in stab]
+    min_stab = min(ratios) if ratios else 0.0
+
     if n_syms < min_symbols or n_days < min_days:
         rep, conf = "inconclusive", "none"
         limits.append(
@@ -372,26 +417,32 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
             f"최대 거래일 {n_days}일(요구 {min_days}). 다른 종목으로의 일반화를 판정할 수 없다.")
     elif n_pass == len(checks):
         rep = "yes"
-        ratios = [stab[(f, h)]["same_sign_ratio"] for f in H2B_FEATURES for h in horizons
-                  if (f, h) in stab]
-        m = min(ratios) if ratios else 0.0
-        conf = "strong" if m >= 0.9 else ("moderate" if m >= 0.7 else "weak")
-    elif n_pass == 0:
-        # "재현 안 됨"의 확신도는 near-miss 유무로 낮춘다. 부호는 s001 과 같은데
-        # 보정 전 p 만 유의한 경우를 "강한 부재 증거"라고 부르면 과장이다.
-        near = [(f, h) for f, h in ((f, h) for f in H2B_FEATURES for h in horizons)
-                if (r := idx.get((f, h))) and r["rho"] is not None and r["rho"] < 0
-                and r["p"] is not None and r["p"] < 0.05]
+        conf = "strong" if min_stab >= 0.9 else ("moderate" if min_stab >= 0.7 else "weak")
+    elif n_reversed > 0:
+        # 부호가 뒤집혔는데 유의하기까지 하면 "판단 보류"가 아니라 **반증**이다.
+        # 이걸 inconclusive 라고 부르면 결론을 실제보다 열어두는 것이 된다.
         rep = "no"
-        conf = "moderate" if near else "strong"
-        if near:
-            limits.append(
-                "near-miss 존재(부호는 s001 과 같은 음(−), 보정 전 p<0.05 이나 Bonferroni 미통과): "
-                + ", ".join(f"{f}@{h}m" for f, h in near)
-                + " → 표본이 늘면 판정이 뒤집힐 수 있다.")
+        conf = "strong" if min_stab >= 0.9 else "moderate"
+        limits.append(
+            f"부호 역전 {n_reversed}건: "
+            + ", ".join(f"{f}@{h}m(s001 {S001_BASELINE[(f,h)]:+.3f} → 현재 "
+                        f"{idx[(f,h)]['rho']:+.3f})"
+                        for (f, h), c in classes.items() if c == "reversed")
+            + " — s001 의 음(−)의 예측력은 재현되지 않았고, 방향이 반대로 관측된다.")
+    elif n_pass == 0:
+        rep = "no"
+        conf = "strong" if min_stab >= 0.9 else "moderate"
     else:
         rep, conf = "inconclusive", "weak"
         limits.append(f"H2-b 4개 검정(2 feature × 2 지평) 중 {n_pass}개만 통과 — 부분 재현")
+
+    if n_negligible:
+        n_max = max((idx[(f, h)]["n"] for f in H2B_FEATURES for h in horizons
+                     if (f, h) in idx), default=0)
+        limits.append(
+            f"부호는 유지되나 크기가 실용적 하한(|rho|<{MIN_PRACTICAL_RHO}) 미만인 검정 "
+            f"{n_negligible}건 — n≈{n_max:,} 에서는 rho=0.02 도 p<1e-8 이 된다. "
+            "**통계적 유의성을 효과 크기로 읽지 말 것.**")
 
     # 항상 명시하는 방법론적 한계 — 조용히 넘어가면 리포트가 실제보다 강해 보인다.
     limits.append(
@@ -462,10 +513,18 @@ def render_md(payload: dict, cmd: str) -> str:
     A(f"| 확신도 | {ver['confidence']} |")
     A(f"| 레버리지 의존성 | {ver['leverage_dependent']} |")
     A(f"| 패리티 | **{par['status']}** |")
-    A(f"| Bonferroni 생존 feature | {', '.join(h2b['multiple_comparison']['survivors']) or '없음'} |")
+    A(f"| Bonferroni 통과 feature | {', '.join(h2b['multiple_comparison']['survivors']) or '없음'} "
+      f"<br>*(통과 = 유의함일 뿐, 방향·크기는 아래 참조)* |")
     A("")
     A(ver["summary"])
     A("")
+    # 판정 한 줄 해석 — 표만 보고 반대로 읽는 것을 막는다.
+    if ver["h2b_replicated"] == "no":
+        A("> **읽는 법:** `vwap_position` 은 Bonferroni 를 통과했지만 **부호가 s001 과 반대**다"
+          "(−0.329 → +0.023). 즉 \"음(−)의 예측력\"은 재현되지 않았고 방향이 뒤집혔다. "
+          "`volume` 은 부호는 유지되나 크기가 s001 의 2~5% 로 사실상 0 이다. "
+          "n≈7만에서는 rho=0.02 도 p<1e-8 이 되므로 **★를 효과 크기로 읽으면 안 된다.**")
+        A("")
 
     # ② 패리티
     A("## ② 패리티 (수용 기준)")
@@ -516,18 +575,26 @@ def render_md(payload: dict, cmd: str) -> str:
     A("")
     A(f"Spearman(feature, forward return). ★ = Bonferroni 통과(p < {thr:.4f}), · = p<0.05 (미보정)")
     A("")
-    head = "| feature | " + " | ".join(f"{h}m rho | {h}m p | n" for h in horizons) + " |"
+    A("> ⚠ **n 이 7만 규모라 통계적 유의성(★)은 효과 크기를 뜻하지 않는다.** rho=0.02 도 "
+      f"p<1e-8 이 된다(설명력 0.04%). 재현 여부는 p 가 아니라 **s001 대비 부호와 크기**로 읽어야 "
+      f"한다. 실용적 하한은 |rho| ≥ {MIN_PRACTICAL_RHO}.")
+    A("")
+    head = ("| feature | s001 30m | 30m rho | 30m p | n | s001 60m | 60m rho | 60m p | n |")
     A(head)
-    A("|---" * (1 + 3 * len(horizons)) + "|")
+    A("|---" * 9 + "|")
     idx = {(r["feature"], r["horizon_min"]): r for r in h2b["overall"]}
     for f in FEATURES:
         cells = []
         for h in horizons:
             r = idx.get((f, h), {})
-            cells += [f"{_fmt(r.get('rho'))}{_sig(r.get('p'), thr)}",
-                      _fmt(r.get("p"), 4), str(r.get("n", 0))]
+            base = S001_BASELINE.get((f, h))
+            cells += [f"{base:+.3f}" if base is not None else "—",
+                      f"{_fmt(r.get('rho'))}{_sig(r.get('p'), thr)}",
+                      _fmt(r.get("p"), 4), f"{r.get('n', 0):,}"]
         mark = "**" if f in H2B_FEATURES else ""
         A(f"| {mark}{f}{mark} | " + " | ".join(cells) + " |")
+    A("")
+    A("s001 열은 선행 관측(하루·후보 156/140건)이다. 부호가 다르면 **재현 실패를 넘어 반증**이다.")
     A("")
 
     for title, key, col in (("Tier별", "by_tier", "tier"),
