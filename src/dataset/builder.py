@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from src.dataset.models import (
+    SCORE_COMPONENT_FIELDS,
+    SCORE_COMPONENT_NAMES,
     Dataset,
     DatasetRecord,
     FeatureRecord,
@@ -147,6 +149,8 @@ class DatasetBuilder:
             weighted_component_sum=_f(feats.get("weighted_component_sum")),
             penalty_score=_f(feats.get("penalty_score")),
             pre_clamp_score=_f(feats.get("pre_clamp_score")),
+            # PR A(H2): 컴포넌트 개별 점수. 하드 제외(features={}) 경로에서는 전부 None.
+            **_score_component_fields(feats),
             volume=_f(feats.get("volume_last")), volume_sma20=_f(feats.get("volume_sma20")),
             volume_ratio=_f(feats.get("volume_ratio")),
             dollar_volume=_f(feats.get("dollar_volume")),
@@ -243,6 +247,21 @@ class DatasetBuilder:
 
 
 # ---- helpers ----
+def _score_component_fields(feats: dict) -> dict:
+    """features["score_components"] → FeatureRecord 의 <component>_<field> 평탄 매핑.
+
+    저널에 컴포넌트가 없거나(구 스키마) 하드 제외로 features 가 비면 전부 None 이다.
+    누락을 0.0 으로 채우지 않는다 — 0 은 "계산됐고 값이 0"과 구분되어야 한다.
+    """
+    comps = feats.get("score_components") or {}
+    out: dict = {}
+    for name in SCORE_COMPONENT_NAMES:
+        comp = comps.get(name) or {}
+        for fld in SCORE_COMPONENT_FIELDS:
+            out[f"{name}_{fld}"] = _f(comp.get(fld))
+    return out
+
+
 def _f(v):
     if v is None:
         return None
