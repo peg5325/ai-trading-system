@@ -719,6 +719,18 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
             f"{noise['nominal_sig_cells']}개(우연 기대치 {noise['chance_expected']})로 잡음과 "
             f"구분되지 않지만, 그 정도 표본으로 0.34%p 를 검출할 검정력 자체가 낮기 때문이다. "
             f"다만 참효과가 비용 언저리라면 어차피 쓸 수 없다."))
+    # ★ 정의마다 붙는 날 수가 다르다 — 벤치마크만 백필을 늘리면 벤치마크 기반 국면만
+    #   길어지고 유니버스 기반(breadth)은 그대로다. 표를 훑는 사람은 모든 정의가 같은
+    #   표본을 본다고 읽기 쉬운데, 그러면 짧은 정의의 'no' 를 과대해석한다.
+    _days_by_def = cov.get("regime_present_days", {})
+    _def_days = {k: _days_by_def.get(k, 0) for k, *_ in CATEGORICAL_DEFS}
+    _short = {k: d for k, d in _def_days.items() if d and d < max(_def_days.values()) * 0.6}
+    if _short:
+        limitations.append(
+            "국면 정의마다 붙는 거래일 수가 다르다 — 이번 백필은 **벤치마크(QQQ/SPY)만** "
+            "확대했으므로 벤치마크 기반 정의는 전 구간을 보지만 유니버스 기반은 그대로다: "
+            + ", ".join(f"`{k}` {d}일" for k, d in sorted(_short.items()))
+            + f" (최장 {max(_def_days.values())}일). 짧은 정의의 '없음'은 그만큼 약한 근거다.")
     bl_days = cov.get("regime_present_days", {}).get("daily_long_trend", 0)
     if bl_days == 0:
         limitations.append(
