@@ -112,6 +112,91 @@ def student_t_sf_two_sided(t: float, df: float) -> float:
     return regularized_incomplete_beta(df / 2.0, 0.5, df / (df + t * t))
 
 
+def sign_test(successes: int, n: int) -> float | None:
+    """부호검정 양측 p — H0: 성공확률 0.5. n 이 작을 때(수십 일) 정확검정을 쓴다.
+
+    왜 필요한가: 국면 관측은 5분 간격 결정봉에 30분~3일 지평이라 **심하게 중첩**되고,
+    같은 날 같은 시장을 보는 12 종목이 동시에 들어간다. 관측 단위 p 값은 이 중복을
+    독립 표본으로 착각해 천문학적으로 과대추정된다(실측: 하루 단위 국면에서 유효표본
+    16일인데 관측 단위 p=1e-45). 하루를 **블록 1개**로 묶어 이 검정을 쓰면 유효표본이
+    정직해진다.
+    """
+    if n <= 0 or not 0 <= successes <= n:
+        return None
+    k = max(successes, n - successes)
+    tail = sum(math.comb(n, i) for i in range(k, n + 1)) / (2.0 ** n)
+    return min(1.0, 2.0 * tail)
+
+
+def normal_sf_two_sided(z: float) -> float:
+    """P(|Z| > |z|) — 표준정규 양측 꼬리확률."""
+    return math.erfc(abs(float(z)) / math.sqrt(2.0))
+
+
+@dataclass(frozen=True)
+class MannWhitneyResult:
+    """두 국면 그룹(UP/DOWN)의 forward return 분포가 다른가.
+
+    `rank_biserial` 을 함께 내는 이유: H3 판정은 **효과 크기**로 해야 하는데 p 는 n 이 크면
+    무의미한 차이에도 0 에 붙는다. rank-biserial = 2*U/(n1*n2) - 1 은 "무작위로 뽑은 UP 관측이
+    DOWN 관측보다 클 확률"을 -1..+1 로 재척도한 값이라 n 에 휘둘리지 않는다.
+    """
+    n1: int
+    n2: int
+    u: float | None
+    p: float | None
+    rank_biserial: float | None
+
+    def to_dict(self) -> dict:
+        return {"n1": self.n1, "n2": self.n2, "u": self.u, "p": self.p,
+                "rank_biserial": self.rank_biserial}
+
+
+def mann_whitney_u(x, y) -> MannWhitneyResult:
+    """Mann-Whitney U (양측, 정규근사 + 동점 보정).
+
+    scipy 를 쓰지 않는 이유는 `spearman` 과 같다 — 이 저장소는 scipy 를 의존성으로 선언하지
+    않으며, 분석 재현이 환경에 인질로 잡히면 안 된다.
+
+    정규근사를 쓰는 근거: H3 표본은 그룹당 수천~수만이라 정확검정이 불필요하다
+    (근사 오차가 표본 중첩으로 인한 p 과대추정보다 훨씬 작다).
+
+    동점 보정이 필요한 이유: 동점은 U 의 **귀무분포 분산을 줄인다**. 보정하지 않으면
+    분산을 과대평가해 z 가 작아지고 p 가 필요 이상으로 커진다(과도하게 보수적 →
+    검정력 손실). 보정항 `sum(t^3 - t)` 를 빼면 올바른 귀무분포가 복원된다.
+    수익률 0 같은 동점이 흔한 이 데이터에서는 무시할 수 없다.
+    """
+    xa = np.asarray(x, dtype=float)
+    ya = np.asarray(y, dtype=float)
+    xa = xa[np.isfinite(xa)]
+    ya = ya[np.isfinite(ya)]
+    n1, n2 = int(xa.size), int(ya.size)
+    if n1 == 0 or n2 == 0:
+        return MannWhitneyResult(n1=n1, n2=n2, u=None, p=None, rank_biserial=None)
+
+    combined = np.concatenate([xa, ya])
+    ranks = _rankdata(combined)
+    r1 = float(ranks[:n1].sum())
+    u1 = r1 - n1 * (n1 + 1) / 2.0
+    rank_biserial = 2.0 * u1 / (n1 * n2) - 1.0
+
+    n = n1 + n2
+    # 동점 보정항 sum(t^3 - t)
+    _, counts = np.unique(combined, return_counts=True)
+    tie = float(np.sum(counts.astype(float) ** 3 - counts.astype(float)))
+    var = n1 * n2 / 12.0 * ((n + 1) - tie / (n * (n - 1))) if n > 1 else 0.0
+    if var <= 0:
+        # 전부 동점 — 분포 차이를 말할 수 없다.
+        return MannWhitneyResult(n1=n1, n2=n2, u=u1, p=None,
+                                 rank_biserial=rank_biserial)
+    mu = n1 * n2 / 2.0
+    # 연속성 보정(0.5) — 이산 U 를 연속 정규로 근사할 때의 표준 보정.
+    z = (abs(u1 - mu) - 0.5) / math.sqrt(var)
+    z = max(z, 0.0)
+    return MannWhitneyResult(n1=n1, n2=n2, u=u1, p=float(normal_sf_two_sided(z)),
+                             rank_biserial=rank_biserial)
+
+
 def spearman(x, y) -> CorrelationResult:
     """Spearman rho + 양측 p. 표본 부족/상수열이면 rho/p 는 None."""
     xa = np.asarray(x, dtype=float)
