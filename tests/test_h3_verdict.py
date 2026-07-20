@@ -73,8 +73,10 @@ def test_horizon_signal_requires_both_gates_in_the_same_cell():
     h = vd["by_horizon"]["1d"]
     assert h["conclusion"] != "signal", (
         "두 게이트를 동시에 만족하는 칸이 0개인데 signal 로 판정했다")
-    assert h["conclusion"] == "underpowered", (
-        "비용은 넘었으나 블록검정을 통과한 칸이 없으므로 underpowered 여야 한다")
+    # 블록 검정이 **성립한**(status=ok) 상태에서 통과하지 못했으므로 '표본 부족'이 아니라
+    # 기각이다. 두 상태를 같은 라벨로 뭉치면 표본을 늘려도 판정이 닫히지 않는다.
+    assert h["conclusion"] == "rejected", (
+        "블록검정이 성립했는데 통과 못 했으면 rejected 여야 한다(underpowered 아님)")
 
 
 def test_horizon_signal_when_one_cell_passes_both():
@@ -139,8 +141,161 @@ def test_significance_axis_is_block_p_not_observation_p():
     """
     c = _cell(diff=0.90, cost_pass=True, block_pass=False, obs_p=1.57e-45)
     vd = build_verdict(_analysis([c]), _COV)
-    assert vd["usable_regime_signal"] == "inconclusive"
+    # 축이 관측 p 였다면 yes 가 됐을 칸이다. 블록 검정이 성립한 채 기각했으므로 no.
+    assert vd["usable_regime_signal"] == "no"
     assert vd["criteria"]["significance_axis"].startswith("day_block")
+
+
+def test_inconclusive_only_when_the_block_test_could_not_speak():
+    """★ 'inconclusive' 는 **블록 검정이 성립조차 못 했을 때만** 이다.
+
+    이 구분이 H3-b 의 핵심이다. 블록이 성립했는데 통과 못 한 것까지 inconclusive 로
+    묶으면, 표본을 늘려 효과가 더 커져도 판정은 영원히 inconclusive 에 머문다 —
+    실제로 H3(독립 16~36일) → H3-b(36~94일)에서 효과는 커지고 블록 p 는 그대로였다.
+    """
+    underpowered = _cell(diff=0.90, cost_pass=True, block_pass=False,
+                         block_status="underpowered")
+    vd = build_verdict(_analysis([underpowered]), _COV)
+    assert vd["usable_regime_signal"] == "inconclusive", (
+        "블록 검정이 성립하지 않은 칸이 비용을 넘었으면 판별 불가여야 한다")
+    assert vd["near_miss_cells"][0]["blocked_by"] == "underpowered"
+
+    adequate = _cell(diff=0.90, cost_pass=True, block_pass=False, block_status="ok")
+    vd2 = build_verdict(_analysis([adequate]), _COV)
+    assert vd2["usable_regime_signal"] == "no", (
+        "블록 검정이 성립한 채 기각했으면 판별 불가가 아니라 '없음'이다")
+    assert vd2["near_miss_cells"][0]["blocked_by"] == "rejected_by_block_test"
+
+
+def test_split_failure_is_not_labelled_as_a_block_test_rejection():
+    """★ 블록 검정을 **통과한** 칸을 `rejected_by_block_test` 로 부르면 안 된다.
+
+    이 오라벨이 켜지는 순간이 하필 가장 비싸다 — 비용을 넘고 블록 검정도 통과한 칸이
+    처음 나타났는데 구간 안정성만 부족한 때다. 그때 헤드라인은
+    "블록 검정이 전부 성립한 상태에서 하나도 통과하지 못했다"는 **거짓 문장**을 싣는다.
+    """
+    c = _cell(diff=0.90, cost_pass=True, block_pass=True, split=False,
+              block_status="ok")
+    vd = build_verdict(_analysis([c]), _COV)
+    nm = vd["near_miss_cells"][0]
+    assert nm["conditions"]["block_significant"] is True
+    assert nm["blocked_by"] == "rejected_by_split", (
+        "블록 검정을 통과한 칸이 블록 검정의 이름으로 기각됐다")
+
+
+def test_horizon_signal_uses_the_same_conditions_as_the_summary():
+    """지평별 표의 `signal` 과 판정 요약의 `usable` 은 같은 조건 집합이어야 한다.
+
+    예전엔 표만 비용+블록 2개를 봐서, 구간 안정성에서 걸린 칸이 요약에선 no 인데
+    표에선 '신호 있음'이었다 — 한 리포트가 반대말을 했다. 사람은 표를 믿는다.
+    """
+    c = _cell(diff=0.90, cost_pass=True, block_pass=True, split=False,
+              block_status="ok")
+    vd = build_verdict(_analysis([c]), _COV)
+    assert vd["usable_regime_signal"] == "no"
+    assert vd["by_horizon"]["1d"]["conclusion"] != "signal", (
+        "요약이 no 인데 지평별 표가 signal 을 냈다")
+    assert not vd["usable_cells"]
+
+
+def test_unknown_split_sign_is_cannot_speak_not_rejection():
+    """`sign_preserved is None`(구간 분할 표본 부족)은 기각이 아니라 판별 불가다.
+
+    `bool(None) is False` 라 그냥 두면 '말할 수 없었다'가 '부호가 뒤집혔다'로 둔갑한다 —
+    블록 검정에서 애써 갈라 놓은 축을 바로 옆에서 뭉개는 셈이다.
+    """
+    c = _cell(diff=0.90, cost_pass=True, block_pass=True, block_status="ok")
+    c["split"] = {"status": "insufficient", "sign_preserved": None}
+    vd = build_verdict(_analysis([c]), _COV)
+    assert vd["near_miss_cells"][0]["blocked_by"] == "split_insufficient"
+    assert vd["usable_regime_signal"] == "inconclusive", (
+        "검정이 말할 수 없었는데 '없음'으로 단정했다")
+
+
+def test_negative_claim_gate_uses_effective_sample_not_reported_n_days():
+    """★ 부정 주장 게이트는 표시용 `n_days` 가 아니라 **유효표본**으로 열려야 한다.
+
+    unpaired 는 `n_days` 가 UP+DOWN 합계라, 한쪽이 얇아도 합계는 두꺼워 보인다.
+    오차 방향이 하필 "없다"를 더 자신 있게 말하는 쪽이라 위험하다 — 이 리포트의
+    결론이 바로 그 부정 주장이다.
+    """
+    from scripts.h3_regime_analysis import effective_block_days
+
+    # UP 57일 / DOWN 8일 → 합계 65지만 검정력을 정하는 건 8이다.
+    assert effective_block_days(
+        {"mode": "unpaired", "n_days": 65, "n_up_days": 57, "n_down_days": 8}) == 8
+    # paired 는 차이가 0 이 아닌 날만 검정에 들어간다.
+    assert effective_block_days(
+        {"mode": "paired", "n_days": 40, "tested_days": 9}) == 9
+
+    c = _cell(diff=0.90, cost_pass=True, block_pass=False, block_status="ok")
+    c["day_block"] = {"status": "ok", "p": 0.4, "mode": "unpaired",
+                      "n_days": 65, "n_up_days": 57, "n_down_days": 8,
+                      "tested_days": 65}
+    vd = build_verdict(_analysis([c]), _COV)
+    sup = vd["negative_claim_support"]
+    assert sup["min_reported_n_days"] == 65
+    assert sup["min_effective_block_days"] == 8, "합계를 유효표본으로 착각했다"
+    assert vd["usable_regime_signal"] == "no"
+    assert vd["confidence"] == "low", (
+        "DOWN 국면이 8일뿐인데 '없다'를 moderate 로 주장했다")
+
+
+def test_inconclusive_sentence_survives_an_empty_reason_list():
+    """분석 가능한 칸이 0개인 실행에서도 결론 문장이 문법·내용 모두 성립해야 한다.
+
+    `not ok_rows` 경로에선 near_miss 가 비어, 이유 목록을 그대로 이어 붙이면
+    "비용을 넘으면서 가 남아 있다"로 깨진다(칸이 0개인데 '남아 있다'고도 말한다).
+    """
+    from scripts.h3_regime_analysis import render_md
+
+    vd = build_verdict(_analysis([]), _COV)
+    assert vd["usable_regime_signal"] == "inconclusive"
+    assert not vd["near_miss_cells"]
+    md = render_md({
+        "meta": {"generated_at": "2026-07-20T00:00:00Z", "git_sha": "0" * 40,
+                 "input": "x.jsonl", "sessions": [], "excluded_dates": [],
+                 "cost_per_trade_pct": 0.34, "title": "t",
+                 "workorder": "w.md", "predecessor": "p.md"},
+        "parity_test": {"status": "SKIPPED", "notes": "", "target_session": "-",
+                        "live_cycles": 0, "matched_cycles": 0, "max_abs_diff": None,
+                        "invariant_violations": 0, "tolerance": 1e-6},
+        "coverage": dict(_COV, rows=0, kept=0, excluded_session=0, excluded_date=0,
+                         by_session={}, by_symbol={}, dates=[], n_dates=0,
+                         date_min=None, date_max=None, horizon_complete={},
+                         regime_present_days={}),
+        "analysis": _analysis([]),
+        "lookahead_control": {"max_inflation_x": None, "rows": []},
+        "verdict": vd,
+    }, "cmd")
+    assert "비용을 넘으면서 가" not in md, "이유 목록이 비어 조사가 붕 떴다"
+    assert "아직 잴 수 없다" in md
+
+
+def test_reproduce_command_day_horizons_excludes_eod():
+    """★ 리포트가 싣는 재현 커맨드는 그대로 실행되어야 한다.
+
+    `"eod".endswith("d")` 는 True 라, 접미사만 보면 EOD 가 일 단위 지평으로 끌려들어와
+    `--day-horizons eo,1,2,3,5` 가 만들어지고 조인 스크립트의 int() 파싱이 죽는다.
+    """
+    from scripts.h3_regime_analysis import HORIZONS
+    dayh = [k[:-1] for k, _l, _e in HORIZONS if k.endswith("d") and k[:-1].isdigit()]
+    assert "eo" not in dayh
+    # 조인 스크립트와 동일한 파싱 — 여기서 죽으면 리포트의 커맨드도 죽는다.
+    assert tuple(int(x) for x in dayh) == (1, 2, 3, 5)
+
+
+def test_block_noise_check_compares_against_chance_expectation():
+    """명목 유의 칸 수를 우연 기대치와 나란히 싣는다 — '유의한 칸이 있다'의 무게를 잰다."""
+    cells = [_cell(horizon=h, diff=0.01, cost_pass=False, block_pass=False)
+             for h in ("30", "60", "eod")]
+    nz = build_verdict(_analysis(cells), _COV)["block_noise_check"]
+    assert nz["tested_cells"] == 3
+    # _cell 의 블록 p 는 block_pass=False 일 때 0.4 — 명목 유의도 아니다.
+    assert nz["nominal_sig_cells"] == 0
+    assert nz["chance_expected"] == round(0.05 * 3, 1)
+    # 유의 칸이 0 이면 "이만큼 이상 나올 확률"은 1 — 우연으로 완전히 설명된다.
+    assert nz["excess_p"] == 1.0
 
 
 def test_no_verdict_when_every_effect_is_below_cost():

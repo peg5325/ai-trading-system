@@ -60,6 +60,10 @@ BENCHMARK_SYMBOL = "QQQ"
 INTRADAY_EMA_PERIOD = 20          # (A) 라이브 기본
 LONG_EMA_PERIOD = 200             # (C) 장기 — 5m 200봉 ≈ 정규장 2.5일
 DAILY_EMA_PERIOD = 20             # (B) 하루 lagged
+# (B') 진짜 다개월 국면. H3 에서는 벤치마크 백필이 47 거래일뿐이라 50일 EMA 가 성립하지
+# 않아 계산조차 못 했고, 그 자리를 5m EMA200(≈1 거래일)이 대신했다 — '장기'라 부르기엔
+# 짧다. H3-b 는 벤치마크를 후보 전 구간+워밍업까지 확대해 이 정의를 처음으로 성립시킨다.
+DAILY_LONG_EMA_PERIOD = 50
 REGULAR = "REGULAR"
 
 # (F) 변동성: 실현변동성 창과 그 기준선 창(둘 다 완료봉만 → 인과적).
@@ -101,6 +105,10 @@ class RegimeLabels:
     daily_trend: str | None = None
     daily_vs_ema: float | None = None
     daily_asof: str | None = None
+    # (B') 하루 장기 국면 — 일간 EMA50, 역시 전날까지만
+    daily_long_trend: str | None = None
+    daily_long_vs_ema: float | None = None
+    daily_long_asof: str | None = None
     # (D) breadth
     breadth: float | None = None
     breadth_symbols: int = 0
@@ -117,8 +125,17 @@ class RegimeLabels:
     def asof_fields(self) -> list[tuple[str, str | None]]:
         """(라벨명, asof) 쌍 — 불변식 검사용."""
         return [("intraday", self.intraday_asof), ("long", self.long_asof),
-                ("daily", self.daily_asof), ("breadth", self.breadth_asof),
-                ("vol", self.vol_asof)]
+                ("daily", self.daily_asof), ("daily_long", self.daily_long_asof),
+                ("breadth", self.breadth_asof), ("vol", self.vol_asof)]
+
+    def daily_asof_fields(self) -> list[tuple[str, str | None]]:
+        """일봉 기반 라벨 — **앵커 거래일보다 엄격히 이전**이어야 하는 것들.
+
+        `asof_fields` 의 `asof <= decision_time` 보다 강한 조건이다. 일봉 라벨은 그 날
+        정규장 마감 시각이라, 장중 결정 시점보다 앞서면서도 **당일 종가**일 수 있다 —
+        예비 관측을 15배 부풀린 바로 그 오염이 약한 검사만으로는 통과한다.
+        """
+        return [("daily", self.daily_asof), ("daily_long", self.daily_long_asof)]
 
 
 def _parse(ts: str) -> datetime:
@@ -390,15 +407,21 @@ def assert_no_lookahead(labels: RegimeLabels) -> None:
             raise LookAheadError(
                 f"{name}_asof({asof}) > decision_time({labels.decision_ts_utc}) — "
                 f"국면 라벨이 미래 정보를 참조한다")
-    if labels.daily_asof is not None:
+    anchor_day = date.fromisoformat(labels.et_date)
+    # 일봉 라벨은 그 날 정규장 마감 시각이다. 앵커 거래일과 같은 날이면 당일 종가를
+    # 쓴 것 → 예비 관측을 15배 부풀린 바로 그 오염이다.
+    #
+    # 일봉 라벨을 **목록으로** 돌리는 이유: 이전에는 `daily_asof` 하나만 하드코딩해
+    # 검사했다. 일봉 정의가 하나 늘 때(B' 일간 EMA50) 같은 검사를 손으로 복사하지 않으면
+    # 새 정의만 이 방어선 밖에 남는데, 그건 티가 나지 않는다 — 강한 검사는 정의가 아니라
+    # **일봉이라는 성질**에 붙어야 한다.
+    for name, asof in labels.daily_asof_fields():
+        if asof is None:
+            continue
         # `_et_date_of` 가 자체적으로 ET 로 변환하므로 여기서 tz 를 맞출 필요가 없다.
-        d_asof = _parse(labels.daily_asof)
-        anchor_day = date.fromisoformat(labels.et_date)
-        # 일봉 라벨은 그 날 정규장 마감 시각이다. 앵커 거래일과 같은 날이면 당일 종가를
-        # 쓴 것 → 예비 관측을 15배 부풀린 바로 그 오염이다.
-        if _et_date_of(d_asof) >= anchor_day:
+        if _et_date_of(_parse(asof)) >= anchor_day:
             raise LookAheadError(
-                f"daily_asof({labels.daily_asof}) 가 앵커 거래일({labels.et_date}) 이상 — "
+                f"{name}_asof({asof}) 가 앵커 거래일({labels.et_date}) 이상 — "
                 f"하루 국면이 당일 정보를 썼다")
 
 
