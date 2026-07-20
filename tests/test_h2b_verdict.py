@@ -184,3 +184,27 @@ def test_daily_reproduction_detects_what_loso_misses():
     assert cell["days"] == 10
     assert cell["same_sign_days"] == 0
     assert cell["ratio"] == 0.0, "pooled 는 +인데 모든 날이 −면 재현율 0 이어야 한다"
+
+
+def test_near_zero_sign_flip_is_not_leverage_dependence():
+    """★ 0 근처의 부호 흔들림을 '레버리지 의존'으로 부르지 않는다.
+
+    실측 사례: volume@30m 이 1x +0.0017 / 3x_inverse +0.0012 / 3x_long -0.0005 로
+    전부 사실상 0 인데 부호만 갈려 leverage_dependent=yes 가 나왔다. 노이즈다.
+    """
+    rows = _lev([("1x", "volume", 30, +0.0017),
+                 ("3x_inverse", "volume", 30, +0.0012),
+                 ("3x_long", "volume", 30, -0.0005)])
+    v = verdict(_h2b(_overall([("volume", 30, +0.001, 0.8)]), by_leverage=rows),
+                _coverage(), _PARITY_OK, (30,), 20, 6)
+    assert v["leverage_dependent"] == "no", \
+        "전부 |rho|<0.05 인데 부호만 다른 건 레버리지 의존이 아니다"
+
+
+def test_real_sign_split_still_detected_when_effects_are_large():
+    """실제로 큰 효과가 반대 방향이면 여전히 yes."""
+    rows = _lev([("1x", "vwap_position", 30, +0.20),
+                 ("3x_inverse", "vwap_position", 30, -0.18)])
+    v = verdict(_h2b(_overall([("vwap_position", 30, +0.1, 1e-9)]), by_leverage=rows),
+                _coverage(), _PARITY_OK, (30,), 20, 6)
+    assert v["leverage_dependent"] == "yes"

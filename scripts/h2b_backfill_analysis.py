@@ -522,14 +522,31 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
         #   가 곧바로 "불일치"로 잡혀 레버리지와 무관하게 항상 yes 가 된다.
         by_cell = defaultdict(dict)
         for r in lev_rows:
-            by_cell[(r["feature"], r["horizon_min"])][r["group"]] = r["rho"] < 0
-        split_cells = [cell for cell, gm in by_cell.items()
-                       if len(gm) >= 2 and len(set(gm.values())) > 1]
+            by_cell[(r["feature"], r["horizon_min"])][r["group"]] = r["rho"]
+        # ★ 0 근처에서의 부호 흔들림을 "레버리지 의존"으로 부르지 않는다.
+        #   부호가 갈리려면 **적어도 두 그룹이 실용적 크기**(|rho|>=MIN_PRACTICAL_RHO)를
+        #   가진 채 반대여야 한다. 전부 |rho|~0.001 인데 부호만 다른 건 잡음이다.
+        split_cells = []
+        for cell, gm in by_cell.items():
+            big = {g: v for g, v in gm.items() if abs(v) >= MIN_PRACTICAL_RHO}
+            if len(big) >= 2 and len({v < 0 for v in big.values()}) > 1:
+                split_cells.append(cell)
         lev_dep = "yes" if split_cells else "no"
         if split_cells:
             limits.append(
                 "레버리지 그룹 간 부호가 갈리는 (feature, 지평): "
                 + ", ".join(f"{f}@{h}m" for f, h in sorted(split_cells)))
+        # 부호가 아니라 **크기**가 그룹별로 다른 경우는 별도로 관측만 기록한다
+        # (효과 크기 자체가 하한 미만이면 행동 근거가 아니라는 점은 별개).
+        for cell, gm in sorted(by_cell.items()):
+            if len(gm) >= 2:
+                hi_g, hi = max(gm.items(), key=lambda kv: abs(kv[1]))
+                lo_g, lo = min(gm.items(), key=lambda kv: abs(kv[1]))
+                if abs(hi) >= MIN_PRACTICAL_RHO and abs(hi) >= 3 * max(abs(lo), 1e-9):
+                    limits.append(
+                        f"{cell[0]}@{cell[1]}m 은 그룹별 **크기**가 다르다"
+                        f"({hi_g} {hi:+.3f} vs {lo_g} {lo:+.3f}) — 부호는 같아 "
+                        f"leverage_dependent 판정에는 넣지 않았으나 관측으로 기록한다.")
 
     # LOSO 부호 일치율은 **jackknife 영향력**이지 "날마다 재현되는가"가 아니다.
     # fold 가 (D-1)/D 데이터를 공유해 하루 빼도 rho 가 거의 안 움직이기 때문이다
