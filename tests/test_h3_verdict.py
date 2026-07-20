@@ -73,8 +73,10 @@ def test_horizon_signal_requires_both_gates_in_the_same_cell():
     h = vd["by_horizon"]["1d"]
     assert h["conclusion"] != "signal", (
         "두 게이트를 동시에 만족하는 칸이 0개인데 signal 로 판정했다")
-    assert h["conclusion"] == "underpowered", (
-        "비용은 넘었으나 블록검정을 통과한 칸이 없으므로 underpowered 여야 한다")
+    # 블록 검정이 **성립한**(status=ok) 상태에서 통과하지 못했으므로 '표본 부족'이 아니라
+    # 기각이다. 두 상태를 같은 라벨로 뭉치면 표본을 늘려도 판정이 닫히지 않는다.
+    assert h["conclusion"] == "rejected", (
+        "블록검정이 성립했는데 통과 못 했으면 rejected 여야 한다(underpowered 아님)")
 
 
 def test_horizon_signal_when_one_cell_passes_both():
@@ -139,8 +141,41 @@ def test_significance_axis_is_block_p_not_observation_p():
     """
     c = _cell(diff=0.90, cost_pass=True, block_pass=False, obs_p=1.57e-45)
     vd = build_verdict(_analysis([c]), _COV)
-    assert vd["usable_regime_signal"] == "inconclusive"
+    # 축이 관측 p 였다면 yes 가 됐을 칸이다. 블록 검정이 성립한 채 기각했으므로 no.
+    assert vd["usable_regime_signal"] == "no"
     assert vd["criteria"]["significance_axis"].startswith("day_block")
+
+
+def test_inconclusive_only_when_the_block_test_could_not_speak():
+    """★ 'inconclusive' 는 **블록 검정이 성립조차 못 했을 때만** 이다.
+
+    이 구분이 H3-b 의 핵심이다. 블록이 성립했는데 통과 못 한 것까지 inconclusive 로
+    묶으면, 표본을 늘려 효과가 더 커져도 판정은 영원히 inconclusive 에 머문다 —
+    실제로 H3(독립 16~36일) → H3-b(36~94일)에서 효과는 커지고 블록 p 는 그대로였다.
+    """
+    underpowered = _cell(diff=0.90, cost_pass=True, block_pass=False,
+                         block_status="underpowered")
+    vd = build_verdict(_analysis([underpowered]), _COV)
+    assert vd["usable_regime_signal"] == "inconclusive", (
+        "블록 검정이 성립하지 않은 칸이 비용을 넘었으면 판별 불가여야 한다")
+    assert vd["near_miss_cells"][0]["blocked_by"] == "underpowered"
+
+    adequate = _cell(diff=0.90, cost_pass=True, block_pass=False, block_status="ok")
+    vd2 = build_verdict(_analysis([adequate]), _COV)
+    assert vd2["usable_regime_signal"] == "no", (
+        "블록 검정이 성립한 채 기각했으면 판별 불가가 아니라 '없음'이다")
+    assert vd2["near_miss_cells"][0]["blocked_by"] == "rejected_by_block_test"
+
+
+def test_block_noise_check_compares_against_chance_expectation():
+    """명목 유의 칸 수를 우연 기대치와 나란히 싣는다 — '유의한 칸이 있다'의 무게를 잰다."""
+    cells = [_cell(horizon=h, diff=0.01, cost_pass=False, block_pass=False)
+             for h in ("30", "60", "eod")]
+    nz = build_verdict(_analysis(cells), _COV)["block_noise_check"]
+    assert nz["tested_cells"] == 3
+    # _cell 의 블록 p 는 block_pass=False 일 때 0.4 — 명목 유의도 아니다.
+    assert nz["nominal_sig_cells"] == 0
+    assert nz["chance_expected"] == round(0.05 * 3, 1)
 
 
 def test_no_verdict_when_every_effect_is_below_cost():

@@ -588,6 +588,12 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         if all(conds.values()):
             usable.append(entry)
         elif conds["cost_floor"]:
+            # 비용은 넘었으나 나머지 조건에서 걸린 칸. **왜** 걸렸는지로 갈린다 —
+            # 블록 검정이 성립하지 않아서(날이 모자라서)면 '판별 불가'지만, 블록 검정이
+            # 성립했는데 유의하지 않은 것이면 '검정이 기각했다'다. 이 둘을 같은 통에
+            # 넣으면 표본을 아무리 늘려도 영원히 inconclusive 가 나온다.
+            entry["blocked_by"] = ("underpowered" if not conds["block_adequate"]
+                                   else "rejected_by_block_test")
             near_miss.append(entry)
 
     ranked = sorted((r for r in ok_rows if r["diff_pp"] is not None),
@@ -625,8 +631,13 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         elif not over_cost:
             # 가장 큰 효과조차 비용 밑 — 표본이 더 있어도 쓸 수 없다.
             concl = "no"
+        elif all((c.get("day_block") or {}).get("status") == "ok" for c in over_cost):
+            # 효과는 비용을 넘지만, 블록 검정이 **성립한 상태에서** 통과하지 못했다.
+            # 이건 '표본 부족'이 아니라 기각이다. 지평별 표가 상단 판정과 다른 말을 하면
+            # 읽는 사람은 표를 믿는다 — 두 자리가 같은 축을 써야 한다.
+            concl = "rejected"
         else:
-            # 효과는 비용을 넘지만 하루 블록 단위로는 노이즈와 구분되지 않는다.
+            # 비용을 넘는 칸 중 블록 검정이 성립조차 못 한 게 있다 — 판별 불가.
             concl = "underpowered"
         # 이 지평의 독립 단위(날) 규모 — 리포트 본문이 "표본이 모자라다/충분하다"를
         # 주장할 때 인용한다. 문장에 숫자를 박아 두면 표본이 늘어도 문장이 안 따라온다.
@@ -641,16 +652,39 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
             "block_days_max": max(day_counts) if day_counts else None,
         }
 
+    # 명목 유의 칸이 우연 기대치와 같은가 — "검정이 아무것도 못 찾았다"의 직접 증거.
+    # 70 회 검정에서 α=0.05 면 3~4 칸은 그냥 나온다. 실측이 그 언저리면 신호가 아니라
+    # 다중검정의 잡음이다.
+    block_ps = [(r.get("day_block") or {}).get("p") for r in ok_rows]
+    block_ps = [p for p in block_ps if p is not None]
+    noise = {"tested_cells": len(block_ps),
+             "nominal_sig_cells": sum(1 for p in block_ps if p < 0.05),
+             "chance_expected": round(0.05 * len(block_ps), 1),
+             "min_block_p": min(block_ps) if block_ps else None,
+             "bonferroni_alpha": (0.05 / len(block_ps)) if block_ps else None}
+
+    # 판정 축은 **하루 블록 검정이 말할 수 있었는가**다.
+    #   - 블록이 성립조차 못 한 칸이 비용을 넘었다 → 아직 판별 불가(inconclusive).
+    #   - 블록이 전부 성립했는데 아무것도 통과 못 했다 → 검정이 기각했다(no).
+    # 이 구분이 없으면 "표본을 늘렸더니 효과는 더 커졌는데 여전히 inconclusive" 라는,
+    # 어떤 표본으로도 닫히지 않는 판정이 나온다 — H3-b 가 닫으려던 바로 그 문이다.
+    undecided = [e for e in near_miss if e.get("blocked_by") == "underpowered"]
     if usable:
         signal, confidence = "yes", ("moderate" if len(usable) >= 2 else "low")
-    elif near_miss:
-        signal, confidence = "inconclusive", "low"
     elif not ok_rows:
+        signal, confidence = "inconclusive", "low"
+    elif undecided:
         signal, confidence = "inconclusive", "low"
     else:
         signal = "no"
-        top = abs(best["diff_pp"]) if best else 0.0
-        confidence = "moderate" if top < COST_PER_TRADE_PCT * 0.5 else "low"
+        # 확신도는 효과 크기가 아니라 **검정이 얼마나 확실히 기각했는가**로 잡는다.
+        # 명목 유의 칸이 우연 기대치 이하이고 날 수가 넉넉하면 moderate.
+        enough_days = min((e.get("block_n_days") or 0) for e in near_miss) if near_miss \
+            else min(((r.get("day_block") or {}).get("n_days") or 0) for r in ok_rows)
+        confidence = ("moderate"
+                      if (noise["nominal_sig_cells"] <= noise["chance_expected"] + 2
+                          and enough_days >= 30)
+                      else "low")
 
     # 하루 국면(B)의 실제 규모 — 관측 수와 독립 단위(날)의 괴리를 문장에 박지 않고
     # 측정값으로 채운다. 표본이 늘면 문구도 따라 움직여야 한다.
@@ -674,6 +708,17 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         f"({cov.get('n_dates', 0)} 거래일)이다. 여러 시장 국면(강세장/약세장/횡보)을 충분히 "
         f"가로지르는 길이가 아니므로, 여기서 '없음'이 나와도 '모든 시장에서 없음'은 아니다.",
     ]
+    # ★ 'no' 를 과대해석하지 않게 하는 한계 — 이 검정이 기각한 것은 **관측 수준에서 보이던
+    #   큰 차이**(수 %p)이지, 비용 언저리의 작은 우위가 아니다. 날 단위 표본이 ~90 이면
+    #   일간 수익률 산포(수 %p) 대비 0.34%p 를 잡아낼 검정력은 낮다.
+    if signal == "no":
+        limitations.insert(1, (
+            f"이 'no' 는 **관측 수준에서 보이던 큰 차이가 날 단위에서 재현되지 않는다**는 뜻이다. "
+            f"거래당 비용({COST_PER_TRADE_PCT}%p) 언저리의 **작은** 우위까지 배제하지는 못한다 — "
+            f"날 블록 {noise['tested_cells']}개 검정에서 명목 유의 칸이 "
+            f"{noise['nominal_sig_cells']}개(우연 기대치 {noise['chance_expected']})로 잡음과 "
+            f"구분되지 않지만, 그 정도 표본으로 0.34%p 를 검출할 검정력 자체가 낮기 때문이다. "
+            f"다만 참효과가 비용 언저리라면 어차피 쓸 수 없다."))
     bl_days = cov.get("regime_present_days", {}).get("daily_long_trend", 0)
     if bl_days == 0:
         limitations.append(
@@ -698,6 +743,7 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         "confidence": confidence,
         "usable_cells": usable,
         "near_miss_cells": near_miss,
+        "block_noise_check": noise,
         "by_horizon": by_horizon,
         "pseudo_replication_evidence": inflation[:8],
         "criteria": {
@@ -764,16 +810,30 @@ def render_md(payload: dict, cmd: str) -> str:
     a(f"| 거래당 비용 기준 | {COST_PER_TRADE_PCT}%p |")
     a(f"| 비용 넘는 (정의×지평) | {len(vd['usable_cells'])}개 |")
     a("")
+    _nz = vd.get("block_noise_check") or {}
+    _nm = vd.get("near_miss_cells") or []
     if vd["usable_regime_signal"] == "no":
-        a("**결론: 검증한 어떤 국면 정의도 거래당 비용을 넘는 예측력을 보이지 않는다.** "
-          "일부 칸이 통계적으로 유의하더라도(n 이 크면 당연하다) 효과 크기가 비용 밑이라 "
-          "국면 필터로 쓸 수 없다.")
+        _rej = [e for e in _nm if e.get("blocked_by") == "rejected_by_block_test"]
+        if _rej:
+            # 비용을 넘는 칸이 있는데도 'no' 인 경우 — 왜 그게 신호가 아닌지 명시한다.
+            a(f"**결론: 쓸 만한 국면 신호가 없다.** 관측 수준에서는 비용을 넘는 칸이 "
+              f"{len(_rej)}개 보이지만, 하루 블록 검정이 **전부 성립한 상태에서**(날 "
+              f"{min(e.get('block_n_days') or 0 for e in _rej)}~"
+              f"{max(e.get('block_n_days') or 0 for e in _rej)}개) 하나도 통과하지 못했다. "
+              f"명목 유의 칸도 {_nz.get('nominal_sig_cells')}개로 우연 기대치"
+              f"({_nz.get('chance_expected')})와 다르지 않다 — 표본이 모자란 게 아니라 "
+              f"**검정이 기각했다**.")
+        else:
+            a("**결론: 검증한 어떤 국면 정의도 거래당 비용을 넘는 예측력을 보이지 않는다.** "
+              "일부 칸이 통계적으로 유의하더라도(n 이 크면 당연하다) 효과 크기가 비용 밑이라 "
+              "국면 필터로 쓸 수 없다.")
     elif vd["usable_regime_signal"] == "yes":
         a("**결론: 비용을 넘는 국면 정의가 발견됐다.** 단 이는 오프라인 관측이며, "
           "shadow A/B 재확인 전에는 매매에 반영하지 않는다(이번 작업 범위 밖).")
     else:
-        a("**결론: 판정 불가(inconclusive).** 효과 크기가 비용 근처인 칸이 있으나 "
-          "재현성·구간 안정성 조건을 모두 만족하지 못했다.")
+        _und = [e for e in _nm if e.get("blocked_by") == "underpowered"]
+        a(f"**결론: 판정 불가(inconclusive).** 비용을 넘으면서 하루 블록 검정이 성립조차 "
+          f"하지 못한 칸이 {len(_und)}개 남아 있다 — 이 표본으로는 그 칸들을 판별할 수 없다.")
     a("")
     a(f"판정 기준(코드 고정): |UP−DOWN| ≥ {COST_PER_TRADE_PCT}%p **그리고** "
       f"**하루 블록 검정** Bonferroni 통과(관측 단위 p 아님) **그리고** 블록이 성립할 만큼 "
@@ -785,7 +845,8 @@ def render_md(payload: dict, cmd: str) -> str:
     a("| 지평 | 결론 | 최대 \\|차이\\| (%p) | 비용대비 | 비용 넘는 칸 | 블록 유의 칸 |")
     a("|---|---|---:|---:|---:|---:|")
     _CONCL = {"no": "**없음** (최대 효과조차 비용 밑)",
-              "underpowered": "표본 부족 (효과는 비용 이상이나 노이즈와 구분 불가)",
+              "rejected": "**없음** (효과는 비용 이상이나 일-블록 검정이 기각)",
+              "underpowered": "판별 불가 (일-블록 검정이 성립 못 함)",
               "signal": "**신호 있음**", "no_data": "데이터 없음"}
     for hkey, hlabel, _e in HORIZONS:
         h = vd.get("by_horizon", {}).get(hkey, {})
@@ -802,20 +863,27 @@ def render_md(payload: dict, cmd: str) -> str:
     _label = {k: lb for k, lb, _ in HORIZONS}
     _grp = {c: [_label[k] for k, _lb, _e in HORIZONS
                 if _by_h.get(k, {}).get("conclusion") == c]
-            for c in ("no", "underpowered", "signal")}
+            for c in ("no", "rejected", "underpowered", "signal")}
     if _grp["no"]:
         a(f"**{'/'.join(_grp['no'])}** 지평은 최대 효과조차 거래당 비용({COST_PER_TRADE_PCT}%p) "
           f"밑이라 결론이 확정적이다 — 표본이 더 있어도 이 국면으로는 비용을 회수하지 못한다.")
         a("")
+    def _day_range(concl: str) -> str:
+        ds = [d for k, _lb, _e in HORIZONS
+              if _by_h.get(k, {}).get("conclusion") == concl
+              for d in (_by_h[k].get("block_days_min"), _by_h[k].get("block_days_max"))
+              if d]
+        return f"{min(ds)}~{max(ds)}개" if ds else "—"
+    if _grp["rejected"]:
+        a(f"**{'/'.join(_grp['rejected'])}** 지평은 관측 수준 차이가 비용을 넘지만, 독립 단위(날) "
+          f"{_day_range('rejected')}로 하루 블록 검정이 **성립한 상태에서** 통과하지 못했다. "
+          f"관측을 독립으로 세면 커 보이던 차이가 날 단위로 묶는 순간 사라진다 — "
+          f"'판별 불가'가 아니라 **'있다고 볼 근거가 없다'** 다.")
+        a("")
     if _grp["underpowered"]:
-        _days = [d for k, _lb, _e in HORIZONS
-                 if _by_h.get(k, {}).get("conclusion") == "underpowered"
-                 for d in (_by_h[k].get("block_days_min"), _by_h[k].get("block_days_max"))
-                 if d]
-        _rng = f"{min(_days)}~{max(_days)}개" if _days else "충분하지 않아"
         a(f"**{'/'.join(_grp['underpowered'])}** 지평은 효과 크기가 비용을 넘지만 독립 단위(날)가 "
-          f"{_rng}뿐이라 노이즈와 구분되지 않는다 — '신호가 없다'가 아니라 "
-          f"**'이 표본으로는 판별할 수 없다'** 다.")
+          f"{_day_range('underpowered')}뿐이라 하루 블록 검정이 성립하지 않는다 — "
+          f"'신호가 없다'가 아니라 **'이 표본으로는 판별할 수 없다'** 다.")
         a("")
     if _grp["signal"]:
         a(f"**{'/'.join(_grp['signal'])}** 지평은 비용 초과와 하루 블록 유의를 **같은 칸에서** "
@@ -951,6 +1019,21 @@ def render_md(payload: dict, cmd: str) -> str:
       "변하는 정의는 그 날 안의 UP−DOWN 차이를 날짜별로 부호검정하고(시장 공통 요인 상쇄), "
       "하루에 라벨이 하나인 정의는 날짜 단위 평균끼리 비교한다.")
     a("")
+    # 블록 p 가 통째로 잡음인지 — 다중검정 기준선과 비교. '유의한 칸이 몇 개 있다'는
+    # 관찰이 무의미해지는 지점을 수치로 못박는다.
+    if _nz.get("tested_cells"):
+        a("**블록 p 가 잡음과 구분되는가** — 여러 칸을 동시에 검정하면 아무 신호가 없어도 "
+          "일부는 우연히 유의해진다. 실측이 그 기대치와 같으면 '유의한 칸이 있다'는 관찰 자체가 "
+          "정보가 아니다.")
+        a("")
+        a("| 항목 | 값 |")
+        a("|---|---:|")
+        a(f"| 검정한 (정의×지평) 칸 | {_nz['tested_cells']} |")
+        a(f"| 블록 p < 0.05 인 칸 | {_nz['nominal_sig_cells']} |")
+        a(f"| 우연 기대치 (0.05 × 칸수) | {_nz['chance_expected']} |")
+        a(f"| 최소 블록 p | {_p(_nz.get('min_block_p'))} |")
+        a(f"| Bonferroni 임계 | {_p(_nz.get('bonferroni_alpha'))} |")
+        a("")
 
     # ⑥ 연속 지표
     a("## ⑦ 연속 국면 지표 — Spearman")
