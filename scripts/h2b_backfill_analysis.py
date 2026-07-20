@@ -80,6 +80,10 @@ MIN_PRACTICAL_RHO = 0.05
 
 PARITY_TOLERANCE = 1e-6
 
+# s001(발견 표본)의 세션 날짜. 같은 날을 재현 표본에 넣으면 발견과 재현이 겹쳐
+# 순환 검증이 된다 → 기본적으로 제외하고, 포함 여부를 meta 에 기록한다.
+DISCOVERY_DATES = ("2026-07-15",)
+
 
 def rho_fmt(v) -> str:
     return "—" if v is None else f"{v:+.3f}"
@@ -225,6 +229,14 @@ def _run_parity_inner(journal_db: str, market_db: str, horizons, out: dict) -> d
 # 2) 후보 스트림
 # ---------------------------------------------------------------------------
 
+def _session_mix(obs) -> dict:
+    """관측의 세션 구성 — 정규장/시간외가 섞인 비율을 드러낸다."""
+    mix: dict = defaultdict(int)
+    for o in obs:
+        mix[o.session] += 1
+    return dict(sorted(mix.items()))
+
+
 def _missing_minutes(candles) -> int:
     """각 거래일의 [첫 봉, 마지막 봉] 구간에서 비어 있는 1분 슬롯 수(상한 추정)."""
     by_day: dict = defaultdict(list)
@@ -239,7 +251,8 @@ def _missing_minutes(candles) -> int:
 
 
 def collect_observations(db: str, symbols: list[str], horizons,
-                         min_days: int) -> tuple[list, dict]:
+                         min_days: int, *, exclude_dates: tuple = (),
+                         sessions: tuple | None = None) -> tuple[list, dict]:
     ex = CandidateStreamExtractor(horizons_min=horizons)
     all_obs = []
     coverage = {"requested_symbols": list(symbols), "fetched_symbols": [],
@@ -255,6 +268,10 @@ def collect_observations(db: str, symbols: list[str], horizons,
                 {"symbol": sym, "reason": "no 1m candles in history db (backfill 미수집/실패)"})
             continue
         obs = ex.extract(sym, candles, market="US")
+        if exclude_dates:
+            obs = [o for o in obs if o.et_date not in exclude_dates]
+        if sessions:
+            obs = [o for o in obs if o.session in sessions]
         days = sorted({c.ts_exchange.date().isoformat() for c in candles})
         cand_days = sorted({o.et_date for o in obs})
         entry = {
@@ -315,6 +332,8 @@ def analyze(obs, horizons, alpha: float) -> dict:
     by_tier = grouped(lambda o: TIERS.get(o.symbol, "?"), "tier")
     by_leverage = grouped(lambda o: leverage_group(o.symbol), "group")
     by_date = grouped(lambda o: o.et_date, "date")
+    # 세션별 층화 — 정규장/시간외는 유동성이 전혀 달라 한 상관에 섞으면 오염된다.
+    by_session = grouped(lambda o: o.session, "session")
 
     # 부호 안정성 — LOSO(leave-one-day-out)
     sign_stability = []
@@ -335,7 +354,7 @@ def analyze(obs, horizons, alpha: float) -> dict:
     survivors = sorted({r["feature"] for r in overall if r["bonferroni_pass"]})
     return {
         "overall": overall, "by_tier": by_tier, "by_symbol": by_symbol,
-        "by_leverage": by_leverage, "by_date": by_date,
+        "by_leverage": by_leverage, "by_date": by_date, "by_session": by_session,
         "sign_stability": sign_stability,
         "multiple_comparison": {"tests_run": tests, "alpha": alpha,
                                 "bonferroni_threshold": thr, "survivors": survivors},
@@ -687,6 +706,10 @@ def render_md(payload: dict, cmd: str) -> str:
     A("")
     A(f"요청 {len(cov['requested_symbols'])}종목 · 수집 {len(cov['fetched_symbols'])}종목")
     A("")
+    A(f"- 세션 구성(관측 수): `{meta.get('session_mix')}` · 필터: `{meta.get('session_filter')}`")
+    A(f"- 발견 표본 제외일: `{meta.get('discovery_dates_excluded') or '없음(포함됨 — 순환 주의)'}`"
+      " — s001 과 같은 날을 재현 표본에 넣으면 발견/재현이 겹친다.")
+    A("")
     A("| 종목 | Tier | 레버리지 | 봉 | 거래일 | 후보 | 후보발생일 |")
     A("|---|---|---|---:|---:|---:|---:|")
     for s in sorted(cov["per_symbol"], key=lambda x: (x["tier"], x["symbol"])):
@@ -731,6 +754,7 @@ def render_md(payload: dict, cmd: str) -> str:
 
     for title, key, col in (("Tier별", "by_tier", "tier"),
                             ("레버리지 그룹별", "by_leverage", "group"),
+                            ("세션별", "by_session", "session"),
                             ("종목별", "by_symbol", "symbol")):
         A(f"### {title} (H2-b feature 만)")
         A("")
@@ -837,6 +861,12 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--min-days", type=int, default=20, help="종목당 요구 거래일")
     ap.add_argument("--min-symbols", type=int, default=6,
                     help="일반화 판정에 필요한 최소 종목 수")
+    ap.add_argument("--sessions", default="",
+                    help="쉼표 구분 세션 필터(예: REGULAR). 비우면 전 세션 — "
+                         "s001 과 동일 조건이나 유동성이 다른 구간이 섞인다(리포트에 층화 표기)")
+    ap.add_argument("--include-discovery-date", action="store_true",
+                    help=f"발견 표본 {DISCOVERY_DATES} 를 재현 표본에 포함(기본은 제외 — "
+                         "포함하면 발견과 재현이 겹쳐 순환 검증이 된다)")
     ap.add_argument("--parity-journal", default="data/journal_us_phase6_s001.sqlite")
     ap.add_argument("--parity-market", default="data/market_us_phase6_s001.sqlite")
     ap.add_argument("--out-md", default="reports/h2b_backfill_validation.md")
@@ -867,7 +897,10 @@ def main(argv: list[str]) -> int:
           file=sys.stderr)
 
     print(f"[2/5] 후보 스트림 — {len(symbols)}종목", file=sys.stderr)
-    obs, coverage = collect_observations(args.db, symbols, horizons, args.min_days)
+    excluded = () if args.include_discovery_date else DISCOVERY_DATES
+    sessions = tuple(x.strip().upper() for x in args.sessions.split(",") if x.strip()) or None
+    obs, coverage = collect_observations(args.db, symbols, horizons, args.min_days,
+                                         exclude_dates=excluded, sessions=sessions)
     print(f"      후보 {len(obs):,}건 / 수집 {len(coverage['fetched_symbols'])}종목",
           file=sys.stderr)
 
@@ -887,6 +920,10 @@ def main(argv: list[str]) -> int:
                        "end": dates[-1] if dates else None,
                        "trading_days": len(dates)},
         "forward_horizons_min": list(horizons),
+        # 발견/재현 표본 분리와 세션 구성을 명시 — 나중에 "겹쳤나?"를 되물을 필요가 없게.
+        "discovery_dates_excluded": list(excluded),
+        "session_filter": list(sessions) if sessions else "all",
+        "session_mix": _session_mix(obs),
     }
     payload = {"meta": meta, "coverage": coverage, "parity_test": parity,
                "h2b": h2b, "official_validation": official, "verdict": ver}
