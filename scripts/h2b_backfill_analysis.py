@@ -24,7 +24,14 @@ import sys
 from collections import defaultdict
 from datetime import datetime, timezone
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _REPO_ROOT)
+
+
+def _repo_path(rel: str) -> str:
+    """저장소 기준 절대경로. 기본값을 CWD 상대로 두면 다른 디렉터리에서 실행할 때
+    조용히 엉뚱한 DB 를 읽고 엉뚱한 곳에 리포트를 쓴다."""
+    return rel if os.path.isabs(rel) else os.path.join(_REPO_ROOT, rel)
 
 from src.history.candidate_stream import (
     CandidateStreamExtractor,
@@ -900,6 +907,14 @@ def main(argv: list[str]) -> int:
               f"누수 위험.", file=sys.stderr)
         return 2
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
+    # 경로 기본값을 저장소 기준으로 고정(다른 CWD 에서 실행해도 같은 산출물).
+    args.db = _repo_path(args.db)
+    args.parity_journal = _repo_path(args.parity_journal)
+    args.parity_market = _repo_path(args.parity_market)
+    args.out_md = _repo_path(args.out_md)
+    args.out_json = _repo_path(args.out_json)
+    if args.out_jsonl:
+        args.out_jsonl = _repo_path(args.out_jsonl)
 
     print(f"[1/5] 패리티 — {args.parity_journal}", file=sys.stderr)
     parity = run_parity(args.parity_journal, args.parity_market, horizons)
@@ -941,7 +956,7 @@ def main(argv: list[str]) -> int:
                "h2b": h2b, "official_validation": official, "verdict": ver}
 
     print("[5/5] 산출물 기록", file=sys.stderr)
-    out_jsonl = args.out_jsonl or f"datasets/h2b_candidates_{rng}.jsonl"
+    out_jsonl = args.out_jsonl or _repo_path(f"datasets/h2b_candidates_{rng}.jsonl")
     for path in (args.out_md, args.out_json, out_jsonl):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     with open(out_jsonl, "w", encoding="utf-8") as fh:
