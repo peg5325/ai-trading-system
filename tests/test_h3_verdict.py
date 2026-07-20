@@ -15,11 +15,18 @@ from __future__ import annotations
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scripts.h3_regime_analysis import (
+    BLOCK_RESULT_KEYS,
+    CATEGORICAL_DEFS,
+    CONTINUOUS_DEFS,
     COST_PER_TRADE_PCT,
+    LOOKAHEAD_CONTROL_KEY,
     MIN_BLOCK_DAYS,
+    _block_result,
     build_verdict,
     day_block_test,
 )
@@ -187,25 +194,68 @@ def test_block_status_reflects_the_n_actually_tested():
         f"차이 0 인 날을 제외하면 검정 n 이 2 뿐인데 status={blk['status']}")
 
 
-def test_block_result_keys_are_the_same_in_both_modes():
-    """산출 JSON 은 기계용이다 — 모드에 따라 키가 있다 없다 하면 소비자가 깨진다."""
-    paired = []
-    for i in range(MIN_BLOCK_DAYS + 1):
-        paired += _paired_day(f"2026-03-{i + 1:02d}", 2.0, 1.0)
-    p = day_block_test(paired, "k", "UP", "DOWN", "1d")
+def _single_label_days(up_days: int, down_days: int):
+    """하루에 라벨이 하나뿐인 정의(비쌍 모드)를 만든다."""
+    obs = []
+    for i in range(up_days):
+        obs += [_Obs(f"2026-03-{i + 1:02d}", "UP", 2.0) for _ in range(5)]
+    for i in range(down_days):
+        obs += [_Obs(f"2026-04-{i + 1:02d}", "DOWN", 1.0) for _ in range(5)]
+    return obs
 
-    # 하루에 라벨이 하나뿐인 정의 → 비쌍 모드
-    unpaired = []
-    for i in range(MIN_BLOCK_DAYS + 1):
-        for _ in range(5):
-            unpaired.append(_Obs(f"2026-03-{i + 1:02d}", "UP", 2.0))
-    for i in range(MIN_BLOCK_DAYS + 1):
-        for _ in range(5):
-            unpaired.append(_Obs(f"2026-04-{i + 1:02d}", "DOWN", 1.0))
-    u = day_block_test(unpaired, "k", "UP", "DOWN", "1d")
 
-    assert u["mode"] == "unpaired" and p["mode"] == "paired"
-    assert set(p) == set(u), f"키 구성이 다르다: {set(p) ^ set(u)}"
+def _all_three_block_paths():
+    """day_block_test 의 세 반환 경로를 모두 만든다."""
+    paired_obs = []
+    for i in range(MIN_BLOCK_DAYS + 1):
+        paired_obs += _paired_day(f"2026-03-{i + 1:02d}", 2.0, 1.0)
+    return {
+        "paired": day_block_test(paired_obs, "k", "UP", "DOWN", "1d"),
+        "unpaired_full": day_block_test(
+            _single_label_days(MIN_BLOCK_DAYS + 1, MIN_BLOCK_DAYS + 1),
+            "k", "UP", "DOWN", "1d"),
+        # 표본이 적은 (정의×지평) 칸에서 실제로 나오는 경로
+        "insufficient": day_block_test(
+            _single_label_days(2, 2), "k", "UP", "DOWN", "1d"),
+    }
+
+
+def test_block_result_keys_are_identical_on_every_return_path():
+    """★ 산출 JSON 은 기계용이다 — **세 경로 전부** 같은 키를 내야 한다.
+
+    앞선 수정은 쌍/비쌍-full 두 경로만 맞추고 `insufficient_days` 경로를 빠뜨렸고,
+    당시 테스트가 두 경로만 비교해서 그대로 통과했다. 경로를 전수로 돈다.
+    """
+    paths = _all_three_block_paths()
+    assert paths["paired"]["mode"] == "paired"
+    assert paths["unpaired_full"]["mode"] == "unpaired"
+    assert paths["insufficient"]["status"] == "insufficient_days"
+    for name, res in paths.items():
+        assert set(res) == set(BLOCK_RESULT_KEYS), (
+            f"{name} 경로 키가 다르다: {set(res) ^ set(BLOCK_RESULT_KEYS)}")
+
+
+def test_block_result_rejects_unknown_keys():
+    """정규 키 밖의 값을 넣으면 조용히 통과시키지 않고 즉시 깨뜨린다."""
+    with pytest.raises(KeyError):
+        _block_result("paired", "ok", not_a_real_key=1)
+
+
+def test_block_result_fills_missing_keys_with_none():
+    r = _block_result("unpaired", "insufficient_days", n_days=0)
+    assert set(r) == set(BLOCK_RESULT_KEYS)
+    assert r["median_diff_pp"] is None and r["p"] is None
+
+
+def test_lookahead_control_key_is_never_an_analysed_definition():
+    """★ 오염 라벨이 분석 정의에 섞이면 import 시점에 터져야 한다.
+
+    이 규약이 깨지면 오염된 국면이 **조용히** 판정에 들어간다 — 이 리포트가 통째로
+    막으려는 실패 양상이다. 모듈 상수로 실제 격리돼 있는지 확인한다.
+    """
+    analysed = {d[0] for d in CATEGORICAL_DEFS} | {d[0] for d in CONTINUOUS_DEFS}
+    assert LOOKAHEAD_CONTROL_KEY not in analysed
+    assert LOOKAHEAD_CONTROL_KEY == "daily_trend_same_day"
 
 
 def test_block_status_ok_when_enough_nonzero_days():
