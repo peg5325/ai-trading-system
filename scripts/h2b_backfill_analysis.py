@@ -84,6 +84,15 @@ PARITY_TOLERANCE = 1e-6
 # 순환 검증이 된다 → 기본적으로 제외하고, 포함 여부를 meta 에 기록한다.
 DISCOVERY_DATES = ("2026-07-15",)
 
+# 라이브(paper_loop)가 실제로 도는 세션. 백필은 24시간 봉을 주지만 라이브는 세션 창에서만
+# 사이클을 돌아 **OVERNIGHT 봉을 본 적이 없다.** 실측 세션 구성:
+#   발견 표본 s001 : PRE 25 / REGULAR 137 / POST 9  (OVERNIGHT 0)
+#   백필 전 세션   : OVERNIGHT 32% / PRE 23% / REGULAR 32% / POST 13%
+# OVERNIGHT 을 넣으면 발견 표본과 **다른 모집단**을 비교하게 되고, 유동성이 전혀 다른
+# 구간이 상관을 오염시킨다. 그래서 기본은 라이브 가용 세션으로 제한한다
+# (--sessions 로 재정의 가능, ALL 이면 오버나이트 포함).
+LIVE_SESSIONS = ("PRE", "REGULAR", "POST")
+
 
 def rho_fmt(v) -> str:
     return "—" if v is None else f"{v:+.3f}"
@@ -861,9 +870,10 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--min-days", type=int, default=20, help="종목당 요구 거래일")
     ap.add_argument("--min-symbols", type=int, default=6,
                     help="일반화 판정에 필요한 최소 종목 수")
-    ap.add_argument("--sessions", default="",
-                    help="쉼표 구분 세션 필터(예: REGULAR). 비우면 전 세션 — "
-                         "s001 과 동일 조건이나 유동성이 다른 구간이 섞인다(리포트에 층화 표기)")
+    ap.add_argument("--sessions", default=",".join(LIVE_SESSIONS),
+                    help="쉼표 구분 세션 필터. 기본은 라이브 가용 세션(PRE,REGULAR,POST) — "
+                         "백필은 24h 봉을 주지만 라이브는 OVERNIGHT 을 본 적이 없어 "
+                         "포함하면 발견 표본과 다른 모집단이 된다. ALL 이면 전 세션.")
     ap.add_argument("--include-discovery-date", action="store_true",
                     help=f"발견 표본 {DISCOVERY_DATES} 를 재현 표본에 포함(기본은 제외 — "
                          "포함하면 발견과 재현이 겹쳐 순환 검증이 된다)")
@@ -899,6 +909,8 @@ def main(argv: list[str]) -> int:
     print(f"[2/5] 후보 스트림 — {len(symbols)}종목", file=sys.stderr)
     excluded = () if args.include_discovery_date else DISCOVERY_DATES
     sessions = tuple(x.strip().upper() for x in args.sessions.split(",") if x.strip()) or None
+    if sessions and "ALL" in sessions:
+        sessions = None
     obs, coverage = collect_observations(args.db, symbols, horizons, args.min_days,
                                          exclude_dates=excluded, sessions=sessions)
     print(f"      후보 {len(obs):,}건 / 수집 {len(coverage['fetched_symbols'])}종목",
