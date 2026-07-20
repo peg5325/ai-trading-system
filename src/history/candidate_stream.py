@@ -66,7 +66,11 @@ class ForwardReturn:
     anchor_price: float | None = None
     exit_price: float | None = None
     exit_ts_utc: str | None = None
-    incomplete_reason: str | None = None   # session_end | no_bar | gap_too_large
+    incomplete_reason: str | None = None   # session_end | no_bar | gap_too_large | bad_anchor
+    # 실제로 실현된 지평(분). 목표 라벨에 봉이 없으면 그 이후 첫 봉을 쓰므로
+    # 요청 지평보다 최대 한 봉(DECISION_BAR_MINUTES) 길 수 있다. 소비자가 필요하면
+    # `realized_horizon_min != horizon_min` 인 관측을 걸러낼 수 있게 기록한다.
+    realized_horizon_min: int | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -118,13 +122,22 @@ class CandidateObservation:
 def build_decision_bars(candles_1m: list[Candle], symbol: str) -> list[Candle]:
     """1m 캔들 → live 와 동일한 5m 결정 봉.
 
-    live 는 `resample(..., drop_partial=True)` 로 진행 중 버킷을 버린다. 과거 재구성에서는
-    시리즈 전체가 이미 확정이므로 drop_partial=False 로 만들고, 마지막 버킷이 부분일
-    가능성은 forward return 의 미완결 처리로 흡수한다(조용한 절단 금지).
+    live(`paper_loop`)는 매 사이클 `resample(..., drop_partial=True)` 로 **진행 중 버킷을
+    버린다.** 재구성도 같은 규칙을 쓴다.
+
+    이전 구현은 `drop_partial=False` 로 만들고 "마지막 부분 버킷은 forward return 의
+    미완결 처리로 흡수된다"고 적었으나 **사실이 아니었다.** 그 버킷은 (a) 스크리너에
+    들어가 라이브가 결코 만들지 않는 관측을 1건 만들고, (b) 다른 앵커의 `exit_price` 로
+    쓰이면서 `complete=True` 로 표기됐다(`compute_forward_returns` 는 목표 봉의 존재만
+    보고 그 봉이 완결 버킷인지는 보지 않는다).
+
+    시리즈 전체의 마지막 버킷 하나뿐이라 통계적 영향은 작지만, 이 모듈이 내세우는
+    "미완결은 0 대입도 조용한 drop 도 하지 않는다" 계약이 정확히 그 지점에서 샜다.
+    live 와 같은 규칙으로 맞춰 근본에서 없앤다.
     """
     if not candles_1m:
         return []
-    df5 = resample(candles_to_frame(candles_1m), DECISION_RULE, drop_partial=False)
+    df5 = resample(candles_to_frame(candles_1m), DECISION_RULE, drop_partial=True)
     return _frame_to_candles(df5, symbol)
 
 
@@ -138,7 +151,7 @@ def _frame_to_candles(df: pd.DataFrame, symbol: str) -> list[Candle]:
         out.append(Candle(
             symbol=symbol, interval=DECISION_RULE, ts_utc=ts.to_pydatetime(),
             ts_exchange=et.to_pydatetime(),
-            session=row.get("session") or classify_session(et),
+            session=row["session"],          # _add_meta 가 항상 채운다
             open=float(row["open"]), high=float(row["high"]), low=float(row["low"]),
             close=float(row["close"]), volume=float(row["volume"]),
             currency=row.get("currency") or "USD", adjusted=True))
@@ -177,10 +190,17 @@ def compute_forward_returns(bars: list[Candle], idx: int,
             out[str(h)] = ForwardReturn(h, False, anchor_price=anchor_price,
                                         incomplete_reason="gap_too_large").to_dict()
             continue
-        ret = (exit_bar.close - anchor_price) / anchor_price * 100.0 if anchor_price else None
+        if not anchor_price:
+            # 종가 0/None — 수익률 정의 불가. 다른 미완결 경로와 같이 사유를 남긴다.
+            out[str(h)] = ForwardReturn(h, False, anchor_price=anchor_price,
+                                        incomplete_reason="bad_anchor").to_dict()
+            continue
+        realized = int(round((exit_bar.ts_utc - anchor.ts_utc).total_seconds() / 60.0))
+        ret = (exit_bar.close - anchor_price) / anchor_price * 100.0
         out[str(h)] = ForwardReturn(
-            h, ret is not None, return_pct=ret, anchor_price=anchor_price,
-            exit_price=exit_bar.close, exit_ts_utc=exit_bar.ts_utc.isoformat()).to_dict()
+            h, True, return_pct=ret, anchor_price=anchor_price,
+            exit_price=exit_bar.close, exit_ts_utc=exit_bar.ts_utc.isoformat(),
+            realized_horizon_min=realized).to_dict()
     return out
 
 
@@ -239,7 +259,18 @@ class CandidateStreamExtractor:
         """모든 결정 봉에 대해 스크리너를 돌려 후보 관측을 만든다.
 
         include_excluded=False(기본)면 live 와 동일하게 LONG_SETUP 후보만 남긴다.
+
+        ⚠ 현재 US 전용이다. 봉 생성 경로가 ET 고정이라(`_frame_to_candles` 의
+        `tz_convert(ET)`, 그 앞단 `resample`→`_add_meta` 의 `classify_session`)
+        market="KR" 로 부르면 `ts_exchange`/`session`/`et_date` 가 전부 ET 기준으로
+        계산된 채 레코드에만 "KR" 이 찍힌다. `et_date` 는 forward return 의 거래일
+        경계 clip 기준이라 KR 종목의 오버나이트 차단이 엉뚱한 시각에 걸린다.
+        조용히 틀린 값을 내느니 크게 실패시킨다.
         """
+        if market != "US":
+            raise NotImplementedError(
+                f"market={market!r} 미지원 — 봉/세션 계산이 ET 고정이다. "
+                "KR 지원은 거래소 타임존 배선이 선행되어야 한다(조용한 오분류 방지).")
         bars, ind = self.prepare(candles_1m, symbol)
         if not bars or ind.empty:
             return []
@@ -294,14 +325,24 @@ def align_live_outcome(ind: pd.DataFrame, snapshot: dict, *,
 
     저널 cycle_ts 는 예정 시각일 뿐이고 루프 지연에 따라 실제 사용 봉이 달라지므로
     시계 기반 매칭은 재현에 실패한다(s001 에서 9건). 지문 매칭은 그 지연과 무관하다.
+
+    **모호하면 고르지 않는다.** 2등 후보도 tolerance 이내면 어느 봉인지 단정할 수 없으므로
+    None 을 돌려준다. 패리티 전체가 "정렬이 옳다"에 얹혀 있는데, 최소거리 하나만 고르면
+    잘못된 봉에 확신을 갖고 붙어도 드러나지 않는다. 애매한 건 정렬 실패로 세는 편이
+    "정렬 실패 0" 이라는 지표를 훨씬 강하게 만든다.
     """
     best_i, best_d = None, float("inf")
+    second_d = float("inf")
     for i in range(len(ind)):
         d = fingerprint_distance(ind.iloc[i], snapshot)
         if d < best_d:
-            best_i, best_d = i, d
+            best_i, best_d, second_d = i, d, best_d
+        elif d < second_d:
+            second_d = d
     if best_i is None or best_d > tolerance:
         return None
+    if second_d <= tolerance:
+        return None      # 모호 — 두 봉이 똑같이 잘 맞는다
     return best_i
 
 

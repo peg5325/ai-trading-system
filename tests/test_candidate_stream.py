@@ -41,13 +41,41 @@ def _bars_5m(n_minutes: int, price=lambda m: 100.0 + m * 0.01) -> list[Candle]:
 
 
 def test_build_decision_bars_matches_live_5m_rule():
-    """1m → 5m 라벨은 버킷 시작시각(label=left)."""
+    """1m → 5m 라벨은 버킷 시작시각(label=left). 마지막(진행중) 버킷은 버린다."""
     bars = _bars_5m(20)
-    assert len(bars) == 4
+    assert len(bars) == 3, "live 와 동일하게 마지막 버킷을 버린다(4개가 아니라 3개)"
     assert bars[0].ts_utc == OPEN_UTC
     assert bars[1].ts_utc == OPEN_UTC + timedelta(minutes=5)
     # 버킷 [0,5) 의 종가 = 1m 봉 4번의 종가
     assert bars[0].close == 100.0 + 4 * 0.01
+
+
+def test_partial_last_bucket_is_not_emitted():
+    """★ 미완결 버킷이 관측으로도 exit_price 로도 새지 않는다.
+
+    live 는 drop_partial=True 라 진행 중 버킷을 결코 쓰지 않는다. 재구성이 그 버킷을
+    만들면 (a) 라이브가 만들지 않는 관측이 1건 생기고 (b) 다른 앵커의 exit_price 로
+    complete=True 로 쓰인다.
+    """
+    # 42분 = 8개 완결 버킷 + 마지막 [40,45) 는 1m 봉 2개뿐(미완결)
+    ones = [_c1(m, 100.0 + m * 0.01) for m in range(42)]
+    bars = build_decision_bars(ones, "TEST")
+    assert len(bars) == 8, f"완결 버킷 8개만 나와야 한다(실제 {len(bars)})"
+    last_label = OPEN_UTC + timedelta(minutes=35)
+    assert bars[-1].ts_utc == last_label
+    assert all(b.ts_utc <= last_label for b in bars), "미완결 버킷 라벨이 섞이면 안 된다"
+
+
+def test_realized_horizon_is_recorded():
+    """목표 라벨이 비어 뒤 봉을 쓰면 실현 지평이 요청 지평과 다르게 기록된다."""
+    # 30분 지평의 목표 봉만 빠뜨린다: [30,35) 버킷에 1m 봉이 없도록 구성
+    minutes = [m for m in range(0, 120) if not (30 <= m < 35)]
+    ones = [_c1(m, 100.0 + m * 0.01) for m in minutes]
+    bars = build_decision_bars(ones, "TEST")
+    fwd = compute_forward_returns(bars, 0, (30,))["30"]
+    assert fwd["complete"] is True
+    assert fwd["realized_horizon_min"] == 35, "실제로는 35분 뒤 종가로 계산됐음이 기록돼야 한다"
+    assert fwd["horizon_min"] == 30
 
 
 def test_forward_return_uses_only_future_bars():
@@ -142,6 +170,30 @@ def test_extractor_window_is_causal(monkeypatch):
     assert seen == [i + 1 for i in range(len(ind))], "window 는 i+1 행이어야 한다"
     # 마지막 행의 close 가 미래 봉의 close 와 섞이지 않았는지
     assert float(ind.iloc[0]["close"]) == bars[0].close
+
+
+def test_extract_rejects_non_us_market_loudly():
+    """market 인자가 계산에 반영되지 않으므로 조용히 틀리느니 크게 실패한다."""
+    import pytest
+    ex = CandidateStreamExtractor()
+    ones = [_c1(m, 100.0) for m in range(60)]
+    with pytest.raises(NotImplementedError, match="ET"):
+        ex.extract("005930", ones, market="KR")
+
+
+def test_alignment_returns_none_when_ambiguous():
+    """2등도 tolerance 이내면 봉을 단정하지 않는다(모호 = 정렬 실패)."""
+    import pandas as pd
+    from src.history.candidate_stream import align_live_outcome
+    # 완전히 동일한 두 행 → 어느 쪽인지 구분 불가
+    row = {"close": 100.0, "ema7": 99.0, "ema20": 98.0, "rsi14": 55.0,
+           "vwap": 99.5, "bb_upper": 102.0, "bb_lower": 96.0}
+    ind = pd.DataFrame([row, row])
+    assert align_live_outcome(ind, row) is None, "동률이면 None 이어야 한다"
+    # 한 행만 맞으면 정상 정렬
+    other = dict(row, close=200.0)
+    ind2 = pd.DataFrame([row, other])
+    assert align_live_outcome(ind2, row) == 0
 
 
 def test_extract_produces_components_and_forwards():
