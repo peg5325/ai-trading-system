@@ -187,6 +187,27 @@ def test_block_status_reflects_the_n_actually_tested():
         f"차이 0 인 날을 제외하면 검정 n 이 2 뿐인데 status={blk['status']}")
 
 
+def test_block_result_keys_are_the_same_in_both_modes():
+    """산출 JSON 은 기계용이다 — 모드에 따라 키가 있다 없다 하면 소비자가 깨진다."""
+    paired = []
+    for i in range(MIN_BLOCK_DAYS + 1):
+        paired += _paired_day(f"2026-03-{i + 1:02d}", 2.0, 1.0)
+    p = day_block_test(paired, "k", "UP", "DOWN", "1d")
+
+    # 하루에 라벨이 하나뿐인 정의 → 비쌍 모드
+    unpaired = []
+    for i in range(MIN_BLOCK_DAYS + 1):
+        for _ in range(5):
+            unpaired.append(_Obs(f"2026-03-{i + 1:02d}", "UP", 2.0))
+    for i in range(MIN_BLOCK_DAYS + 1):
+        for _ in range(5):
+            unpaired.append(_Obs(f"2026-04-{i + 1:02d}", "DOWN", 1.0))
+    u = day_block_test(unpaired, "k", "UP", "DOWN", "1d")
+
+    assert u["mode"] == "unpaired" and p["mode"] == "paired"
+    assert set(p) == set(u), f"키 구성이 다르다: {set(p) ^ set(u)}"
+
+
 def test_block_status_ok_when_enough_nonzero_days():
     obs = []
     for i in range(MIN_BLOCK_DAYS + 1):

@@ -338,6 +338,7 @@ def day_block_test(obs: list[Obs], key: str, up_val: str, down_val: str,
                 "n_up_days": len(up_days), "n_down_days": len(down_days),
                 "mean_diff_pp": (_mean(up_days) - _mean(down_days))
                 if (up_days and down_days) else None,
+                "positive_days": None, "tested_days": 0,
                 "p": None, "status": "insufficient_days"}
     mw = mann_whitney_u(up_days, down_days)
     enough = min(len(up_days), len(down_days)) >= MIN_BLOCK_DAYS
@@ -345,8 +346,11 @@ def day_block_test(obs: list[Obs], key: str, up_val: str, down_val: str,
             "n_up_days": len(up_days), "n_down_days": len(down_days),
             "mean_diff_pp": _mean(up_days) - _mean(down_days),
             "median_diff_pp": (_median(up_days) - _median(down_days)),
-            "positive_days": None, "p": mw.p,
-            "status": "ok" if enough else "underpowered"}
+            # 비쌍 모드는 날짜 평균 전부가 검정에 들어간다(제외되는 '차이 0' 개념이 없다).
+            # 키 구성을 쌍 모드와 맞춰 둔다 — JSON 이 기계용 산출물이라 모드에 따라
+            # 키가 있다 없다 하면 소비자가 KeyError 를 만난다.
+            "positive_days": None, "tested_days": len(up_days) + len(down_days),
+            "p": mw.p, "status": "ok" if enough else "underpowered"}
 
 
 def chronological_check(obs: list[Obs], key: str, up_val: str, down_val: str,
