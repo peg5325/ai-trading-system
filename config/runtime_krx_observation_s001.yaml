@@ -1,0 +1,80 @@
+# KRX 계측 관측 세션 — krx-observation-s001 (실행 완료 config — 재현성 자산으로 추적)
+#
+# 목적: 한국장 Paper 계측 관측 표본 수집(US Phase 6 s001 과 별도 표본).
+#   한국장은 QQQ 기반 Market Context/Shadow 를 유효화할 수 없으므로 MC/Shadow OFF.
+#   ※ 공식 Phase 6 승격 세션 아님 — promotion gate FULL 개수에 합산 금지, shadow_outcomes/
+#     phase6_promotion_report 결과를 이 세션으로 만들지 말 것.
+# 원칙: 실주문 없음(PaperBroker only), FakeAI(항상 APPROVE), OpenAI 미호출. 전략/리스크 파라미터
+#   변경·최적화 금지(기존 KRX 비교군 값 그대로).
+# ★ EOD 재진입 안전: near-close 신규진입 차단은 현재 leverage>1 에만 적용(risk_manager.py:127).
+#   일반 종목은 EOD 청산 후 재진입해 오버나잇이 남을 수 있어, 오늘은 FULL 목표 대신 EOD 창 첫
+#   사이클 후 재진입 전 조기 graceful shutdown(운영 오케스트레이터가 15:22 KST SIGINT) →
+#   manifest PARTIAL/ABORTED = NON_PRIMARY: EARLY_EOD_SAFETY(정상 안전 선택).
+symbols:
+  - "005930"   # 삼성전자
+  - "000660"   # SK하이닉스
+  - "402340"   # SK스퀘어
+
+poll_interval_s: 20
+initial_capital: 3000000        # 3,000,000 KRW (fresh portfolio)
+entry_notional_pct: 0.20        # 종목당 최대 20%
+max_positions: 5                # 동시 최대 5종목
+account_value: 3000000          # 후방호환(레거시)
+fetch_spacing_s: 0.5
+max_calls_per_session: 300
+
+# ---- Session Isolation (v2.1 Phase 1) — fresh identity + namespace ----
+session:
+  id: krx-observation-s001
+  start_mode: FRESH             # 기존 namespace/DB 발견 시 startup guard 가 거부(재사용 금지)
+  market: KR
+  currency: KRW
+
+paper_broker:                    # 실주문 없음 — PaperBrokerProvider 만
+  slippage_bps: 5
+  fee_bps: 2
+
+ai:
+  provider: fake                 # FakeAI(항상 APPROVE) — OpenAI 호출 금지
+  model: gpt-5.5-mini
+
+# ---- 청산 규칙(Exit Signal Generator) — 기존 KRX 비교군과 동일 값(변경 없음) ----
+# 우선순위: STOP_LOSS > TAKE_PROFIT > TIME_EXIT > EOD_FLATTEN
+exits:
+  enable_all_symbols_eod_flatten: true   # 전 종목 KR 정규장 마감(15:30 KST) 청산
+  eod_flatten_minutes_before_close: 10   # 마감 10분 전 창(KR 15:20~15:30 KST)
+  stop_loss_pct: 0.01                    # -1.0% 손절
+  take_profit_pct: 0.015                 # +1.5% 익절
+  time_exit_minutes: 60                  # 60분 보유 후 청산
+  leverage_eod_flatten: true             # 레버리지 ETF 당일청산 유지(현 유니버스엔 해당 없음)
+
+# ---- Market Context 관측 (v2.1 PR 2-B) — OFF (KRX benchmark 비활성) ----
+market_context:
+  enabled: false
+
+# ---- Shadow Decision 관측 (v2.1 PR 4-A) — OFF ----
+shadow:
+  enabled: false
+
+# ---- Re-entry Cooldown (v2.1 Phase 5) — OFF ----
+reentry_cooldown:
+  enabled: false
+
+journal:
+  db: data/journal_krx_observation_s001.sqlite
+candles:
+  db: data/market_krx_observation_s001.sqlite
+review:
+  db: data/reviews_krx_observation_s001.sqlite
+metrics:
+  db: data/metrics_krx_observation_s001.sqlite
+system_review:
+  db: data/system_reviews_krx_observation_s001.sqlite
+
+logging:
+  dir: logs_krx_observation_s001
+  max_bytes: 1000000
+  backup_count: 3
+
+reports_dir: reports
+status_path: status_krx_observation_s001.json
