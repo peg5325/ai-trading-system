@@ -566,6 +566,26 @@ MIN_BLOCK_DAYS_FOR_NEGATIVE = 30
 CANNOT_SPEAK = frozenset({"underpowered", "split_insufficient"})
 
 
+def effective_block_days(blk: dict) -> int:
+    """블록 검정에 **실제로 들어간** 날 수. `n_days`(표시용 합계)와 다르다.
+
+    두 모드 모두 `n_days` 는 유효표본보다 크다:
+      unpaired — `n_days` 는 UP 날 + DOWN 날 **합계**지만, 두 집단을 비교하는 검정의
+                 검정력은 **적은 쪽**이 정한다(UP 67일 / DOWN 26일이면 유효표본은 26).
+      paired   — `n_days` 는 차이를 만든 날 수지만, 부호검정에 들어가는 건 차이가 0 이
+                 아닌 날(`tested_days`)뿐이다.
+
+    이 파일은 같은 함정을 이미 한 번 겪었다 — `day_block_test` 의 적정성 판정이
+    `len(diffs)` 를 쓰다가 "'차이 0' 인 날이 많을 때 검정력이 없는데도 ok 가 되어 게이트가
+    실제보다 후하게 열린다"는 이유로 `tested_days` 로 바뀌었다. 부정 주장 게이트가 다시
+    `n_days` 를 쓰면 그 교훈을 반쪽만 적용한 셈이고, 오차 방향이 하필 **"없다"를 더 자신
+    있게 말하는 쪽**이라 더 나쁘다.
+    """
+    if blk.get("mode") == "unpaired":
+        return min(blk.get("n_up_days") or 0, blk.get("n_down_days") or 0)
+    return blk.get("tested_days") or 0
+
+
 def cell_conditions(r: dict) -> dict:
     """한 (정의×지평) 칸의 판정 조건 4종.
 
@@ -716,6 +736,17 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
     #   - 블록이 전부 성립했는데 아무것도 통과 못 했다 → 검정이 기각했다(no).
     # 이 구분이 없으면 "표본을 늘렸더니 효과는 더 커졌는데 여전히 inconclusive" 라는,
     # 어떤 표본으로도 닫히지 않는 판정이 나온다 — H3-b 가 닫으려던 바로 그 문이다.
+    # 부정 주장('없다')을 지탱하는 근거 — 판정 밖으로 꺼내 감사 가능하게 둔다. 확신도만
+    # 싣고 그 근거를 감추면 독자가 'no (moderate)' 를 검증할 방법이 없다.
+    eff_days = [effective_block_days(r.get("day_block") or {}) for r in ok_rows]
+    support = {
+        "min_effective_block_days": min(eff_days) if eff_days else 0,
+        "required_for_moderate": MIN_BLOCK_DAYS_FOR_NEGATIVE,
+        # 표시용 n_days 와의 차이 — 유효표본이 왜 더 작은지 독자가 대조할 수 있게.
+        "min_reported_n_days": min(((r.get("day_block") or {}).get("n_days") or 0)
+                                   for r in ok_rows) if ok_rows else 0,
+    }
+
     undecided = [e for e in near_miss if e.get("blocked_by") in CANNOT_SPEAK]
     if usable:
         signal, confidence = "yes", ("moderate" if len(usable) >= 2 else "low")
@@ -728,12 +759,16 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         # 확신도는 효과 크기가 아니라 **검정이 얼마나 확실히 기각했는가**로 잡는다.
         #   (1) 명목 유의 칸 수가 귀무가설로 설명된다(excess_p > 0.05)
         #   (2) 검정에 들어간 날이 부정 주장을 지탱할 만큼 두껍다
-        # (2)는 **검정한 칸 전체**의 최소 날 수로 잰다. 예전엔 near_miss 유무에 따라
-        # 서로 다른 모집단(비용 초과 칸 vs 전체)의 최소값을 써서 두 경로의 의미가 달랐다.
-        # 짧은 정의 하나가 확신도를 끌어내리는 건 보수적인 방향이라 그대로 둔다.
-        day_ns = [(r.get("day_block") or {}).get("n_days") or 0 for r in ok_rows]
-        enough_days = min(day_ns) if day_ns else 0
-        explained_by_chance = (noise["excess_p"] or 0.0) > 0.05
+        # (2)는 **검정한 칸 전체**의 최소 **유효표본**으로 잰다. 표시용 `n_days` 가 아니다
+        # (unpaired 합계·paired 의 차이 0 인 날을 세면 게이트가 후하게 열린다).
+        # 짧은 정의 하나가 확신도를 끌어내리는 건 보수적인 방향이라 그대로 둔다 —
+        # 어떤 정의든 공정한 기회를 못 받았으면 "전부 없다"를 자신 있게 말할 수 없다.
+        enough_days = support["min_effective_block_days"]
+        # `or 0.0` 로 뭉개지 않는다 — excess_p 가 정당하게 0.0 인 경우(우연으로 설명 안 됨)와
+        # None(계산 불가)은 둘 다 low 로 가야 하지만, 이유가 달라서 코드에 드러나야 한다.
+        explained_by_chance = (noise["excess_p"] is not None
+                               and noise["excess_p"] > 0.05)
+        support["explained_by_chance"] = explained_by_chance
         confidence = ("moderate"
                       if explained_by_chance and enough_days >= MIN_BLOCK_DAYS_FOR_NEGATIVE
                       else "low")
@@ -808,6 +843,7 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         "usable_cells": usable,
         "near_miss_cells": near_miss,
         "block_noise_check": noise,
+        "negative_claim_support": support,
         "by_horizon": by_horizon,
         "pseudo_replication_evidence": inflation[:8],
         "criteria": {
@@ -916,13 +952,35 @@ def render_md(payload: dict, cmd: str) -> str:
             _why.append(f"하루 블록 검정이 성립조차 못 한 칸 {len(_und)}개")
         if _si:
             _why.append(f"구간 분할이 부호를 판정할 표본조차 없는 칸 {len(_si)}개")
-        a(f"**결론: 판정 불가(inconclusive).** 비용을 넘으면서 "
-          + ", ".join(_why) + "가 남아 있다 — 이 표본으로는 그 칸들을 판별할 수 없다.")
+        if _why:
+            a(f"**결론: 판정 불가(inconclusive).** 비용을 넘으면서 "
+              + ", ".join(_why) + "가 남아 있다 — 이 표본으로는 그 칸들을 판별할 수 없다.")
+        else:
+            # `inconclusive` 는 두 경로에서 나온다. 분석 가능한 칸이 하나도 없는 실행
+            # (스모크·소표본)에선 `near_miss` 가 비어 위 문장이 "비용을 넘으면서 가 남아
+            # 있다"로 깨진다 — 게다가 칸이 0개인데 '남아 있다'고 말하는 셈이라 내용도 틀린다.
+            a("**결론: 판정 불가(inconclusive).** 판정 기준을 적용할 만큼의 표본을 갖춘 "
+              "(정의×지평) 칸이 하나도 없다 — 국면의 유무가 아니라 **아직 잴 수 없다**는 뜻이다.")
     a("")
     a(f"판정 기준(코드 고정): |UP−DOWN| ≥ {COST_PER_TRADE_PCT}%p **그리고** "
       f"**하루 블록 검정** Bonferroni 통과(관측 단위 p 아님) **그리고** 블록이 성립할 만큼 "
       f"날이 있음(≥{MIN_BLOCK_DAYS}일) **그리고** embargo 분할 부호 유지.")
     a("")
+    # 'no' 의 확신도는 근거와 함께 실어야 감사할 수 있다. 라벨만 있으면 독자가 검증할
+    # 방법이 없고, 특히 '없다'는 주장은 표본이 얇을수록 쉽게 나오므로 더 그렇다.
+    _sp = vd.get("negative_claim_support") or {}
+    if vd["usable_regime_signal"] == "no" and _sp:
+        _eff, _req = _sp.get("min_effective_block_days"), _sp.get("required_for_moderate")
+        a(f"확신도 근거: 검정한 칸의 **최소 유효표본 {_eff}일**"
+          f"(부정 주장에 요구하는 {_req}일 {'이상' if (_eff or 0) >= (_req or 0) else '미만'}) · "
+          f"명목 유의 칸이 우연으로 설명됨 = {_sp.get('explained_by_chance')}.")
+        if (_eff or 0) < (_req or 0):
+            a("")
+            a(f"> 유효표본은 표시용 날 수({_sp.get('min_reported_n_days')}일)보다 작다 — "
+              f"UP/DOWN 을 비교하는 검정의 검정력은 **적은 쪽**이 정하기 때문이다. "
+              f"어떤 정의는 한쪽 국면을 그만큼밖에 못 봤다는 뜻이라, '없다'를 "
+              f"**moderate 로 주장하지 않는다**.")
+        a("")
 
     a("### 지평별 결론")
     a("")

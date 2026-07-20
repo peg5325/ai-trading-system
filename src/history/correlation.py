@@ -138,8 +138,13 @@ def binom_upper_tail(k: int, n: int, p: float) -> float | None:
     이 값을 두는 이유는 눈대중 관용치를 없애기 위해서다 — 예전엔 `기대치 + 2` 같은
     상수로 갈랐는데, 그 상수가 리포트의 확신도를 직접 뒤집으면서 근거가 없었다.
     """
-    if n <= 0 or k > n or not 0.0 <= p <= 1.0:
+    # None 은 **판정 불가**(입력이 확률을 정의하지 않는다)에만 쓴다. `k > n` 은 판정 불가가
+    # 아니라 **불가능 사건**이라 확률이 0.0 으로 정해져 있다 — 둘을 같은 None 으로 뭉개면,
+    # 호출부가 "계산 못 했다"와 "절대 안 일어난다"를 구분할 수 없다.
+    if n <= 0 or not 0.0 <= p <= 1.0:
         return None
+    if k > n:
+        return 0.0
     if k <= 0:
         return 1.0
     return min(1.0, sum(math.comb(n, i) * (p ** i) * ((1.0 - p) ** (n - i))

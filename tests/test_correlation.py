@@ -142,9 +142,14 @@ def test_binom_upper_tail_matches_hand_computed_values():
     assert all(a >= b for a, b in zip(tails, tails[1:]))
 
 
-def test_binom_upper_tail_rejects_impossible_inputs():
-    assert binom_upper_tail(3, 0, 0.05) is None       # n=0
-    assert binom_upper_tail(5, 3, 0.05) is None       # k > n
+def test_binom_upper_tail_separates_impossible_from_undefined():
+    """★ '불가능(0.0)'과 '판정 불가(None)'는 다른 답이다.
+
+    `k > n` 은 P(X>=k)=0 인 불가능 사건이지 미정의가 아니다. 둘을 같은 None 으로 뭉개면
+    호출부가 "절대 안 일어난다"와 "계산 못 했다"를 구분할 수 없다.
+    """
+    assert binom_upper_tail(5, 3, 0.05) == 0.0        # 불가능 사건
+    assert binom_upper_tail(3, 0, 0.05) is None       # n=0 — 확률이 정의되지 않는다
     assert binom_upper_tail(1, 10, 1.5) is None       # p 범위 밖
 
 

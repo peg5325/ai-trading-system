@@ -212,6 +212,66 @@ def test_unknown_split_sign_is_cannot_speak_not_rejection():
         "검정이 말할 수 없었는데 '없음'으로 단정했다")
 
 
+def test_negative_claim_gate_uses_effective_sample_not_reported_n_days():
+    """★ 부정 주장 게이트는 표시용 `n_days` 가 아니라 **유효표본**으로 열려야 한다.
+
+    unpaired 는 `n_days` 가 UP+DOWN 합계라, 한쪽이 얇아도 합계는 두꺼워 보인다.
+    오차 방향이 하필 "없다"를 더 자신 있게 말하는 쪽이라 위험하다 — 이 리포트의
+    결론이 바로 그 부정 주장이다.
+    """
+    from scripts.h3_regime_analysis import effective_block_days
+
+    # UP 57일 / DOWN 8일 → 합계 65지만 검정력을 정하는 건 8이다.
+    assert effective_block_days(
+        {"mode": "unpaired", "n_days": 65, "n_up_days": 57, "n_down_days": 8}) == 8
+    # paired 는 차이가 0 이 아닌 날만 검정에 들어간다.
+    assert effective_block_days(
+        {"mode": "paired", "n_days": 40, "tested_days": 9}) == 9
+
+    c = _cell(diff=0.90, cost_pass=True, block_pass=False, block_status="ok")
+    c["day_block"] = {"status": "ok", "p": 0.4, "mode": "unpaired",
+                      "n_days": 65, "n_up_days": 57, "n_down_days": 8,
+                      "tested_days": 65}
+    vd = build_verdict(_analysis([c]), _COV)
+    sup = vd["negative_claim_support"]
+    assert sup["min_reported_n_days"] == 65
+    assert sup["min_effective_block_days"] == 8, "합계를 유효표본으로 착각했다"
+    assert vd["usable_regime_signal"] == "no"
+    assert vd["confidence"] == "low", (
+        "DOWN 국면이 8일뿐인데 '없다'를 moderate 로 주장했다")
+
+
+def test_inconclusive_sentence_survives_an_empty_reason_list():
+    """분석 가능한 칸이 0개인 실행에서도 결론 문장이 문법·내용 모두 성립해야 한다.
+
+    `not ok_rows` 경로에선 near_miss 가 비어, 이유 목록을 그대로 이어 붙이면
+    "비용을 넘으면서 가 남아 있다"로 깨진다(칸이 0개인데 '남아 있다'고도 말한다).
+    """
+    from scripts.h3_regime_analysis import render_md
+
+    vd = build_verdict(_analysis([]), _COV)
+    assert vd["usable_regime_signal"] == "inconclusive"
+    assert not vd["near_miss_cells"]
+    md = render_md({
+        "meta": {"generated_at": "2026-07-20T00:00:00Z", "git_sha": "0" * 40,
+                 "input": "x.jsonl", "sessions": [], "excluded_dates": [],
+                 "cost_per_trade_pct": 0.34, "title": "t",
+                 "workorder": "w.md", "predecessor": "p.md"},
+        "parity_test": {"status": "SKIPPED", "notes": "", "target_session": "-",
+                        "live_cycles": 0, "matched_cycles": 0, "max_abs_diff": None,
+                        "invariant_violations": 0, "tolerance": 1e-6},
+        "coverage": dict(_COV, rows=0, kept=0, excluded_session=0, excluded_date=0,
+                         by_session={}, by_symbol={}, dates=[], n_dates=0,
+                         date_min=None, date_max=None, horizon_complete={},
+                         regime_present_days={}),
+        "analysis": _analysis([]),
+        "lookahead_control": {"max_inflation_x": None, "rows": []},
+        "verdict": vd,
+    }, "cmd")
+    assert "비용을 넘으면서 가" not in md, "이유 목록이 비어 조사가 붕 떴다"
+    assert "아직 잴 수 없다" in md
+
+
 def test_reproduce_command_day_horizons_excludes_eod():
     """★ 리포트가 싣는 재현 커맨드는 그대로 실행되어야 한다.
 
