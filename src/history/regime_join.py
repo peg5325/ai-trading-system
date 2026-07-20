@@ -335,20 +335,23 @@ def volatility_series(bars: list[Candle], *, window: int = VOL_WINDOW_BARS,
     # 이동은 C 레벨 memmove). **결과는 동일해야 하며**, 순진한 구현과의 일치를
     # `test_regime_join.py::test_volatility_ref_matches_naive_median` 이 고정한다.
     ref: list[float | None] = [None] * n
-    window: list[float] = []            # 현재 창 안의 non-None 값(오름차순 유지)
+    # 이름은 `window`(파라미터)와 반드시 달라야 한다 — 같은 이름을 쓰면 실현변동성 창
+    # 크기(int)를 가려서, 이 아래에 그 파라미터를 쓰는 코드가 추가될 때 조용히 리스트를
+    # 받는다. 여기는 look-ahead 가 가장 새기 쉬운 함수라 그런 사고가 비싸다.
+    ref_window: list[float] = []        # 현재 창 안의 non-None 값(오름차순 유지)
     for i in range(n):
         if vol[i] is not None:
-            insort(window, vol[i])
+            insort(ref_window, vol[i])
         lo = i - ref_bars + 1
         if lo > 0:
             old = vol[lo - 1]           # 창 밖으로 나간 봉
             if old is not None:
-                window.pop(bisect_left(window, old))
-        if len(window) < ref_bars // 4:
+                ref_window.pop(bisect_left(ref_window, old))
+        if len(ref_window) < ref_bars // 4:
             continue
-        mid = len(window) // 2
-        ref[i] = (window[mid] if len(window) % 2
-                  else (window[mid - 1] + window[mid]) / 2.0)
+        mid = len(ref_window) // 2
+        ref[i] = (ref_window[mid] if len(ref_window) % 2
+                  else (ref_window[mid - 1] + ref_window[mid]) / 2.0)
     return vol, ref
 
 
