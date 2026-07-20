@@ -318,8 +318,12 @@ def day_block_test(obs: list[Obs], key: str, up_val: str, down_val: str,
         return {"mode": "paired", "n_days": len(diffs),
                 "n_up_days": None, "n_down_days": None,
                 "mean_diff_pp": _mean(diffs), "median_diff_pp": _median(diffs),
-                "positive_days": pos, "p": sign_test(pos, n) if n else None,
-                "status": "ok" if len(diffs) >= MIN_BLOCK_DAYS else "underpowered"}
+                "positive_days": pos, "tested_days": n,
+                "p": sign_test(pos, n) if n else None,
+                # 적정성은 **실제 검정에 쓰인 n**(차이가 0 이 아닌 날)으로 판단한다.
+                # len(diffs) 로 보면 '차이 0' 인 날이 많을 때 검정력이 없는데도 ok 가 되어
+                # 판정 게이트가 실제보다 후하게 열린다.
+                "status": "ok" if n >= MIN_BLOCK_DAYS else "underpowered"}
 
     # 하루에 라벨이 하나뿐인 정의 — 날짜 단위 비표본 비교.
     up_days, down_days = [], []
@@ -553,7 +557,11 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         top = max(abs(c["diff_pp"]) for c in cells)
         over_cost = [c for c in cells if c["cost_floor_pass"]]
         blocked = [c for c in cells if c.get("block_bonferroni_pass")]
-        if blocked and over_cost:
+        # ★ 두 게이트는 **같은 칸**에서 동시에 성립해야 한다. 리스트를 각각 필터해
+        #   `blocked and over_cost` 로 보면, 칸 X 가 비용만 통과하고 칸 Y 가 블록검정만
+        #   통과할 때 동시 통과 칸이 0개인데도 signal 이 된다. 이 표는 "국면 게이트를
+        #   켤 가치가 있는가"를 사람이 훑는 곳이라 가짜 signal 은 잘못된 행동이 된다.
+        if any(c["cost_floor_pass"] and c.get("block_bonferroni_pass") for c in cells):
             concl = "signal"
         elif not over_cost:
             # 가장 큰 효과조차 비용 밑 — 표본이 더 있어도 쓸 수 없다.
