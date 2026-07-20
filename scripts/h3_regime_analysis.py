@@ -88,6 +88,8 @@ CATEGORICAL_DEFS = (
      "라이브 기본 정의(builder). 예비 관측: 효과 없음"),
     ("daily_trend", "B 하루 국면(전날까지)", "UP", "DOWN",
      "★ 예비에서 당일 종가를 쓰면 +0.120%p, 전날까지면 +0.006%p 로 붕괴한 정의"),
+    ("daily_long_trend", "B' 하루 장기 국면(일간 EMA50, 전날까지)", "UP", "DOWN",
+     "다개월 국면. H3 에서는 벤치마크 백필이 짧아 성립조차 못 했던 정의(H3-b 신규)"),
     ("long_trend", "C 장기 5m EMA200 추세", "UP", "DOWN",
      "더 긴 창(5m 200봉 ≈ 1 거래일)"),
     ("breadth_regime", "D breadth(유니버스 EMA20 위 비율)", "UP", "DOWN",
@@ -101,6 +103,7 @@ CONTINUOUS_DEFS = (
     ("intraday_vs_ema", "E 연속 vs_ema20 (장중)"),
     ("long_vs_ema", "E' 연속 vs_ema200 (장기)"),
     ("daily_vs_ema", "E'' 연속 일간 vs_ema20"),
+    ("daily_long_vs_ema", "E''' 연속 일간 vs_ema50"),
     ("breadth", "D' 연속 breadth"),
     ("vol_ratio", "F' 연속 변동성 비율"),
 )
@@ -130,6 +133,7 @@ HORIZONS = (
     ("1d", "익일", 1440),
     ("2d", "2일", 2880),
     ("3d", "3일", 4320),
+    ("5d", "5일", 7200),
 )
 
 
@@ -179,7 +183,11 @@ def load_observations(path: str, sessions, exclude_dates) -> tuple[list[Obs], di
     cov = {"rows": 0, "kept": 0, "excluded_session": 0, "excluded_date": 0,
            "by_session": defaultdict(int), "by_symbol": defaultdict(int),
            "dates": set(), "horizon_complete": defaultdict(int),
-           "regime_present": defaultdict(int)}
+           "regime_present": defaultdict(int),
+           # 라벨별 **거래일 수** — 유효표본은 행 수가 아니라 날 수다. 리포트의 한계 절이
+           # 이 값을 그대로 인용하므로 세어 두지 않으면 한계 문구를 손으로 쓰게 되고,
+           # 다음 실행에서 조용히 틀린 숫자가 남는다(H3 리포트에 실제로 그렇게 박혔다).
+           "regime_present_dates": defaultdict(set)}
     with open(path) as f:
         for line in f:
             row = json.loads(line)
@@ -209,6 +217,7 @@ def load_observations(path: str, sessions, exclude_dates) -> tuple[list[Obs], di
                 if v is not None and not k.endswith("_asof") and k not in (
                         "decision_ts_utc", "et_date"):
                     cov["regime_present"][k] += 1
+                    cov["regime_present_dates"][k].add(row["et_date"])
             cov["kept"] += 1
             cov["by_session"][row["session"]] += 1
             cov["by_symbol"][row["symbol"]] += 1
@@ -219,6 +228,11 @@ def load_observations(path: str, sessions, exclude_dates) -> tuple[list[Obs], di
     cov["by_symbol"] = dict(cov["by_symbol"])
     cov["horizon_complete"] = dict(cov["horizon_complete"])
     cov["regime_present"] = dict(cov["regime_present"])
+    cov["regime_present_days"] = {k: len(v)
+                                  for k, v in cov["regime_present_dates"].items()}
+    # 날짜 집합 자체는 JSON 산출물에 실지 않는다(라벨 11종 × 90일 = 잡음). 세어 둔
+    # 일수만 남긴다.
+    del cov["regime_present_dates"]
     cov["n_dates"] = len(cov["dates"])
     cov["date_min"] = min(cov["dates"]) if cov["dates"] else None
     cov["date_max"] = max(cov["dates"]) if cov["dates"] else None
@@ -614,11 +628,17 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         else:
             # 효과는 비용을 넘지만 하루 블록 단위로는 노이즈와 구분되지 않는다.
             concl = "underpowered"
+        # 이 지평의 독립 단위(날) 규모 — 리포트 본문이 "표본이 모자라다/충분하다"를
+        # 주장할 때 인용한다. 문장에 숫자를 박아 두면 표본이 늘어도 문장이 안 따라온다.
+        day_counts = [(c.get("day_block") or {}).get("n_days") for c in cells]
+        day_counts = [d for d in day_counts if d]
         by_horizon[hkey] = {
             "conclusion": concl, "max_abs_diff_pp": top,
             "max_cost_ratio": top / COST_PER_TRADE_PCT,
             "cells_over_cost": len(over_cost),
             "cells_block_significant": len(blocked),
+            "block_days_min": min(day_counts) if day_counts else None,
+            "block_days_max": max(day_counts) if day_counts else None,
         }
 
     if usable:
@@ -632,12 +652,16 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         top = abs(best["diff_pp"]) if best else 0.0
         confidence = "moderate" if top < COST_PER_TRADE_PCT * 0.5 else "low"
 
+    # 하루 국면(B)의 실제 규모 — 관측 수와 독립 단위(날)의 괴리를 문장에 박지 않고
+    # 측정값으로 채운다. 표본이 늘면 문구도 따라 움직여야 한다.
+    b_rows = cov.get("regime_present", {}).get("daily_trend", 0)
+    b_days = cov.get("regime_present_days", {}).get("daily_trend", 0)
     limitations = [
-        "★ 유효표본은 관측 수가 아니라 **날 수**다. 관측이 심하게 중첩되고(5분 간격 결정봉에 "
-        "30분~3일 지평) 같은 날 12 종목이 같은 시장을 공유한다. 하루 국면(B)은 라벨이 하루에 "
-        "하나라 관측 22,500건의 독립 단위가 16일뿐이다. 그래서 판정은 관측 단위 p 가 아니라 "
-        "하루 블록 검정에 근거한다 — 표 ⑤ 의 `관측p` 열은 참고용이며 과대추정이다.",
-        "다지평(1~3일) 결과는 특히 취약하다. 국면 라벨이 며칠씩 지속되므로 UP/DOWN 그룹이 "
+        f"★ 유효표본은 관측 수가 아니라 **날 수**다. 관측이 심하게 중첩되고(5분 간격 결정봉에 "
+        f"30분~5일 지평) 같은 날 12 종목이 같은 시장을 공유한다. 하루 국면(B)은 라벨이 하루에 "
+        f"하나라 관측 {b_rows:,d}건의 독립 단위가 {b_days}일뿐이다. 그래서 판정은 관측 단위 p 가 "
+        f"아니라 하루 블록 검정에 근거한다 — 표 ⑤ 의 `관측p` 열은 참고용이며 과대추정이다.",
+        "다지평(1~5일) 결과는 특히 취약하다. 국면 라벨이 며칠씩 지속되므로 UP/DOWN 그룹이 "
         "사실상 '몇 개의 시장 국면 구간'이고, 표본 기간이 짧으면 한두 번의 시장 스윙이 "
         "전체 차이를 만든다.",
         "후보는 스크리너가 min_score 이상으로 뽑은 것만이라 표본이 이미 선택편향돼 있다. "
@@ -646,18 +670,20 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         "여기 수치보다 나쁠 가능성이 높다.",
         f"거래당 비용 기준값 {COST_PER_TRADE_PCT}%p 는 작업지시서 제시값이다. 이 값이 바뀌면 "
         "cost_floor 판정도 바뀐다.",
-        "표본 기간이 짧다 — 벤치마크(QQQ) 백필이 2026-05-22 이후 47 거래일뿐이라 국면 정의가 "
-        "붙는 구간이 제한된다. 여러 시장 국면(강세장/약세장/횡보)을 가로지르는 검증이 아니다.",
-        "일간 EMA(50) 장기 국면은 계산하지 못했다 — 벤치마크 백필이 47 거래일뿐이라 50일 EMA 가 "
-        "성립하지 않는다. 대신 5m EMA200(≈1 거래일)으로 '더 긴 창'을 대신했다. 진짜 다개월 "
-        "국면 검증은 벤치마크 장기 백필이 선행되어야 한다.",
+        f"표본 기간은 {cov.get('date_min')} ~ {cov.get('date_max')} "
+        f"({cov.get('n_dates', 0)} 거래일)이다. 여러 시장 국면(강세장/약세장/횡보)을 충분히 "
+        f"가로지르는 길이가 아니므로, 여기서 '없음'이 나와도 '모든 시장에서 없음'은 아니다.",
     ]
-    dt_present = cov.get("regime_present", {}).get("daily_trend", 0)
-    if dt_present < cov.get("kept", 1) * 0.5:
+    bl_days = cov.get("regime_present_days", {}).get("daily_long_trend", 0)
+    if bl_days == 0:
+        limitations.append(
+            "일간 EMA(50) 장기 국면(B')은 이번에도 계산되지 않았다 — 벤치마크 일봉이 50일 EMA "
+            "warm-up 에 미달한다. 진짜 다개월 국면 검증은 벤치마크 장기 백필이 더 선행되어야 한다.")
+    if b_days and b_rows < cov.get("kept", 1) * 0.5:
         limitations.insert(1, (
             f"하루 국면(B)은 벤치마크 일봉 EMA warm-up 때문에 표본의 일부에만 붙는다 "
-            f"(daily_trend 부착 {dt_present:,d} / {cov['kept']:,d} 행, 16 거래일). "
-            f"그 16일 구간의 관측일 뿐이며 일반화할 수 없다."))
+            f"(daily_trend 부착 {b_rows:,d} / {cov['kept']:,d} 행, {b_days} 거래일). "
+            f"그 {b_days}일 구간의 관측일 뿐이며 일반화할 수 없다."))
 
     return {
         "usable_regime_signal": signal,
@@ -710,11 +736,11 @@ def render_md(payload: dict, cmd: str) -> str:
     L: list[str] = []
     a = L.append
 
-    a("# H3 국면 예측력 검증 리포트")
+    a(f"# {meta.get('title', 'H3 국면 예측력 검증 리포트')}")
     a("")
     a(f"> 생성: {meta['generated_at']} · 커밋 `{meta['git_sha'][:12]}` · "
       f"입력 `{os.path.basename(meta['input'])}`")
-    a(f"> 작업지시서: `reports/WORKORDER_H3_REGIME.md` · 선행: `reports/h2b_backfill_validation.md`")
+    a(f"> 작업지시서: `{meta['workorder']}` · 선행: `{meta['predecessor']}`")
     a("")
     a("> **read-only 연구 산출물.** 매매 로직·스코어 가중치·runtime config 변경 0건, "
       "국면 게이트 활성화 0건.")
@@ -770,10 +796,31 @@ def render_md(payload: dict, cmd: str) -> str:
           f"{h.get('max_abs_diff_pp', 0):.4f} | {h.get('max_cost_ratio', 0):.2f}x | "
           f"{h.get('cells_over_cost', 0)} | {h.get('cells_block_significant', 0)} |")
     a("")
-    a("짧은 지평(30m/60m/EOD)은 **표본이 충분한데도 효과가 비용 밑**이라 결론이 확정적이다. "
-      "긴 지평(1~3일)은 효과 크기가 비용을 넘지만 독립 단위(날)가 16~36개뿐이라 "
-      "노이즈와 구분되지 않는다 — '신호가 없다'가 아니라 **'이 표본으로는 판별할 수 없다'** 다.")
-    a("")
+    # 이 문단은 결론을 **서술**하는 자리라, 문장을 고정해 두면 데이터가 바뀌어도 지난
+    # 판정을 되풀이한다(H3 리포트의 문장이 그대로 남아 있었다). 실제 결과에서 만든다.
+    _by_h = vd.get("by_horizon", {})
+    _label = {k: lb for k, lb, _ in HORIZONS}
+    _grp = {c: [_label[k] for k, _lb, _e in HORIZONS
+                if _by_h.get(k, {}).get("conclusion") == c]
+            for c in ("no", "underpowered", "signal")}
+    if _grp["no"]:
+        a(f"**{'/'.join(_grp['no'])}** 지평은 최대 효과조차 거래당 비용({COST_PER_TRADE_PCT}%p) "
+          f"밑이라 결론이 확정적이다 — 표본이 더 있어도 이 국면으로는 비용을 회수하지 못한다.")
+        a("")
+    if _grp["underpowered"]:
+        _days = [d for k, _lb, _e in HORIZONS
+                 if _by_h.get(k, {}).get("conclusion") == "underpowered"
+                 for d in (_by_h[k].get("block_days_min"), _by_h[k].get("block_days_max"))
+                 if d]
+        _rng = f"{min(_days)}~{max(_days)}개" if _days else "충분하지 않아"
+        a(f"**{'/'.join(_grp['underpowered'])}** 지평은 효과 크기가 비용을 넘지만 독립 단위(날)가 "
+          f"{_rng}뿐이라 노이즈와 구분되지 않는다 — '신호가 없다'가 아니라 "
+          f"**'이 표본으로는 판별할 수 없다'** 다.")
+        a("")
+    if _grp["signal"]:
+        a(f"**{'/'.join(_grp['signal'])}** 지평은 비용 초과와 하루 블록 유의를 **같은 칸에서** "
+          f"동시에 만족하는 국면이 있다.")
+        a("")
 
     # ② 패리티
     a("## ② 패리티 (수용 기준)")
@@ -877,13 +924,22 @@ def render_md(payload: dict, cmd: str) -> str:
     # ⑤ 의사복제
     a("## ⑥ 왜 관측 단위 p 를 믿으면 안 되는가 (의사복제)")
     a("")
-    a("국면 관측은 독립이 아니다. (1) 결정봉이 5분 간격인데 지평은 30분~3일이라 한 관측의 "
-      "forward 창이 다음 여러 관측과 거의 완전히 겹친다. (2) 같은 날 12 종목이 같은 시장 "
-      "움직임을 공유한다. (3) 결정적으로, **국면 라벨 자체가 하루(또는 며칠) 단위로 상수**다.")
+    _hmax = HORIZONS[-1][1]
+    a(f"국면 관측은 독립이 아니다. (1) 결정봉이 5분 간격인데 지평은 30분~{_hmax}이라 한 관측의 "
+      f"forward 창이 다음 여러 관측과 거의 완전히 겹친다. (2) 같은 날 12 종목이 같은 시장 "
+      f"움직임을 공유한다. (3) 결정적으로, **국면 라벨 자체가 하루(또는 며칠) 단위로 상수**다.")
     a("")
-    a("하루 국면(B)이 극단적 사례다 — 라벨이 하루에 하나뿐이라 UP/DOWN 이 같은 날 안에 "
-      "공존하지 않는다(실측: 16 일 전부 단일 라벨). 관측 22,500건처럼 보이지만 **독립 단위는 "
-      "16일**이다. 그런데도 관측 단위 p 는 1e-45 까지 내려간다.")
+    # 하루 국면의 관측 수 vs 독립 일수 — 이 리포트의 실측으로 쓴다. 예시 숫자를 박아 두면
+    # 표본이 바뀌었는데도 지난 실행의 규모를 설명하게 된다.
+    _b_rows = cov.get("regime_present", {}).get("daily_trend", 0)
+    _b_days = cov.get("regime_present_days", {}).get("daily_trend", 0)
+    _b_blk = next((e for e in vd.get("pseudo_replication_evidence", [])
+                   if e["regime_def"] == "daily_trend"), None)
+    _gap = ("" if _b_blk is None else
+            f" 실제로 이 표에서 `daily_trend` 의 관측 p 는 {_p(_b_blk['obs_p'])} 인데 "
+            f"블록 p 는 {_p(_b_blk['block_p'])} 다.")
+    a(f"하루 국면(B)이 극단적 사례다 — 라벨이 하루에 하나뿐이라 UP/DOWN 이 같은 날 안에 "
+      f"공존하지 않는다. 관측 {_b_rows:,d}건처럼 보이지만 **독립 단위는 {_b_days}일**이다.{_gap}")
     a("")
     a("| 국면 정의 | 지평 | 관측 p (과대) | 블록 p (정직) | 블록 모드 | 날 수 |")
     a("|---|---|---:|---:|---:|---:|")
@@ -955,8 +1011,14 @@ def render_md(payload: dict, cmd: str) -> str:
     a("## ⑪ 재현 커맨드")
     a("")
     a("```bash")
+    a("# 0) 벤치마크 백필 확대 + 경계 결측 점검 (#49 gap-skip 필수)")
+    a("python scripts/history_backfill.py --symbols QQQ,SPY --interval 1m \\")
+    a("    --max-pages 2500 --gap-skip-minutes 200 --max-consecutive-empty 60")
+    a("python scripts/backfill_boundary_check.py --symbols QQQ,SPY")
+    a("")
     a("# 1) 국면 조인 (look-ahead 차단 + 확장 지평)")
-    a("python scripts/h3_regime_join.py")
+    _dayh = ",".join(k[:-1] for k, _l, _e in HORIZONS if k.endswith("d"))
+    a(f"python scripts/h3_regime_join.py --day-horizons {_dayh}")
     a("")
     a("# 2) 패리티 회귀 (아티팩트 있는 환경에서 강제)")
     a("H3_REQUIRE_PARITY=1 python -m pytest tests/test_s001_benchmark_parity.py "
@@ -1059,6 +1121,9 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--parity-market", default="data/market_us_phase6_s001.sqlite")
     ap.add_argument("--out-md", default="reports/h3_regime_validation.md")
     ap.add_argument("--out-json", default="reports/h3_regime_validation.json")
+    ap.add_argument("--title", default="H3 국면 예측력 검증 리포트")
+    ap.add_argument("--workorder", default="reports/WORKORDER_H3_REGIME.md")
+    ap.add_argument("--predecessor", default="reports/h2b_backfill_validation.md")
     args = ap.parse_args(argv)
 
     joined = _repo_path(args.joined)
@@ -1091,8 +1156,9 @@ def main(argv: list[str]) -> int:
             "input": joined, "sessions": list(sessions),
             "excluded_dates": list(exclude),
             "cost_per_trade_pct": COST_PER_TRADE_PCT,
-            "workorder": "reports/WORKORDER_H3_REGIME.md",
-            "predecessor": "reports/h2b_backfill_validation.md",
+            "title": args.title,
+            "workorder": args.workorder,
+            "predecessor": args.predecessor,
             "read_only": True, "trading_path_changes": 0,
             "regime_gate_enabled": False,
         },
@@ -1103,8 +1169,12 @@ def main(argv: list[str]) -> int:
         "verdict": verdict,
     }
 
+    # 재현 커맨드는 **실제로 이 리포트를 만든 인자**를 그대로 실어야 한다. 기본값만 적어
+    # 두면 --out-md/--title 을 바꿔 낸 리포트가 자기를 못 만드는 커맨드를 싣게 된다.
     cmd = ("python scripts/h3_regime_analysis.py "
-           f"--joined {args.joined} --alpha {args.alpha}")
+           f"--joined {args.joined} --alpha {args.alpha} \\\n"
+           f"    --out-md {args.out_md} --out-json {args.out_json} \\\n"
+           f"    --title '{args.title}' --workorder {args.workorder}")
     md_path, js_path = _repo_path(args.out_md), _repo_path(args.out_json)
     os.makedirs(os.path.dirname(md_path), exist_ok=True)
     os.makedirs(os.path.dirname(js_path), exist_ok=True)

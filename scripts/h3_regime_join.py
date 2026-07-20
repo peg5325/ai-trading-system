@@ -8,11 +8,12 @@ read-only 연구 산출물. 매매 로직·스코어 가중치·runtime config �
 
 입력:  datasets/h2b_candidates_final.jsonl  (H2-b 클린 백필 후보, 30m/60m forward 포함)
        data/market_history.sqlite            (1m 캔들)
-출력:  datasets/h3_regime_joined.jsonl       (후보 + regime + EOD/1d/2d/3d forward)
+출력:  datasets/h3_regime_joined.jsonl       (후보 + regime + EOD/Nd forward)
 
 국면 정의(§3):
   A intraday_trend  QQQ 5m EMA20 대비 추세          (라이브 기본 정의)
   B daily_trend     QQQ 일간 EMA20 — **전날까지만**
+  B' daily_long_trend QQQ 일간 EMA50 — **전날까지만** (다개월 국면, H3-b 신규)
   C long_trend      QQQ 5m EMA200 대비 추세         (더 긴 창)
   D breadth         유니버스 중 EMA20 위 비율
   E intraday_vs_ema QQQ 연속 vs_ema20               (이산화 없이 그대로)
@@ -42,6 +43,7 @@ from src.history.forward_extended import (
 from src.history.regime_join import (
     BENCHMARK_SYMBOL,
     DAILY_EMA_PERIOD,
+    DAILY_LONG_EMA_PERIOD,
     INTRADAY_EMA_PERIOD,
     LONG_EMA_PERIOD,
     BreadthIndex,
@@ -100,12 +102,21 @@ def build_benchmark_regimes(bars_by_symbol: dict[str, list], benchmark: str, log
     dbars = daily_bars(bars, benchmark)
     days, dctxs = daily_context_index(dbars, symbol=benchmark)
     log(f"      일봉 {len(dbars)}일 ({days[0] if days else '-'} ~ {days[-1] if days else '-'})")
+    log(f"  (B') 하루 장기 국면(일간 EMA{DAILY_LONG_EMA_PERIOD}, 전날까지) …")
+    # 같은 일봉 위에 창만 바꿔 얹는다. 일봉이 EMA 창보다 짧으면 builder 가 None 을 내고,
+    # 그 구간은 라벨 없이 남는다(0 이나 마지막 값으로 때우지 않는다).
+    dlong_days, dlong_ctxs = daily_context_index(
+        dbars, symbol=benchmark, ema_period=DAILY_LONG_EMA_PERIOD)
+    warm = sum(1 for c in dlong_ctxs if c is not None and c.benchmark_trend)
+    log(f"      EMA{DAILY_LONG_EMA_PERIOD} 성립 일수 {warm}/{len(dbars)}")
     log("  (F) 변동성 국면(인과적 기준선) …")
     vol, ref = volatility_series(bars)
 
     ts_index = [b.ts_utc for b in bars]
     return {"bars": bars, "ts": ts_index, "intraday": intraday, "long": long_ctx,
-            "daily_days": days, "daily_ctxs": dctxs, "vol": vol, "vol_ref": ref}
+            "daily_days": days, "daily_ctxs": dctxs,
+            "daily_long_days": dlong_days, "daily_long_ctxs": dlong_ctxs,
+            "vol": vol, "vol_ref": ref}
 
 
 def build_breadth(bars_by_symbol: dict[str, list], log=print) -> BreadthIndex:
@@ -183,8 +194,11 @@ def main(argv: list[str]) -> int:
                 # 하루 국면은 **ET 거래일** 기준으로 '전날까지'를 고른다. UTC 날짜로 자르면
                 # PRE 세션(ET 04:00 = UTC 08:00)과 POST(ET 20:00 = 익일 UTC 00:00)에서
                 # 거래일이 어긋나 당일 마감이 새어든다.
+                anchor_day = date.fromisoformat(row["et_date"])
                 d_ctx = daily_context_before(bm["daily_days"], bm["daily_ctxs"],
-                                             date.fromisoformat(row["et_date"]))
+                                             anchor_day)
+                dl_ctx = daily_context_before(bm["daily_long_days"],
+                                              bm["daily_long_ctxs"], anchor_day)
                 br, br_n, br_asof = breadth_idx.at(dt)
                 vr, vlabel = vol_regime(bm["vol"][k], bm["vol_ref"][k])
                 labels = RegimeLabels(
@@ -198,6 +212,11 @@ def main(argv: list[str]) -> int:
                     daily_trend=trend_of(d_ctx),
                     daily_vs_ema=None if d_ctx is None else d_ctx.benchmark_vs_ema20,
                     daily_asof=None if d_ctx is None else d_ctx.benchmark_source_bar_end,
+                    daily_long_trend=trend_of(dl_ctx),
+                    daily_long_vs_ema=(None if dl_ctx is None
+                                       else dl_ctx.benchmark_vs_ema20),
+                    daily_long_asof=(None if dl_ctx is None
+                                     else dl_ctx.benchmark_source_bar_end),
                     breadth=br, breadth_symbols=br_n, breadth_regime=breadth_regime(br),
                     breadth_asof=_iso_z(br_asof),
                     vol_ratio=vr, vol_regime=vlabel,
@@ -206,6 +225,8 @@ def main(argv: list[str]) -> int:
                     stats[f"intraday_{labels.intraday_trend}"] += 1
                 if labels.daily_trend:
                     stats[f"daily_{labels.daily_trend}"] += 1
+                if labels.daily_long_trend:
+                    stats[f"daily_long_{labels.daily_long_trend}"] += 1
 
             # ★ 행마다 강제 — 하나라도 새면 전체 리포트가 무의미하므로 크게 실패시킨다.
             assert_no_lookahead(labels)

@@ -384,6 +384,44 @@ def test_assert_no_lookahead_rejects_same_day_daily_regime():
             daily_asof="2026-03-10T20:00:00Z"))
 
 
+def test_assert_no_lookahead_rejects_same_day_daily_long_regime():
+    """★ B'(일간 EMA50)도 같은 강한 검사를 받는다.
+
+    `daily_asof` 만 검사하던 시절엔 일봉 정의가 늘 때 새 라벨이 조용히 방어선 밖에
+    남았다 — asof 가 결정 시점보다 앞서기만 하면 **당일 종가라도** 약한 검사를
+    통과하기 때문이다. 그 구멍이 다시 생기지 않게 정의별로 고정한다.
+    """
+    with pytest.raises(LookAheadError, match="daily_long_asof.*당일 정보"):
+        assert_no_lookahead(RegimeLabels(
+            decision_ts_utc="2026-03-10T23:00:00+00:00", et_date="2026-03-10",
+            daily_long_asof="2026-03-10T20:00:00Z"))
+
+
+def test_assert_no_lookahead_accepts_prior_day_daily_long_regime():
+    """전날 마감을 쓴 B' 는 통과해야 한다(검사가 라벨을 통째로 막으면 안 된다)."""
+    assert_no_lookahead(RegimeLabels(
+        decision_ts_utc="2026-03-10T14:00:00+00:00", et_date="2026-03-10",
+        daily_asof="2026-03-09T20:00:00Z",
+        daily_long_asof="2026-03-09T20:00:00Z"))
+
+
+def test_every_daily_label_is_covered_by_the_strict_check():
+    """일봉 라벨 목록과 강한 검사 대상이 어긋나지 않는지 — 다음 정의가 늘 때의 안전장치.
+
+    `RegimeLabels` 에 `daily*_asof` 를 추가하고 `daily_asof_fields()` 갱신을 잊으면
+    그 라벨만 약한 검사(`asof <= decision_time`)로 떨어진다. 필드 이름에서 직접
+    유도해 비교하므로, 목록을 갱신하지 않으면 여기서 깨진다.
+    """
+    declared = {name for name, _ in RegimeLabels(
+        decision_ts_utc="2026-03-10T14:00:00+00:00",
+        et_date="2026-03-10").daily_asof_fields()}
+    from dataclasses import fields
+    actual = {f.name[:-len("_asof")] for f in fields(RegimeLabels)
+              if f.name.startswith("daily") and f.name.endswith("_asof")}
+    assert declared == actual, (
+        f"일봉 라벨 {sorted(actual - declared)} 이 강한 look-ahead 검사 밖에 있다")
+
+
 # ---------------------------------------------------------------------------
 # 7) 확장 지평 — EOD / Nd
 # ---------------------------------------------------------------------------
