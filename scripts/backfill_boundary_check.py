@@ -35,6 +35,7 @@ import json
 import os
 import sqlite3
 import sys
+from contextlib import closing
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -97,8 +98,21 @@ def main(argv: list[str]) -> int:
     args = ap.parse_args(argv)
 
     symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
-    with sqlite3.connect(_repo_path(args.db)) as con:
-        results = [check_symbol(con, s, args.interval, args.min_ratio) for s in symbols]
+    db_path = _repo_path(args.db)
+    # ★ read-only 로 연다. 기본 `sqlite3.connect()` 는 **없는 파일을 만들어 버려서**,
+    #   `--db` 오타 하나로 0바이트 sqlite 가 생기고 이어서 "no such table" 원시
+    #   트레이스백으로 죽는다. 점검 도구가 점검 대상을 만들어내면 안 된다.
+    #   (`with sqlite3.connect(...)` 는 트랜잭션만 관리하고 연결은 닫지 않는다 → closing)
+    if not os.path.exists(db_path):
+        print(f"DB 가 없다: {db_path}", file=sys.stderr)
+        return 2
+    try:
+        with closing(sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)) as con:
+            results = [check_symbol(con, s, args.interval, args.min_ratio)
+                       for s in symbols]
+    except sqlite3.DatabaseError as e:
+        print(f"DB 를 읽을 수 없다: {db_path} — {e}", file=sys.stderr)
+        return 2
 
     if args.json:
         print(json.dumps({"db": args.db, "interval": args.interval,
@@ -128,7 +142,9 @@ def main(argv: list[str]) -> int:
                                   f"{s['ratio']:.2f}x)" for s in r["suspect_hours"]))
 
     # 하나라도 결측이면 비정상 종료 — CI/스크립트가 조용히 지나치지 않게.
-    return 1 if any(r["status"] == "MISSING" for r in results) else 0
+    # `no_data`(요청한 종목이 통째로 없음)도 실패로 친다. 그게 정상 종료면 종목명 오타나
+    # 백필 누락이 "점검 통과"로 보인다 — 조용히 지나가면 안 되는 상태의 전형이다.
+    return 1 if any(r["status"] in ("MISSING", "no_data") for r in results) else 0
 
 
 if __name__ == "__main__":

@@ -167,6 +167,64 @@ def test_inconclusive_only_when_the_block_test_could_not_speak():
     assert vd2["near_miss_cells"][0]["blocked_by"] == "rejected_by_block_test"
 
 
+def test_split_failure_is_not_labelled_as_a_block_test_rejection():
+    """★ 블록 검정을 **통과한** 칸을 `rejected_by_block_test` 로 부르면 안 된다.
+
+    이 오라벨이 켜지는 순간이 하필 가장 비싸다 — 비용을 넘고 블록 검정도 통과한 칸이
+    처음 나타났는데 구간 안정성만 부족한 때다. 그때 헤드라인은
+    "블록 검정이 전부 성립한 상태에서 하나도 통과하지 못했다"는 **거짓 문장**을 싣는다.
+    """
+    c = _cell(diff=0.90, cost_pass=True, block_pass=True, split=False,
+              block_status="ok")
+    vd = build_verdict(_analysis([c]), _COV)
+    nm = vd["near_miss_cells"][0]
+    assert nm["conditions"]["block_significant"] is True
+    assert nm["blocked_by"] == "rejected_by_split", (
+        "블록 검정을 통과한 칸이 블록 검정의 이름으로 기각됐다")
+
+
+def test_horizon_signal_uses_the_same_conditions_as_the_summary():
+    """지평별 표의 `signal` 과 판정 요약의 `usable` 은 같은 조건 집합이어야 한다.
+
+    예전엔 표만 비용+블록 2개를 봐서, 구간 안정성에서 걸린 칸이 요약에선 no 인데
+    표에선 '신호 있음'이었다 — 한 리포트가 반대말을 했다. 사람은 표를 믿는다.
+    """
+    c = _cell(diff=0.90, cost_pass=True, block_pass=True, split=False,
+              block_status="ok")
+    vd = build_verdict(_analysis([c]), _COV)
+    assert vd["usable_regime_signal"] == "no"
+    assert vd["by_horizon"]["1d"]["conclusion"] != "signal", (
+        "요약이 no 인데 지평별 표가 signal 을 냈다")
+    assert not vd["usable_cells"]
+
+
+def test_unknown_split_sign_is_cannot_speak_not_rejection():
+    """`sign_preserved is None`(구간 분할 표본 부족)은 기각이 아니라 판별 불가다.
+
+    `bool(None) is False` 라 그냥 두면 '말할 수 없었다'가 '부호가 뒤집혔다'로 둔갑한다 —
+    블록 검정에서 애써 갈라 놓은 축을 바로 옆에서 뭉개는 셈이다.
+    """
+    c = _cell(diff=0.90, cost_pass=True, block_pass=True, block_status="ok")
+    c["split"] = {"status": "insufficient", "sign_preserved": None}
+    vd = build_verdict(_analysis([c]), _COV)
+    assert vd["near_miss_cells"][0]["blocked_by"] == "split_insufficient"
+    assert vd["usable_regime_signal"] == "inconclusive", (
+        "검정이 말할 수 없었는데 '없음'으로 단정했다")
+
+
+def test_reproduce_command_day_horizons_excludes_eod():
+    """★ 리포트가 싣는 재현 커맨드는 그대로 실행되어야 한다.
+
+    `"eod".endswith("d")` 는 True 라, 접미사만 보면 EOD 가 일 단위 지평으로 끌려들어와
+    `--day-horizons eo,1,2,3,5` 가 만들어지고 조인 스크립트의 int() 파싱이 죽는다.
+    """
+    from scripts.h3_regime_analysis import HORIZONS
+    dayh = [k[:-1] for k, _l, _e in HORIZONS if k.endswith("d") and k[:-1].isdigit()]
+    assert "eo" not in dayh
+    # 조인 스크립트와 동일한 파싱 — 여기서 죽으면 리포트의 커맨드도 죽는다.
+    assert tuple(int(x) for x in dayh) == (1, 2, 3, 5)
+
+
 def test_block_noise_check_compares_against_chance_expectation():
     """명목 유의 칸 수를 우연 기대치와 나란히 싣는다 — '유의한 칸이 있다'의 무게를 잰다."""
     cells = [_cell(horizon=h, diff=0.01, cost_pass=False, block_pass=False)
@@ -176,6 +234,8 @@ def test_block_noise_check_compares_against_chance_expectation():
     # _cell 의 블록 p 는 block_pass=False 일 때 0.4 — 명목 유의도 아니다.
     assert nz["nominal_sig_cells"] == 0
     assert nz["chance_expected"] == round(0.05 * 3, 1)
+    # 유의 칸이 0 이면 "이만큼 이상 나올 확률"은 1 — 우연으로 완전히 설명된다.
+    assert nz["excess_p"] == 1.0
 
 
 def test_no_verdict_when_every_effect_is_below_cost():

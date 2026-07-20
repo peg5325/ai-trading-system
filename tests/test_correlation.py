@@ -16,6 +16,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.history.correlation import (
+    binom_upper_tail,
     bonferroni_threshold,
     assert_official_method,
     loso_sign_stability,
@@ -125,6 +126,34 @@ def test_loso_sign_stability_detects_instability():
 
 def test_loso_requires_two_days():
     assert loso_sign_stability({"2026-07-01": ([1, 2, 3], [1, 2, 3])}, "f", 30) is None
+
+
+def test_binom_upper_tail_matches_hand_computed_values():
+    """P(X >= k) 정확검정 — 다중검정의 '유의 칸이 몇 개'를 재는 기준선."""
+    # k=0 이면 전체 확률.
+    assert binom_upper_tail(0, 10, 0.05) == pytest.approx(1.0)
+    # k=n 이면 p^n.
+    assert binom_upper_tail(3, 3, 0.5) == pytest.approx(0.125)
+    # 전수합과 일치.
+    total = sum(math.comb(10, i) * 0.05 ** i * 0.95 ** (10 - i) for i in range(2, 11))
+    assert binom_upper_tail(2, 10, 0.05) == pytest.approx(total)
+    # 단조감소 — k 가 클수록 꼬리는 얇아진다.
+    tails = [binom_upper_tail(k, 42, 0.05) for k in range(0, 8)]
+    assert all(a >= b for a, b in zip(tails, tails[1:]))
+
+
+def test_binom_upper_tail_rejects_impossible_inputs():
+    assert binom_upper_tail(3, 0, 0.05) is None       # n=0
+    assert binom_upper_tail(5, 3, 0.05) is None       # k > n
+    assert binom_upper_tail(1, 10, 1.5) is None       # p 범위 밖
+
+
+def test_binom_upper_tail_explains_h3b_noise_level():
+    """H3-b 실측(42칸 중 4칸 명목 유의)이 우연으로 설명되는지 — 판정에 직접 쓰인 값."""
+    p = binom_upper_tail(4, 42, 0.05)
+    assert p > 0.05, "4/42 는 귀무가설에서 흔한 값이라 '신호 있음'의 근거가 못 된다"
+    # 반대로 유의 칸이 크게 늘면 우연으로 설명되지 않는다.
+    assert binom_upper_tail(10, 42, 0.05) < 0.05
 
 
 def test_random_cv_is_rejected():

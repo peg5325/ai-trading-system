@@ -128,6 +128,24 @@ def sign_test(successes: int, n: int) -> float | None:
     return min(1.0, 2.0 * tail)
 
 
+def binom_upper_tail(k: int, n: int, p: float) -> float | None:
+    """P(X >= k), X ~ Binomial(n, p). 정확검정(math.comb).
+
+    쓰임새: **다중검정에서 '유의한 칸이 몇 개 있다'가 정보인지** 재는 데 쓴다. n 개 칸을
+    α 로 검정하면 신호가 전혀 없어도 평균 αn 개는 유의해진다. 관측된 유의 칸 수가 그
+    귀무분포에서 흔한 값이면(p 가 크면) '유의한 칸이 있다'는 관찰 자체가 근거가 못 된다.
+
+    이 값을 두는 이유는 눈대중 관용치를 없애기 위해서다 — 예전엔 `기대치 + 2` 같은
+    상수로 갈랐는데, 그 상수가 리포트의 확신도를 직접 뒤집으면서 근거가 없었다.
+    """
+    if n <= 0 or k > n or not 0.0 <= p <= 1.0:
+        return None
+    if k <= 0:
+        return 1.0
+    return min(1.0, sum(math.comb(n, i) * (p ** i) * ((1.0 - p) ** (n - i))
+                        for i in range(k, n + 1)))
+
+
 def normal_sf_two_sided(z: float) -> float:
     """P(|Z| > |z|) — 표준정규 양측 꼬리확률."""
     return math.erfc(abs(float(z)) / math.sqrt(2.0))

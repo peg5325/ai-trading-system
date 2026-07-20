@@ -39,6 +39,7 @@ sys.path.insert(0, _REPO_ROOT)
 
 from src.history.correlation import (
     assert_official_method,
+    binom_upper_tail,
     bonferroni_threshold,
     mann_whitney_u,
     sign_test,
@@ -555,6 +556,57 @@ def lookahead_control_report(obs: list[Obs]) -> dict:
                      "차단 장치가 실재하는 오염을 막고 있다는 뜻이다.")}
 
 
+# 'no'(신호 없음)를 주장하려면 블록 검정이 **성립**한 것만으로는 부족하다. 적정성 게이트
+# (MIN_BLOCK_DAYS=8)는 "p 를 계산해도 되는가"의 하한이지 "없다고 말해도 되는가"의 하한이
+# 아니다 — 8일로 못 찾은 것은 없다는 근거가 못 된다. 부정 주장에는 더 두꺼운 표본을 요구한다.
+MIN_BLOCK_DAYS_FOR_NEGATIVE = 30
+
+# `blocked_by` 중 **검정이 말할 수 없었던** 상태들. 이 집합에 든 칸이 남아 있으면 판정은
+# '판별 불가'다 — 나머지는 검정이 말했고 기각한 것이라 '없음'이다.
+CANNOT_SPEAK = frozenset({"underpowered", "split_insufficient"})
+
+
+def cell_conditions(r: dict) -> dict:
+    """한 (정의×지평) 칸의 판정 조건 4종.
+
+    **한 곳에서만** 만든다. 판정 요약과 지평별 표가 각자 조건을 세면 두 자리가 다른 말을
+    하게 되고, 읽는 사람은 표를 믿는다. 실제로 그렇게 갈라진 적이 있다 — 헤드라인은
+    "블록 검정이 하나도 통과 못 했다"인데 표는 같은 지평을 "신호 있음"으로 냈다.
+    """
+    blk = r.get("day_block") or {}
+    return {
+        "cost_floor": bool(r["cost_floor_pass"]),
+        "block_adequate": bool(blk.get("status") == "ok"),
+        "block_significant": bool(r.get("block_bonferroni_pass")),
+        "split_sign": bool((r.get("split") or {}).get("sign_preserved")),
+    }
+
+
+def blocked_by(r: dict, conds: dict) -> str:
+    """비용을 넘고도 usable 이 아닌 칸이 **무엇에** 걸렸는가.
+
+    축은 하나다 — **그 검정이 말할 수 있었는가**. 말할 수 없었으면(표본 부족) 판별 불가고,
+    말할 수 있었는데 통과 못 했으면 기각이다. 이 둘을 뭉치면 표본을 늘려도 판정이 닫히지
+    않는다(inconclusive 영구화). 반대로 **통과한 검정의 이름으로 기각을 부르면** 리포트가
+    거짓 문장을 싣는다 — 블록 검정을 통과하고 구간 안정성에서만 걸린 칸을
+    `rejected_by_block_test` 로 부르던 버그가 그것이었다.
+
+    앞선 조건이 실패하면 뒤 조건은 평가하지 않는다(순서 있는 분류).
+    """
+    if not conds["block_adequate"]:
+        return "underpowered"                 # 블록 검정이 성립조차 못 했다
+    if not conds["block_significant"]:
+        return "rejected_by_block_test"       # 성립했고, 통과 못 했다
+    # 여기부터는 블록 검정을 **통과한** 칸이다. 구간 안정성만 남는다.
+    #
+    # `sign_preserved` 는 None 일 수 있다 — train/test 어느 쪽이든 표본이 모자라 차이를
+    # 계산하지 못한 경우다. `bool(None) is False` 라서 그냥 두면 '말할 수 없었다'가
+    # '부호가 뒤집혔다'로 둔갑한다. 블록 검정에서 갈라 놓은 바로 그 축을 여기서 뭉개는 셈.
+    if (r.get("split") or {}).get("sign_preserved") is None:
+        return "split_insufficient"           # 구간 분할이 말할 수 없었다
+    return "rejected_by_split"                # 말했고, 부호가 뒤집혔다
+
+
 def build_verdict(analysis: dict, cov: dict) -> dict:
     """판정 — 기준을 코드에 명시해 사후 해석 여지를 없앤다.
 
@@ -573,13 +625,7 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
     ok_rows = [r for r in analysis["categorical"] if r.get("status") == "ok"]
     for r in ok_rows:
         blk = r.get("day_block") or {}
-        sign_ok = (r.get("split") or {}).get("sign_preserved")
-        conds = {
-            "cost_floor": bool(r["cost_floor_pass"]),
-            "block_adequate": bool(blk.get("status") == "ok"),
-            "block_significant": bool(r.get("block_bonferroni_pass")),
-            "split_sign": bool(sign_ok),
-        }
+        conds = cell_conditions(r)
         entry = {"regime_def": r["regime_def"], "horizon": r["horizon"],
                  "diff_pp": r["diff_pp"], "cost_ratio": r["cost_ratio"],
                  "obs_p": r["p"], "block_p": blk.get("p"),
@@ -588,12 +634,7 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         if all(conds.values()):
             usable.append(entry)
         elif conds["cost_floor"]:
-            # 비용은 넘었으나 나머지 조건에서 걸린 칸. **왜** 걸렸는지로 갈린다 —
-            # 블록 검정이 성립하지 않아서(날이 모자라서)면 '판별 불가'지만, 블록 검정이
-            # 성립했는데 유의하지 않은 것이면 '검정이 기각했다'다. 이 둘을 같은 통에
-            # 넣으면 표본을 아무리 늘려도 영원히 inconclusive 가 나온다.
-            entry["blocked_by"] = ("underpowered" if not conds["block_adequate"]
-                                   else "rejected_by_block_test")
+            entry["blocked_by"] = blocked_by(r, conds)
             near_miss.append(entry)
 
     ranked = sorted((r for r in ok_rows if r["diff_pp"] is not None),
@@ -626,19 +667,20 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         #   `blocked and over_cost` 로 보면, 칸 X 가 비용만 통과하고 칸 Y 가 블록검정만
         #   통과할 때 동시 통과 칸이 0개인데도 signal 이 된다. 이 표는 "국면 게이트를
         #   켤 가치가 있는가"를 사람이 훑는 곳이라 가짜 signal 은 잘못된 행동이 된다.
-        if any(c["cost_floor_pass"] and c.get("block_bonferroni_pass") for c in cells):
+        # ★ signal 은 판정 요약의 `usable` 과 **같은 조건 집합**이어야 한다. 예전엔 여기만
+        #   비용+블록 2개를 봐서, 구간 안정성에서 걸린 칸이 요약에선 no 인데 표에선
+        #   '신호 있음'으로 나왔다(같은 리포트가 반대말을 했다).
+        if any(all(cell_conditions(c).values()) for c in cells):
             concl = "signal"
         elif not over_cost:
             # 가장 큰 효과조차 비용 밑 — 표본이 더 있어도 쓸 수 없다.
             concl = "no"
-        elif all((c.get("day_block") or {}).get("status") == "ok" for c in over_cost):
-            # 효과는 비용을 넘지만, 블록 검정이 **성립한 상태에서** 통과하지 못했다.
-            # 이건 '표본 부족'이 아니라 기각이다. 지평별 표가 상단 판정과 다른 말을 하면
-            # 읽는 사람은 표를 믿는다 — 두 자리가 같은 축을 써야 한다.
-            concl = "rejected"
-        else:
-            # 비용을 넘는 칸 중 블록 검정이 성립조차 못 한 게 있다 — 판별 불가.
+        elif any(blocked_by(c, cell_conditions(c)) in CANNOT_SPEAK for c in over_cost):
+            # 비용을 넘는 칸 중 검정이 말할 수 없었던 게 있다 — 판별 불가.
             concl = "underpowered"
+        else:
+            # 검정이 **말할 수 있는 상태에서** 전부 기각했다. 표본 부족이 아니다.
+            concl = "rejected"
         # 이 지평의 독립 단위(날) 규모 — 리포트 본문이 "표본이 모자라다/충분하다"를
         # 주장할 때 인용한다. 문장에 숫자를 박아 두면 표본이 늘어도 문장이 안 따라온다.
         day_counts = [(c.get("day_block") or {}).get("n_days") for c in cells]
@@ -653,13 +695,19 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
         }
 
     # 명목 유의 칸이 우연 기대치와 같은가 — "검정이 아무것도 못 찾았다"의 직접 증거.
-    # 70 회 검정에서 α=0.05 면 3~4 칸은 그냥 나온다. 실측이 그 언저리면 신호가 아니라
-    # 다중검정의 잡음이다.
+    # n 개 칸을 α=0.05 로 검정하면 신호가 전혀 없어도 0.05n 개는 그냥 유의해진다.
+    #
+    # 관용치를 눈대중 상수(예전엔 `기대치 + 2`)로 두지 않는다 — 그 상수가 리포트의
+    # confidence 를 직접 가르는데(실측 4칸 vs 기대 2.1 이면 +2 여부로 뒤집힌다) 근거가 없다.
+    # 대신 **귀무가설에서 이만큼 이상 나올 확률**을 그대로 계산해 싣는다.
     block_ps = [(r.get("day_block") or {}).get("p") for r in ok_rows]
     block_ps = [p for p in block_ps if p is not None]
+    n_sig = sum(1 for p in block_ps if p < 0.05)
     noise = {"tested_cells": len(block_ps),
-             "nominal_sig_cells": sum(1 for p in block_ps if p < 0.05),
+             "nominal_sig_cells": n_sig,
              "chance_expected": round(0.05 * len(block_ps), 1),
+             # P(X >= n_sig | X ~ Binomial(칸수, 0.05)). 크면 '우연으로 설명된다'.
+             "excess_p": binom_upper_tail(n_sig, len(block_ps), 0.05) if block_ps else None,
              "min_block_p": min(block_ps) if block_ps else None,
              "bonferroni_alpha": (0.05 / len(block_ps)) if block_ps else None}
 
@@ -668,7 +716,7 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
     #   - 블록이 전부 성립했는데 아무것도 통과 못 했다 → 검정이 기각했다(no).
     # 이 구분이 없으면 "표본을 늘렸더니 효과는 더 커졌는데 여전히 inconclusive" 라는,
     # 어떤 표본으로도 닫히지 않는 판정이 나온다 — H3-b 가 닫으려던 바로 그 문이다.
-    undecided = [e for e in near_miss if e.get("blocked_by") == "underpowered"]
+    undecided = [e for e in near_miss if e.get("blocked_by") in CANNOT_SPEAK]
     if usable:
         signal, confidence = "yes", ("moderate" if len(usable) >= 2 else "low")
     elif not ok_rows:
@@ -678,12 +726,16 @@ def build_verdict(analysis: dict, cov: dict) -> dict:
     else:
         signal = "no"
         # 확신도는 효과 크기가 아니라 **검정이 얼마나 확실히 기각했는가**로 잡는다.
-        # 명목 유의 칸이 우연 기대치 이하이고 날 수가 넉넉하면 moderate.
-        enough_days = min((e.get("block_n_days") or 0) for e in near_miss) if near_miss \
-            else min(((r.get("day_block") or {}).get("n_days") or 0) for r in ok_rows)
+        #   (1) 명목 유의 칸 수가 귀무가설로 설명된다(excess_p > 0.05)
+        #   (2) 검정에 들어간 날이 부정 주장을 지탱할 만큼 두껍다
+        # (2)는 **검정한 칸 전체**의 최소 날 수로 잰다. 예전엔 near_miss 유무에 따라
+        # 서로 다른 모집단(비용 초과 칸 vs 전체)의 최소값을 써서 두 경로의 의미가 달랐다.
+        # 짧은 정의 하나가 확신도를 끌어내리는 건 보수적인 방향이라 그대로 둔다.
+        day_ns = [(r.get("day_block") or {}).get("n_days") or 0 for r in ok_rows]
+        enough_days = min(day_ns) if day_ns else 0
+        explained_by_chance = (noise["excess_p"] or 0.0) > 0.05
         confidence = ("moderate"
-                      if (noise["nominal_sig_cells"] <= noise["chance_expected"] + 2
-                          and enough_days >= 30)
+                      if explained_by_chance and enough_days >= MIN_BLOCK_DAYS_FOR_NEGATIVE
                       else "low")
 
     # 하루 국면(B)의 실제 규모 — 관측 수와 독립 단위(날)의 괴리를 문장에 박지 않고
@@ -825,16 +877,30 @@ def render_md(payload: dict, cmd: str) -> str:
     _nz = vd.get("block_noise_check") or {}
     _nm = vd.get("near_miss_cells") or []
     if vd["usable_regime_signal"] == "no":
+        # ⚠ 무엇이 기각했는지를 **정확히** 말해야 한다. 블록 검정을 통과하고 구간 안정성에서만
+        #   걸린 칸을 "블록 검정이 기각했다"로 쓰면 리포트가 거짓 문장을 싣는다.
         _rej = [e for e in _nm if e.get("blocked_by") == "rejected_by_block_test"]
-        if _rej:
-            # 비용을 넘는 칸이 있는데도 'no' 인 경우 — 왜 그게 신호가 아닌지 명시한다.
+        _spl = [e for e in _nm if e.get("blocked_by") == "rejected_by_split"]
+        if _rej or _spl:
+            # 절을 이어 붙일 때 연결어미를 각 절에 박아 두면 절이 하나뿐일 때
+            # "…못했고." 로 끊긴다. 마지막 절만 종결형이 되도록 조립한다.
+            _parts = []
+            if _rej:
+                _parts.append(
+                    f"{len(_rej)}개는 하루 블록 검정이 **성립한 상태에서**(날 "
+                    f"{min(e.get('block_n_days') or 0 for e in _rej)}~"
+                    f"{max(e.get('block_n_days') or 0 for e in _rej)}개) 통과하지 못했")
+            if _spl:
+                _parts.append(
+                    f"{len(_spl)}개는 블록 검정은 통과했으나 **구간 분할에서 부호가 뒤집혔**")
+            _clause = "고, ".join(_parts) + "다"
             a(f"**결론: 쓸 만한 국면 신호가 없다.** 관측 수준에서는 비용을 넘는 칸이 "
-              f"{len(_rej)}개 보이지만, 하루 블록 검정이 **전부 성립한 상태에서**(날 "
-              f"{min(e.get('block_n_days') or 0 for e in _rej)}~"
-              f"{max(e.get('block_n_days') or 0 for e in _rej)}개) 하나도 통과하지 못했다. "
+              f"{len(_rej) + len(_spl)}개 보이지만, " + _clause + ". "
               f"명목 유의 칸도 {_nz.get('nominal_sig_cells')}개로 우연 기대치"
-              f"({_nz.get('chance_expected')})와 다르지 않다 — 표본이 모자란 게 아니라 "
-              f"**검정이 기각했다**.")
+              f"({_nz.get('chance_expected')})와 다르지 않다"
+              + (f"(귀무가설에서 이만큼 이상 나올 확률 {_p(_nz.get('excess_p'))})"
+                 if _nz.get("excess_p") is not None else "")
+              + " — 표본이 모자란 게 아니라 **검정이 기각했다**.")
         else:
             a("**결론: 검증한 어떤 국면 정의도 거래당 비용을 넘는 예측력을 보이지 않는다.** "
               "일부 칸이 통계적으로 유의하더라도(n 이 크면 당연하다) 효과 크기가 비용 밑이라 "
@@ -844,8 +910,14 @@ def render_md(payload: dict, cmd: str) -> str:
           "shadow A/B 재확인 전에는 매매에 반영하지 않는다(이번 작업 범위 밖).")
     else:
         _und = [e for e in _nm if e.get("blocked_by") == "underpowered"]
-        a(f"**결론: 판정 불가(inconclusive).** 비용을 넘으면서 하루 블록 검정이 성립조차 "
-          f"하지 못한 칸이 {len(_und)}개 남아 있다 — 이 표본으로는 그 칸들을 판별할 수 없다.")
+        _si = [e for e in _nm if e.get("blocked_by") == "split_insufficient"]
+        _why = []
+        if _und:
+            _why.append(f"하루 블록 검정이 성립조차 못 한 칸 {len(_und)}개")
+        if _si:
+            _why.append(f"구간 분할이 부호를 판정할 표본조차 없는 칸 {len(_si)}개")
+        a(f"**결론: 판정 불가(inconclusive).** 비용을 넘으면서 "
+          + ", ".join(_why) + "가 남아 있다 — 이 표본으로는 그 칸들을 판별할 수 없다.")
     a("")
     a(f"판정 기준(코드 고정): |UP−DOWN| ≥ {COST_PER_TRADE_PCT}%p **그리고** "
       f"**하루 블록 검정** Bonferroni 통과(관측 단위 p 아님) **그리고** 블록이 성립할 만큼 "
@@ -857,8 +929,8 @@ def render_md(payload: dict, cmd: str) -> str:
     a("| 지평 | 결론 | 최대 \\|차이\\| (%p) | 비용대비 | 비용 넘는 칸 | 블록 유의 칸 |")
     a("|---|---|---:|---:|---:|---:|")
     _CONCL = {"no": "**없음** (최대 효과조차 비용 밑)",
-              "rejected": "**없음** (효과는 비용 이상이나 일-블록 검정이 기각)",
-              "underpowered": "판별 불가 (일-블록 검정이 성립 못 함)",
+              "rejected": "**없음** (효과는 비용 이상이나 검정이 기각)",
+              "underpowered": "판별 불가 (검정이 말할 표본 부족)",
               "signal": "**신호 있음**", "no_data": "데이터 없음"}
     for hkey, hlabel, _e in HORIZONS:
         h = vd.get("by_horizon", {}).get(hkey, {})
@@ -1043,8 +1115,12 @@ def render_md(payload: dict, cmd: str) -> str:
         a(f"| 검정한 (정의×지평) 칸 | {_nz['tested_cells']} |")
         a(f"| 블록 p < 0.05 인 칸 | {_nz['nominal_sig_cells']} |")
         a(f"| 우연 기대치 (0.05 × 칸수) | {_nz['chance_expected']} |")
+        a(f"| 귀무가설에서 이만큼 이상 나올 확률 | {_p(_nz.get('excess_p'))} |")
         a(f"| 최소 블록 p | {_p(_nz.get('min_block_p'))} |")
         a(f"| Bonferroni 임계 | {_p(_nz.get('bonferroni_alpha'))} |")
+        a("")
+        a("> 마지막 열이 크면 '유의한 칸이 몇 개 있다'는 관찰이 **근거가 되지 못한다** — "
+          "신호가 전혀 없어도 그만큼은 흔히 나온다는 뜻이다.")
         a("")
 
     # ⑥ 연속 지표
@@ -1112,7 +1188,11 @@ def render_md(payload: dict, cmd: str) -> str:
     a("python scripts/backfill_boundary_check.py --symbols QQQ,SPY")
     a("")
     a("# 1) 국면 조인 (look-ahead 차단 + 확장 지평)")
-    _dayh = ",".join(k[:-1] for k, _l, _e in HORIZONS if k.endswith("d"))
+    # ⚠ `"eod".endswith("d")` 는 True 다. 접미사만 보면 EOD 가 일 단위 지평으로 끌려들어와
+    #   `--day-horizons eo,1,2,3,5` 가 만들어지고, 조인 스크립트의 int() 파싱이 죽는다.
+    #   리포트가 싣는 재현 커맨드는 **그대로 실행되어야** 하므로 숫자임을 직접 확인한다.
+    _dayh = ",".join(k[:-1] for k, _l, _e in HORIZONS
+                     if k.endswith("d") and k[:-1].isdigit())
     a(f"python scripts/h3_regime_join.py --day-horizons {_dayh}")
     a("")
     a("# 2) 패리티 회귀 (아티팩트 있는 환경에서 강제)")
@@ -1266,10 +1346,16 @@ def main(argv: list[str]) -> int:
 
     # 재현 커맨드는 **실제로 이 리포트를 만든 인자**를 그대로 실어야 한다. 기본값만 적어
     # 두면 --out-md/--title 을 바꿔 낸 리포트가 자기를 못 만드는 커맨드를 싣게 된다.
+    # 단, 절대경로를 그대로 실으면 다른 체크아웃에서 못 쓴다 — 저장소 안쪽이면 상대경로로.
+    def _rel(p: str) -> str:
+        ap = os.path.abspath(p)
+        return (os.path.relpath(ap, _REPO_ROOT)
+                if ap.startswith(_REPO_ROOT + os.sep) else p)
     cmd = ("python scripts/h3_regime_analysis.py "
-           f"--joined {args.joined} --alpha {args.alpha} \\\n"
-           f"    --out-md {args.out_md} --out-json {args.out_json} \\\n"
-           f"    --title '{args.title}' --workorder {args.workorder}")
+           f"--joined {_rel(args.joined)} --alpha {args.alpha} \\\n"
+           f"    --out-md {_rel(args.out_md)} --out-json {_rel(args.out_json)} \\\n"
+           f"    --title '{args.title}' --workorder {_rel(args.workorder)} \\\n"
+           f"    --predecessor {_rel(args.predecessor)}")
     md_path, js_path = _repo_path(args.out_md), _repo_path(args.out_json)
     os.makedirs(os.path.dirname(md_path), exist_ok=True)
     os.makedirs(os.path.dirname(js_path), exist_ok=True)
