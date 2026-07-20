@@ -27,12 +27,6 @@ from datetime import datetime, timezone
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _REPO_ROOT)
 
-
-def _repo_path(rel: str) -> str:
-    """저장소 기준 절대경로. 기본값을 CWD 상대로 두면 다른 디렉터리에서 실행할 때
-    조용히 엉뚱한 DB 를 읽고 엉뚱한 곳에 리포트를 쓴다."""
-    return rel if os.path.isabs(rel) else os.path.join(_REPO_ROOT, rel)
-
 from src.history.candidate_stream import (
     CandidateStreamExtractor,
     align_live_outcome,
@@ -45,6 +39,13 @@ from src.history.correlation import (
     loso_sign_stability,
     spearman,
 )
+
+
+def _repo_path(rel: str) -> str:
+    """저장소 기준 절대경로. 기본값을 CWD 상대로 두면 다른 디렉터리에서 실행할 때
+    조용히 엉뚱한 DB 를 읽고 엉뚱한 곳에 리포트를 쓴다."""
+    return rel if os.path.isabs(rel) else os.path.join(_REPO_ROOT, rel)
+
 
 # 작업지시서 §2 — 종목 선정은 "수익 날 종목"이 아니라 "가설을 반증/일반화 검증하는 종목".
 TIERS = {
@@ -550,8 +551,14 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
 
     # LOSO 부호 일치율은 **jackknife 영향력**이지 "날마다 재현되는가"가 아니다.
     # fold 가 (D-1)/D 데이터를 공유해 하루 빼도 rho 가 거의 안 움직이기 때문이다
-    # (모든 날이 반대 부호여도 일치율 1.0 이 나올 수 있다).
-    # 그래서 확신도는 **일별 재현율**(그 날 안에서 pooled 부호를 보인 날의 비율)로 잰다.
+    # (모든 날이 반대 부호여도 일치율 1.0 이 나올 수 있다). 그래서 LOSO 는 판정에 쓰지 않고
+    # 리포트 관측으로만 남기며, 대신 **일별 재현율**(그 날 안에서 pooled 부호를 보인 날의 비율)을
+    # 쓴다.
+    #
+    # 단, 일별 재현율이 확신도를 **가르는 것은 `rep="yes"` 분기뿐**이다(아래 참조).
+    # "재현됨"을 주장하려면 날마다 방향이 서는지가 근거가 되지만, "재현 안 됨"에서는
+    # 낮은 일별 일치율이 오히려 결론을 뒷받침하므로 그것으로 확신도를 올릴 수 없다 —
+    # 음성 판정의 확신도는 중첩 표본 문제(아래)에 막혀 moderate 상수로 둔다.
     ratios = [stab[(f, h)]["same_sign_ratio"] for f in H2B_FEATURES for h in horizons
               if (f, h) in stab]
     min_stab = min(ratios) if ratios else 0.0
@@ -584,12 +591,13 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
     elif n_pass == len(judged):
         rep = "yes"
         # 중첩 표본으로 p 가 과대추정이므로 confidence 를 strong 으로 올리지 않는다.
+        # 일별 재현율이 확신도를 가르는 **유일한** 지점(위 주석 참조).
         conf = "moderate" if min_day >= 0.6 else "weak"
     elif n_reversed > 0:
         # 부호가 뒤집혔는데 유의하기까지 하면 "판단 보류"가 아니라 **반증**이다.
         # 이걸 inconclusive 라고 부르면 결론을 실제보다 열어두는 것이 된다.
         rep = "no"
-        conf = "moderate"
+        conf = "moderate"      # 중첩 표본으로 p 과대추정 → 음성 판정도 strong 은 쓰지 않는다
         limits.append(
             f"부호 역전 {n_reversed}건: "
             + ", ".join(f"{f}@{h}m(s001 {S001_BASELINE[(f,h)]:+.3f} → 현재 "
@@ -598,7 +606,7 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
             + " — s001 의 음(−)의 예측력은 재현되지 않았고, 방향이 반대로 관측된다.")
     elif n_pass == 0:
         rep = "no"
-        conf = "moderate"
+        conf = "moderate"      # 동상. 낮은 일별 재현율은 이 결론을 뒷받침할 뿐 강화 근거가 아니다
     else:
         rep, conf = "inconclusive", "weak"
         limits.append(f"H2-b {len(judged)}개 검정 중 {n_pass}개만 재현 — 부분 재현")
