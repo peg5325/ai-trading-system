@@ -338,8 +338,24 @@ class UtcDayBoundaryProvider:
 def test_shift_before_normalizes_offset_to_utc():
     """Toss 는 +09:00 오프셋으로 nextBefore 를 준다 → UTC 정규화 후 이동."""
     assert _shift_before("2026-07-17T09:40:00.000+09:00", 1) == "2026-07-17T00:39:00Z"
-    assert _shift_before("2026-07-17T00:01:00Z", 1) == "2026-07-17T00:00:00Z"
-    assert _shift_before("2026-07-17T00:00:00Z", 200) == "2026-07-16T20:40:00Z"
+    # 같은 일자 안에서는 요청한 만큼 이동한다.
+    assert _shift_before("2026-07-17T12:00:00Z", 200) == "2026-07-17T08:40:00Z"
+
+
+def test_shift_before_never_crosses_utc_day_boundary():
+    """★ 유실 방지: 경계를 넘는 이동은 직전 일자 마지막 분에서 멈춘다.
+
+    빈 응답은 `before` 가 속한 일자 안쪽만 확인해 준다. 경계를 넘어 건너뛰면 직전
+    일자의 꼬리(예: 20:41~23:59Z)를 조회 없이 버린다 — 실제로 그렇게 유실됐었다.
+    """
+    # 00:00Z 는 이미 일자 시작 → 직전 일자 23:59Z
+    assert _shift_before("2026-07-17T00:00:00Z", 200) == "2026-07-16T23:59:00Z"
+    # 00:01Z 에서 1분 이동해도 00:00Z 가 아니라 직전 일자 23:59Z(00:00Z 는 항상 빈 응답)
+    assert _shift_before("2026-07-17T00:01:00Z", 1) == "2026-07-16T23:59:00Z"
+    # 200분 이동이 경계를 넘으면 클램프
+    assert _shift_before("2026-07-17T02:00:00Z", 200) == "2026-07-16T23:59:00Z"
+    # 경계에 정확히 걸쳐도 클램프
+    assert _shift_before("2026-07-17T03:20:00Z", 200) == "2026-07-16T23:59:00Z"
 
 
 def _seed_cursor(store, symbol, before):
@@ -424,3 +440,71 @@ def test_gap_skip_default_off_preserves_legacy_behavior(tmp_path):
                               sleep=sleeper, resume=False, run_id="t")
     assert res.stopped_reason == "nextbefore_null" and res.exhausted is True
     assert res.gap_skips == 0
+
+
+
+def _collected_minutes(store, symbol: str) -> set[str]:
+    rows = store._con.execute(
+        "SELECT ts_utc FROM candle_history WHERE symbol=? ORDER BY ts_utc",
+        (symbol,)).fetchall()
+    return {r[0] for r in rows}
+
+
+def test_no_minute_is_lost_across_day_boundaries(tmp_path):
+    """★ 회귀 고정: 데이터가 있는 날은 분봉이 **빠짐없이** 수집된다.
+
+    기존 테스트는 일자 수/총 봉 수의 **하한**만 봐서 경계 유실을 통과시켰다.
+    여기서는 존재해야 할 분봉 집합과 수집 집합을 직접 비교한다.
+    """
+    days = {"2026-07-17", "2026-07-16", "2026-07-15"}
+    prov = UtcDayBoundaryProvider(days=days)
+    _, sleeper = _no_sleep()
+    db = str(tmp_path / "h.sqlite")
+    with HistoryStore(db) as store:
+        _seed_cursor(store, "SOXL", "2026-07-17T23:59:00Z")
+        backfill_symbol(store, prov, "SOXL", "1m", max_pages=200,
+                        sleep=sleeper, resume=True, run_id="t",
+                        page_size=200, gap_skip_minutes=200,
+                        max_consecutive_empty=20)
+        got = _collected_minutes(store, "SOXL")
+
+    # UtcDayBoundaryProvider 계약: 각 일자 00:01~23:59 에 1분봉이 존재
+    expected = set()
+    for day in days:
+        base = datetime.fromisoformat(f"{day}T00:01:00+00:00")
+        for i in range(1439):
+            expected.add((base + timedelta(minutes=i)).isoformat())
+
+    missing = expected - got
+    assert not missing, (
+        f"{len(missing)}개 분봉 유실. 예: {sorted(missing)[:3]} … "
+        f"(기대 {len(expected)} / 수집 {len(got & expected)})")
+
+
+def test_day_boundary_costs_no_wasted_00_00_call(tmp_path):
+    """00:00Z 는 계약상 항상 빈 응답 → 조회하지 않는다(낭비 호출 제거)."""
+    prov = UtcDayBoundaryProvider(days={"2026-07-17", "2026-07-16"})
+    _, sleeper = _no_sleep()
+    with HistoryStore(str(tmp_path / "h.sqlite")) as store:
+        _seed_cursor(store, "SOXL", "2026-07-17T23:59:00Z")
+        backfill_symbol(store, prov, "SOXL", "1m", max_pages=100,
+                        sleep=sleeper, resume=True, run_id="t",
+                        page_size=200, gap_skip_minutes=200,
+                        max_consecutive_empty=20)
+    midnight_calls = [b for b in prov.calls if b and b.endswith("T00:00:00Z")]
+    assert not midnight_calls, f"00:00Z 를 조회했다: {midnight_calls}"
+
+
+def test_empty_fetches_are_counted_separately_from_pages(tmp_path):
+    """빈 호출은 pages 예산 밖이므로 호출자가 볼 수 있게 계수된다."""
+    prov = UtcDayBoundaryProvider(days={"2026-07-17", "2026-07-15"})   # 07-16 휴장
+    _, sleeper = _no_sleep()
+    with HistoryStore(str(tmp_path / "h.sqlite")) as store:
+        _seed_cursor(store, "SOXL", "2026-07-17T23:59:00Z")
+        res = backfill_symbol(store, prov, "SOXL", "1m", max_pages=100,
+                              sleep=sleeper, resume=True, run_id="t",
+                              page_size=200, gap_skip_minutes=200,
+                              max_consecutive_empty=30)
+    assert res.empty_fetches > 0, "휴장일을 건너뛰었으면 빈 호출이 있어야 한다"
+    assert len(prov.calls) == res.pages_fetched + res.empty_fetches, \
+        "총 API 호출 = 데이터 페이지 + 빈 호출"
