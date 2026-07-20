@@ -143,6 +143,18 @@ def test_weights_match_screener_config(tmp_path):
             f"{n} weight 가 ScreenerConfig 와 다르다"
 
 
+def test_component_name_set_matches_screener_exactly():
+    """드리프트를 **양방향**으로 닫는다.
+
+    이름별 값 비교만 하면 기존 5종의 값 변경은 잡히지만, 스크리너에 6번째
+    컴포넌트가 추가되는 건 순회에서 빠져 통과한 채 export 에서만 조용히 누락된다.
+    집합 동치로 양쪽 방향을 모두 고정한다.
+    """
+    assert set(SCORE_COMPONENT_NAMES) == set(ScreenerConfig().weights), (
+        "스크리너 가중치 키와 export 컴포넌트 집합이 다르다 — "
+        "한쪽에만 추가되면 데이터셋에서 조용히 누락된다")
+
+
 def test_missing_components_stay_none_not_zero(tmp_path):
     """하드 제외/구 스키마로 score_components 가 없으면 None — 0.0 으로 채우지 않는다."""
     rec = _build({"weighted_component_sum": None}, tmp_path)

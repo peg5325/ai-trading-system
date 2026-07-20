@@ -22,7 +22,9 @@
 - `JsonlExporter(include_meta_header=True, ensure_ascii=False).export(dataset, path) -> int` — `exporters.py:24`
 - `ParquetExporter(compression="snappy")` — `exporters.py:44`
 - 모델: `FeatureRecord`, `ForwardMetric`, `LabelRecord`, `MetaRecord`, `DatasetRecord`, `Dataset`;
-  `FEATURE_VERSION = "1.0"`, `DATASET_VERSION = "1.0"`
+  `FEATURE_VERSION = "1.3"`, `DATASET_VERSION = "1.3"` (실제 값은 `models.py:18-19` 가 기준)
+- 컴포넌트 개별 export(1.3): `SCORE_COMPONENT_NAMES` × `SCORE_COMPONENT_FIELDS` 15필드.
+  `to_flat()` 은 수동 dict 라 상수를 공유해 누락을 막는다. 값이 없으면 **None**(0.0 아님).
 
 ## 4. 다른 모듈과의 관계
 
