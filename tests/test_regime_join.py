@@ -304,6 +304,53 @@ def test_volatility_series_is_causal():
         assert ref_full[i] == ref_cut[i], f"봉 {i} 변동성 기준선이 미래에 의존한다"
 
 
+def _naive_vol_ref(vol, ref_bars):
+    """기준선의 순진한 구현 — 봉마다 창 전체를 정렬한다. 최적화의 정답지."""
+    n = len(vol)
+    out = [None] * n
+    for i in range(n):
+        lo = max(0, i - ref_bars + 1)
+        seg = sorted(v for v in vol[lo:i + 1] if v is not None)
+        if len(seg) < ref_bars // 4:
+            continue
+        mid = len(seg) // 2
+        out[i] = seg[mid] if len(seg) % 2 else (seg[mid - 1] + seg[mid]) / 2.0
+    return out
+
+
+@pytest.mark.parametrize("ref_bars", [8, 17, 40])
+def test_volatility_ref_matches_naive_median(ref_bars):
+    """슬라이딩 창 중앙값 == 창 전체 정렬 중앙값.
+
+    성능 최적화가 값을 바꾸면 국면 라벨이 조용히 달라진다. 창 경계·홀짝·동점·warm-up
+    None 이 모두 섞이도록 만든 입력으로 정답지와 대조한다.
+    """
+    days = _weekdays(date(2026, 3, 2), 6)
+    # 동점과 급변이 함께 나오도록: 계단 + 반복 패턴
+    bars = _multi_day("QQQ", days, 78,
+                      lambda di, i: 100.0 + (i % 5) * (0.4 if di < 3 else 2.5))
+    vol, ref = volatility_series(bars, window=12, ref_bars=ref_bars)
+    assert ref == _naive_vol_ref(vol, ref_bars)
+    assert any(r is not None for r in ref), "전부 None 이면 비교가 무의미하다"
+
+
+def test_volatility_ref_window_drops_old_bars():
+    """창을 벗어난 낡은 값이 기준선에 계속 남으면 안 된다.
+
+    앞구간은 저변동, 뒷구간은 고변동으로 만들고 창 길이를 짧게 잡으면, 뒷구간의
+    기준선은 앞구간 값에 끌려가지 않아야 한다.
+    """
+    days = _weekdays(date(2026, 3, 2), 8)
+    bars = _multi_day("QQQ", days, 78,
+                      lambda di, i: 100.0 + (i % 3) * (0.1 if di < 4 else 5.0))
+    vol, ref = volatility_series(bars, window=12, ref_bars=40)
+    assert ref == _naive_vol_ref(vol, 40)
+    tail = [r for r in ref[-40:] if r is not None]
+    head = [r for r in ref[100:200] if r is not None]
+    assert tail and head
+    assert min(tail) > max(head), "낡은 저변동 값이 기준선에 남아 있다"
+
+
 def test_vol_regime_labels_high_low():
     assert vol_regime(0.02, 0.01) == (pytest.approx(2.0), "HIGH")
     assert vol_regime(0.005, 0.01) == (pytest.approx(0.5), "LOW")

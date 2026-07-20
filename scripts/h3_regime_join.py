@@ -157,7 +157,12 @@ def main(argv: list[str]) -> int:
     print(f"[5/5] 조인 — {cand_path}")
     stats = Counter()
     n_out = 0
-    with open(cand_path) as fin, open(out_path, "w") as fout:
+    # 임시 파일에 쓰고 정상 종료 시에만 원자적으로 교체한다. 최종 경로에 바로 쓰면 루프
+    # 중간에 예외가 났을 때 **완결된 것처럼 보이는 부분 파일**이 남고, 다운스트림
+    # (h3_regime_analysis.py)이 그것을 정상 입력으로 읽어 조용히 축소된 표본으로
+    # 리포트를 낸다. 잘린 표본은 실패보다 나쁘다 — 결론이 그럴듯해 보이기 때문이다.
+    tmp_path = out_path + ".tmp"
+    with open(cand_path) as fin, open(tmp_path, "w") as fout:
         for line in fin:
             if args.limit and n_out >= args.limit:
                 break
@@ -240,6 +245,8 @@ def main(argv: list[str]) -> int:
             row["forwards_ext"] = ext
             fout.write(json.dumps(row, ensure_ascii=False) + "\n")
             n_out += 1
+
+    os.replace(tmp_path, out_path)      # 원자적 교체 — 여기 도달해야 결과가 보인다
 
     print(f"\n조인 완료 → {out_path}  ({n_out:,d} 행)")
     for k in sorted(stats):

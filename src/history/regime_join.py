@@ -46,7 +46,7 @@ EMA200 은 alpha=2/201 이라 k=4000 에서 ~1e-17 — float64 해상도 아래�
 from __future__ import annotations
 
 import math
-from bisect import bisect_left, bisect_right
+from bisect import bisect_left, bisect_right, insort
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta
 
@@ -329,14 +329,26 @@ def volatility_series(bars: list[Candle], *, window: int = VOL_WINDOW_BARS,
         var = sum((r - m) ** 2 for r in seg) / (len(seg) - 1) if len(seg) > 1 else 0.0
         vol[i] = math.sqrt(var)
 
+    # 기준선 = 직전 ref_bars 봉의 실현변동성 중앙값. 봉마다 창 전체를 정렬하면
+    # O(n · w log w) 라 백필이 길어질수록 눈에 띄게 느려진다. 정렬 상태를 유지하는
+    # 슬라이딩 창으로 바꿔 한 봉당 삽입/삭제 각 1회만 한다(비교는 O(log w),
+    # 이동은 C 레벨 memmove). **결과는 동일해야 하며**, 순진한 구현과의 일치를
+    # `test_regime_join.py::test_volatility_ref_matches_naive_median` 이 고정한다.
     ref: list[float | None] = [None] * n
+    window: list[float] = []            # 현재 창 안의 non-None 값(오름차순 유지)
     for i in range(n):
-        lo = max(0, i - ref_bars + 1)
-        seg = sorted(v for v in vol[lo:i + 1] if v is not None)
-        if len(seg) < ref_bars // 4:
+        if vol[i] is not None:
+            insort(window, vol[i])
+        lo = i - ref_bars + 1
+        if lo > 0:
+            old = vol[lo - 1]           # 창 밖으로 나간 봉
+            if old is not None:
+                window.pop(bisect_left(window, old))
+        if len(window) < ref_bars // 4:
             continue
-        mid = len(seg) // 2
-        ref[i] = seg[mid] if len(seg) % 2 else (seg[mid - 1] + seg[mid]) / 2.0
+        mid = len(window) // 2
+        ref[i] = (window[mid] if len(window) % 2
+                  else (window[mid - 1] + window[mid]) / 2.0)
     return vol, ref
 
 
@@ -376,7 +388,8 @@ def assert_no_lookahead(labels: RegimeLabels) -> None:
                 f"{name}_asof({asof}) > decision_time({labels.decision_ts_utc}) — "
                 f"국면 라벨이 미래 정보를 참조한다")
     if labels.daily_asof is not None:
-        d_asof = _parse(labels.daily_asof).astimezone(dt.tzinfo)
+        # `_et_date_of` 가 자체적으로 ET 로 변환하므로 여기서 tz 를 맞출 필요가 없다.
+        d_asof = _parse(labels.daily_asof)
         anchor_day = date.fromisoformat(labels.et_date)
         # 일봉 라벨은 그 날 정규장 마감 시각이다. 앵커 거래일과 같은 날이면 당일 종가를
         # 쓴 것 → 예비 관측을 15배 부풀린 바로 그 오염이다.
