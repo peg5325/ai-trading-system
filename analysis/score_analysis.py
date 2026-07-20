@@ -15,6 +15,11 @@
 원시 지표(RSI/VWAP/EMA/StochRSI/BB) 프록시로 대체했다.
 → 이 한계는 #46(FeatureRecord 컴포넌트 export)에서 해소됐다. 컴포넌트 단위 분석은
    scripts/h2b_backfill_analysis.py 를 쓰고, 이 스크립트는 기존 데이터셋 호환용으로 유지한다.
+
+⚠ 통계 기준 주의: 이 스크립트의 별표(*/**/***)는 **다중비교 미보정 탐색치**이며 scipy 에
+   의존한다. 같은 저장소의 scripts/h2b_backfill_analysis.py 는 (a) scipy 없이 재현 가능하게
+   직접 구현했고 (b) Bonferroni 보정을 병기한다. 판정용 결론은 그쪽을 쓰고, 이 파일은
+   기존 1.2 데이터셋 호환 조회용으로만 본다.
 """
 from __future__ import annotations
 import argparse, json, sys
@@ -96,8 +101,11 @@ def bucket_table(data):
         mae = [x["mae"] * 100 for x in d if x["mae"] is not None]
         win = 100 * sum(1 for r in rets if r > 0) / len(rets)
         mean = sum(rets) / len(rets)
-        lines.append(f"| {name} | {len(d)} | {mean:+.3f} | {win:.1f}% | "
-                     f"{(sum(mfe)/len(mfe)):+.2f} | {(sum(mae)/len(mae)):+.2f} |")
+        # mfe/mae 는 데이터셋에 따라 통째로 없을 수 있는 선택 필드다(fo.get).
+        # 빈 리스트에 평균을 내면 ZeroDivisionError 로 죽으므로 '-' 로 표기한다.
+        mfe_s = f"{(sum(mfe)/len(mfe)):+.2f}" if mfe else "-"
+        mae_s = f"{(sum(mae)/len(mae)):+.2f}" if mae else "-"
+        lines.append(f"| {name} | {len(d)} | {mean:+.3f} | {win:.1f}% | {mfe_s} | {mae_s} |")
     return "\n".join(lines)
 
 

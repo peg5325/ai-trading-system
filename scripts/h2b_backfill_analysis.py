@@ -81,6 +81,10 @@ MIN_PRACTICAL_RHO = 0.05
 PARITY_TOLERANCE = 1e-6
 
 
+def rho_fmt(v) -> str:
+    return "—" if v is None else f"{v:+.3f}"
+
+
 def leverage_group(symbol: str) -> str:
     return LEVERAGE_GROUP.get(symbol.upper(), "1x")
 
@@ -90,9 +94,13 @@ def _now_iso() -> str:
 
 
 def _git_sha() -> str:
+    """HEAD sha. 워킹트리가 더티면 -dirty 접미 — 산출물의 재현 근거를 정확히 남긴다."""
     try:
-        return subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
-                              text=True, check=True).stdout.strip()
+        sha = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
+                             text=True, check=True).stdout.strip()
+        dirty = subprocess.run(["git", "status", "--porcelain"], capture_output=True,
+                               text=True, check=True).stdout.strip()
+        return f"{sha}-dirty" if dirty else sha
     except Exception:
         return "unknown"
 
@@ -112,7 +120,15 @@ def run_parity(journal_db: str, market_db: str, horizons) -> dict:
     if not (os.path.exists(journal_db) and os.path.exists(market_db)):
         out["notes"] = f"아티팩트 없음: {journal_db} / {market_db}"
         return out
+    try:
+        return _run_parity_inner(journal_db, market_db, horizons, out)
+    except Exception as exc:  # noqa: BLE001 — 계약: 예외로 죽지 않고 상태를 반환
+        out["status"] = "ERROR"
+        out["notes"] = f"패리티 실행 중 예외: {exc!r}"
+        return out
 
+
+def _run_parity_inner(journal_db: str, market_db: str, horizons, out: dict) -> dict:
     con = sqlite3.connect(f"file:{journal_db}?mode=ro", uri=True)
     try:
         rows = con.execute("SELECT cycle_ts, data FROM journal_cycle ORDER BY cycle_ts").fetchall()
@@ -135,6 +151,8 @@ def run_parity(journal_db: str, market_db: str, horizons) -> dict:
     live_cands = [r for r in live if r["candidate"]]
     out["live_candidates"] = len(live_cands)
     score_max = comp_max = 0.0
+    comp_comparisons = 0        # 0 이면 컴포넌트 게이트가 공허하게 통과한 것
+    unmatched_components = 0    # 라이브에 있는데 재구성에 없는 컴포넌트
     matched = recon = 0
     unaligned = 0
     offsets: dict[int, int] = {}
@@ -166,10 +184,11 @@ def run_parity(journal_db: str, market_db: str, horizons) -> dict:
         for name, lv in lc.items():
             rv = rc.get(name)
             if not rv:
-                comp_max = float("inf")
+                unmatched_components += 1     # inf 대신 계수(Infinity 는 비표준 JSON)
                 continue
             for fld in ("normalized_score", "weight", "weighted_score"):
                 comp_max = max(comp_max, abs(float(rv[fld]) - float(lv[fld])))
+                comp_comparisons += 1
         f = cand.features or {}
         total = sum(c["weighted_score"] for c in rc.values())
         if abs(total - f["weighted_component_sum"]) > 1e-9 or \
@@ -182,8 +201,13 @@ def run_parity(journal_db: str, market_db: str, horizons) -> dict:
         "invariant_ok": invariant_ok,
         "bar_offset_distribution": {str(k): v for k, v in sorted(offsets.items())},
         "unaligned_outcomes": unaligned,
+        "component_comparisons": comp_comparisons,
+        "unmatched_components": unmatched_components,
     })
+    # comp_max 는 0.0 에서 시작하므로 비교가 한 번도 없으면 공허하게 통과한다.
+    # H2-b 는 전적으로 컴포넌트에 대한 가설이라 그 게이트가 비면 PASS 로 볼 수 없다.
     ok = (unaligned == 0 and recon == len(live_cands) and invariant_ok
+          and comp_comparisons > 0 and unmatched_components == 0
           and score_max <= PARITY_TOLERANCE and comp_max <= PARITY_TOLERANCE)
     out["status"] = "PASS" if ok else "FAIL"
     if ok:
@@ -191,13 +215,28 @@ def run_parity(journal_db: str, market_db: str, horizons) -> dict:
                         f"(라이브 루프 지연에 따라 [T,T+5)/[T-5,T) 가 섞인다 — 지문 정렬로 흡수).")
     else:
         out["notes"] = (f"불일치: unaligned={unaligned}, recon={recon} vs live={len(live_cands)}, "
-                        f"score_max={score_max}, comp_max={comp_max}, invariant_ok={invariant_ok}")
+                        f"score_max={score_max}, comp_max={comp_max}, invariant_ok={invariant_ok}, "
+                        f"component_comparisons={comp_comparisons}"
+                        + (" (컴포넌트 비교 0건 — 게이트가 공허하다)" if comp_comparisons == 0 else ""))
     return out
 
 
 # ---------------------------------------------------------------------------
 # 2) 후보 스트림
 # ---------------------------------------------------------------------------
+
+def _missing_minutes(candles) -> int:
+    """각 거래일의 [첫 봉, 마지막 봉] 구간에서 비어 있는 1분 슬롯 수(상한 추정)."""
+    by_day: dict = defaultdict(list)
+    for c in candles:
+        by_day[c.ts_exchange.date()].append(c.ts_utc)
+    total = 0
+    for _, ts in by_day.items():
+        ts.sort()
+        span = int((ts[-1] - ts[0]).total_seconds() // 60) + 1
+        total += max(0, span - len(ts))
+    return total
+
 
 def collect_observations(db: str, symbols: list[str], horizons,
                          min_days: int) -> tuple[list, dict]:
@@ -223,7 +262,10 @@ def collect_observations(db: str, symbols: list[str], horizons,
             "leverage_group": leverage_group(sym),
             "bars": len(candles), "trading_days": len(days),
             "start": candles[0].ts_utc.isoformat(), "end": candles[-1].ts_utc.isoformat(),
-            "missing_bars": 0, "candidates": len(obs),
+            # 거래일 안에서 관측된 1분 격자 대비 결측(휴장/비거래 시간은 제외할 수 없어
+            # 상한 추정치다). 0 을 하드코딩하면 "결측이 검증됐다"는 잘못된 신호를 준다.
+            "missing_bars_within_days": _missing_minutes(candles),
+            "candidates": len(obs),
             "candidate_days": len(cand_days),
         }
         coverage["per_symbol"].append(entry)
@@ -303,7 +345,7 @@ def analyze(obs, horizons, alpha: float) -> dict:
 def official_validation(obs, horizons, embargo_min: int, ratio: float = 0.7) -> list:
     """chronological / embargo 홀드아웃. random CV 는 구조적으로 불가능하다."""
     rows = []
-    ordered = sorted(obs, key=lambda o: o.bar_ts_utc)
+    ordered = sorted(obs, key=lambda o: datetime.fromisoformat(o.bar_ts_utc))
     if len(ordered) < 10:
         return rows
     k = int(len(ordered) * ratio)
@@ -336,11 +378,43 @@ def official_validation(obs, horizons, embargo_min: int, ratio: float = 0.7) -> 
 # 4) 판정
 # ---------------------------------------------------------------------------
 
+def daily_reproduction(h2b: dict, idx: dict, horizons) -> dict:
+    """일별 재현율 — **그 날 하루 안에서** pooled 와 같은 부호가 나온 날의 비율.
+
+    LOSO 부호 일치율을 확신도 근거로 쓰면 안 되는 이유: fold 가 "한 날을 뺀 나머지 전부"라
+    D일이면 각 fold 가 (D-1)/D 를 공유한다. 105일이면 하루를 빼도 rho 는 소수 3자리에서나
+    움직여 일치율이 거의 항상 1.0 이 된다(모든 날이 반대 부호여도 1.0 이 가능하다).
+    그건 **한 날의 영향력(jackknife)** 이지 재현성이 아니다.
+
+    이미 계산해 둔 `by_date` 를 쓰면 "날마다 같은 방향이 나오는가"를 직접 볼 수 있다.
+    무작위라면 0.5 근처, 진짜 재현되는 효과라면 유의하게 높아야 한다.
+    """
+    out: dict = {}
+    for f in H2B_FEATURES:
+        for h in horizons:
+            pooled = idx.get((f, h))
+            if not pooled or pooled["rho"] is None:
+                continue
+            pooled_neg = pooled["rho"] < 0
+            days = [r for r in h2b["by_date"]
+                    if r["feature"] == f and r["horizon_min"] == h and r["rho"] is not None]
+            if not days:
+                continue
+            same = sum(1 for r in days if (r["rho"] < 0) == pooled_neg)
+            out[f"{f}@{h}"] = {"feature": f, "horizon_min": h, "days": len(days),
+                               "same_sign_days": same, "ratio": same / len(days),
+                               "pooled_sign": "-" if pooled_neg else "+"}
+    return out
+
+
 def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
             min_days: int, min_symbols: int) -> dict:
     limits = []
-    usable = [s for s in coverage["per_symbol"] if s["trading_days"] >= min_days]
-    n_days = max([s["trading_days"] for s in coverage["per_symbol"]], default=0)
+    # 판정에 필요한 건 "캔들이 있는 날"이 아니라 **후보가 실제 발생한 날**이다.
+    # 또 n_days 를 max 로 잡으면 한 종목만 길어도 게이트를 통과하므로 중앙값을 쓴다.
+    usable = [s for s in coverage["per_symbol"] if s["candidate_days"] >= min_days]
+    cand_days = sorted(s["candidate_days"] for s in coverage["per_symbol"])
+    n_days = cand_days[len(cand_days) // 2] if cand_days else 0     # 중앙값
     n_syms = len(usable)
 
     if parity["status"] != "PASS":
@@ -369,16 +443,25 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
                 classes[(f, h)] = "insufficient"
                 checks.append((f, h, False, "표본 부족"))
                 continue
+            if base is None:
+                # 기준선 없는 지평(--horizons 로 30/60 외를 준 경우) — 방향 비교 불가.
+                classes[(f, h)] = "no_baseline"
+                checks.append((f, h, False,
+                               f"rho={rho_fmt(r['rho'])} — s001 기준선 없음(판정 제외)"))
+                continue
             rho, p = r["rho"], r["p"]
             sig = p is not None and p < thr
-            same_sign = base is not None and (rho < 0) == (base < 0)
+            same_sign = (rho < 0) == (base < 0)
             big = abs(rho) >= MIN_PRACTICAL_RHO
-            if sig and not same_sign:
-                cls = "reversed"
-            elif sig and same_sign and big:
+            # ★ 크기 하한은 **부호와 무관하게** 적용한다. reversed 에만 빼면 |rho| 가
+            #   똑같은 0.023 이 부호에 따라 "적극적 반증"과 "사실상 0"으로 갈린다 —
+            #   MIN_PRACTICAL_RHO 를 정의한 취지(유의성≠효과크기)와 정면으로 어긋난다.
+            if not big:
+                cls = "negligible"          # 방향 불문, 크기가 사실상 0
+            elif sig and not same_sign:
+                cls = "reversed"            # 크고 + 유의하고 + 방향이 반대 → 적극적 반증
+            elif sig and same_sign:
                 cls = "replicated"
-            elif same_sign and sig:
-                cls = "negligible"
             else:
                 cls = "null"
             classes[(f, h)] = cls
@@ -389,6 +472,7 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
     n_pass = sum(1 for c in checks if c[2])
     n_reversed = sum(1 for v in classes.values() if v == "reversed")
     n_negligible = sum(1 for v in classes.values() if v == "negligible")
+    judged = [k for k, v in classes.items() if v not in ("no_baseline", "insufficient")]
 
     # 레버리지 의존성 — 그룹별 부호가 갈리면 "효과가 레버리지 때문"이라는 신호.
     lev_rows = [r for r in h2b["by_leverage"]
@@ -398,31 +482,62 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
         lev_dep = "inconclusive"
         limits.append(f"레버리지 그룹이 {sorted(groups_present)} 뿐 — 자연실험 비교 불가")
     else:
-        signs = defaultdict(set)
+        # ★ 같은 (feature, 지평) 안에서 그룹 간 부호가 갈리는지를 본다.
+        #   group 만으로 키를 잡으면 한 그룹 안의 서로 다른 feature 부호차(vwap +, volume −)
+        #   가 곧바로 "불일치"로 잡혀 레버리지와 무관하게 항상 yes 가 된다.
+        by_cell = defaultdict(dict)
         for r in lev_rows:
-            signs[r["group"]].add(r["rho"] < 0)
-        consistent = all(len(v) == 1 for v in signs.values())
-        same_across = len({next(iter(v)) for v in signs.values() if len(v) == 1}) == 1
-        lev_dep = "no" if (consistent and same_across) else "yes"
+            by_cell[(r["feature"], r["horizon_min"])][r["group"]] = r["rho"] < 0
+        split_cells = [cell for cell, gm in by_cell.items()
+                       if len(gm) >= 2 and len(set(gm.values())) > 1]
+        lev_dep = "yes" if split_cells else "no"
+        if split_cells:
+            limits.append(
+                "레버리지 그룹 간 부호가 갈리는 (feature, 지평): "
+                + ", ".join(f"{f}@{h}m" for f, h in sorted(split_cells)))
 
-    # LOSO 부호 일치율 — 판정의 확신도는 p값이 아니라 이 안정성에서 나온다.
+    # LOSO 부호 일치율은 **jackknife 영향력**이지 "날마다 재현되는가"가 아니다.
+    # fold 가 (D-1)/D 데이터를 공유해 하루 빼도 rho 가 거의 안 움직이기 때문이다
+    # (모든 날이 반대 부호여도 일치율 1.0 이 나올 수 있다).
+    # 그래서 확신도는 **일별 재현율**(그 날 안에서 pooled 부호를 보인 날의 비율)로 잰다.
     ratios = [stab[(f, h)]["same_sign_ratio"] for f in H2B_FEATURES for h in horizons
               if (f, h) in stab]
     min_stab = min(ratios) if ratios else 0.0
+    day_repro = daily_reproduction(h2b, idx, horizons)
+    min_day = min([v["ratio"] for v in day_repro.values()], default=0.0)
+
+    # ★ 중첩 표본 경고 — p값은 iid 를 가정하지만 관측은 심하게 겹친다.
+    #   결정봉 5분 간격 × forward 30/60분 → 한 관측의 창이 다음 6~12개 관측과 겹치고,
+    #   분석 종목 상당수가 같은 반도체 베타라 동시점 수익률도 교차상관돼 있다.
+    #   유효표본은 n 보다 수십~수백 배 작아 p<1e-8 은 그 산술의 산물이다.
+    limits.append(
+        "p값은 독립 표본(iid)을 가정하지만 관측이 심하게 중첩된다 — 결정봉 5분 간격에 "
+        "forward 지평 30/60분이라 한 관측의 창이 다음 6~12개와 겹치고, 종목 간에도 "
+        "동시점 수익률이 교차상관돼 있다. **유효표본은 n 보다 훨씬 작고 p값은 과대추정** "
+        "이다. 따라서 판정은 p 가 아니라 부호·효과크기·일별 재현율에 근거한다. "
+        "정식 보정(일별 블록 부트스트랩/Newey-West)은 후속 과제.")
 
     if n_syms < min_symbols or n_days < min_days:
         rep, conf = "inconclusive", "none"
         limits.append(
-            f"커버리지 부족: {min_days}거래일 이상 확보 종목 {n_syms}개(요구 {min_symbols}), "
-            f"최대 거래일 {n_days}일(요구 {min_days}). 다른 종목으로의 일반화를 판정할 수 없다.")
-    elif n_pass == len(checks):
+            f"커버리지 부족: 후보발생일 {min_days}일 이상인 종목 {n_syms}개(요구 {min_symbols}), "
+            f"후보발생일 중앙값 {n_days}일(요구 {min_days}). 일반화를 판정할 수 없다.")
+    elif not judged:
+        # 판정 가능한 검정이 하나도 없다(기준선 없는 지평만 주어진 경우 등).
+        # 근거 없이 "재현 안 됨"이라고 말하지 않는다.
+        rep, conf = "inconclusive", "none"
+        limits.append(
+            "판정 가능한 검정이 0건 — s001 기준선이 있는 지평(30/60m)이 필요하다. "
+            "상관 자체는 계산·보고되지만 재현 여부는 판정하지 않는다.")
+    elif n_pass == len(judged):
         rep = "yes"
-        conf = "strong" if min_stab >= 0.9 else ("moderate" if min_stab >= 0.7 else "weak")
+        # 중첩 표본으로 p 가 과대추정이므로 confidence 를 strong 으로 올리지 않는다.
+        conf = "moderate" if min_day >= 0.6 else "weak"
     elif n_reversed > 0:
         # 부호가 뒤집혔는데 유의하기까지 하면 "판단 보류"가 아니라 **반증**이다.
         # 이걸 inconclusive 라고 부르면 결론을 실제보다 열어두는 것이 된다.
         rep = "no"
-        conf = "strong" if min_stab >= 0.9 else "moderate"
+        conf = "moderate"
         limits.append(
             f"부호 역전 {n_reversed}건: "
             + ", ".join(f"{f}@{h}m(s001 {S001_BASELINE[(f,h)]:+.3f} → 현재 "
@@ -431,10 +546,10 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
             + " — s001 의 음(−)의 예측력은 재현되지 않았고, 방향이 반대로 관측된다.")
     elif n_pass == 0:
         rep = "no"
-        conf = "strong" if min_stab >= 0.9 else "moderate"
+        conf = "moderate"
     else:
         rep, conf = "inconclusive", "weak"
-        limits.append(f"H2-b 4개 검정(2 feature × 2 지평) 중 {n_pass}개만 통과 — 부분 재현")
+        limits.append(f"H2-b {len(judged)}개 검정 중 {n_pass}개만 재현 — 부분 재현")
 
     if n_negligible:
         n_max = max((idx[(f, h)]["n"] for f in H2B_FEATURES for h in horizons
@@ -455,12 +570,25 @@ def verdict(h2b: dict, coverage: dict, parity: dict, horizons,
         "1분봉을 5분봉으로 재구성한 뒤의 관측이며, 라이브의 체결/슬리피지/비용은 반영하지 않은 "
         "종가 기준 forward return 이다.")
 
+    checks_out = []
+    for f, h, _ok, _msg in checks:
+        r = idx.get((f, h))
+        base = S001_BASELINE.get((f, h))
+        if not r or r["rho"] is None or base is None:
+            continue
+        checks_out.append({
+            "feature": f, "horizon_min": h, "rho": r["rho"], "p": r["p"],
+            "s001_rho": base, "class": classes.get((f, h)),
+            "size_ratio": f"{abs(r['rho'])/abs(base):.0%}" if base else "—"})
+
     detail = "; ".join(f"{f}@{h}m {msg}" for f, h, _, msg in checks)
     summary = (f"패리티 PASS 하에 H2-b 판정 = {rep}. "
-               f"vwap_position/volume 4개 검정 중 {n_pass}개가 음(−)+Bonferroni 통과. "
+               f"vwap_position/volume {len(judged)}개 검정 중 {n_pass}개가 재현(replicated). "
                f"[{detail}]")
     return {"h2b_replicated": rep, "confidence": conf, "leverage_dependent": lev_dep,
-            "summary": summary, "limitations": limits}
+            "summary": summary, "limitations": limits,
+            "checks": checks_out, "daily_reproduction": day_repro,
+            "classes": {f"{f}@{h}": c for (f, h), c in classes.items()}}
 
 
 # ---------------------------------------------------------------------------
@@ -519,11 +647,15 @@ def render_md(payload: dict, cmd: str) -> str:
     A(ver["summary"])
     A("")
     # 판정 한 줄 해석 — 표만 보고 반대로 읽는 것을 막는다.
-    if ver["h2b_replicated"] == "no":
-        A("> **읽는 법:** `vwap_position` 은 Bonferroni 를 통과했지만 **부호가 s001 과 반대**다"
-          "(−0.329 → +0.023). 즉 \"음(−)의 예측력\"은 재현되지 않았고 방향이 뒤집혔다. "
-          "`volume` 은 부호는 유지되나 크기가 s001 의 2~5% 로 사실상 0 이다. "
-          "n≈7만에서는 rho=0.02 도 p<1e-8 이 되므로 **★를 효과 크기로 읽으면 안 된다.**")
+    if ver["h2b_replicated"] == "no" and ver.get("checks"):
+        # 실제 실행 결과로 생성한다(하드코딩 금지 — 다른 데이터로 돌리면 거짓말이 된다).
+        A("> **읽는 법:** " + " / ".join(
+            f"`{c['feature']}`@{c['horizon_min']}m: s001 {c['s001_rho']:+.3f} → "
+            f"현재 {c['rho']:+.3f} (크기 {c['size_ratio']}) → **{c['class']}**"
+            for c in ver["checks"]))
+        A(">")
+        A(f"> n 이 크면 작은 rho 도 유의해지므로 ★ 를 효과 크기로 읽으면 안 된다. "
+          f"실용적 하한은 |rho| ≥ {MIN_PRACTICAL_RHO}.")
         A("")
 
     # ② 패리티
@@ -602,6 +734,11 @@ def render_md(payload: dict, cmd: str) -> str:
                             ("종목별", "by_symbol", "symbol")):
         A(f"### {title} (H2-b feature 만)")
         A("")
+        A(f"> 이 표는 **탐색적(미보정)** 이다. 전체 표의 ★ 임계는 14검정 기준이라 "
+          f"하위그룹(종목 {len(cov['per_symbol'])}×14, 날짜별 등 수천 검정)에는 맞지 않는다. "
+          f"여기서는 ★ 를 붙이지 않는다 — 우연히 유의해 보이는 칸을 보정된 결과로 "
+          f"읽지 않기 위해서다.")
+        A("")
         A(f"| {col} | feature | " + " | ".join(f"{h}m rho | {h}m p | n" for h in horizons) + " |")
         A("|---" * (2 + 3 * len(horizons)) + "|")
         rows = defaultdict(dict)
@@ -612,8 +749,7 @@ def render_md(payload: dict, cmd: str) -> str:
             cells = []
             for h in horizons:
                 r = rows[(kv, f)].get(h, {})
-                cells += [f"{_fmt(r.get('rho'))}{_sig(r.get('p'), thr)}",
-                          _fmt(r.get("p"), 4), str(r.get("n", 0))]
+                cells += [_fmt(r.get("rho")), _fmt(r.get("p"), 4), f"{r.get('n', 0):,}"]
             label = f"{kv} {TIER_LABEL.get(kv,'')}" if col == "tier" else kv
             A(f"| {label} | {f} | " + " | ".join(cells) + " |")
         A("")
@@ -633,9 +769,11 @@ def render_md(payload: dict, cmd: str) -> str:
 
     # 공식 검증
     if payload.get("official_validation"):
-        A("## ⑤-b 공식 검증 (chronological / embargo)")
+        A("## ⑤-b 구간 분할 안정성 (chronological / embargo)")
         A("")
-        A("random CV 는 시계열 누수라 **구조적으로 금지**되어 있다"
+        A("train 에서 모형을 적합하지 않고 두 구간의 rho 를 각각 계산해 비교한다 — "
+          "홀드아웃 **검증**이 아니라 **구간 분할 안정성 점검**이다. "
+          "random CV 는 시계열 누수라 구조적으로 금지되어 있다"
           "(`OFFICIAL_SPLIT_METHODS` 강제, 위반 시 예외).")
         A("")
         A("| 방법 | embargo | feature | 지평 | train rho (n) | test rho (n) | 부호유지 |")
@@ -654,7 +792,8 @@ def render_md(payload: dict, cmd: str) -> str:
     A(f"검정 {mc['tests_run']}회({len(FEATURES)} feature × {len(horizons)} 지평), "
       f"α={mc['alpha']} → Bonferroni 임계 **{mc['bonferroni_threshold']:.4f}**")
     A("")
-    A(f"- **생존자(재현됨으로 표기 가능):** {', '.join(mc['survivors']) or '없음'}")
+    A(f"- **Bonferroni 통과(유의성만 — 재현 판정이 아니다):** "
+      f"{', '.join(mc['survivors']) or '없음'}")
     A(f"- 위양성 후보(s001 에서 한쪽 지평만 유의): {', '.join(SUSPECT_FEATURES)} — "
       "생존 못 하면 폐기 대상")
     A("")
@@ -706,6 +845,16 @@ def main(argv: list[str]) -> int:
     args = ap.parse_args(argv)
 
     horizons = tuple(int(x) for x in args.horizons.split(",") if x.strip())
+    if not horizons:
+        print("--horizons 가 비었다.", file=sys.stderr)
+        return 2
+    # S001_BASELINE 이 없는 지평은 방향 비교(재현 판정)를 할 수 없다. 조용히 reversed 로
+    # 분류되거나 리포트 포맷에서 죽지 않도록, 판정 대상 feature 기준으로 미리 경고한다.
+    missing_base = [h for h in horizons
+                    if any((f, h) not in S001_BASELINE for f in H2B_FEATURES)]
+    if missing_base:
+        print(f"경고: 지평 {missing_base} 는 s001 기준선이 없어 재현 판정에서 제외된다"
+              f"(상관 자체는 계산·보고된다).", file=sys.stderr)
     if args.embargo_min < max(horizons):
         print(f"embargo({args.embargo_min}m) 가 forward 지평({max(horizons)}m)보다 짧다 — "
               f"누수 위험.", file=sys.stderr)
@@ -755,7 +904,9 @@ def main(argv: list[str]) -> int:
            f"  --horizons {args.horizons} --embargo-min {args.embargo_min} "
            f"--min-days {args.min_days}")
     with open(args.out_json, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False, indent=2, default=str)
+        # allow_nan=False: Infinity/NaN 은 RFC 8259 위반이라 jq/엄격 파서에서 리포트
+        # 전체가 깨진다. 조용히 쓰지 말고 조기에 실패시킨다.
+        json.dump(payload, fh, ensure_ascii=False, indent=2, default=str, allow_nan=False)
     with open(args.out_md, "w", encoding="utf-8") as fh:
         fh.write(render_md(payload, cmd))
 

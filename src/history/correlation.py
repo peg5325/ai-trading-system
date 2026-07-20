@@ -18,7 +18,7 @@ from dataclasses import dataclass
 import numpy as np
 
 # 이 저장소의 공식 검증 경로(random CV 금지)와 정합.
-from src.history.evaluation import OFFICIAL_SPLIT_METHODS, RANDOM_CV_WATERMARK  # noqa: F401
+from src.history.evaluation import OFFICIAL_SPLIT_METHODS, RANDOM_CV_WATERMARK
 
 
 @dataclass(frozen=True)
