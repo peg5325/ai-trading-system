@@ -45,6 +45,11 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--probe", action="store_true",
                     help="프로브 모드: max_pages=5 로 실제 보존 깊이만 측정")
     ap.add_argument("--no-resume", action="store_true", help="커서 무시하고 처음부터 재스캔")
+    ap.add_argument("--gap-skip-minutes", type=int, default=0,
+                    help="빈 페이지/nextBefore=null 을 '소진'이 아닌 'UTC 일자 경계'로 보고 "
+                         "이만큼 과거로 건너뛰며 계속 페이징(0=비활성, 권장 200=page-size)")
+    ap.add_argument("--max-consecutive-empty", type=int, default=40,
+                    help="gap-skip 시 연속 빈 창 허용 횟수(초과하면 진짜 소진으로 판정)")
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
@@ -61,7 +66,8 @@ def main(argv: list[str]) -> int:
             store, prov, symbols, args.interval,
             max_pages=max_pages, page_size=args.page_size, spacing=args.spacing,
             max_retries=args.max_retries, backoff_base=args.backoff_base,
-            resume=not args.no_resume)
+            resume=not args.no_resume, gap_skip_minutes=args.gap_skip_minutes,
+            max_consecutive_empty=args.max_consecutive_empty)
 
     if args.json:
         print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
