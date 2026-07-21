@@ -1,0 +1,69 @@
+# P0 고정 유니버스 — US 30종목 (4전략 공통 엔지니어링 유니버스)
+#
+# 이 파일이 P0-30 심볼 목록의 정본이다. docs/research/DATA_CONTRACT_4STRATEGY_V1.md §1 이 참조한다.
+# 이슈 #68 · Phase 1A. 결과(전략 성과) 확인 전 고정. 사후 완화·변경 금지.
+#
+# 범위: 이 30종목만. P1(point-in-time 100~300 확장)은 별도 후속 이슈(범위 밖).
+# 매매/주문/config 아님 — 데이터 수집 대상 목록일 뿐(런타임 runtime_*.yaml 과 무관).
+
+version: 1
+as_of: "2026-07-21"
+market: US
+currency: USD
+count: 30
+
+# track 별 최소 데이터 요건 (계약 §2). 공급자 실측은 PROBE_REPORT 참조.
+requirements:
+  swing_daily:
+    interval: "1d"
+    min_years: 5
+    adjusted: split-adjusted   # 실증 검증됨(PROBE §splits)
+    blind_oos_months: 12       # 2025-07-21 ~ 2026-07-21
+  intraday_minute:
+    interval: "1m"
+    min_years: 3
+    sessions_required: [PRE, REGULAR, POST]   # OVERNIGHT 은 선택
+    blind_oos_months: 6        # 2026-01-21 ~ 2026-07-21
+  intraday_5m:
+    interval: "5m"
+    derived_from: "1m"         # 원천 다운로드 안 함 — 결정론 파생(resample.py)
+
+# 상장폐지 종목 없음(survivorship 인지). 아래는 참고용 상장/스핀오프 시점(수집 후 실측으로 갱신).
+symbols:
+  # --- 시장 벤치마크 (4) ---
+  - {symbol: SPY,   class: benchmark,     note: "S&P 500 ETF — 대표 벤치마크·상대강도 기준"}
+  - {symbol: QQQ,   class: benchmark,     note: "Nasdaq-100 ETF — 성장/기술 벤치마크"}
+  - {symbol: IWM,   class: benchmark,     note: "Russell 2000 ETF — 소형주 스타일 분산"}
+  - {symbol: DIA,   class: benchmark,     note: "Dow 30 ETF — 대형가치 스타일 분산"}
+
+  # --- 섹터 ETF (8) ---
+  - {symbol: XLK,   class: sector_etf,    note: "Technology"}
+  - {symbol: XLF,   class: sector_etf,    note: "Financials"}
+  - {symbol: XLE,   class: sector_etf,    note: "Energy"}
+  - {symbol: XLV,   class: sector_etf,    note: "Health Care"}
+  - {symbol: XLI,   class: sector_etf,    note: "Industrials"}
+  - {symbol: XLY,   class: sector_etf,    note: "Consumer Discretionary"}
+  - {symbol: XLU,   class: sector_etf,    note: "Utilities — 고배당(배당조정 검증 R1 후보)"}
+  - {symbol: SMH,   class: sector_etf,    note: "Semiconductors — 개별 반도체주와 쌍"}
+
+  # --- 대형 성장·반도체 (14) ---
+  - {symbol: AAPL,  class: large_cap,     note: "4:1 split 2020-08-31 (adjusted 검증)"}
+  - {symbol: MSFT,  class: large_cap}
+  - {symbol: NVDA,  class: large_cap,     note: "10:1 split 2024-06-10 (adjusted 검증, 1m 포함)"}
+  - {symbol: AMD,   class: large_cap}
+  - {symbol: AVGO,  class: large_cap,     note: "10:1 split 2024-07-15 (미검증·정보)"}
+  - {symbol: AMZN,  class: large_cap,     note: "20:1 split 2022-06-06 (adjusted 검증)"}
+  - {symbol: META,  class: large_cap}
+  - {symbol: GOOGL, class: large_cap,     note: "20:1 split 2022-07-18 (미검증·정보)"}
+  - {symbol: TSLA,  class: large_cap,     note: "3:1 split 2022-08-25 (adjusted 검증)"}
+  - {symbol: MU,    class: large_cap}
+  - {symbol: NFLX,  class: large_cap}
+  - {symbol: CRM,   class: large_cap}
+  - {symbol: PLTR,  class: large_cap,     note: "IPO 2020-09 — 일봉 이력 ~5.8년(5년 요건 충족)"}
+  - {symbol: VST,   class: large_cap,     note: "스핀오프 2016-10 — 일봉 이력 ~9.8년"}
+
+  # --- 레버리지·인버스 (4) : 결과는 1x 와 분리 보고, 독립 종목 증거로 중복 계산 금지 ---
+  - {symbol: TQQQ,  class: leveraged_etf, beta_ref: QQQ, leverage: 3,  note: "+3x Nasdaq-100"}
+  - {symbol: SQQQ,  class: inverse_etf,   beta_ref: QQQ, leverage: -3, note: "-3x Nasdaq-100"}
+  - {symbol: SOXL,  class: leveraged_etf, beta_ref: SMH, leverage: 3,  note: "+3x 반도체"}
+  - {symbol: SOXS,  class: inverse_etf,   beta_ref: SMH, leverage: -3, note: "-3x 반도체"}
