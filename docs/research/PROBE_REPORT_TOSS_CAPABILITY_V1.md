@@ -5,7 +5,12 @@
 > **재현(독립 검증용)**: 스크립트 `scripts/phase1a_probe.py`(요청 파라미터 고정·자격증명 미출력),
 > 실측 스냅샷 **추적** `docs/research/phase1a_probe_result.json`
 > (SHA-256 `99ef96c124c8ff3505bae2980b4df306cf2d651537e87587be3a0a54c988f817`).
-> 라이브 데이터라 재실행 시 daily latest·generated_utc 는 전진하나 capability 결론은 불변.
+> **재현 대상 = capability 불변식만**(일봉 ≥10년·cursor 미소진 / split-adjusted / 1m ≥3년·<5년 /
+> PRE·REGULAR·POST·OVERNIGHT 네 라벨 **모두 존재**). 아래 값은 **라이브라 재실행마다 달라진다**:
+> `generated_utc`(생성 시각), daily `latest`/`earliest`(최근 시장데이터 전진), **라이브 세션
+> 카운트**(`sessions_live` — 실행 시점 6페이지 창), `latencies_ms`/`latency_summary`(호출 지연).
+> 따라서 본 리포트의 개별 카운트·시각·지연 수치는 이 스냅샷(as-of 2026-07-22)의 값이며,
+> 재현 검증은 **위 불변식 일치**로 한다(추적 JSON 이 그 스냅샷의 정본).
 > (임시 ad-hoc 산출물은 gitignore `reports/phase1a_probe/` 에 둘 수 있음.)
 > **판정: `DATA_GO` (scoped)** — §6.
 >
@@ -51,8 +56,10 @@ targeted `before`-jump 으로 "특정 날짜 이전 1m 존재?" 측정:
 | ~5년(2021-07-22) | **0** | **0** | **없음** |
 
 - **1m 보존 ≈ 3~5년 사이; 최소 3년 요건 충족**(공급자 레벨).
-- 세션 라벨(라이브 6페이지 SPY): `PRE 310 · REGULAR 207 · POST 238 · OVERNIGHT 445` →
-  **PRE/REGULAR/POST/OVERNIGHT 모두 제공**(Toss 미국주식 24h). 계약 필수(PRE/REG/POST) 충족.
+- 세션 라벨(라이브 6페이지 SPY, 추적 JSON `sessions_live`): `PRE 310 · REGULAR 390 · POST 237 ·
+  OVERNIGHT 263` → **PRE/REGULAR/POST/OVERNIGHT 모두 제공**(Toss 미국주식 24h). 계약 필수
+  (PRE/REG/POST) 충족. (개별 카운트는 실행 시점의 최근 6페이지 창에 따라 달라진다 — 불변 주장은
+  "네 라벨 모두 존재"뿐이며 이는 재실행마다 재현된다; §1 재현성 주석.)
 - **주의(coverage vs capability)**: 공급자가 3년 1m 을 **제공**한다는 것과 우리가 **수집 완료**했다는
   것은 다르다. 현재 DB 는 최대 ~8개월(QQQ 205일)만 수집됨(§5). 3년 bulk 는 §7 계획으로 실행.
 - **주의(마진·표본)**: 1m 3년 지점은 **SPY·AAPL 2종목**만 실측했고 3~5년 구간은 미측정이다.
