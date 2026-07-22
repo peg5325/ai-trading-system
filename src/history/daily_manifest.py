@@ -20,7 +20,7 @@ import hashlib
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import yaml
 
@@ -90,21 +90,32 @@ def read_p0_universe(yaml_path: str) -> dict:
 # 2) 심볼별 데이터 지문 + 수집 provenance (read-only 집계)
 # ---------------------------------------------------------------------------
 def symbol_fingerprint(con: sqlite3.Connection, symbol: str,
-                       interval: str = INTERVAL) -> dict:
-    """정렬된 (ts_utc,open,high,low,close,volume) 스트리밍 SHA-256 + 범위/행수/일수.
+                       interval: str = INTERVAL, *, as_of: str | None = None) -> dict:
+    """정렬된 (ts_utc,open,high,low,close,volume) 스트리밍 SHA-256 + 범위/행수/일수/gap.
+
+    as_of(YYYY-MM-DD) 를 주면 거래소-로컬 일자가 as_of 초과인 봉(미완성 진행일 등)을
+    공식 지문에서 제외하고 그 수를 bars_beyond_as_of 로 보고한다. as_of=None(예: 1m
+    불변식)이면 전체를 그대로 해시한다.
 
     행이 0개면 row_count=0, content_sha256 은 빈 스트림 해시(고정값).
     """
     h = hashlib.sha256()
     n = 0
     earliest = latest = None
-    days: set[str] = set()
+    days: list[str] = []          # 정렬 순서로 누적(gap 계산)
+    seen_days: set[str] = set()
+    beyond = 0                    # as_of 초과(미완성 진행일 등) 봉 수 — 공식 지문에서 제외
     cur = con.execute(
         "SELECT ts_utc, ts_exchange, open, high, low, close, volume "
         "FROM candle_history WHERE symbol=? AND interval=? ORDER BY ts_utc",
         (symbol, interval),
     )
     for r in cur:
+        ex_day = str(r["ts_exchange"])[:10]
+        # ★as_of 경계: 거래소-로컬 일자가 as_of 초과면 '미완성/계약 밖'으로 보고 제외.
+        if as_of is not None and ex_day > as_of:
+            beyond += 1
+            continue
         line = "%s|%r|%r|%r|%r|%r\n" % (
             r["ts_utc"], r["open"], r["high"], r["low"], r["close"], r["volume"],
         )
@@ -113,7 +124,15 @@ def symbol_fingerprint(con: sqlite3.Connection, symbol: str,
         if earliest is None:
             earliest = r["ts_utc"]
         latest = r["ts_utc"]
-        days.add(str(r["ts_exchange"])[:10])
+        if ex_day not in seen_days:
+            seen_days.add(ex_day)
+            days.append(ex_day)
+    # 내부 최대 결측(연속 거래일 간 캘린더 일수 차) — 장기 hole 탐지.
+    max_gap_days = 0
+    for a, b in zip(days, days[1:]):
+        gap = (date.fromisoformat(b) - date.fromisoformat(a)).days
+        if gap > max_gap_days:
+            max_gap_days = gap
     return {
         "symbol": symbol,
         "interval": interval,
@@ -121,6 +140,8 @@ def symbol_fingerprint(con: sqlite3.Connection, symbol: str,
         "earliest": earliest,
         "latest": latest,
         "trading_days": len(days),
+        "max_gap_days": max_gap_days,
+        "bars_beyond_as_of": beyond,
         "content_sha256": h.hexdigest(),
     }
 
@@ -183,22 +204,25 @@ def span_years(earliest: str | None, latest: str | None) -> float | None:
     return round((latest_dt - e).total_seconds() / (365.25 * 86400), 3)
 
 
-def daily_verdict(*, span_yrs: float | None, min_years: float,
-                  stopped_reason: str | None, row_count: int) -> dict:
-    """일봉 커버리지 판정.
+# 거래일 밀도/내부결측 임계(보수적 — 정상 일봉은 여유롭게 통과).
+DENSITY_FLOOR = 0.90            # trading_days >= 0.90 * span_years * 252
+EXPECTED_DAYS_PER_YEAR = 252    # NYSE 대략 거래일수
+MAX_GAP_DAYS_ALLOWED = 10       # 연속 거래일 간 캘린더 gap(휴일 long-weekend 여유 초과)
 
-    - row 0 또는 span 미상 → INCONCLUSIVE_DATA.
-    - span_years >= min_years → OK. depth_source 로 페이지예산 절단인지 상장이력 소진인지 구분.
-    - span_years < min_years → INCONCLUSIVE_DATA (★기준 완화 금지). listing_limited 로
-      상장/스핀오프 이력 제한 여부를 별도 표시(추측으로 adjusted/OK 판정하지 않는다).
+
+def daily_verdict(*, span_yrs: float | None, min_years: float,
+                  stopped_reason: str | None, row_count: int,
+                  trading_days: int = 0, bars_beyond_as_of: int = 0,
+                  max_gap_days: int = 0) -> dict:
+    """일봉 커버리지 판정 — 기간뿐 아니라 as_of 경계·거래일 밀도·내부 결측까지 검사.
+
+    OK 조건(전부 충족):
+      · row_count>0, span_years>=min_years  (★기준 완화 금지)
+      · bars_beyond_as_of==0  (미완성/진행 중 봉이 공식 범위에 없음)
+      · density(=trading_days/(span*252)) >= DENSITY_FLOOR  (표본 밀도)
+      · max_gap_days <= MAX_GAP_DAYS_ALLOWED  (장기 내부결측 없음)
+    하나라도 불충족이면 INCONCLUSIVE_DATA + 사유 목록. 추측으로 완화하지 않는다.
     """
-    # stopped_reason(=ingest_log.note) 해석:
-    #  - 'max_pages'                        → 우리 13페이지 예산에서 절단(원천은 더 과거까지
-    #                                          있음 → 최소 ~10년 확보). depth=page_budget_capped.
-    #  - 'nextbefore_null'/'empty_page'     → 공급자 원천 바닥 도달 = 상장이력 전체. depth=listing_full.
-    #  - 'empty_budget_exhausted'/'no_progress'/'error' → 원천 바닥인지 불명(gap-skip 예산 소진·
-    #                                          stalled 커서). '상장이력 전체'로 단정하지 않는다 → indeterminate.
-    # 이번 일봉 run 은 gap_skip_minutes=0 이라 empty_budget_exhausted 는 발생하지 않는다.
     _FLOOR = {"nextbefore_null", "empty_page"}
     page_capped = stopped_reason == "max_pages"
     reached_floor = stopped_reason in _FLOOR
@@ -210,30 +234,46 @@ def daily_verdict(*, span_yrs: float | None, min_years: float,
         depth_source = "indeterminate"
     else:
         depth_source = "unknown"
-    # listing_limited = '상장/스핀오프 이력이 원천 바닥을 이룬다'가 확인된 경우만.
     listing_limited = reached_floor
+
+    density = (round(trading_days / (span_yrs * EXPECTED_DAYS_PER_YEAR), 3)
+               if span_yrs else None)
+    reasons: list[str] = []
     if row_count == 0 or span_yrs is None:
-        status = "INCONCLUSIVE_DATA"
-    elif span_yrs >= min_years:
-        status = "OK"
+        reasons.append("no_data")
     else:
-        status = "INCONCLUSIVE_DATA"
+        if span_yrs < min_years:
+            reasons.append(f"span<{min_years}y")
+        if density is not None and density < DENSITY_FLOOR:
+            reasons.append(f"low_density<{DENSITY_FLOOR}")
+        if max_gap_days > MAX_GAP_DAYS_ALLOWED:
+            reasons.append(f"internal_gap>{MAX_GAP_DAYS_ALLOWED}d")
+    if bars_beyond_as_of > 0:
+        reasons.append("bars_beyond_as_of")  # 미완성/진행 중 봉 존재
+    status = "OK" if not reasons else "INCONCLUSIVE_DATA"
     return {
         "status": status,
         "meets_min_years": (span_yrs is not None and span_yrs >= min_years),
         "depth_source": depth_source,
         "listing_limited": listing_limited,
+        "density": density,
+        "max_gap_days": max_gap_days,
+        "bars_beyond_as_of": bars_beyond_as_of,
+        "inconclusive_reasons": reasons,
     }
 
 
 def symbol_manifest(con: sqlite3.Connection, symbol: str, *, min_years: float,
-                    interval: str = INTERVAL) -> dict:
-    fp = symbol_fingerprint(con, symbol, interval)
+                    interval: str = INTERVAL, as_of: str | None = None) -> dict:
+    fp = symbol_fingerprint(con, symbol, interval, as_of=as_of)
     prov = symbol_provenance(con, symbol, interval)
     yrs = span_years(fp["earliest"], fp["latest"])
     verdict = daily_verdict(span_yrs=yrs, min_years=min_years,
                             stopped_reason=prov["stopped_reason"],
-                            row_count=fp["row_count"])
+                            row_count=fp["row_count"],
+                            trading_days=fp["trading_days"],
+                            bars_beyond_as_of=fp["bars_beyond_as_of"],
+                            max_gap_days=fp["max_gap_days"])
     market_row = con.execute(
         "SELECT market FROM candle_history WHERE symbol=? AND interval=? LIMIT 1",
         (symbol, interval),
@@ -246,6 +286,8 @@ def symbol_manifest(con: sqlite3.Connection, symbol: str, *, min_years: float,
         "latest": fp["latest"],
         "row_count": fp["row_count"],
         "trading_days": fp["trading_days"],
+        "max_gap_days": fp["max_gap_days"],
+        "bars_beyond_as_of": fp["bars_beyond_as_of"],
         "span_years": yrs,
         "content_sha256": fp["content_sha256"],
         "sources": prov["sources"],
@@ -282,11 +324,15 @@ def content_digest(symbol_entries: list[dict]) -> str:
 
 def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
                    collection_code_commit: str | None,
-                   generated_at_utc: str | None = None) -> dict:
+                   generated_at_utc: str | None = None,
+                   as_of: str | None = None) -> dict:
     """P0-30 일봉 manifest 생성(read-only). db_path 는 절대경로여도 basename 만 기록.
 
+    as_of(YYYY-MM-DD): 공식 포함 경계. 미지정 시 YAML universe.as_of 를 사용한다.
+    거래소-로컬 일자가 as_of 초과인 봉(미완성 진행일)은 공식 지문/판정에서 제외된다.
+
     generated_at_utc 를 주지 않으면 현재 UTC(테스트는 고정값 주입 가능). 이 필드는
-    manifest_content_sha256 대상이 아니므로 hash 재현성에 영향 없다.
+    data_content_sha256 대상이 아니므로 hash 재현성에 영향 없다.
     """
     uni = read_p0_universe(yaml_path)
     min_years = uni["min_years"]
@@ -295,9 +341,11 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
     if min_years is None:
         raise ValueError(
             "P0 계약 위반: requirements.swing_daily.min_years 누락 — manifest 생성 중단")
+    as_of = as_of or uni["as_of"]  # 공식 경계: 인자 > YAML as_of
     con = _connect_ro(db_path)
     try:
-        entries = [symbol_manifest(con, s, min_years=min_years) for s in uni["symbols"]]
+        entries = [symbol_manifest(con, s, min_years=min_years, as_of=as_of)
+                   for s in uni["symbols"]]
     finally:
         con.close()
 
@@ -321,6 +369,7 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
             "errors": uni["errors"],
         },
         "min_years": min_years,
+        "as_of": as_of,  # 공식 포함 경계(이 일자 이하 거래일만 집계)
         "collection": {
             **collection_params,
             "code_commit": collection_code_commit,
@@ -332,11 +381,14 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
             "attempted": sum(1 for e in entries if e["run_id"] is not None),
             "with_rows": sum(1 for e in entries if e["row_count"] > 0),
             "total_rows": sum(e["row_count"] for e in entries),
+            "bars_beyond_as_of_total": sum(e["bars_beyond_as_of"] for e in entries),
             "min_earliest": min(earliests) if earliests else None,
             "max_latest": max(latests) if latests else None,
         },
         "symbols": entries,
-        "manifest_content_sha256": content_digest(entries),
+        # data_content_sha256: symbol 별 데이터 유도 필드(_CONTENT_FIELDS)만 정렬 해시.
+        # manifest 전체가 아니라 '포함된 데이터'의 결정론 지문(provenance/시각 제외).
+        "data_content_sha256": content_digest(entries),
         "generated_at_utc": generated_at_utc or datetime.now(timezone.utc).isoformat(),
     }
     return manifest
@@ -346,10 +398,11 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
 # 5) R2 split 연속성 점검 (배당/거래량 조정 데이터 품질 — 보수적 판정)
 # ---------------------------------------------------------------------------
 def invariant_snapshot(con: sqlite3.Connection, interval: str) -> dict:
-    """한 interval 전체의 결정론 지문 — 실행 전후 무변경 증명용(read-only).
+    """한 interval 전체의 **OHLCV content** 결정론 지문 — 실행 전후 무변경 증명용(read-only).
 
     per-symbol (symbol,row_count,content_sha256) 를 정렬·직렬화해 combined_sha256 로 축약.
-    1d backfill 전/후 interval='1m' 스냅샷의 combined_sha256 가 같으면 1m 무변경.
+    content_sha256 은 (ts_utc,o,h,l,c,v) 만 해시한다(=OHLCV content). ts_exchange/session/
+    currency/adjusted/source 까지 포함한 '전체 저장 필드' 대조는 full_field_invariant 참조.
     """
     symbols = [r[0] for r in con.execute(
         "SELECT DISTINCT symbol FROM candle_history WHERE interval=? ORDER BY symbol",
@@ -364,11 +417,30 @@ def invariant_snapshot(con: sqlite3.Connection, interval: str) -> dict:
     blob = json.dumps(per, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return {
         "interval": interval,
+        "scope": "ohlcv_content",
         "symbol_count": len(symbols),
         "total_rows": total,
         "combined_sha256": hashlib.sha256(blob.encode("utf-8")).hexdigest(),
         "per_symbol": per,
     }
+
+
+def full_field_invariant(con: sqlite3.Connection, interval: str) -> dict:
+    """한 interval 전체의 **전체 저장 필드** 결정론 지문(read-only).
+
+    OHLCV 뿐 아니라 ts_exchange/session/currency/adjusted/source/market 까지 모든 저장
+    필드를 정렬 스트리밍 해시한다 → '저장 필드까지 완전 동일' 을 증명(backup↔현재 대조).
+    """
+    h = hashlib.sha256()
+    n = 0
+    for r in con.execute(
+        "SELECT symbol,market,interval,ts_utc,ts_exchange,session,open,high,low,close,"
+        "volume,currency,adjusted,source FROM candle_history WHERE interval=? "
+        "ORDER BY symbol, ts_utc", (interval,)):
+        h.update(("|".join(str(r[k]) for k in r.keys()) + "\n").encode("utf-8"))
+        n += 1
+    return {"interval": interval, "scope": "all_stored_fields",
+            "total_rows": n, "combined_sha256": h.hexdigest()}
 
 
 def split_continuity_check(con: sqlite3.Connection, symbol: str, split_date: str,

@@ -128,33 +128,56 @@ def test_symbol_fingerprint_deterministic_and_insertorder_invariant(tmp_path):
 # 3) 일봉 판정 — 기준 완화 금지, listing 구분
 # ---------------------------------------------------------------------------
 def test_daily_verdict_thresholds():
-    ok = daily_verdict(span_yrs=10.3, min_years=5, stopped_reason="max_pages", row_count=2600)
+    ok = daily_verdict(span_yrs=10.3, min_years=5, stopped_reason="max_pages",
+                       row_count=2600, trading_days=2600, max_gap_days=4)
     assert ok["status"] == "OK" and ok["meets_min_years"] is True
     assert ok["depth_source"] == "page_budget_capped" and ok["listing_limited"] is False
 
     listing = daily_verdict(span_yrs=5.8, min_years=5, stopped_reason="nextbefore_null",
-                            row_count=1458)
+                            row_count=1458, trading_days=1458, max_gap_days=4)
     assert listing["status"] == "OK" and listing["listing_limited"] is True
     assert listing["depth_source"] == "listing_full"
 
     # span < min_years → 절대 완화하지 않고 INCONCLUSIVE_DATA
     short = daily_verdict(span_yrs=3.0, min_years=5, stopped_reason="nextbefore_null",
-                          row_count=700)
+                          row_count=700, trading_days=700)
     assert short["status"] == "INCONCLUSIVE_DATA" and short["meets_min_years"] is False
+    assert "span<5y" in short["inconclusive_reasons"]
 
     empty = daily_verdict(span_yrs=None, min_years=5, stopped_reason=None, row_count=0)
     assert empty["status"] == "INCONCLUSIVE_DATA"
 
 
+def test_daily_verdict_gates_partial_density_gap():
+    """as_of 초과봉/저밀도/장기결측은 span≥min 이어도 INCONCLUSIVE(기준 완화 금지)."""
+    # 미완성(진행 중) 봉이 하나라도 있으면 OK 불가
+    partial = daily_verdict(span_yrs=10.3, min_years=5, stopped_reason="max_pages",
+                            row_count=2600, trading_days=2600, bars_beyond_as_of=1)
+    assert partial["status"] == "INCONCLUSIVE_DATA"
+    assert "bars_beyond_as_of" in partial["inconclusive_reasons"]
+    # 표본 밀도 부족(기간은 길지만 거래일 몇 개뿐)
+    sparse = daily_verdict(span_yrs=10.0, min_years=5, stopped_reason="max_pages",
+                           row_count=100, trading_days=100)
+    assert sparse["status"] == "INCONCLUSIVE_DATA"
+    assert any(r.startswith("low_density") for r in sparse["inconclusive_reasons"])
+    # 장기 내부 결측
+    hole = daily_verdict(span_yrs=6.0, min_years=5, stopped_reason="max_pages",
+                         row_count=1500, trading_days=1500, max_gap_days=45)
+    assert hole["status"] == "INCONCLUSIVE_DATA"
+    assert any(r.startswith("internal_gap") for r in hole["inconclusive_reasons"])
+
+
 def test_daily_verdict_nonfloor_stops_are_indeterminate_not_listing_full():
     """empty_budget_exhausted/no_progress 는 '상장이력 전체'로 단정하지 않는다(over-claim 방지)."""
     for reason in ("empty_budget_exhausted", "no_progress", "error"):
-        v = daily_verdict(span_yrs=10.3, min_years=5, stopped_reason=reason, row_count=2600)
+        v = daily_verdict(span_yrs=10.3, min_years=5, stopped_reason=reason, row_count=2600,
+                          trading_days=2600, max_gap_days=4)
         assert v["depth_source"] == "indeterminate", reason
         assert v["listing_limited"] is False, reason
-        assert v["status"] == "OK"  # 판정은 span 으로만(라벨과 무관)
+        assert v["status"] == "OK"  # 판정은 span/밀도/gap 으로만(라벨과 무관)
     # empty_page 는 원천 바닥으로 인정
-    v2 = daily_verdict(span_yrs=6.0, min_years=5, stopped_reason="empty_page", row_count=1500)
+    v2 = daily_verdict(span_yrs=6.0, min_years=5, stopped_reason="empty_page", row_count=1500,
+                       trading_days=1500, max_gap_days=4)
     assert v2["depth_source"] == "listing_full" and v2["listing_limited"] is True
 
 
@@ -217,8 +240,9 @@ def test_build_manifest_deterministic_and_clean(tmp_path):
     m2 = build_manifest(dbp, str(yaml_path), collection_params=params,
                         collection_code_commit="8a58fdc", generated_at_utc="2999-01-01T00:00:00Z")
     # 생성 시각이 달라도 content hash 동일(결정론)
-    assert m1["manifest_content_sha256"] == m2["manifest_content_sha256"]
+    assert m1["data_content_sha256"] == m2["data_content_sha256"]
     assert m1["summary"]["symbols_total"] == 2
+    assert m1["as_of"] == "2026-07-21"
     assert all(e["verdict"]["status"] == "OK" for e in m1["symbols"])
     # secrets/절대경로 미포함: db_basename 만, 전체 절대경로 문자열 없음
     blob = __import__("json").dumps(m1, ensure_ascii=False)
@@ -228,6 +252,33 @@ def test_build_manifest_deterministic_and_clean(tmp_path):
     for e in m1["symbols"]:
         assert "candles" not in e and "open" not in e
         assert e["content_sha256"] and e["row_count"] == 2600
+
+
+def test_manifest_excludes_bars_beyond_as_of_and_marks_inconclusive(tmp_path):
+    """★회귀: 생성 시점보다 미래/미완성인 as_of 초과 봉은 공식 지문에서 제외되고 OK 가 아니다."""
+    yaml_path = tmp_path / "u.yaml"
+    yaml_path.write_text(
+        "version: 1\nas_of: '2026-07-21'\ncount: 1\nmarket: US\ncurrency: USD\n"
+        "requirements:\n  swing_daily:\n    min_years: 5\n"
+        "symbols:\n  - {symbol: SPY}\n",
+        encoding="utf-8",
+    )
+    dbp = str(tmp_path / "d.sqlite")
+    with HistoryStore(dbp) as store:
+        # 완료분: 2016-03-18 부터 2500 거래일(주말 포함 합성이지만 밀도/gap 통과)
+        _insert_1d(store, "SPY", date(2016, 3, 18), 2500)
+        # as_of 초과(미완성 진행일) 봉 1개를 미래 일자로 추가
+        _insert_1d(store, "SPY", date(2026, 7, 22), 1, vol_fn=lambda i: 12.0)
+        _ingest(store, "SPY", inserted=2501, note="max_pages")
+    m = build_manifest(dbp, str(yaml_path), collection_params={},
+                       collection_code_commit=None, generated_at_utc="2026-07-22T00:00:00Z")
+    e = m["symbols"][0]
+    assert e["bars_beyond_as_of"] == 1            # 초과봉 탐지
+    assert e["row_count"] == 2500                 # 공식 지문에서 제외
+    assert (e["latest"] or "")[:10] <= "2026-07-21"
+    assert e["verdict"]["status"] == "INCONCLUSIVE_DATA"
+    assert "bars_beyond_as_of" in e["verdict"]["inconclusive_reasons"]
+    assert m["summary"]["bars_beyond_as_of_total"] == 1
 
 
 # ---------------------------------------------------------------------------

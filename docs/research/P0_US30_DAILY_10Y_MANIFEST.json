@@ -1,4 +1,5 @@
 {
+  "as_of": "2026-07-21",
   "collection": {
     "code_commit": "8a58fdc",
     "db_basename": "market_history.sqlite",
@@ -9,14 +10,14 @@
     "resume": true,
     "spacing": 0.5
   },
+  "data_content_sha256": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
   "data_quality_checks": {
     "R1_dividend_xlu": {
       "adjusted_flag": [
         1
       ],
       "dividend_adjustment_verdict": "INCONCLUSIVE",
-      "max_single_day_drop_pct": -11.36,
-      "note": "배당(총수익) 조정은 캔들 OHLCV 만으로 독립 검증 불가. adjusted 플래그는 source(toss_backfill) 주장이며 PROBE_REPORT 는 split 조정만 실증. 추측 금지 → INCONCLUSIVE.",
+      "note": "배당(총수익) 조정은 캔들 OHLCV 만으로 독립 검증 불가(외부 배당/총수익 기준 필요). adjusted 플래그는 source(toss_backfill) 주장이며 PROBE_REPORT 는 split 조정만 실증. 수익률 미계산·추측 금지 → INCONCLUSIVE.",
       "symbol": "XLU"
     },
     "R2_split_continuity": [
@@ -142,25 +143,64 @@
       }
     ]
   },
-  "generated_at_utc": "2026-07-22T02:42:02Z",
+  "generated_at_utc": "2026-07-22T06:45:00Z",
   "interval": "1d",
-  "invariant_1m_baseline_combined_sha256": "f9dfc0a53d6a0fbc7155d2154af496bbeca4cbecd0d6dd0d6918883d0d6d403b",
-  "invariant_1m_held": true,
-  "invariant_1m_post": {
-    "combined_sha256": "f9dfc0a53d6a0fbc7155d2154af496bbeca4cbecd0d6dd0d6918883d0d6d403b",
-    "interval": "1m",
-    "symbol_count": 15,
-    "total_rows": 925146
+  "invariant_1m": {
+    "full_field": {
+      "combined_sha256": "1f03972f9a5906114855399bb17be6a3f7abb3818896a5f2a66274d9fe10e3a1",
+      "total_rows": 925146
+    },
+    "full_field_baseline_sha256": "1f03972f9a5906114855399bb17be6a3f7abb3818896a5f2a66274d9fe10e3a1",
+    "full_field_held": true,
+    "ohlcv_baseline_sha256": "f9dfc0a53d6a0fbc7155d2154af496bbeca4cbecd0d6dd0d6918883d0d6d403b",
+    "ohlcv_content": {
+      "combined_sha256": "f9dfc0a53d6a0fbc7155d2154af496bbeca4cbecd0d6dd0d6918883d0d6d403b",
+      "symbol_count": 15,
+      "total_rows": 925146
+    },
+    "ohlcv_held": true
   },
-  "manifest_content_sha256": "951440bf8d22b5a50c4f252591022ed0ad3d2fdfbed161178412d9193e15953a",
   "min_years": 5,
+  "provenance": {
+    "backfill": {
+      "conflict": 0,
+      "duplicate": 0,
+      "errors": [],
+      "inserted": 76720,
+      "pages": 385
+    },
+    "backups": [
+      {
+        "note": "pre-1d-backfill (1d 0행)",
+        "path": "data/backups/market_history.pre-1d-backfill.20260722T023627Z.sqlite",
+        "sha256": "f0b0860545db23f874cbf2d6a93c13503a4beb7bfd22bd15251105fe48624d1f",
+        "size_bytes": 506720256
+      },
+      {
+        "note": "post-backfill, partial 제거 전 스냅샷",
+        "path": "data/backups/market_history.post-1d-with-partial.20260722T063921Z.sqlite",
+        "sha256": "77422e533ee3e21828b59d294be75de6d848de0eedfdb1bab53734056eecc296",
+        "size_bytes": 548896768
+      }
+    ],
+    "remediation": {
+      "action": "remove_partial_daily_beyond_as_of",
+      "audit_basename": "p0_us30_daily_partial_removal_audit.20260722.json",
+      "date": "2026-07-22",
+      "integrity_after": "ok",
+      "removed_rows": 30,
+      "rows_1d_after": 76690,
+      "symbols": 30
+    }
+  },
   "schema": "p0_us30_daily_10y_manifest/v1",
   "summary": {
     "attempted": 30,
-    "max_latest": "2026-07-22T04:00:00+00:00",
+    "bars_beyond_as_of_total": 0,
+    "max_latest": "2026-07-21T04:00:00+00:00",
     "min_earliest": "2016-03-18T04:00:00+00:00",
     "symbols_total": 30,
-    "total_rows": 76720,
+    "total_rows": 76690,
     "verdict_counts": {
       "OK": 30
     },
@@ -171,28 +211,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "db33b7f16c3cec9bfd3700b173d9eda71b506ab606571f08accc0b9dccfc0a16",
+      "content_sha256": "fe2124e90b9de1d2c5b6fa9aef9487d06aeaaf24a6ee10c19e7fc0bd6a5ecfa1",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "SPY",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -201,28 +247,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "ef63d48068288553bf69aa113535a733bbeff4dcb11ac9484d1dd13fbc12d775",
+      "content_sha256": "5b5964fe9bfe1a0355ecdec4ff4b113b1ca32f7600351d2833813bfe298bf8e2",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "QQQ",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -231,28 +283,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "95539ebb9cdd90f24bd19b19b464b1d076f0b10e17f15c1d64695528558c0dd0",
+      "content_sha256": "750f63fd82dcbbaaae21aeca97fcecbc9d49b2b0d12c621889153c321b84e3f5",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "IWM",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -261,28 +319,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "ce92b2bc90273bac42eb74b66c1d591540f6abe7e69cd464fa3a9d4e703b525f",
+      "content_sha256": "0ad9b43eaffffb7c3bd819f188f2d37083c18a115f8332b5cccb7318a8f303bb",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "DIA",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -291,28 +355,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "5a6265bab6a8965b2b40908c7b9bf359a8ad46879c88c8c872ccf40f24ed49a7",
+      "content_sha256": "4c7510a0fa37ef7e7b4d1746dfe41b3c18d154af4bace86fa22ff331b4aca194",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "XLK",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -321,28 +391,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "c7054640e4b79b68b19a7de342b1e0b0eb6b0e4bf4ca0c3b069c41b5a6dc2d64",
+      "content_sha256": "ae66ee6aef319c487204eea7edd148d182c6fbdb46ebbec9af78b0502ebb4268",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "XLF",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -351,28 +427,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "09efc97868516f2c3db2c7dc11acd5f80dbdc99daeb9984a8a7c5509bb0d6b3d",
+      "content_sha256": "4e6a53d1b931823df5d4e68a2388135c3004314ce9f131bab51a5435fc0211d3",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "XLE",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -381,28 +463,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "1910c23430c259844b326769e2447406d78e6cfb98e7e0339846f2796f0dabd1",
+      "content_sha256": "295d910190e7b71127d9fdb63157a67db7261b0c04d08395a5314b368cf2e2f0",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "XLV",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -411,28 +499,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "bf5076b990b3ff1d1fa0e848dbacdcddec9dee70f37e1b556ff1c0e4413c59c9",
+      "content_sha256": "b3fe866a6dd736e35657eedf4c646169ecad7eeaedbc65a1050fe39b6bdeeab5",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "XLI",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -441,28 +535,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "aedafed7de862a22986296de13319d17e903917cc1f76b7a3ee277e326b52b1e",
+      "content_sha256": "e26d463005eb027c603b4f69e8a1a44fe20379720e5b523d013352d217f1b9fa",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "XLY",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -471,28 +571,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "3c89f0720c0b2d89d74d7b37e84f173f002d10036369affb9b6c331d5f347b48",
+      "content_sha256": "02fd4d35fc8fe471419ee9ef12bcad9d124ef75813d1ab7b8e186afb6ed175fd",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "XLU",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -501,28 +607,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "141097be556a5066cfb54c708d5f2fa9bdde6c3b7e9da35241b861f832f41b72",
+      "content_sha256": "88fa7c5e34f789b652f517a18fa93ba05efa21eefe227917f1da944a2493cb09",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "SMH",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -531,28 +643,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "68492e59a4fd9849132a1951943d0012ee6ff55d51ff0651df3e97b99430fcf3",
+      "content_sha256": "4a08925410383bf8dedb19fa93a6b016e0ba35d9a7d118c987ce950350dadd1a",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "AAPL",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -561,28 +679,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "7119d8b5ab1395c9807847e16c9a2b0588c26c185408becfe11433dfad2a3b90",
+      "content_sha256": "fccced48336b656f2d306058dbe780d0427b6dc55e9803ec656f8e23b940b702",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "MSFT",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -591,28 +715,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "309e177b03ceff37045f284029bc61ac7f7410702d1a21099cad096d7e96ec51",
+      "content_sha256": "fd628ff61b27169bc07599e83e529e0ae6cf3eebed6d59dc697a8071c40856d7",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "NVDA",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -621,28 +751,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "24ef6ddd202d687b3901ca1043a16e762714675fe7497fe2a507d57519e80356",
+      "content_sha256": "5242b76250588b0b656b9d2238635e7e5dfd64297ae9c6c23e121de2f7e0368d",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "AMD",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -651,28 +787,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "617e62ba64870f74125b7967af3b7be7bf32d45de074e20d2e51da14ba4cae61",
+      "content_sha256": "e684fc9a8de4f9f43d717919af25529a687931919ea235d21838ae30ff40a51d",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "AVGO",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -681,28 +823,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "c8ea6eaeeb4f836698f66174c455ab5a27fad193537dffc48a8ab8bd8f494535",
+      "content_sha256": "5e153ad419304ea802981c84df1a9fdfec3d617733e605bb39a21636f78b446c",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "AMZN",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -711,28 +859,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "2558668dd4e4042eb8d9f9b76f6b5652f2727b6011c504ff6709cfa08b6375df",
+      "content_sha256": "4187e53cef2b3f7aad58ae68105b1528d26e07a20040a398ce30999fbc2895d6",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "META",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -741,28 +895,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "9ed5a4e15f91df20b8a70ede4154d4ea2f0f2a2f2910030cad2287c8f097b5d7",
+      "content_sha256": "9cf8f9de38bb6ac39087d579f352f9ff30c4e86391f3ac0f01840fa83f5714cf",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "GOOGL",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -771,28 +931,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "6848edfc0ba6f8212f660b62a68134066bcd8310bfa4faed55b1712d08eaa6c9",
+      "content_sha256": "9252131c5fd5341ece4460191fecb151389baf5f7fda1759e919cd568df2c001",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "TSLA",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -801,28 +967,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "c4970180cac879b228397f431ad2be4d3fc45cb54841d16019933adfc6973318",
+      "content_sha256": "21a6ecfcf38a15f85362bb329ac28d0508e8c8f672a49bda2ffd81f056bc4786",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "MU",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -831,28 +1003,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "6cfc4df7c262c19271d84679bd7a3e6968938cc3d4c87f9f13a73641ef08d2d8",
+      "content_sha256": "8e475bab837a48cca97e67c06ea356f2f5ea3a5ad9593323e96840979dbb3c92",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "NFLX",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -861,28 +1039,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "15b99bf709fa6e68e02f93f3237a7e275fe53565a832ecdaf365341dd71d2004",
+      "content_sha256": "60f2bbf2a793e1eceabf60f164e97e4ba96156c0f20462427834d8d73c2083d0",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "CRM",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -891,28 +1075,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "a1d4c90c9955b42b8bd71abf763d797970e7fd729e6113c5b106ca1346f629f8",
+      "content_sha256": "76a1dcfd5e91a0921e0450e0f25ce62a566da610806fc203cad81afb871ffac8",
       "cursor_exhausted": true,
       "duplicate": 0,
       "earliest": "2020-09-30T04:00:00+00:00",
       "error": null,
       "inserted": 1458,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 1458,
+      "max_gap_days": 4,
+      "row_count": 1457,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 5.807,
+      "span_years": 5.804,
       "stopped_reason": "nextbefore_null",
       "symbol": "PLTR",
-      "trading_days": 1458,
+      "trading_days": 1457,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.996,
         "depth_source": "listing_full",
+        "inconclusive_reasons": [],
         "listing_limited": true,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -921,28 +1111,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "b53a1d89afdcb534111e09839d5a5b619aebcbac5641c9c62a8d7f779ab9c4be",
+      "content_sha256": "088bb0a47e2423ec08df3428590a869454aea67db0c7055518825176cb2fee96",
       "cursor_exhausted": true,
       "duplicate": 0,
       "earliest": "2016-10-04T04:00:00+00:00",
       "error": null,
       "inserted": 2462,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2462,
+      "max_gap_days": 4,
+      "row_count": 2461,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 9.796,
+      "span_years": 9.793,
       "stopped_reason": "nextbefore_null",
       "symbol": "VST",
-      "trading_days": 2462,
+      "trading_days": 2461,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "listing_full",
+        "inconclusive_reasons": [],
         "listing_limited": true,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -951,28 +1147,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "8f83b9c82c65b3f967e7ebf1a9cf72ca434e9521d383e1f2b168e59b0c98868c",
+      "content_sha256": "b536f97870c1ea2f5f10681290f969df93279ce092ddc07e4687d0278bea16e6",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "TQQQ",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -981,28 +1183,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "a7698f3f1f393c5cc1c2b5d611f90c99e4ce1a8b62808b1ba854ab0a6ca547a7",
+      "content_sha256": "4003324cd94651c9ecfba0f4a1c9a642217dd84ca9604246b7a3f299ead13a9a",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "SQQQ",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -1011,28 +1219,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "120f5bec6a48601484bc61de8f538b4e825ad5aefef37f6c3ff1264abfb20f1e",
+      "content_sha256": "7121a32a8dec26d5666b22432455e4f4b44576c829b7e13a03d2e73ea8489fd5",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "SOXL",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
@@ -1041,28 +1255,34 @@
       "adjusted": [
         1
       ],
+      "bars_beyond_as_of": 0,
       "conflict": 0,
-      "content_sha256": "25d78ce56ccce42e40fca5a4e859124fd064115409eb9af5293e00b3fc43fb4d",
+      "content_sha256": "d1b3d1638d31a48028935861274c4ace682cd38ce7c7c7c3a75a70cb510ad4af",
       "cursor_exhausted": false,
       "duplicate": 0,
       "earliest": "2016-03-18T04:00:00+00:00",
       "error": null,
       "inserted": 2600,
       "interval": "1d",
-      "latest": "2026-07-22T04:00:00+00:00",
+      "latest": "2026-07-21T04:00:00+00:00",
       "market": "US",
-      "row_count": 2600,
+      "max_gap_days": 4,
+      "row_count": 2599,
       "run_id": "backfill-1d-2026-07-22T02:37:56.440136+00:00",
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 10.344,
+      "span_years": 10.341,
       "stopped_reason": "max_pages",
       "symbol": "SOXS",
-      "trading_days": 2600,
+      "trading_days": 2599,
       "verdict": {
+        "bars_beyond_as_of": 0,
+        "density": 0.997,
         "depth_source": "page_budget_capped",
+        "inconclusive_reasons": [],
         "listing_limited": false,
+        "max_gap_days": 4,
         "meets_min_years": true,
         "status": "OK"
       }
