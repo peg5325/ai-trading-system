@@ -22,6 +22,7 @@ import contextlib
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -167,12 +168,14 @@ def snapshot_via_backup_api(src_path: str, dst_path: str) -> None:
     단순 cp 로 live DB 를 복사하지 않는다.
     """
     src = sqlite3.connect(read_only_uri(src_path), uri=True)
-    dst = sqlite3.connect(dst_path)
     try:
-        src.backup(dst)
-        dst.commit()
+        dst = sqlite3.connect(dst_path)  # dst open 실패해도 src 는 닫힌다
+        try:
+            src.backup(dst)
+            dst.commit()
+        finally:
+            dst.close()
     finally:
-        dst.close()
         src.close()
 
 
@@ -395,7 +398,11 @@ def replicate(
     result.source_file_sha256 = compute_sha256(source_db)
 
     with consistent_source(source_db) as work_src:
-        src_inv = db_inventory(work_src)
+        try:
+            src_inv = db_inventory(work_src)
+        except sqlite3.Error as exc:
+            # 아예 열 수 없는 손상 원본도 verify 실패로 분류(EXIT_VERIFY).
+            raise VerificationError(f"원본 DB 를 열 수 없음: {exc}") from exc
         result.source_inventory = src_inv
         if src_inv.get("integrity") != "ok":
             raise VerificationError(
@@ -488,9 +495,14 @@ def apply_retention(
     if keep is None or keep < 1:
         return deleted
     protect_real = _resolve(protect)
+    # 도구가 만든 복제본 네이밍(<stem>.replica.<UTC>.sqlite)만 대상으로 한다.
+    # 무관한 <stem>*.sqlite (예: 수동 export)는 절대 삭제하지 않는다.
+    pattern = re.compile(
+        rf"^{re.escape(source_stem)}\.replica\.\d{{8}}T\d{{6}}Z\.sqlite$"
+    )
     candidates = []
     for name in os.listdir(target_dir):
-        if not name.startswith(source_stem) or not name.endswith(".sqlite"):
+        if not pattern.match(name):
             continue
         full = os.path.join(target_dir, name)
         if not os.path.isfile(full) or _resolve(full) == protect_real:
@@ -509,6 +521,19 @@ def apply_retention(
 # --------------------------------------------------------------------------- #
 # receipt 생성 / sanitize
 # --------------------------------------------------------------------------- #
+def _reason_category(reason: Optional[str]) -> str:
+    """sanitized receipt 용 경로 없는 사유 범주.
+
+    reason 은 실패 시 예외 메시지(절대경로 포함 가능)를 담을 수 있으므로,
+    ':' 앞 토큰만 취하고 화이트리스트로 제한해 어떤 절대경로/홈경로도
+    sanitized 산출물로 새지 않게 한다.
+    """
+    cat = (reason or "").split(":", 1)[0].strip()
+    return cat if cat in {
+        "ok", "dry-run", "safety", "verify", "error"
+    } else "failed"
+
+
 def build_receipt(
     result: ReplicationResult,
     *,
@@ -558,9 +583,13 @@ def build_receipt(
             "intervals": result.replica_inventory.get("intervals"),
         },
         "restore_smoke": result.restore_smoke,
-        "reason": result.reason,
     }
-    if not sanitized:
+    if sanitized:
+        # sanitized: 경로가 섞일 수 있는 free-form reason 대신 경로 없는 범주만
+        # 노출한다(실패 사유 메시지에 절대경로가 포함될 수 있으므로).
+        receipt["reason"] = _reason_category(result.reason)
+    else:
+        receipt["reason"] = result.reason
         receipt["source"]["abs_path"] = _resolve(source_db)
         receipt["replica"]["abs_path"] = result.final_path
         receipt["replica"]["target_dir"] = _resolve(target_dir)

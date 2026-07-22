@@ -261,7 +261,8 @@ def test_corrupt_source_no_success(tmp_path):
         "--target-id", "t", "--allow-same-device",
         "--receipt", receipt, "--smoke-dir", str(tgt),
     ])
-    assert code != rep.EXIT_OK
+    # 열 수 없는 손상 원본은 verify 실패로 분류(EXIT_VERIFY).
+    assert code == rep.EXIT_VERIFY
     # receipt 가 기록됐더라도 status 는 절대 success 가 아니어야 한다.
     with open(receipt, encoding="utf-8") as fh:
         data = json.load(fh)
@@ -461,3 +462,51 @@ def test_retention_deletes_old_when_enabled(tmp_path):
     assert "market_history.replica.20260101T000000Z.sqlite" not in names
     assert "market_history.replica.20260103T000000Z.sqlite" in names
     assert len(names) == 2
+
+
+def test_retention_ignores_unrelated_sqlite(tmp_path):
+    # 복제본 네이밍 패턴이 아닌 파일은 stem 접두가 같아도 삭제하지 않는다.
+    src = _mk_source(tmp_path)
+    tgt = tmp_path / "ext"
+    tgt.mkdir()
+    unrelated = tgt / "market_history_manual_export.sqlite"
+    unrelated.write_bytes(b"KEEP-ME")
+    (tgt / "market_history.replica.20260101T000000Z.sqlite").write_bytes(b"a")
+    rep.main([
+        "--source-db", src, "--target-dir", str(tgt),
+        "--target-id", "t", "--allow-same-device", "--smoke-dir", str(tgt),
+        "--replica-name", "market_history.replica.20260103T000000Z.sqlite",
+        "--as-of-utc", "20260103T000000Z", "--retention-count", "1",
+    ])
+    # keep=1 → 과거 replica 는 삭제, 패턴 밖 수동 export 는 보존
+    assert unrelated.exists()
+    assert unrelated.read_bytes() == b"KEEP-ME"
+    assert not (tgt / "market_history.replica.20260101T000000Z.sqlite").exists()
+
+
+# --------------------------------------------------------------------------- #
+# 실패 경로 sanitized receipt 도 절대경로/홈경로를 새지 않는다 (reason 필드)
+# --------------------------------------------------------------------------- #
+def test_failure_sanitized_receipt_no_abs_path(tmp_path):
+    src = _mk_source(tmp_path)
+    tgt = tmp_path / "ext"
+    tgt.mkdir()
+    # 기존 성공본 → overwrite 거부 실패 경로 유발(예외 메시지에 final_path 포함)
+    (tgt / "replica.sqlite").write_bytes(b"PRIOR")
+    san = str(tmp_path / "san_fail.json")
+    code = rep.main([
+        "--source-db", src, "--target-dir", str(tgt),
+        "--target-id", "t", "--allow-same-device",
+        "--replica-name", "replica.sqlite",
+        "--sanitized-receipt", san, "--smoke-dir", str(tgt),
+    ])
+    assert code == rep.EXIT_SAFETY
+    s = open(san, encoding="utf-8").read()
+    # 실패 사유에 절대경로가 있었더라도 sanitized 에는 새지 않아야 한다.
+    assert str(tmp_path) not in s
+    assert os.path.expanduser("~") not in s
+    assert "abs_path" not in s
+    data = json.loads(s)
+    assert data["status"] == "failed"
+    assert data["reason"] in {"safety", "verify", "error", "failed"}
+    assert "/" not in str(data["reason"])
