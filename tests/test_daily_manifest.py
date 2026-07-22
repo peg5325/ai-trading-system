@@ -146,6 +146,18 @@ def test_daily_verdict_thresholds():
     assert empty["status"] == "INCONCLUSIVE_DATA"
 
 
+def test_daily_verdict_nonfloor_stops_are_indeterminate_not_listing_full():
+    """empty_budget_exhausted/no_progress 는 '상장이력 전체'로 단정하지 않는다(over-claim 방지)."""
+    for reason in ("empty_budget_exhausted", "no_progress", "error"):
+        v = daily_verdict(span_yrs=10.3, min_years=5, stopped_reason=reason, row_count=2600)
+        assert v["depth_source"] == "indeterminate", reason
+        assert v["listing_limited"] is False, reason
+        assert v["status"] == "OK"  # 판정은 span 으로만(라벨과 무관)
+    # empty_page 는 원천 바닥으로 인정
+    v2 = daily_verdict(span_yrs=6.0, min_years=5, stopped_reason="empty_page", row_count=1500)
+    assert v2["depth_source"] == "listing_full" and v2["listing_limited"] is True
+
+
 # ---------------------------------------------------------------------------
 # 4) content_digest 결정론 + 순서 불변 + 변경 민감
 # ---------------------------------------------------------------------------
@@ -160,6 +172,22 @@ def test_content_digest_order_invariant_and_sensitive():
     # 데이터 필드 하나만 바꿔도 달라짐
     e2b = dict(e2, row_count=4)
     assert content_digest([e1, e2b]) != d_order1
+
+
+def test_build_manifest_guards_missing_min_years(tmp_path):
+    """min_years 누락(계약 위반) YAML → 애매한 TypeError 대신 명시적 ValueError."""
+    y = tmp_path / "nomy.yaml"
+    y.write_text(
+        "version: 1\ncount: 1\nmarket: US\ncurrency: USD\n"
+        "symbols:\n  - {symbol: SPY}\n",  # requirements 없음 → min_years None
+        encoding="utf-8",
+    )
+    dbp = str(tmp_path / "m.sqlite")
+    with HistoryStore(dbp) as store:
+        _insert_1d(store, "SPY", date(2016, 3, 18), 10)
+    with pytest.raises(ValueError, match="min_years"):
+        build_manifest(dbp, str(y), collection_params={}, collection_code_commit=None,
+                       generated_at_utc="2026-07-22T00:00:00Z")
 
 
 # ---------------------------------------------------------------------------

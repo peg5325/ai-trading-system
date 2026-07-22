@@ -18,8 +18,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 
 import yaml
 
@@ -148,7 +149,7 @@ def symbol_provenance(con: sqlite3.Connection, symbol: str,
     # 최신 run 의 run_id / note(정지사유 또는 error) — provenance 대표값.
     last = con.execute(
         "SELECT run_id, note FROM ingest_log WHERE symbol=? AND interval=? "
-        "ORDER BY ts DESC LIMIT 1", (symbol, interval),
+        "ORDER BY ts DESC, rowid DESC LIMIT 1", (symbol, interval),  # rowid: 동시각 안정 선택
     ).fetchone()
     conflict_rows = con.execute(
         "SELECT COUNT(*) FROM import_conflict WHERE symbol=? AND interval=?",
@@ -178,8 +179,8 @@ def span_years(earliest: str | None, latest: str | None) -> float | None:
     if not earliest or not latest:
         return None
     e = datetime.fromisoformat(earliest.replace("Z", "+00:00"))
-    l = datetime.fromisoformat(latest.replace("Z", "+00:00"))
-    return round((l - e).days / 365.25, 3)
+    latest_dt = datetime.fromisoformat(latest.replace("Z", "+00:00"))
+    return round((latest_dt - e).total_seconds() / (365.25 * 86400), 3)
 
 
 def daily_verdict(*, span_yrs: float | None, min_years: float,
@@ -191,11 +192,26 @@ def daily_verdict(*, span_yrs: float | None, min_years: float,
     - span_years < min_years → INCONCLUSIVE_DATA (★기준 완화 금지). listing_limited 로
       상장/스핀오프 이력 제한 여부를 별도 표시(추측으로 adjusted/OK 판정하지 않는다).
     """
-    # stopped_reason(=ingest_log.note): 'max_pages' 면 우리 13페이지 예산에서 절단(원천은
-    # 더 과거까지 있음 → 최소 ~10년 확보). 그 외(nextbefore_null/empty_page/empty_budget_
-    # exhausted)면 공급자 원천 바닥까지 도달 = 상장이력 전체.
+    # stopped_reason(=ingest_log.note) 해석:
+    #  - 'max_pages'                        → 우리 13페이지 예산에서 절단(원천은 더 과거까지
+    #                                          있음 → 최소 ~10년 확보). depth=page_budget_capped.
+    #  - 'nextbefore_null'/'empty_page'     → 공급자 원천 바닥 도달 = 상장이력 전체. depth=listing_full.
+    #  - 'empty_budget_exhausted'/'no_progress'/'error' → 원천 바닥인지 불명(gap-skip 예산 소진·
+    #                                          stalled 커서). '상장이력 전체'로 단정하지 않는다 → indeterminate.
+    # 이번 일봉 run 은 gap_skip_minutes=0 이라 empty_budget_exhausted 는 발생하지 않는다.
+    _FLOOR = {"nextbefore_null", "empty_page"}
     page_capped = stopped_reason == "max_pages"
-    listing_limited = bool(stopped_reason) and not page_capped
+    reached_floor = stopped_reason in _FLOOR
+    if page_capped:
+        depth_source = "page_budget_capped"
+    elif reached_floor:
+        depth_source = "listing_full"
+    elif stopped_reason:
+        depth_source = "indeterminate"
+    else:
+        depth_source = "unknown"
+    # listing_limited = '상장/스핀오프 이력이 원천 바닥을 이룬다'가 확인된 경우만.
+    listing_limited = reached_floor
     if row_count == 0 or span_yrs is None:
         status = "INCONCLUSIVE_DATA"
     elif span_yrs >= min_years:
@@ -205,8 +221,7 @@ def daily_verdict(*, span_yrs: float | None, min_years: float,
     return {
         "status": status,
         "meets_min_years": (span_yrs is not None and span_yrs >= min_years),
-        "depth_source": ("page_budget_capped" if page_capped
-                         else ("listing_full" if stopped_reason else "unknown")),
+        "depth_source": depth_source,
         "listing_limited": listing_limited,
     }
 
@@ -275,6 +290,11 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
     """
     uni = read_p0_universe(yaml_path)
     min_years = uni["min_years"]
+    # 계약 게이트: min_years 누락은 daily_verdict 에서 'span >= None' TypeError 를 유발한다.
+    # 애매한 크래시 대신 명시적 계약 오류로 중단(기준 완화 금지 원칙과 일치).
+    if min_years is None:
+        raise ValueError(
+            "P0 계약 위반: requirements.swing_daily.min_years 누락 — manifest 생성 중단")
     con = _connect_ro(db_path)
     try:
         entries = [symbol_manifest(con, s, min_years=min_years) for s in uni["symbols"]]
@@ -287,7 +307,6 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
     earliests = [e["earliest"] for e in entries if e["earliest"]]
     latests = [e["latest"] for e in entries if e["latest"]]
 
-    import os
     manifest = {
         "schema": "p0_us30_daily_10y_manifest/v1",
         "interval": INTERVAL,
@@ -318,7 +337,7 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
         },
         "symbols": entries,
         "manifest_content_sha256": content_digest(entries),
-        "generated_at_utc": generated_at_utc or datetime.utcnow().isoformat() + "Z",
+        "generated_at_utc": generated_at_utc or datetime.now(timezone.utc).isoformat(),
     }
     return manifest
 

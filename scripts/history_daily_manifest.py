@@ -170,6 +170,11 @@ def main(argv):
     manifest = build_manifest(args.db, args.yaml, collection_params=params,
                               collection_code_commit=args.code_commit,
                               generated_at_utc=args.generated_at)
+    # P0 계약 게이트: count=30/중복/시장/통화 위반이면 산출물을 쓰지 않는다.
+    if not manifest["universe"]["valid"]:
+        print(f"[error] P0 유니버스 계약 위반 — 중단: {manifest['universe']['errors']}",
+              file=sys.stderr)
+        return 2
 
     con = _connect_ro(args.db)
     try:
