@@ -27,7 +27,7 @@
 ## 1m 무변경 불변식 (자본/실험 안전)
 - 실행 후 1m OHLCV-content 스냅샷: symbols=15, rows=925,146, combined_sha256=`f9dfc0a53d6a0fbc7155d2154af496bbeca4cbecd0d6dd0d6918883d0d6d403b`
 - 실행 전 baseline(OHLCV-content) `f9dfc0a53d6a0fbc7155d2154af496bbeca4cbecd0d6dd0d6918883d0d6d403b` → **HELD: True**
-- **전체 저장 필드**(ts_exchange/session/currency/adjusted/source 포함) 대조: 현재 `1f03972f9a5906114855399bb17be6a3f7abb3818896a5f2a66274d9fe10e3a1` vs pre-1d 백업 `1f03972f9a5906114855399bb17be6a3f7abb3818896a5f2a66274d9fe10e3a1` → **HELD: True** (rows=925,146)
+- **모든 의미 데이터 필드**(ts_exchange/session/currency/adjusted/source 포함, 감사 ts created_at/updated_at 제외) 대조: 현재 `1f03972f9a5906114855399bb17be6a3f7abb3818896a5f2a66274d9fe10e3a1` vs pre-1d 백업 `1f03972f9a5906114855399bb17be6a3f7abb3818896a5f2a66274d9fe10e3a1` → **HELD: True** (rows=925,146)
 
 ## 종목별 스냅샷 (≤as_of)
 | symbol | rows | days | earliest | latest | span_y | density | gap_d | verdict | depth | listing | sha256(12) |

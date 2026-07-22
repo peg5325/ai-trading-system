@@ -123,9 +123,10 @@ def render_report_md(manifest, r1, r2, inv_post, ff_post, prov):
           f"**HELD: {held}**")
     if prov.get("baseline_1m_full_sha"):
         held_ff = prov["baseline_1m_full_sha"] == ff_post["combined_sha256"]
-        a(f"- **전체 저장 필드**(ts_exchange/session/currency/adjusted/source 포함) 대조: "
-          f"현재 `{ff_post['combined_sha256']}` vs pre-1d 백업 `{prov['baseline_1m_full_sha']}` → "
-          f"**HELD: {held_ff}** (rows={ff_post['total_rows']:,})")
+        a(f"- **모든 의미 데이터 필드**(ts_exchange/session/currency/adjusted/source 포함, "
+          f"감사 ts created_at/updated_at 제외) 대조: 현재 `{ff_post['combined_sha256']}` vs "
+          f"pre-1d 백업 `{prov['baseline_1m_full_sha']}` → **HELD: {held_ff}** "
+          f"(rows={ff_post['total_rows']:,})")
     a("")
     a("## 종목별 스냅샷 (≤as_of)")
     a("| symbol | rows | days | earliest | latest | span_y | density | gap_d | verdict | depth | listing | sha256(12) |")

@@ -402,7 +402,7 @@ def invariant_snapshot(con: sqlite3.Connection, interval: str) -> dict:
 
     per-symbol (symbol,row_count,content_sha256) 를 정렬·직렬화해 combined_sha256 로 축약.
     content_sha256 은 (ts_utc,o,h,l,c,v) 만 해시한다(=OHLCV content). ts_exchange/session/
-    currency/adjusted/source 까지 포함한 '전체 저장 필드' 대조는 full_field_invariant 참조.
+    currency/adjusted/source 까지 포함한 '모든 의미 데이터 필드' 대조는 full_field_invariant 참조.
     """
     symbols = [r[0] for r in con.execute(
         "SELECT DISTINCT symbol FROM candle_history WHERE interval=? ORDER BY symbol",
@@ -426,10 +426,12 @@ def invariant_snapshot(con: sqlite3.Connection, interval: str) -> dict:
 
 
 def full_field_invariant(con: sqlite3.Connection, interval: str) -> dict:
-    """한 interval 전체의 **전체 저장 필드** 결정론 지문(read-only).
+    """한 interval 의 **모든 의미 데이터 필드** 결정론 지문(read-only).
 
-    OHLCV 뿐 아니라 ts_exchange/session/currency/adjusted/source/market 까지 모든 저장
-    필드를 정렬 스트리밍 해시한다 → '저장 필드까지 완전 동일' 을 증명(backup↔현재 대조).
+    OHLCV 뿐 아니라 symbol/market/interval/ts_utc/ts_exchange/session/currency/adjusted/
+    source 까지 해시한다 → '의미 데이터 필드까지 완전 동일' 을 증명(backup↔현재 대조).
+    ★ 감사 타임스탬프 created_at/updated_at 은 의도적으로 제외한다(행 재기록 시각은
+      데이터 내용이 아니며 실행마다 달라질 수 있으므로 '무변경' 판정 대상이 아님).
     """
     h = hashlib.sha256()
     n = 0
@@ -439,7 +441,7 @@ def full_field_invariant(con: sqlite3.Connection, interval: str) -> dict:
         "ORDER BY symbol, ts_utc", (interval,)):
         h.update(("|".join(str(r[k]) for k in r.keys()) + "\n").encode("utf-8"))
         n += 1
-    return {"interval": interval, "scope": "all_stored_fields",
+    return {"interval": interval, "scope": "all_semantic_fields_excl_audit_ts",
             "total_rows": n, "combined_sha256": h.hexdigest()}
 
 
