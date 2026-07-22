@@ -208,11 +208,13 @@ def main(argv):
     # provenance 조립(백업/교정/baseline) — content hash 대상 아님.
     prov = {}
     if args.provenance_json and os.path.exists(args.provenance_json):
-        prov = json.load(open(args.provenance_json, encoding="utf-8"))
+        with open(args.provenance_json, encoding="utf-8") as f:
+            prov = json.load(f)
     prov["baseline_1m_ohlcv_sha"] = args.baseline_1m_sha
     prov["baseline_1m_full_sha"] = args.baseline_1m_full_sha
     if args.backfill_json and os.path.exists(args.backfill_json):
-        bj = json.load(open(args.backfill_json, encoding="utf-8"))
+        with open(args.backfill_json, encoding="utf-8") as f:
+            bj = json.load(f)
         prov["backfill"] = {
             "pages": sum(r["pages_fetched"] for r in bj["results"]),
             "inserted": sum(r["inserted"] for r in bj["results"]),

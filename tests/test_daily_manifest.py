@@ -213,6 +213,48 @@ def test_build_manifest_guards_missing_min_years(tmp_path):
                        generated_at_utc="2026-07-22T00:00:00Z")
 
 
+def test_build_manifest_fail_closed_when_as_of_missing(tmp_path):
+    """★as_of 가 인자·YAML 모두 없으면 경계 필터 fail-open → 명시적 ValueError(fail-closed)."""
+    y = tmp_path / "noasof.yaml"
+    y.write_text(  # min_years 는 있으나 as_of 없음
+        "version: 1\ncount: 1\nmarket: US\ncurrency: USD\n"
+        "requirements:\n  swing_daily:\n    min_years: 5\n"
+        "symbols:\n  - {symbol: SPY}\n",
+        encoding="utf-8",
+    )
+    dbp = str(tmp_path / "m.sqlite")
+    with HistoryStore(dbp) as store:
+        _insert_1d(store, "SPY", date(2016, 3, 18), 10)
+    with pytest.raises(ValueError, match="as_of"):
+        build_manifest(dbp, str(y), collection_params={}, collection_code_commit=None,
+                       generated_at_utc="2026-07-22T00:00:00Z")  # as_of 인자도 없음
+    # 인자로 경계를 주면 정상 생성
+    m = build_manifest(dbp, str(y), collection_params={}, collection_code_commit=None,
+                       generated_at_utc="2026-07-22T00:00:00Z", as_of="2026-07-21")
+    assert m["as_of"] == "2026-07-21"
+
+
+def test_build_manifest_rejects_as_of_arg_later_than_yaml(tmp_path):
+    """명시 --as-of 가 YAML 정본보다 늦으면 거부(경계 완화로 미완성 봉 재유입 차단)."""
+    y = tmp_path / "u.yaml"
+    y.write_text(
+        "version: 1\nas_of: '2026-07-21'\ncount: 1\nmarket: US\ncurrency: USD\n"
+        "requirements:\n  swing_daily:\n    min_years: 5\n"
+        "symbols:\n  - {symbol: SPY}\n",
+        encoding="utf-8",
+    )
+    dbp = str(tmp_path / "m.sqlite")
+    with HistoryStore(dbp) as store:
+        _insert_1d(store, "SPY", date(2016, 3, 18), 10)
+    with pytest.raises(ValueError, match="늦음|거부|as_of"):
+        build_manifest(dbp, str(y), collection_params={}, collection_code_commit=None,
+                       generated_at_utc="2026-07-22T00:00:00Z", as_of="2026-07-22")
+    # 더 이른(보수적) 경계는 허용
+    m = build_manifest(dbp, str(y), collection_params={}, collection_code_commit=None,
+                       generated_at_utc="2026-07-22T00:00:00Z", as_of="2026-07-20")
+    assert m["as_of"] == "2026-07-20"
+
+
 # ---------------------------------------------------------------------------
 # 5) manifest 결정론 + secrets/raw 미포함
 # ---------------------------------------------------------------------------
@@ -310,7 +352,7 @@ def test_invariant_snapshot_changes_only_on_content_change(tmp_path):
     with HistoryStore(dbp) as store:
         _insert_1d(store, "AMD", date(2020, 1, 1), 3, market="US", currency="USD")
         snap1 = invariant_snapshot(_con(store), "1d")
-        # 다른 interval(1m) 추가는 1d 스냅샷을 바꾸지 않는다
+        # 동일 1d 재삽입(같은 PK)은 idempotent REPLACE → 1d 스냅샷을 바꾸지 않는다
         _insert_1d(store, "AMD", date(2020, 1, 1), 3)  # 동일 1d → idempotent(REPLACE)
         snap2 = invariant_snapshot(_con(store), "1d")
         assert snap1["combined_sha256"] == snap2["combined_sha256"]

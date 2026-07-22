@@ -341,7 +341,23 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
     if min_years is None:
         raise ValueError(
             "P0 계약 위반: requirements.swing_daily.min_years 누락 — manifest 생성 중단")
-    as_of = as_of or uni["as_of"]  # 공식 경계: 인자 > YAML as_of
+    # ★fail-closed 경계: as_of 가 인자·YAML 모두 없으면 필터가 조용히 비활성(fail-open)돼
+    #   미완성 진행일 봉이 다시 OK 로 새어들 수 있다. 명시적으로 거부한다.
+    yaml_as_of = uni["as_of"]
+    resolved_as_of = as_of if as_of is not None else yaml_as_of
+    if not resolved_as_of:
+        raise ValueError(
+            "as_of 경계 미지정 — fail-closed: --as-of 인자 또는 YAML universe.as_of 필요")
+    try:
+        date.fromisoformat(resolved_as_of)
+    except (ValueError, TypeError):
+        raise ValueError(f"as_of 형식 오류(YYYY-MM-DD 필요): {resolved_as_of!r}")
+    # 명시 인자가 YAML 정본보다 늦으면 거부 — 계약 경계를 넘겨 미완성/진행 중 봉을
+    # 다시 포함시키는 우회를 차단(인자는 더 보수적(이른) 경계로만 허용).
+    if as_of is not None and yaml_as_of and as_of > yaml_as_of:
+        raise ValueError(
+            f"--as-of {as_of} 가 YAML 정본 as_of {yaml_as_of} 보다 늦음 — 거부(경계 완화 금지)")
+    as_of = resolved_as_of
     con = _connect_ro(db_path)
     try:
         entries = [symbol_manifest(con, s, min_years=min_years, as_of=as_of)
