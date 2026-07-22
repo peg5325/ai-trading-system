@@ -3,8 +3,8 @@
 - schema: `history-external-replica/report/v1` · interval: **1d + 1m** · source DB: `data/market_history.sqlite`
 - 수집 코드 커밋(source_commit): `bb5580f` (PR #71 merge, P0-30 일봉 10년 backfill)
 - **canonical main-file SHA-256**: `4c72beccd8c625d6b72e1ce8437f363042304855ce8728b785a233dcac9e026f`
-- generated_at_utc: 2026-07-23 (hash 비대상)
-- **상태: PREPARED** — 도구·테스트·검증 완료. **실제 외부 대상 확정 대기** → 확정 시 아래 "외부 복제본" 표를 실측치로 채우고 COMPLETE 로 전환한다.
+- generated_at_utc: 2026-07-22T16:25Z (hash 비대상)
+- **상태: COMPLETE** — 도구·테스트·검증 완료 + iCloud Drive 로 실제 외부 복제·업로드 검증 완료(아래 "외부 복제본").
 
 이 리포트는 운영 provenance 다. 기존 P0 일봉 manifest
 (`docs/research/P0_US30_DAILY_10Y_MANIFEST.json`, `data_content_sha256=756e5bd7…`)의
@@ -93,24 +93,44 @@ backup API 는 새 페이지 레이아웃의 fresh DB 를 만든다. #73 무결�
 snapshot(.partial) == 외부 복제본(SHA 동일) + 원본↔복제본 **의미**(행수/symbol/기간)
 동일이며, 둘 다 충족한다.
 
-## 외부 복제본 (external replica) — 상태: PENDING
+## 외부 복제본 (external replica) — 상태: COMPLETE
 
-> 실제 외부 대상(외장 디스크/NAS/검증 가능한 cloud remote)이 확정되지 않았다.
-> 저장소 내부·`data/backups/`·같은 내부 APFS 볼륨의 일반 폴더는 #73 외부 복제로
-> 인정하지 않는다. 대상 확정 후 아래 표를 실측치로 채운다.
+canonical DB 를 실제 외부(클라우드) 저장소인 **Apple iCloud Drive** 로 복제하고
+업로드를 검증했다. 대상은 사용자의 iCloud 동기화 폴더(Documents 하위
+`market-history-backup/`, target_kind=`cloud_sync`)이며, iCloud 데몬(`brctl`)이 이
+경로를 추적·업로드함을 직접 확인했다(홈 절대경로는 gitignored receipt 에만 기록).
 
 | 항목 | 값 |
 | --- | --- |
-| target_id | _(대기)_ |
-| target_kind | _(대기)_ |
-| replica 파일명 | _(대기)_ |
-| size_bytes | _(대기)_ |
-| SHA-256 | _(대기)_ |
-| created_utc | _(대기)_ |
-| integrity_check | _(대기)_ |
-| rows / symbols / 기간 | _(대기)_ |
-| restore smoke | _(대기)_ |
-| 같은 내부 디스크 아님 증명 | _(대기: st_dev 상이 또는 원격 remote 왕복)_ |
+| target_id | `icloud-documents` |
+| target_kind | `cloud_sync` (Apple iCloud Drive) |
+| replica 파일명 | `market_history.replica.20260722T160829Z.sqlite` |
+| size_bytes | 548,896,768 |
+| SHA-256 (snapshot == replica) | `ae572a0f4be126c64afd443c9e5661bd08acf62da105d2c2af7014fa22418483` |
+| created_utc | 2026-07-22T16:08:29Z |
+| integrity_check | ok |
+| rows / symbols / 기간 | 1d 76,690/30, 1m 925,146/15, total 1,001,836 / 34 심볼 — 원본과 완전 일치 |
+| restore smoke | ok (임시 로컬 복원본 read-only 재검증, restored SHA == replica SHA) |
+| 같은 내부 디스크 아님 증명 | iCloud 업로드로 증명. `brctl` 로 업로드 진행 0%→90%+ 관측 후 `☁`(in-cloud) 전이 + 컨테이너 `caught-up`(last-sync 2026-07-22T16:24Z). 로컬 캐시는 내부 디스크이나 데이터가 Apple iCloud 서버로 실제 업로드됨(단순 내부 폴더 복사와 구별). |
+
+- 원본 snapshot(.partial) SHA == 외부 복제본 SHA == `ae572a0f…8483`.
+- 업로드 완료 후 로컬 복제본 재검증: size 548,896,768, integrity ok, SHA `ae572a0f…`
+  유지(미변조·미eviction, 로컬 데이터 온전).
+- 상세 provenance(절대경로 포함)는 gitignored
+  `reports/history_external_replica_receipt.<UTC>.json`, sanitized 지문은
+  `docs/research/MARKET_HISTORY_EXTERNAL_REPLICA_RECEIPT.json`(추적).
+
+### 재현/독립 대조
+
+```
+# 외부 복제본 SHA-256 독립 대조(원본 snapshot 과 동일해야 함)
+shasum -a 256 "<iCloud>/market-history-backup/market_history.replica.20260722T160829Z.sqlite"
+# → ae572a0f4be126c64afd443c9e5661bd08acf62da105d2c2af7014fa22418483
+
+# iCloud 업로드 상태(☁ = in-cloud, caught-up)
+brctl monitor com.apple.CloudDocs | grep market_history.replica   # ☁, no ↑
+brctl status  com.apple.CloudDocs                                 # caught-up
+```
 
 ## 안전 / 무결성 재확인
 
