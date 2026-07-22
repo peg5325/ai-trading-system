@@ -13,6 +13,9 @@
   제외해야 한다(라이브 경로 `indicator_engine.resample` 는 drop_partial 로 이를 처리).
 - 버킷 경계 = 거래소 로컬(ET/KST) 분을 5로 floor. **버킷 키에 session 을 포함**해 한 버킷이 두
   세션에 걸치지 않음을 **구조적으로** 보장한다(정렬 그리드가 세션 경계와 정렬돼 있어도 방어적).
+- 입력은 **1분봉만** 받는다(다른 interval 은 ValueError). 5분봉을 만드는 함수라 혼합 interval 은 오용.
+- ⚠ DST 가을 fold(01:00–02:00 ET 중복 시각)에서는 버킷 라벨이 이론상 모호할 수 있으나, 그 구간은
+  OVERNIGHT 세션이라 4전략(PRE/REG/POST)이 사용하지 않는다(계약 §2.2). 라이브 통일 시(Phase 1B) 처리.
 - Toss API 호출 없음(순수 변환).
 """
 from __future__ import annotations
@@ -45,8 +48,12 @@ def resample_1m_to_5m(candles: list[Candle], *, min_bars: int = 1) -> list[Candl
     - 반환은 (ts_utc, symbol, session) 오름차순.
     """
     # 1) ts_utc 기준 결정론적 dedup(입력 순서 무관): 충돌 시 value tuple 최대 채택.
+    #    입력은 1분봉만 허용(혼합 interval 은 dedup/버킷 키 충돌 → 명시적 거부).
     dedup: dict[tuple[str, str], Candle] = {}
     for c in candles:
+        if c.interval != "1m":
+            raise ValueError(
+                f"resample_1m_to_5m 는 1분봉만 입력받는다(interval={c.interval!r}).")
         key = (c.symbol, c.ts_utc.isoformat())
         prev = dedup.get(key)
         if prev is None or _value_tuple(c) > _value_tuple(prev):

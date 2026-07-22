@@ -6,8 +6,11 @@ TDD: 정렬된 5분 버킷·집계·불완전 버킷·세션 분리·입력순�
 from __future__ import annotations
 
 import random
+from dataclasses import replace
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from src.models import Candle
 from src.history.resample import resample_1m_to_5m
@@ -116,6 +119,13 @@ def test_duplicate_ts_collapsed_deterministically():
 
 def test_empty_input():
     assert resample_1m_to_5m([]) == []
+
+
+def test_rejects_non_1m_interval():
+    # 5분봉 파생 함수라 1분봉 외 interval 은 명시적 거부(혼합 키 충돌 방지).
+    bad = replace(_c(9, 30, 1, 1, 1, 1, 1), interval="5m")
+    with pytest.raises(ValueError):
+        resample_1m_to_5m([bad])
 
 
 def test_multi_symbol_grouped_separately():

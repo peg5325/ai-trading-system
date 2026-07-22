@@ -205,7 +205,7 @@ US 하드코딩)가 있고 paper_loop/candidate_stream/replay 등이 이를 사�
    (원천 1분봉 + 일봉). append/UPSERT only, 삭제/덮어쓰기 없음(§4.3).
 3. **파생(5분봉)**: 1분봉에서 **재생성 가능**(§2.5). 물질화하더라도 원천에서 byte-동일 재생성.
 
-### 4.2 provenance 컬럼 (기존 스키마, 변경 없음 — `store.py:19`)
+### 4.2 provenance 컬럼 (기존 스키마, 변경 없음 — `store.py:19-81` SCHEMA)
 
 `candle_history`: `source`(예 `toss_backfill`, `import:<db>`), `created_at`, `updated_at`,
 `adjusted`, `market`, `currency`. 감사 테이블: `ingest_log`(run_id, rows_seen/inserted/updated/
@@ -230,7 +230,7 @@ duplicate/conflict, earliest/latest, note), `import_conflict`(field 단위 충�
   각 심볼 정렬된 `(ts_utc, o,h,l,c,v)` 의 해시를 **manifest 로 고정**한다(Phase 1B 산출물;
   이 Phase 1A 에서는 규칙만 고정, 대량 backfill 미실행이므로 hash 미생성).
 - 연구 재현: `loader.load_candles` 는 read-only·tz-aware·결정론(현재시각/난수 미사용,
-  `loader.py:41`) → 동일 (db, symbol, interval, [start,end)) 는 동일 `list[Candle]`.
+  `loader.py:30-63` `load_candles`) → 동일 (db, symbol, interval, [start,end)) 는 동일 `list[Candle]`.
 
 ---
 
