@@ -1,8 +1,12 @@
 # Toss 공급자 Capability Probe 리포트 v1 + 판정
 
-> 이슈 #68 · Phase 1A · 실행일 2026-07-22 (as-of 데이터 2026-07-21)
+> 이슈 #68 · Phase 1A · 실행일 2026-07-22 (재현본 데이터 as-of 2026-07-22)
 > 계약: `docs/research/DATA_CONTRACT_4STRATEGY_V1.md`
-> raw 산출물(gitignore): `reports/phase1a_probe/toss_capability_probe.json`
+> **재현(독립 검증용)**: 스크립트 `scripts/phase1a_probe.py`(요청 파라미터 고정·자격증명 미출력),
+> 실측 스냅샷 **추적** `docs/research/phase1a_probe_result.json`
+> (SHA-256 `99ef96c124c8ff3505bae2980b4df306cf2d651537e87587be3a0a54c988f817`).
+> 라이브 데이터라 재실행 시 daily latest·generated_utc 는 전진하나 capability 결론은 불변.
+> (임시 ad-hoc 산출물은 gitignore `reports/phase1a_probe/` 에 둘 수 있음.)
 > **판정: `DATA_GO` (scoped)** — §6.
 >
 > 안전: probe 는 **read-only 시장데이터 조회만**. 주문 0. 기존 `data/market_history.sqlite`·세션 DB
@@ -16,7 +20,7 @@
 - 클라이언트: 기존 `src/providers/toss_client.py` / `toss_market_data.py`(변경 없음).
   자격증명은 main checkout `.env` 에서 로드(출력·기록 안 함).
 - 표본: benchmark(SPY, QQQ), 대형주(AAPL, MSFT, NVDA, AMZN, TSLA), 레버리지(SOXL, TQQQ).
-  최근 분할주(AAPL/NVDA/AMZN/TSLA)로 adjusted 실증. spacing 0.4s, 총 **131 API 호출**.
+  최근 분할주(AAPL/NVDA/AMZN/TSLA)로 adjusted 실증. spacing 0.4s, 총 **132 API 호출**(429 0건).
 - 측정: 일봉/1분봉 실 보존 깊이, cursor pagination 도달 범위, 세션 라벨, split 연속성,
   호출당 latency, 429/backoff.
 - **DB 무변경 증거**: probe 는 Toss API 만 호출하고 로컬 DB 에 쓰지 않는다. inventory 는 `mode=ro`
@@ -28,7 +32,7 @@
 | 항목 | 결과 |
 |---|---|
 | 제공 여부 | **제공됨** (`interval=1d`, 200봉/페이지, `nextBefore` cursor) |
-| 도달 깊이(표본 9종목) | **2016-03-17 ~ 2026-07-21** (13페이지=2600 거래일에서 page cap; wall 미도달) |
+| 도달 깊이(표본 9종목) | **2016-03-18 ~ 2026-07-22** (13페이지=2600 거래일에서 page cap; wall 미도달) |
 | 실제 wall | **미도달** — cursor 가 여전히 열려 있어 실보존은 **10년보다 깊다** |
 | 5년 요건 | **충족** (필요 2021-07, 확보 2016-03 이하) |
 | 페이지당 봉 | 200 (≈ 9.5개월/페이지) |
@@ -68,8 +72,10 @@ targeted `before`-jump 으로 "특정 날짜 이전 1m 존재?" 측정:
 - 분할 전후 종가비가 **선언 비율의 점프 없이 ≈1.0** → **일봉은 전 구간 split back-adjusted**.
 - **1분봉도 adjusted**: NVDA 1m 2024-06-07(분할 전) 종가 ≈ **121**(수정가), ≠ 1210(원가).
 - 공급자 응답에 **`adjusted` 메타 필드는 없음** → 의미는 **실증으로 확정**(계약 §3.1).
-- **DST(일봉 timestamp)**: 여름 `13:00+09:00`, 겨울 `14:00+09:00` = **둘 다 00:00 ET** →
-  `astimezone(ET).date()` 는 연중 올바른 거래일(날짜 밀림 없음). 계약 §2.3 근거.
+- **DST(일봉 timestamp)**: 여름 `13:00+09:00`=**04:00Z**=00:00 EDT, 겨울 `14:00+09:00`=**05:00Z**
+  =00:00 EST. UTC 시각은 1시간 다르지만(04:00Z vs 05:00Z) **거래소 로컬은 둘 다 00:00 ET** →
+  `astimezone(ET).date()` 는 연중 올바른 거래일(날짜 밀림 없음). 계약 §2.3 근거,
+  `test_session_classification.py` 로 UTC hour 4/5 회귀 고정.
 
 ## 5. 현재 수집 상태(inventory, read-only) — bulk 필요량의 기준선
 
@@ -89,19 +95,24 @@ targeted `before`-jump 으로 "특정 날짜 이전 1m 존재?" 측정:
 2. **기업행사·시간대·provenance 검증** — split-adjusted 실증(일봉·1m 4건), DST 일봉 날짜 정합
    실증, provenance/충돌/cursor 인프라 존재(계약 §4).
 3. **요청량·저장·비용·rate limit 실행 가능** — §7 추정. 일봉은 자명(수분/수십MB). 1m 3년은
-   무겁지만(≈15~24h·9~14GB) **resume 가능·429 0건(@0.4s)** 으로 실행 가능.
+   무겁지만(≈20~24h·~14GB 전 세션) **resume 가능·429 0건(@0.4s)** 으로 실행 가능.
 4. **안전한 bulk manifest/config 구성 가능** — 기존 안전 인프라 + 이 계약/manifest.
 
-### scoped 의 의미 (과대주장 방지)
+### scoped 의 정확한 의미 (★ 오독 방지 — DATA_GO 는 "공급자 capability GO"이지 "1m bulk 즉시 GO"가 아니다)
 
-- **일봉/스윙 트랙 = 즉시 GO**: 공급자 ≥10년 split-adjusted 일봉 검증 완료 → **VCP-lite 스윙
-  연구를 지금 시작 가능**. 일봉 bulk 는 저비용·저위험(수분, <50MB).
-- **1분봉/intraday 트랙 = GO(무거움)**: 공급자 capability 는 충족. bulk 는 **다중 세션 resume**
-  (≈15~24h, 9~14GB)로 실행. bulk 착수 전 **저비용 잔여 확인 2건**을 manifest 에 포함:
-  - **R1 배당 조정 검증**(고배당 XLU ex-div 갭) — daily bulk 중 확인.
-  - **R3 gap-skip 장기휴장 예산**(`max_consecutive_empty`)을 연말연시(≥5일 휴장) 커버하도록
-    상향(1m bulk 전) — 미상향 시 장기휴장 이전 구간 미도달(`backfill_history.py:169` 한계).
-- 이 잔여는 **capability 결함이 아니라 실행 스케줄 항목**이므로 판정을 낮추지 않는다.
+- **일봉/스윙 트랙 = 즉시 실행 GO**: 공급자 ≥10년 split-adjusted 일봉 검증 완료 + 저비용·저위험
+  (수분, <50MB) → **일봉 bulk 를 지금 실행하고 VCP-lite 스윙 연구를 시작할 수 있다.**
+- **1분봉/intraday 트랙 = 공급자 capability GO, 그러나 "bulk 즉시 실행 GO"는 아직 아님.** 공급자
+  깊이(≥3년)·세션·adjusted 는 충족하나, **대량 수집 전 아래를 먼저 해결**해야 한다(§7 실행순서 4):
+  - **세션 필터 부재** — 현 CLI 로는 PRE/REG/POST 만 저장 불가(전 세션 ~14GB만 가능).
+  - **immutable raw 미보존** — provider 가 raw 를 버림(계약 §4.1 대비 미충족).
+  - **종목별 3.0년 커버리지 미검증** — 1m 3년은 SPY/AAPL 2종목만 실측(마진 near-zero); bulk 후
+    종목별 확인, 3.0년 미만은 `INCONCLUSIVE_DATA`.
+  - **R1 배당 조정**(XLU ex-div) / **R3 gap-skip 장기휴장 예산** 확인.
+- 정리: **일봉 bulk = 지금 실행 / 1m bulk = 위 선행 해결 후 실행.** 세 판정 중 DATA_GO 가 문언에
+  부합하는 이유는 **공급자가 두 요건을 실제 제공**하기 때문이며(PARTIAL_GO 의 "intraday 공급자
+  추가 선정 필요" 전제 해당 없음), 위 항목은 **우리 파이프라인/스케줄 작업**이지 공급자 capability
+  결함이 아니다 → 판정을 낮추지 않는다.
 
 ### 판정을 바꿀 수 있었던 반례(해당 없음)
 
@@ -119,10 +130,19 @@ targeted `before`-jump 으로 "특정 날짜 이전 1m 존재?" 측정:
 |---|---|---|---|---|
 | 일봉 30종목 ×5년 | ~37,800 | ~21 MB | ~210 | ~2분 |
 | 일봉 30종목 ×10년 | ~78,000 | ~43 MB | ~390 | ~3.5분 |
-| 1m 30종목 ×3년 (PRE+REG+POST) | ~17.1M | **~9.4 GB** | ~110k~130k | **~15~18h** |
-| 1m 30종목 ×3년 (+OVERNIGHT) | ~25.5M | **~14 GB** | 더 많음 | ~24h |
+| 1m 30종목 ×3년 **(현 CLI 실현치 = 전 세션)** | ~25.5M | **~14 GB** | ~110k~130k+ | **~20~24h** |
+| 1m 30종목 ×3년 (PRE+REG+POST 만, 세션 필터 필요) | ~17.1M | ~9.4 GB | (동일 호출) | (동일) |
 
-- **디스크 여유 권장: ≥20 GB**(1m ~14GB + 일봉 + WAL + 작업 여유; 현재 DB 507MB).
+- **⚠ 세션 필터 부재(현 CLI 한계)**: `backfill_symbol` 은 `fetch_page` 가 돌려준 **모든 세션 봉을
+  그대로 upsert** 한다(`backfill_history.py` 에 session 필터 없음). 따라서 `--gap-skip` 로 3년을
+  긁으면 **OVERNIGHT 포함 전 세션(~14GB)** 이 실현되며, 위 **9.4GB(PRE+REG+POST 만) 경로는 현재
+  명령으로 실행 불가**다. 9.4GB 를 실현하려면 **세션 필터(backfill 저장부 또는 사후 prune)를 먼저
+  추가**해야 한다(Phase 1B 선행). 그때까지 API 호출·시간은 전 세션 기준으로 잡는다.
+- **⚠ immutable raw 미보존(현 provider 한계)**: `TossMarketDataProvider._parse` 는 응답을 즉시
+  canonical `Candle` 로 변환하고 **raw payload 를 버린다**. 계약 §4.1 의 "원천 immutable raw
+  snapshot" 은 **아직 구현이 아니다** — 현재 불변성은 canonical 저장소의 append-only·멱등 + provenance
+  컬럼(source/created_at/run_id)뿐이다. 진짜 raw 스냅샷 계층은 **Phase 1B 선행 항목**(계약 §4.1 갱신).
+- **디스크 여유 권장: ≥20 GB**(전 세션 1m ~14GB + 일봉 + WAL + 작업 여유; 현재 DB 507MB).
 - 1m 호출 수 = 데이터 페이지(bars/200) + gap-skip 경계/빈 호출(~30~50% 추가).
 
 ### 실행 순서(권장)
@@ -132,14 +152,20 @@ targeted `before`-jump 으로 "특정 날짜 이전 1m 존재?" 측정:
    --spacing 0.5` → 30종목 ≥10년. 완료 후 **R1 배당 검증**(XLU) + 심볼별 earliest 를 manifest 기록.
 3. **품질 리포트(일봉)**: `history_quality_report.py --interval 1d` → 스윙 5년 커버리지 확인.
    → **VCP-lite 스윙 연구 착수 가능**.
-4. **(사용자 결정) 1m 3년 bulk**: R3(`--max-consecutive-empty` 상향) 반영 후
+4. **(1m bulk 선행 — Phase 1B)**: 아래 3건은 **1분봉 대량 수집 전에** 해결한다(§7 경고).
+   - **세션 필터** 추가(9.4GB PRE/REG/POST 경로를 원하면) 또는 전 세션(~14GB) 수용 명시.
+   - **immutable raw 스냅샷** 계층(또는 "canonical append-only 로 대체" 명문 결정) — 계약 §4.1.
+   - **R3** `--max-consecutive-empty` 를 연말연시(≥5거래일 휴장) 커버로 상향.
+5. **(사용자 결정) 1m 3년 bulk**:
    `history_backfill.py --interval 1m --symbols <P0-30> --gap-skip-minutes 200 --spacing 0.5
    --max-pages <대> --max-consecutive-empty <상향>`. **종목별 batch + cursor resume**(중단/재개
    안전). 백그라운드·야간 실행 권장(장외 시간대, rate-limit 여유).
-5. **boundary check**: `backfill_boundary_check.py --symbols <P0-30> --interval 1m` →
+6. **boundary check**: `backfill_boundary_check.py --symbols <P0-30> --interval 1m` →
    UTC-경계 누락 0 확인(exit 0).
-6. **품질 리포트(1m)**: `history_quality_report.py --interval 1m` → 3년·세션 커버리지 + missing.
-7. **snapshot hash 고정**(Phase 1B): 심볼별 정렬 (ts_utc,o,h,l,c,v) 해시 manifest.
+7. **품질 리포트(1m) + 종목별 3.0년 검증**: `history_quality_report.py --interval 1m` →
+   세션 커버리지 + missing. **P0-30 각 종목의 1m earliest 를 확인**하고 **3.0년 미만 종목은
+   그 종목 intraday 판정을 `INCONCLUSIVE_DATA` 로 격리**(계약 §5.1, 표본 SPY/AAPL 만 3년 실측이므로).
+8. **snapshot hash 고정**(Phase 1B): 심볼별 정렬 (ts_utc,o,h,l,c,v) 해시 manifest.
 
 ### resume/idempotent 보장(기존)
 
@@ -148,9 +174,10 @@ targeted `before`-jump 으로 "특정 날짜 이전 1m 존재?" 측정:
 
 ## 8. bulk 착수 전 남은 사용자 결정
 
-1. **1m OVERNIGHT 포함 여부**: PRE/REG/POST(필수, ~9.4GB) vs +OVERNIGHT(~14GB). 4전략은
-   PRE/REG/POST 만 사용 → **기본 제외 권장**.
-2. **1m 3년 bulk 실행 승인 + 시점**: ~15~24h·~14GB·수만 API 호출. 장외/야간 배치 권장.
+1. **1m OVERNIGHT 처리**: 4전략은 PRE/REG/POST 만 사용하나 **현 CLI 는 세션 필터가 없어 전 세션
+   (~14GB)만 저장 가능**하다(§7). 선택: (a) 전 세션 수용(~14GB, 지금 실행 가능) 또는 (b) **세션
+   필터를 먼저 추가**해 9.4GB 실현(Phase 1B 선행). — 권장 (b), 급하면 (a).
+2. **1m 3년 bulk 실행 승인 + 시점**: ~20~24h(전 세션)·~14GB·수만 API 호출. 장외/야간 배치 권장.
 3. **일봉 깊이**: 5년(요건) vs 10년(여유, 거의 무비용) — **10년 권장**.
 4. **R3 `max_consecutive_empty` 목표값**: 연말연시 최장 휴장(예 ~5거래일) 커버 기준 설정.
 

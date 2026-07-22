@@ -103,7 +103,9 @@ Toss 가 제공하나 거래가 희박하고 저장량을 ~30~50% 늘리므로 *
 - **DST 는 `zoneinfo` 로 자동 처리**된다(`ET = ZoneInfo("America/New_York")`, `src/models.py:15`).
   ET↔UTC 오프셋은 EDT(-04:00)/EST(-05:00)로 계절에 따라 자동 전환된다.
 - **일봉 timestamp 의 DST(실측 검증됨)**: Toss 는 일봉을 **거래일 00:00 ET 에 고정**해서 준다.
-  KST offset 표기로는 여름(EDT) `13:00+09:00`, 겨울(EST) `14:00+09:00` 이며 **둘 다 04:00Z(=00:00 ET)**.
+  KST offset 표기로는 여름(EDT) `13:00+09:00` = **`04:00Z`** = 00:00 EDT, 겨울(EST)
+  `14:00+09:00` = **`05:00Z`** = 00:00 EST. 즉 **UTC 시각은 DST 로 1시간 다르지만(04:00Z vs 05:00Z)
+  거래소 로컬은 둘 다 00:00 ET**.
   → `astimezone(ET).date()` 는 **연중 항상 올바른 거래일**을 준다(날짜 밀림 없음, §PROBE 검증).
   단 00:00 ET 일봉은 `classify_session` 상 `OVERNIGHT` 로 라벨된다 — **일봉의 session 라벨은
   무의미**하며, 일봉의 "날짜"는 `ts_exchange` 의 date 로 해석한다.
@@ -192,10 +194,15 @@ US 하드코딩)가 있고 paper_loop/candidate_stream/replay 등이 이를 사�
 
 ### 4.1 계층 분리
 
-1. **원천 스냅샷(raw, immutable)**: 공급자 원본 페이지는 재요청 가능한 **read-only 산출물**로
-   보존한다. 기존 세션 DB(`data/market_*.sqlite`)는 `mode=ro` 로만 읽는다(`store.py:232`).
-2. **정규화 DB**: `data/market_history.sqlite` — canonical `candle_history`(원천 1분봉 + 일봉).
-   append/UPSERT only, 삭제/덮어쓰기 없음(§4.3).
+1. **원천 스냅샷(raw, immutable) — ⚠ 현재 미구현(Phase 1B)**: 목표는 공급자 원본 payload 를
+   재요청 없이 재현 가능한 immutable snapshot 으로 보존하는 것이다. **그러나 현 provider
+   `TossMarketDataProvider._parse`(`toss_market_data.py:32-42`)는 응답을 즉시 canonical `Candle` 로
+   변환하고 raw dict 를 버린다** → 별도 raw 계층이 **아직 없다**. 지금의 불변성 보장은 **정규화
+   저장소의 append-only·멱등 + provenance 컬럼**(아래 2·§4.2)뿐이며, 진짜 raw immutable snapshot
+   (또는 "canonical append-only 로 대체" 명시 결정)은 **1m bulk 전 Phase 1B 선행 항목**이다.
+   (기존 세션 DB `data/market_*.sqlite` 는 import 시 `mode=ro` 로만 읽어 원본 불변, `store.py:232`.)
+2. **정규화 DB(현재 유일한 지속 계층)**: `data/market_history.sqlite` — canonical `candle_history`
+   (원천 1분봉 + 일봉). append/UPSERT only, 삭제/덮어쓰기 없음(§4.3).
 3. **파생(5분봉)**: 1분봉에서 **재생성 가능**(§2.5). 물질화하더라도 원천에서 byte-동일 재생성.
 
 ### 4.2 provenance 컬럼 (기존 스키마, 변경 없음 — `store.py:19`)
@@ -243,11 +250,15 @@ blind OOS 경계는 **이 계약에서 고정**하며 backfill/품질 확인 단
   random 금지)로 수행한다. embargo 로 train/test 경계 누수를 차단한다.
 - blind OOS 는 **전략 사전등록·walk-forward·독립리뷰를 통과한 뒤 단 한 번** 개봉한다
   (`plan §Phase4`). 이 Phase 1A 는 blind OOS 데이터의 **존재·coverage·schema 만** 확인한다.
+  경계일(2026-07-21)은 **계약 고정일 기준**이며 probe 재실행 시각과 무관하게 이 값으로 잠근다.
+- **⚠ 코드 강제 아님(문서 규율)**: 위 경계는 **문서상 규율**이지 코드가 강제하지 않는다.
+  `loader.load_candles` 는 임의 `[start,end)` 를 받으므로(경계 자체를 막지 않음), blind OOS 조기
+  개봉 방지는 **연구 절차(사전등록·독립리뷰·단일 개봉)**로 보장한다. 코드 게이트화는 후속 고려.
 - **⚠ 1분봉 마진 주의(near-zero)**: intraday train(≥2.5년) + blind OOS(6개월) = **정확히 3.0년**
   이고, 공급자 1m 보존은 §PROBE 에서 **SPY·AAPL 2종목의 3년 지점**만 실측됐다(3~5년 구간 미측정).
-  bulk 후 품질 리포트(§7.6)에서 **P0-30 각 종목의 실제 1m earliest 를 확인**하고, **1m 보존이
-  3.0년 미만인 종목은 그 종목의 intraday 판정을 `INCONCLUSIVE_DATA` 로 격리**한다(train 구간을
-  임의 단축해 기준을 완화하지 않는다). 일봉(스윙)은 ≥10년으로 이 위험이 없다.
+  bulk 후 품질 리포트(§PROBE §7 실행순서 7)에서 **P0-30 각 종목의 실제 1m earliest 를 확인**하고,
+  **1m 보존이 3.0년 미만인 종목은 그 종목의 intraday 판정을 `INCONCLUSIVE_DATA` 로 격리**한다
+  (train 구간을 임의 단축해 기준을 완화하지 않는다). 일봉(스윙)은 ≥10년으로 이 위험이 없다.
 
 ### 5.2 이 작업(Phase 1A)에서 하지 않는 것
 
@@ -279,4 +290,6 @@ blind OOS 경계는 **이 계약에서 고정**하며 backfill/품질 확인 단
 | UTC-경계 누락 boundary checker | **재사용** | `scripts/backfill_boundary_check.py` |
 | **1분봉→5분봉 결정론 파생(연구/저장소용)** | **신규(TDD)** | `src/history/resample.py` (라이브 경로는 별도 `indicator_engine.resample` — §2.5 이중구현 주의) |
 | **세션 분류·DST 특성화 테스트** | **신규(테스트만)** | `tests/test_session_classification.py` |
-| NYSE 휴장/조기폐장 캘린더, corp-action discontinuity 스캐너, snapshot hash | **Phase 1B 로 연기** | (문서화만) |
+| **capability probe(재현 스크립트 + 실측 스냅샷+SHA-256)** | **신규** | `scripts/phase1a_probe.py`, `docs/research/phase1a_probe_result.json` |
+| **1m 세션 필터**(PRE/REG/POST 만 저장), **immutable raw 스냅샷 계층** | **Phase 1B 선행(1m bulk 전 필수)** | `backfill_history`/`toss_market_data` 확장(문서화만) |
+| NYSE 휴장/조기폐장 캘린더, corp-action discontinuity 스캐너, snapshot hash, 5m 연구↔라이브 통일 | **Phase 1B 로 연기** | (문서화만) |

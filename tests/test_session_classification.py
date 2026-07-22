@@ -66,5 +66,7 @@ def test_daily_bar_ktz_timestamp_maps_to_midnight_et_year_round():
                                 1, 1, 1, 1, 1, currency="USD", adjusted=True, market="US")
     assert summer.ts_exchange.hour == 0 and summer.ts_exchange.date().isoformat() == "2026-07-21"
     assert winter.ts_exchange.hour == 0 and winter.ts_exchange.date().isoformat() == "2026-02-27"
+    # UTC 시각은 DST 로 1시간 다르다: 여름 04:00Z(EDT) / 겨울 05:00Z(EST). 로컬은 둘 다 00:00 ET.
+    assert summer.ts_utc.hour == 4 and winter.ts_utc.hour == 5
     # 자정 ET 일봉은 OVERNIGHT 로 라벨된다(일봉 session 은 무의미 — 계약 §2.3).
     assert summer.session == SESSION_OVERNIGHT and winter.session == SESSION_OVERNIGHT
