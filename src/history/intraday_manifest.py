@@ -26,6 +26,7 @@ import yaml
 
 from src.history import exchange_calendar as cal
 from src.history.daily_manifest import read_p0_universe, span_years
+from src.history.oos_guard import TRACK_INTRADAY, blind_oos_window
 
 INTERVAL = "1m"
 DEFAULT_MIN_YEARS = 3.0
@@ -364,6 +365,8 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
         for sess, cnt in e["sessions"].items():
             session_totals[sess] = session_totals.get(sess, 0) + cnt
 
+    _oos_lo, _oos_hi = blind_oos_window(TRACK_INTRADAY)   # 단일 원천(oos_guard)
+
     manifest = {
         "schema": "p0_us30_intraday_1m_manifest/v1",
         "interval": INTERVAL,
@@ -376,7 +379,10 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
         "requested_as_of": as_of,
         "min_years": min_years,
         "allowed_sessions": sorted(allowed),
-        "blind_oos": {"track": "intraday", "start": "2026-01-21", "end": "2026-07-21",
+        # blind OOS 경계는 oos_guard 를 단일 원천으로 인용(이중 정의 drift 방지). oos_guard 는
+        # 자본 경로(order/risk/live)를 import 하지 않아 격리 계약과 충돌하지 않는다.
+        "blind_oos": {"track": TRACK_INTRADAY,
+                      "start": _oos_lo.isoformat(), "end": _oos_hi.isoformat(),
                       "months": reqs["blind_oos_months"]},
         "collection": {**collection_params, "code_commit": collection_code_commit,
                        "db_basename": os.path.basename(db_path)},

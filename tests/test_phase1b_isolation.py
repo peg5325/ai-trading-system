@@ -12,9 +12,9 @@ import subprocess
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VENV_PY = os.path.join(
-    "/Users/eongyupark/Workspace/02_personal/01_ai_trading/ai_trading_system",
-    ".venv", "bin", "python")
+# 리포지토리 상대경로로 venv 파이썬을 유도(홈 절대경로 하드코딩 금지). worktree 처럼 로컬
+# .venv 가 없으면 sys.executable(테스트를 띄운 인터프리터=메인 venv)로 폴백한다.
+VENV_PY = os.path.join(REPO, ".venv", "bin", "python")
 PY = VENV_PY if os.path.exists(VENV_PY) else sys.executable
 
 # Phase 1B 신규/확장 모듈.

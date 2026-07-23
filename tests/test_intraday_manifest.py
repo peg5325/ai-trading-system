@@ -228,6 +228,22 @@ def test_coverage_reports_unparseable_ts(tmp_path):
         assert fp["regular_coverage"]["unparseable_ts"] == 1
 
 
+def test_manifest_blind_oos_single_source(tmp_path):
+    """Fix2: manifest 의 blind_oos 경계가 oos_guard 를 단일 원천으로 인용(이중정의 drift 방지)."""
+    from src.history.oos_guard import TRACK_INTRADAY, blind_oos_window
+    db = str(tmp_path / "m.sqlite")
+    with HistoryStore(db) as store:
+        _insert(store, "SPY", [datetime(2026, 7, 20, 10, 0, tzinfo=ET)])
+        _ingest_log(store, "SPY")
+    man = build_manifest(db, _yaml(tmp_path, ["SPY"]), collection_params={},
+                         collection_code_commit=None, as_of="2026-07-21",
+                         generated_at_utc="2026-07-23T00:00:00Z")
+    lo, hi = blind_oos_window(TRACK_INTRADAY)
+    assert man["blind_oos"]["start"] == lo.isoformat() == "2026-01-21"
+    assert man["blind_oos"]["end"] == hi.isoformat() == "2026-07-21"
+    assert man["blind_oos"]["track"] == TRACK_INTRADAY
+
+
 def test_read_intraday_requirements(tmp_path):
     reqs = read_intraday_requirements(_yaml(tmp_path, ["SPY"]))
     assert reqs["min_years"] == 3.0

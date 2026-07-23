@@ -165,9 +165,12 @@ def opening_range(candles: list[Candle], *, minutes: int = 15, market: str = "US
             continue        # 불완전 opening range 는 만들지 않는다(미완으로 둠)
         members.sort(key=lambda x: x.ts_utc)
         first, last = members[0], members[-1]
-        # 방어: 창 밖 분이 섞이지 않았음을 재확인(look-ahead 불변식).
-        assert all(lo <= (m.ts_exchange.hour * 60 + m.ts_exchange.minute) < hi
-                   for m in members)
+        # 방어: 창 밖 분이 섞이지 않았음을 재확인(look-ahead 불변식). 평문 assert 는 `python -O`
+        # 에서 제거되므로 명시적 raise 로 둔다(불변식 '검증' 의도 보존).
+        if not all(lo <= (m.ts_exchange.hour * 60 + m.ts_exchange.minute) < hi
+                   for m in members):
+            raise RuntimeError(
+                "opening_range look-ahead 불변식 위반: 창 밖 봉 혼입(내부 버그).")
         out.append(Candle(
             symbol=first.symbol, interval=label,
             ts_utc=first.ts_utc, ts_exchange=first.ts_exchange,

@@ -72,7 +72,13 @@ def main(argv: list[str]) -> int:
     # 지정 시 명시적 오류로 중단(조용한 오적용 방지).
     session_filter = None
     if args.interval == "1m":
-        session_filter = SessionFilter.from_spec(args.sessions, all_sessions=args.all_sessions)
+        try:
+            session_filter = SessionFilter.from_spec(args.sessions,
+                                                     all_sessions=args.all_sessions)
+        except ValueError as e:
+            # 오타/모순 세션 스펙 → traceback 대신 명확한 종료(1d 오적용 처리와 일관).
+            print(f"세션 옵션 오류: {e}", file=sys.stderr)
+            return 2
     elif args.sessions is not None or args.all_sessions:
         print("--sessions/--all-sessions 는 1분봉(1m)에만 적용된다(1d 미지원).", file=sys.stderr)
         return 2
