@@ -4,16 +4,24 @@
 """
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Iterator
+from datetime import datetime, timezone
+from typing import Callable, Iterator
 
 from src.config import Settings
 from src.models import Candle
 from src.providers.toss_client import TossClient
 
+# raw_sink 콜백 시그니처(계약 §4.1): provider 응답 payload 를 **parse 전에** 넘겨받는다.
+# RawSnapshotStore.emit 이 이 시그니처를 만족한다. Any 로 두어 순환 import 를 피한다.
+RawSink = Callable[..., object]
+
 
 def _to_float(v: object) -> float:
     return float(str(v))
+
+
+def _utc_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 class TossMarketDataProvider:
@@ -42,9 +50,21 @@ class TossMarketDataProvider:
         )
 
     def fetch_page(self, symbol: str, interval: str, count: int = 200,
-                   before: str | None = None) -> tuple[list[Candle], str | None]:
-        """한 페이지를 canonical 캔들 리스트 + nextBefore 로 반환."""
+                   before: str | None = None, *,
+                   raw_sink: RawSink | None = None) -> tuple[list[Candle], str | None]:
+        """한 페이지를 canonical 캔들 리스트 + nextBefore 로 반환.
+
+        raw_sink 가 주어지면 canonical 변환 **전에** 응답 payload 원본을 넘긴다(계약 §4.1
+        immutable raw 스냅샷). raw_sink 는 파싱 성공 여부와 무관하게 응답 body 를 보존한다.
+        """
+        requested_at = _utc_iso()
         result = self._client.get_candles(symbol, interval, count=count, before=before)
+        received_at = _utc_iso()
+        if raw_sink is not None:
+            # ★parse 전 보존: 아래 _parse 리스트컴프리헨션보다 먼저 원본 payload 를 넘긴다.
+            raw_sink(symbol=symbol, interval=interval, before=before,
+                     requested_at=requested_at, received_at=received_at,
+                     source="toss", payload=result)
         raws = result.get("candles", []) or []
         candles = [self._parse(symbol, interval, r) for r in raws]
         return candles, result.get("nextBefore")

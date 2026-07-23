@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Protocol
 
+from src.history.session_filter import SessionFilter
 from src.history.store import HistoryStore, ImportStats
 from src.models import Candle
 
@@ -32,7 +33,12 @@ def _new_run_id(interval: str) -> str:
 
 
 class MarketDataPort(Protocol):
-    """backfill 이 요구하는 최소 인터페이스(TossMarketDataProvider.fetch_page 호환)."""
+    """backfill 이 요구하는 최소 인터페이스(TossMarketDataProvider.fetch_page 호환).
+
+    raw_sink 는 선택적 확장(계약 §4.1): 지정되면 provider 가 canonical 변환 **전에** 응답
+    payload 를 넘긴다. 미지정 시 기존 provider/fake 는 그대로 동작한다(backfill 은 raw_sink 가
+    None 이면 fetch_page 에 인자를 전달하지 않는다 → 미지원 fake 도 호환).
+    """
 
     def fetch_page(self, symbol: str, interval: str, *, count: int = 200,
                    before: str | None = None) -> tuple[list[Candle], str | None]:
@@ -56,6 +62,10 @@ class SymbolBackfillResult:
     error: str | None = None
     gap_skips: int = 0
     empty_fetches: int = 0      # 빈 응답 호출 수(= pages 예산 밖의 추가 API 호출)
+    # 세션 필터(계약 §2.2): 저장 전 제외된 세션별 행수(run/symbol 단위 집계).
+    rows_stored: int = 0        # 세션 필터 통과 후 실제 upsert 대상 행수(rows_seen 이상 아님)
+    excluded_by_session: dict[str, int] = field(default_factory=dict)
+    allowed_sessions: list[str] | None = None   # 실제 실행값(provenance)
 
     def as_dict(self) -> dict:
         return {
@@ -67,6 +77,10 @@ class SymbolBackfillResult:
             "exhausted": self.exhausted, "stopped_reason": self.stopped_reason,
             "error": self.error, "gap_skips": self.gap_skips,
             "empty_fetches": self.empty_fetches,
+            "rows_stored": self.rows_stored,
+            "excluded_by_session": dict(sorted(self.excluded_by_session.items())),
+            "excluded_total": sum(self.excluded_by_session.values()),
+            "allowed_sessions": self.allowed_sessions,
         }
 
 
@@ -123,14 +137,41 @@ def _shift_before(before: str, minutes: int) -> str:
     return target.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _ingest_note(result: "SymbolBackfillResult",
+                 session_filter: SessionFilter | None) -> str | None:
+    """ingest_log.note 조합 — 정지사유/에러 + 세션 필터 provenance(기본값+실행값+제외수).
+
+    세션 필터가 없으면 기존과 동일(정지사유/에러만). 있으면 실제 허용 세션과 제외 행수를
+    함께 남겨 감사(계약 §2.2: '기본값과 실제 실행값을 ingest log 에 기록')를 가능케 한다.
+    """
+    base = result.error or result.stopped_reason
+    if session_filter is None:
+        return base
+    allowed = ",".join(sorted(session_filter.allowed))
+    excl = ",".join(f"{k}:{v}" for k, v in sorted(result.excluded_by_session.items()))
+    parts = [p for p in (base,) if p]
+    parts.append(f"sessions_allowed={allowed}")
+    parts.append(f"all_sessions={session_filter.all_sessions}")
+    parts.append(f"excluded={{{excl}}}")
+    parts.append(f"stored={result.rows_stored}")
+    return "; ".join(parts)
+
+
 def _fetch_with_retry(provider: MarketDataPort, symbol: str, interval: str, *,
                       count: int, before: str | None, max_retries: int,
-                      backoff_base: float, sleep: Callable[[float], None]):
-    """429 는 지수 backoff(base*2^attempt)로 재시도. 그 외 예외/한도초과는 상위로 전파."""
+                      backoff_base: float, sleep: Callable[[float], None],
+                      raw_sink: Callable[..., object] | None = None):
+    """429 는 지수 backoff(base*2^attempt)로 재시도. 그 외 예외/한도초과는 상위로 전파.
+
+    raw_sink 는 None 이 아닐 때만 fetch_page 로 전달한다(미지원 provider/fake 호환).
+    """
+    kwargs: dict = {"count": count, "before": before}
+    if raw_sink is not None:
+        kwargs["raw_sink"] = raw_sink
     attempt = 0
     while True:
         try:
-            return provider.fetch_page(symbol, interval, count=count, before=before)
+            return provider.fetch_page(symbol, interval, **kwargs)
         except Exception as exc:  # noqa: BLE001 — 상태코드로 재시도 여부 판정
             if _status_code(exc) == 429 and attempt < max_retries:
                 sleep(backoff_base * (2 ** attempt))
@@ -145,7 +186,9 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
                     max_retries: int = 3, backoff_base: float = 0.5,
                     resume: bool = True, run_id: str | None = None,
                     gap_skip_minutes: int = 0,
-                    max_consecutive_empty: int = 40) -> SymbolBackfillResult:
+                    max_consecutive_empty: int = 40,
+                    session_filter: SessionFilter | None = None,
+                    raw_sink: Callable[..., object] | None = None) -> SymbolBackfillResult:
     """한 종목을 과거로 backfill. 페이지마다 upsert + cursor 저장 + 커밋.
 
     gap_skip_minutes > 0 이면 **gap-skip 모드**(opt-in). Toss 1m 캔들 API 는
@@ -176,6 +219,8 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
     run_id = run_id or _new_run_id(interval)
     stats = ImportStats(source=BACKFILL_SOURCE)
     result = SymbolBackfillResult(symbol=symbol, interval=interval)
+    if session_filter is not None:
+        result.allowed_sessions = sorted(session_filter.allowed)
 
     # resume: 미완(exhausted=False) 커서가 있으면 next_before 부터 + prev_oldest 시드(재개
     # 첫 페이지에서 즉시 no_progress 판정 가능). 완료/stalled 커서는 처음부터 재스캔.
@@ -194,7 +239,8 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
         while pages < max_pages:
             candles, nxt = _fetch_with_retry(
                 provider, symbol, interval, count=page_size, before=before,
-                max_retries=max_retries, backoff_base=backoff_base, sleep=sleep)
+                max_retries=max_retries, backoff_base=backoff_base, sleep=sleep,
+                raw_sink=raw_sink)
             if not candles:
                 # gap-skip: 빈 창은 "확인된 공백"이므로 창 크기만큼 건너뛰고 계속.
                 # before 가 None(=최신부터)인데 비었으면 건너뛸 기준점이 없어 종료.
@@ -236,7 +282,19 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
             if result.latest is None or newest_dt > datetime.fromisoformat(result.latest):
                 result.latest = newest
 
-            store.upsert_candles(candles, source=BACKFILL_SOURCE, run_id=run_id, stats=stats)
+            # ★세션 필터(계약 §2.2)는 **저장 전에** 적용한다(사후 DELETE 아님). 페이지네이션
+            #   커서(oldest/newest)는 위에서 **필터 전 전체 페이지** 기준으로 계산했으므로
+            #   필터가 과거로 페이징하는 경계를 바꾸지 않는다(제외돼도 커서는 정상 전진).
+            #   unknown 세션 라벨은 partition 이 fail-closed(UnknownSessionError) → 종목 격리.
+            if session_filter is not None:
+                to_store, excluded = session_filter.partition(candles)
+                for sess, cnt in excluded.items():
+                    result.excluded_by_session[sess] = (
+                        result.excluded_by_session.get(sess, 0) + cnt)
+            else:
+                to_store = candles
+            result.rows_stored += len(to_store)
+            store.upsert_candles(to_store, source=BACKFILL_SOURCE, run_id=run_id, stats=stats)
 
             if nxt is None:
                 # gap-skip: nextBefore=null 은 UTC 일자 경계일 뿐 소진이 아니다.
@@ -292,7 +350,8 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
     result.conflict = stats.conflict
     store.write_ingest_log(run_id, source=BACKFILL_SOURCE, stats=stats,
                            rows_seen=result.rows_seen, earliest=result.earliest,
-                           latest=result.latest, note=result.error or result.stopped_reason,
+                           latest=result.latest,
+                           note=_ingest_note(result, session_filter),
                            symbol=symbol, interval=interval)
     store.commit()
     return result
@@ -303,7 +362,9 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
                      spacing: float = 0.0, sleep: Callable[[float], None] = time.sleep,
                      max_retries: int = 3, backoff_base: float = 0.5,
                      resume: bool = True, run_id: str | None = None,
-                     gap_skip_minutes: int = 0, max_consecutive_empty: int = 40) -> BackfillReport:
+                     gap_skip_minutes: int = 0, max_consecutive_empty: int = 40,
+                     session_filter: SessionFilter | None = None,
+                     raw_sink: Callable[..., object] | None = None) -> BackfillReport:
     """여러 종목을 순차 backfill. 종목 격리: 한 종목 실패가 나머지를 막지 않는다."""
     run_id = run_id or _new_run_id(interval)
     report = BackfillReport(interval=interval)
@@ -315,7 +376,8 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
                 spacing=spacing, sleep=sleep, max_retries=max_retries,
                 backoff_base=backoff_base, resume=resume, run_id=run_id,
                 gap_skip_minutes=gap_skip_minutes,
-                max_consecutive_empty=max_consecutive_empty)
+                max_consecutive_empty=max_consecutive_empty,
+                session_filter=session_filter, raw_sink=raw_sink)
         except Exception as exc:  # noqa: BLE001 — 방어적 격리(backfill_symbol 은 내부 격리하지만 이중 안전)
             res = SymbolBackfillResult(symbol=sym, interval=interval,
                                        error=repr(exc), stopped_reason="error")
