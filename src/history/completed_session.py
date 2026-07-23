@@ -31,10 +31,11 @@ from datetime import date, datetime, timedelta
 from src.history import exchange_calendar as cal
 from src.models import ET, SESSION_OVERNIGHT, SESSION_POST
 
-# 완료 판정의 세션 범위(수집이 어느 세션까지 저장하는지에 따라 그 날의 '완료' 시각이 달라진다):
-#  - "regular": 정규장까지(또는 1d 일봉). 완료 = 정규 마감(정상 16:00 / 조기폐장 13:00 ET).
-#  - "post":    애프터마켓(POST)까지. 완료 = 정규 마감 + 4h(정상 20:00 / 조기폐장 17:00 ET).
-#  - "overnight": 심야(OVERNIGHT)까지. 완료 = **익일 04:00 ET**(자정 교차 — 항상 안전한 경계).
+# 완료 판정의 세션 범위(수집이 어느 세션까지 저장하는지에 따라 그 날의 '완료' 시각이 달라진다).
+# 완료 시각은 저장 결정자 classify_session 의 **고정** 창과 일치시킨다(조기폐장이어도 앞당기지 않음):
+#  - "regular":  정규장까지(또는 1d 일봉). 완료 = 16:00 ET(REGULAR 창 끝).
+#  - "post":     애프터마켓(POST)까지. 완료 = 20:00 ET(POST 창 끝).
+#  - "overnight": 심야(OVERNIGHT)까지. 완료 = 익일 04:00 ET(자정 교차).
 SCOPE_REGULAR = "regular"
 SCOPE_POST = "post"
 SCOPE_OVERNIGHT = "overnight"
@@ -166,6 +167,8 @@ def partition_by_cutoff(
 
     ★ 경계: `trading_day <= completed_through` → 당일 포함, 다음 거래일 제외(계약 #72).
        거래소-로컬 일자(`ts_exchange.date()`)를 기준으로 판정한다(US=ET, PRE/REGULAR/POST 동일 일자).
+       OVERNIGHT 세션의 자정 이후(익일 00:00–04:00 ET) 봉은 date()=익일이라 cutoff=당일이면 제외되며,
+       익일이 완료 처리될 때 다음 실행에서 수집된다(보수적 — partial 유실 아님, 최대 ~4h 경계 지연).
     """
     kept: list = []
     excluded_days: set[str] = set()

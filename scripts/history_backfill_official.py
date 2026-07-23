@@ -6,8 +6,10 @@
 공식 경로의 fail-closed 계약:
 - `--completed-through YYYY-MM-DD` 가 **필수**다. 없으면 자격증명/ API/DB 접근 전에 exit 2.
 - 요청 cutoff 가 실행 시점 NYSE 의 마지막 **완료** 거래일보다 늦으면(진행 중/미래 세션) exit 2.
-  · 정상일 16:00 ET / 조기폐장일 13:00 ET / 주말·휴장·DST 를 exchange_calendar + tz-aware ET 로 판정.
-  · 현재시각은 주입 가능(main(argv, now_utc=...)) — 코드 내부에서 임의 고정하지 않는다.
+  · 완료 경계는 저장 결정자 classify_session 의 고정 창과 일치: regular/1d 16:00 ET,
+    POST(기본 1m) 20:00 ET, OVERNIGHT 익일 04:00 ET. 조기폐장일에도 앞당기지 않는다.
+  · 주말·휴장·DST 는 exchange_calendar + tz-aware ET 로 판정. 현재시각은 주입 가능
+    (main(argv, now_utc=...)) — 코드 내부에서 임의 고정하지 않는다.
 - 유니버스는 `config/universe_p0_us30.yaml`(market=US)에서 읽는다. 심볼은 P0-US30(US) 집합이어야
   하며 그 밖(예: 코스피 코드)은 거부한다 — US 외 시장을 NYSE 규칙으로 추측하지 않는다.
 
@@ -157,7 +159,7 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
             print(f"⚠️  --max-consecutive-empty={args.max_consecutive_empty} < 권장 {recommended}"
                   f"(gap_skip={args.gap_skip_minutes}m) — 장기 휴장 조기 종료 위험.", file=sys.stderr)
 
-    # === 4) 자격증명(검증을 모두 통과한 뒤에만) ===
+    # === 6) 자격증명(검증을 모두 통과한 뒤에만) ===
     settings = load_settings()
     if not settings.has_credentials:
         print(".env 의 TOSS_CLIENT_ID / TOSS_CLIENT_SECRET 이 비어있습니다.", file=sys.stderr)
