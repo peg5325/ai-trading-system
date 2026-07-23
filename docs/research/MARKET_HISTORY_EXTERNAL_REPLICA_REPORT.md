@@ -55,7 +55,7 @@ canonical `data/market_history.sqlite` 와 `data/backups/*.sqlite` 백업은
    남기지 않는다. 기존의 다른 성공 복제본은 보존한다.
 9. 시크릿·자격증명·환경변수 값은 읽지도 기록하지도 않는다.
 
-테스트: `tests/test_history_backup_replication.py` (22 케이스) — 정상 snapshot,
+테스트: `tests/test_history_backup_replication.py` (24 케이스) — 정상 snapshot,
 WAL 일관성, atomic rename, overwrite 거부, 동일/저장소내부/동일device 거부,
 path traversal 거부, 손상 DB 시 SUCCESS 금지, 실패 시 성공본 보존, restore smoke,
 receipt 결정성·시크릿 비노출, dry-run 무생성, retention.

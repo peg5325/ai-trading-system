@@ -510,3 +510,64 @@ def test_failure_sanitized_receipt_no_abs_path(tmp_path):
     assert data["status"] == "failed"
     assert data["reason"] in {"safety", "verify", "error", "failed"}
     assert "/" not in str(data["reason"])
+
+
+# --------------------------------------------------------------------------- #
+# 동시 writer 방어: snapshot 전후 원본 SHA 불일치면 실패
+# --------------------------------------------------------------------------- #
+def test_writer_race_detected(tmp_path, monkeypatch):
+    src = _mk_source(tmp_path)
+    tgt = tmp_path / "ext"
+    tgt.mkdir()
+
+    real_snap = rep.snapshot_via_backup_api
+
+    def snap_then_mutate(s, d):
+        real_snap(s, d)
+        with open(src, "ab") as fh:  # snapshot 창에서 writer 가 원본을 변경
+            fh.write(b"X")
+
+    monkeypatch.setattr(rep, "snapshot_via_backup_api", snap_then_mutate)
+    with pytest.raises(rep.VerificationError):
+        _replicate(src, tgt)
+    # 실패본/partial 미잔존
+    assert not (tgt / "replica.sqlite").exists()
+    assert not (tgt / "replica.sqlite.partial").exists()
+
+
+# --------------------------------------------------------------------------- #
+# --as-of-utc 정규화/검증
+# --------------------------------------------------------------------------- #
+def test_normalize_as_of():
+    assert rep.normalize_as_of("20260722T160829Z") == "20260722T160829Z"
+    assert rep.normalize_as_of("2026-07-22T16:08:29+00:00") == "20260722T160829Z"
+    assert rep.normalize_as_of("2026-07-22T18:08:29+02:00") == "20260722T160829Z"
+    with pytest.raises(ValueError):
+        rep.normalize_as_of("not-a-date")
+
+
+def test_as_of_iso_normalized_filename(tmp_path):
+    src = _mk_source(tmp_path)  # stem = market_history
+    tgt = tmp_path / "ext"
+    tgt.mkdir()
+    code = rep.main([
+        "--source-db", src, "--target-dir", str(tgt),
+        "--target-id", "t", "--allow-same-device", "--smoke-dir", str(tgt),
+        "--as-of-utc", "2026-07-22T16:08:29+00:00",
+    ])
+    assert code == rep.EXIT_OK
+    # ISO 입력이 compact 파일명(retention 패턴 일치)으로 정규화됨
+    assert (tgt / "market_history.replica.20260722T160829Z.sqlite").exists()
+
+
+def test_as_of_bad_format_rejected(tmp_path):
+    src = _mk_source(tmp_path)
+    tgt = tmp_path / "ext"
+    tgt.mkdir()
+    code = rep.main([
+        "--source-db", src, "--target-dir", str(tgt),
+        "--target-id", "t", "--allow-same-device", "--smoke-dir", str(tgt),
+        "--as-of-utc", "not-a-date",
+    ])
+    assert code == rep.EXIT_SAFETY
+    assert os.listdir(str(tgt)) == []

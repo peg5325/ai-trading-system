@@ -37,7 +37,7 @@ CHUNK = 1024 * 1024
 
 # 종료 코드
 EXIT_OK = 0
-EXIT_SAFETY = 10       # 검증 전 안전/입력 거부 (복제 시작 안 함)
+EXIT_SAFETY = 10       # 안전/입력 거부(대개 복제 전; rename 직전 재확인 포함)
 EXIT_VERIFY = 20       # 복제 후 무결성/의미 검증 실패
 EXIT_ERROR = 30        # 예기치 못한 오류
 
@@ -425,6 +425,15 @@ def replicate(
             snapshot_via_backup_api(work_src, partial_path)
             fsync_path(partial_path)
 
+            # 동시 writer 방어: immutable open 은 파일 불변을 가정하므로
+            # snapshot 전후로 원본 파일 SHA 가 달라졌다면(=snapshot 창에서 writer
+            # 가 원본을 변경) fail-closed. 정적/quiescent 상태에선 항상 동일.
+            post_src_sha = compute_sha256(source_db)
+            if post_src_sha != result.source_file_sha256:
+                raise VerificationError(
+                    "snapshot 중 원본 파일이 변경됨(동시 writer 의심)."
+                )
+
             # 4) partial 검증: integrity + 의미 + snapshot SHA
             snap_sha = compute_sha256(partial_path)
             result.snapshot_sha256 = snap_sha
@@ -485,7 +494,7 @@ def replicate(
 def apply_retention(
     target_dir: str,
     source_stem: str,
-    keep: int,
+    keep: Optional[int],
     protect: str,
 ) -> list[str]:
     """target_dir 에서 source_stem 으로 시작하는 복제본 중 최신 keep 개만 남기고
@@ -616,7 +625,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="market-history SQLite DB 를 외부 저장소로 안전 복제 (#73)"
     )
     p.add_argument("--source-db", required=True,
-                   help="복제할 원본 DB(변경하지 않음)")
+                   help="복제할 원본 DB(변경하지 않음; snapshot 중 동시 writer "
+                        "없음 전제 — 원본 변경 감지 시 fail-closed)")
     p.add_argument("--target-dir", required=True,
                    help="외부 저장소 디렉터리(외장/NAS/클라우드 동기화 경로)")
     p.add_argument("--target-id", required=True,
@@ -628,7 +638,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--replica-name", default=None,
                    help="복제본 파일명(basename). 미지정 시 원본+UTC 타임스탬프")
     p.add_argument("--as-of-utc", default=None,
-                   help="복제본명/receipt 에 쓸 UTC 시각(ISO8601). 결정성 옵션")
+                   help="복제본명/receipt 에 쓸 UTC 시각. compact "
+                        "YYYYMMDDTHHMMSSZ 또는 ISO8601(UTC 로 정규화). 결정성 옵션")
     p.add_argument("--repo-root", default=None,
                    help="저장소 최상위 override(미지정 시 원본 기준 자동탐지)")
     p.add_argument("--allow-same-device", action="store_true",
@@ -648,6 +659,25 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def normalize_as_of(value: str) -> str:
+    """--as-of-utc 를 파일명·retention 패턴(\\d{8}T\\d{6}Z)에 맞는 compact UTC 로
+    정규화한다. 이미 compact 면 그대로, ISO8601 이면 UTC 로 변환. 파싱 불가면
+    ValueError. (ISO 의 '+00:00' 이 파일명에 남아 retention 에서 누락되던 문제 방지)
+    """
+    v = value.strip()
+    if re.fullmatch(r"\d{8}T\d{6}Z", v):
+        return v
+    try:
+        dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(
+            f"--as-of-utc 형식 오류(YYYYMMDDTHHMMSSZ 또는 ISO8601): {value!r}"
+        ) from exc
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
 def default_replica_name(source_db: str, as_of_utc: str) -> str:
     stem = os.path.basename(source_db)
     if stem.endswith(".sqlite"):
@@ -659,9 +689,14 @@ def default_replica_name(source_db: str, as_of_utc: str) -> str:
 def main(argv: Optional[list[str]] = None) -> int:
     args = build_parser().parse_args(argv)
 
-    as_of = args.as_of_utc or datetime.now(timezone.utc).strftime(
-        "%Y%m%dT%H%M%SZ"
-    )
+    if args.as_of_utc:
+        try:
+            as_of = normalize_as_of(args.as_of_utc)
+        except ValueError as exc:
+            print(_stable_json({"status": "failed", "reason": f"safety: {exc}"}))
+            return EXIT_SAFETY
+    else:
+        as_of = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     replica_name = args.replica_name or default_replica_name(
         args.source_db, as_of
     )
