@@ -48,7 +48,7 @@ from src.history.completed_session import (  # noqa: E402
 from src.history.daily_manifest import read_p0_universe  # noqa: E402
 from src.history.raw_snapshot import RawSnapshotStore  # noqa: E402
 from src.history.session_filter import SessionFilter  # noqa: E402
-from src.ingest.backfill_history import backfill_symbols  # noqa: E402
+from src.ingest.backfill_history import backfill_symbols, new_run_id  # noqa: E402
 from src.providers.toss_market_data import TossMarketDataProvider  # noqa: E402
 
 DEFAULT_YAML = "config/universe_p0_us30.yaml"
@@ -72,6 +72,10 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
     ap.add_argument("--max-retries", type=int, default=3)
     ap.add_argument("--backoff-base", type=float, default=0.5)
     ap.add_argument("--no-resume", action="store_true")
+    ap.add_argument("--run-id", default=None,
+                    help="collection run_id(이슈 #79). 미지정 시 API/DB 접근 전에 새로 생성·출력한다. "
+                         "중단 후 resume 은 **같은 run_id 를 다시 지정**해야 manifest 교차검증이 하나의 "
+                         "collection 으로 인식한다. manifest 는 이 run_id 로 ingest_log cutoff 를 검증한다.")
     ap.add_argument("--gap-skip-minutes", type=int, default=0,
                     help="빈 페이지/nextBefore=null 을 UTC 일자 경계로 보고 이만큼 과거로 건너뜀")
     ap.add_argument("--max-consecutive-empty", type=int, default=40)
@@ -169,9 +173,16 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
     raw_sink = raw_store.emit if raw_store is not None else None
     max_pages = args.max_pages
 
+    # ★collection run_id(이슈 #79): API/DB 접근 **전에** 확정·출력한다 — 실행이 중단돼도 운영자가
+    #   같은 run_id 로 resume(--run-id) 하고 manifest 교차검증에 넘길 수 있게 한다.
+    run_id = args.run_id or new_run_id(args.interval)
+    print(f"collection run_id: {run_id} "
+          f"(resume 시 --run-id {run_id} · manifest 검증 시 --collection-run-id {run_id})",
+          file=sys.stderr)
+
     with TossMarketDataProvider(settings) as prov, HistoryStore(args.db) as store:
         report = backfill_symbols(
-            store, prov, symbols, args.interval,
+            store, prov, symbols, args.interval, run_id=run_id,
             max_pages=max_pages, page_size=args.page_size, spacing=args.spacing,
             max_retries=args.max_retries, backoff_base=args.backoff_base,
             resume=not args.no_resume, gap_skip_minutes=args.gap_skip_minutes,
@@ -180,12 +191,13 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
             raw_sink=raw_sink)
 
     if args.json:
-        out = report.as_dict()
+        out = report.as_dict()   # run_id 를 이미 포함(이슈 #79)
         out["completed_through"] = completed_through.isoformat()
         print(json.dumps(out, ensure_ascii=False, indent=2))
         return 0
 
     print(f"=== 공식 P0-US30 backfill {args.db}  interval={args.interval} ===")
+    print(f"  collection run_id: {report.run_id}")
     print(f"  완료-거래일 cutoff: {completed_through.isoformat()} "
           f"(scope={scope}, 기준시각 {now_utc.isoformat()})")
     if session_filter is not None:
@@ -195,7 +207,11 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
         print(f"  raw 스냅샷: {raw_store.root}")
     excluded_total = 0
     for r in report.results:
-        depth = f"{r.earliest} ~ {r.latest}" if r.earliest else "(수집 없음)"
+        # ★범위 의미 구분(이슈 #79 Scope B): fetched=provider 도달 범위(제외분 포함),
+        #   accepted=cutoff+세션 통과해 upsert 로 전달된 범위(전량 제외 시 없음).
+        fetched = f"{r.earliest} ~ {r.latest}" if r.earliest else "(fetch 없음)"
+        accepted = (f"{r.accepted_earliest} ~ {r.accepted_latest}"
+                    if r.accepted_earliest else "(accepted 없음 — 전량 cutoff/세션 제외)")
         excluded_total += r.rows_excluded_after_cutoff
         print(f"\n### {r.symbol} [{r.interval}]")
         print(f"  pages={r.pages_fetched} rows_seen={r.rows_seen} stored={r.rows_stored} "
@@ -205,7 +221,8 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
                   f"days={_day_range_str(r)}")
         if r.excluded_by_session:
             print(f"  세션 제외: {dict(sorted(r.excluded_by_session.items()))}")
-        print(f"  깊이(UTC): {depth}")
+        print(f"  fetched 범위(UTC, 제외분 포함): {fetched}")
+        print(f"  accepted 범위(UTC, upsert 전달): {accepted}")
         print(f"  정지사유: {r.stopped_reason}")
         if r.error:
             print(f"  ⚠️ error: {r.error}")
