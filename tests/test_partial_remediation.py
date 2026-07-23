@@ -11,6 +11,7 @@ first-write-wins 완화 없이, partial 잔존을 **감사 가능한 삭제**로
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from datetime import datetime
 
@@ -147,3 +148,40 @@ def test_execute_requires_expected(tmp_path):
     with pytest.raises(RemediationError):
         remediate(dbp, plan, backup_dir=str(tmp_path / "bk"), execute=True)
     assert _count(dbp, "QQQ", "1m", "2025-07-16") == 2  # 무변경
+
+
+def test_hash_fields_include_semantic_fields():
+    # ★리뷰 P2: 삭제 대상 거래일을 정하는 ts_exchange 및 market/currency/adjusted 가 hash 에 포함.
+    from src.history.partial_remediation import _HASH_FIELDS
+    for f in ("ts_exchange", "market", "currency", "adjusted"):
+        assert f in _HASH_FIELDS
+
+
+def test_safe_token_blocks_path_traversal():
+    # ★리뷰 P2: symbol 이 백업 파일명으로 경로 이탈하지 못하게 slug 화.
+    from src.history.partial_remediation import _safe_token
+    for evil in ("../../etc/passwd", "..", "/abs/path", "a/b\\c"):
+        t = _safe_token(evil)
+        assert "/" not in t and "\\" not in t and ".." not in t
+    assert _safe_token("BRK.B") == "BRK_B"
+    assert _safe_token("") == "x"
+
+
+def test_execute_backup_stays_in_backup_dir_for_slashy_symbol(tmp_path):
+    # 경로 구분자가 든 symbol 이어도 백업은 backup_dir 안에 안전하게 생성된다.
+    dbp = str(tmp_path / "m.sqlite")
+    evil = "../evil"
+    with HistoryStore(dbp) as s:
+        s.upsert_candles([_c(evil, "2025-07-16T09:31:00-04:00")],
+                         source="toss_backfill", run_id="seed",
+                         stats=ImportStats(source="toss_backfill"))
+        s.commit()
+    info = identify_partial(dbp, evil, "1m", ["2025-07-16"])
+    bk = tmp_path / "bk"
+    r = remediate(dbp, RemediationPlan(evil, "1m", ("2025-07-16",),
+                                       expected_row_count=info["row_count"],
+                                       expected_content_hash=info["content_hash"]),
+                  backup_dir=str(bk), execute=True)
+    assert r["status"] == "deleted"
+    # 백업 경로가 backup_dir 내부
+    assert os.path.realpath(r["backup_path"]).startswith(os.path.realpath(str(bk)))

@@ -29,13 +29,24 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-# content hash 대상(대상 행의 데이터 유도 필드 — 시각/provenance 제외 → 재현 가능).
-_HASH_FIELDS = ("symbol", "interval", "ts_utc", "session",
-                "open", "high", "low", "close", "volume", "source")
+# 백업 파일명 토큰 안전화: 영숫자 외(경로 구분자·`.`·`..` 포함)를 '_' 로 치환해 경로 이탈을 원천 차단.
+_UNSAFE_TOKEN_RE = re.compile(r"[^A-Za-z0-9]+")
+
+
+def _safe_token(value: str) -> str:
+    """symbol/interval 을 파일명 안전 slug 로(경로 구분자·`..` 제거). 빈 값은 'x'."""
+    return _UNSAFE_TOKEN_RE.sub("_", str(value)).strip("_") or "x"
+
+# content hash 대상 = created_at/updated_at(감사 ts) 를 뺀 **모든 의미 필드**. 특히 ts_exchange 는
+# 삭제 대상 거래일(substr(ts_exchange,1,10))을 결정하므로 반드시 포함해야 TOCTOU 재검증이 의미 변경을
+# 놓치지 않는다(리뷰 P2). market/currency/adjusted 도 포함(수정주가·통화 변경 탐지).
+_HASH_FIELDS = ("symbol", "interval", "ts_utc", "ts_exchange", "session", "market",
+                "currency", "adjusted", "open", "high", "low", "close", "volume", "source")
 
 
 class RemediationError(RuntimeError):
@@ -196,12 +207,16 @@ def remediate(db_path: str, plan: RemediationPlan, *, backup_dir: str,
             f"불일치 — 삭제 거부(fail-closed).")
 
     # --- 백업(원본 read-only 스냅샷) ---
-    # 파일명에 receipt ts 를 포함해 같은 대상의 반복 remediation 이 이전 백업을 덮어쓰지 않게 한다.
+    # 파일명은 안전 slug(경로 이탈 방지) + receipt ts(반복 remediation 백업 덮어쓰기 방지).
     os.makedirs(backup_dir, exist_ok=True)
     ts_tag = ts.replace(":", "").replace("+", "").replace(".", "")
-    backup_path = os.path.join(
-        backup_dir,
-        f"{plan.symbol}_{plan.interval}_premediation_{ts_tag}_{pre_hash[:12]}.sqlite")
+    fname = (f"{_safe_token(plan.symbol)}_{_safe_token(plan.interval)}"
+             f"_premediation_{ts_tag}_{pre_hash[:12]}.sqlite")
+    backup_path = os.path.join(backup_dir, fname)
+    # 방어적 재확인: 정규화 경로가 backup_dir 안인지(경로 이탈 이중 차단).
+    real_dir = os.path.realpath(backup_dir)
+    if os.path.commonpath([real_dir, os.path.realpath(backup_path)]) != real_dir:
+        raise RemediationError(f"백업 경로가 backup_dir 밖 — 거부(경로 이탈 방지): {fname!r}")
     _backup_via_api(db_path, backup_path)
     bcon = _connect_ro(backup_path)
     try:

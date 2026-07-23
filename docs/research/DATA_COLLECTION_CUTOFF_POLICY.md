@@ -7,7 +7,11 @@
 ## 1. 공식 P0-US30 bulk 실행(안전한 CLI 예시)
 
 공식 수집은 **완료-거래일 cutoff 를 강제하는 전용 CLI** `scripts/history_backfill_official.py` 로만 한다.
-`--completed-through` 가 없으면 자격증명/ API/DB 접근 전에 `exit 2`(fail-closed).
+다음을 모두 자격증명/ API/DB 접근 **전에** 검증하고 하나라도 어기면 `exit 2`(fail-closed):
+- `--completed-through` 필수(누락/형식오류/미완료/미래/비거래일/범위밖).
+- **1분봉은 `--raw-snapshot-dir` 필수**(immutable raw 보존 — 대량 호출에서 원본 payload 소실 방지).
+- 유니버스 YAML 계약 유효(`valid`: count 30·중복 없음·market US·currency USD·min_years) —
+  malformed 유니버스(29종목·중복·비USD)로 공식 수집 금지. 심볼은 P0-US30(US) 집합이어야 함.
 
 ```bash
 # 30종목 3년 1분봉(세션 PRE/REGULAR/POST, raw immutable 스냅샷 보존)
@@ -36,18 +40,23 @@ fail-open 을 막기 위해:
 ET 변환은 저장소 표준 `src/models.py:ET = ZoneInfo("America/New_York")`(stdlib zoneinfo)를
 재사용해 EDT/EST·자정 교차를 tz-aware ET datetime 비교로 자동 처리한다.
 
-**★완료 경계는 수집하는 세션 범위(scope)에 맞춘다.** 저장하는 가장 늦은 세션이 그 날의 완료
-시각을 정한다(그렇지 않으면 진행 중 세션 봉이 샌다 — 이슈 #72 핵심):
+**★완료 경계는 수집하는 세션 범위(scope)에 맞추되, 저장을 결정하는 `classify_session` 의 고정 창과
+정확히 일치시킨다.** 저장하는 가장 늦은 세션이 그 날의 완료 시각을 정한다(그렇지 않으면 진행 중
+세션 봉이 샌다 — 이슈 #72 핵심):
 
-| scope | 수집 범위 | 그 날 "완료" 시각(ET) |
+| scope | 수집 범위 | 그 날 "완료" 시각(ET, 고정) |
 |-------|-----------|----------------------|
-| `regular` | 1d(일봉) 또는 PRE+REGULAR | 정규 마감 — 정상 **16:00** / 조기폐장 **13:00** |
-| `post` | **1m 기본(PRE+REGULAR+POST)** | 정규 마감 + 애프터마켓 4h — 정상 **20:00** / 조기폐장 **17:00** |
-| `overnight` | 1m `--all-sessions`(OVERNIGHT 포함) | **익일 04:00** |
+| `regular` | 1d(일봉) 또는 PRE+REGULAR | **16:00** (REGULAR 창 끝) |
+| `post` | **1m 기본(PRE+REGULAR+POST)** | **20:00** (POST 창 끝) |
+| `overnight` | 1m `--all-sessions`(OVERNIGHT 포함) | **익일 04:00** (OVERNIGHT 종료) |
 
-scope 는 `completion_scope_for_sessions(interval, allowed_sessions)` 로 수집 interval·세션에서
-자동 산출한다. `exchange_calendar.regular_close_minute()` 가 조기폐장(780분)/정상(960분)을 구분하고,
-POST 는 +4h(16→20 정상, 13→17 조기), OVERNIGHT 은 익일 04:00 으로 확장한다.
+scope 는 `completion_scope_for_sessions(interval, allowed_sessions)` 로 자동 산출한다.
+
+**★조기폐장일에도 창을 앞당기지 않는다**(리뷰 P1 교정): `classify_session` 은 조기폐장을 모르고 항상
+REGULAR 09:30–16:00 / POST 16:00–20:00 창을 쓴다. 완료 경계를 실 마감(13:00)이나 13:00+4h(17:00)로
+앞당기면 저장(session filter)과 어긋나 — 예: 조기폐장일 17:00 을 '완료'로 처리해도 `classify_session`
+은 19:00 봉을 여전히 POST 로 저장하므로 partial 이 새어 들어간다. 따라서 완료 경계는 저장 창과 동일한
+고정 16:00/20:00/익일04:00 을 쓴다(조기폐장일엔 실 마감보다 보수적으로 늦게 완료 — 안전).
 
 - **주말·전휴장일**: 그 날은 거래일이 아니므로 직전 완료 거래일로 판정.
 - **캘린더 범위 밖**: `exchange_calendar` artifact 구간(2023-01-01~2026-12-31) 밖은
@@ -126,15 +135,20 @@ POST 는 +4h(16→20 정상, 13→17 조기), OVERNIGHT 은 익일 04:00 으로 
 독립 리뷰(code-reviewer·architect)에서 나온 항목 중 이번 PR 에 반영한 것과 후속으로 분리한 것:
 
 **반영됨(이번 PR)**
-- 완료 경계를 세션 범위에 연동(POST 20:00/17:00, OVERNIGHT 익일 04:00) — 리뷰 HIGH 해소.
-  16:00 고정 경계가 진행 중 애프터마켓 봉을 새게 하던 결함을 닫음. 20:00 경계는 일봉(16:00 확정)에
-  대해서도 4h 여유를 줘 공급자 확정 지연도 흡수한다.
+- 완료 경계를 세션 범위 + `classify_session` 고정 창(REGULAR 16:00 / POST 20:00 / OVERNIGHT
+  익일 04:00)에 정확히 일치 — 리뷰 HIGH·P1 해소. **조기폐장일에도 앞당기지 않음**(17:00 완료 후
+  19:00 POST 봉이 새는 결함 차단). 일봉(16:00 확정)에도 POST 20:00 은 4h 여유로 공급자 확정 지연 흡수.
+- 공식 1분봉 수집 `--raw-snapshot-dir` 필수화(리뷰 P1), 공식 CLI 유니버스 `valid` 검증(리뷰 P2).
 - 비공식 CLI 의 canonical fail-open 을 하드 게이트로 차단(§1).
-- remediation 의 pre-image content hash 를 쓰기락(BEGIN IMMEDIATE) **안**에서 재검증(TOCTOU 차단).
-- 백업 파일명에 timestamp 포함(반복 remediation 백업 덮어쓰기 방지), refused 경로 receipt 대칭.
+- remediation: pre-image content hash 를 쓰기락(BEGIN IMMEDIATE) **안**에서 재검증(TOCTOU 차단),
+  hash 대상에 ts_exchange·market·currency·adjusted 포함(의미 변경 탐지, 리뷰 P2), 백업 파일명 안전
+  slug + backup_dir 내부 경로 검증(경로 이탈 차단, 리뷰 P2), `--execute` 는 감사 receipt 필수(리뷰 P2),
+  백업 파일명 timestamp(덮어쓰기 방지)·refused 경로 receipt 대칭.
 
-**후속(별도 이슈로 분리 — 이번 PR 범위 밖, blind OOS/실 bulk 전 처리)**
+**후속(별도 이슈 #79 로 분리 — 이번 PR 범위 밖, 실 1분봉 bulk 전 필수 처리)**
 - manifest 의 `collection_completed_through` 를 CLI 인자 신뢰 대신 **ingest_log 에 기록된 실제 수집
   cutoff 와 교차검증**(현재는 정직하게 선언된 cutoff 만 방어). 오선언 cutoff 로 인한 거짓 OK 방지.
 - backfill report 의 `earliest/latest` 는 **fetch 도달 범위**(cutoff 제외분 포함)라 저장 범위와
   다를 수 있음 — 라벨 명확화 또는 저장 범위 별도 노출.
+
+**진행 순서(리뷰 합의)**: PR #80 수정·머지 → **#79**(manifest↔ingest cutoff 교차검증) → 실 30종목×3년 1m bulk.

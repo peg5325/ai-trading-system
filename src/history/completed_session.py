@@ -6,10 +6,11 @@
 
 이 모듈은 **저장 전 게이트**를 제공한다:
 - `last_completed_trading_day(now_utc, session_scope=...)` — 기준 시각 기준 NYSE 의 마지막 **완료**
-  거래일. 완료 시각은 **수집 세션 범위**에 맞춘다: 정규/1d = 정규 마감(정상 16:00 / 조기폐장 13:00),
-  POST 포함(기본 1m) = 애프터마켓(정상 20:00 / 조기폐장 17:00), OVERNIGHT 포함 = 익일 04:00 ET.
-  주말·휴장·DST·자정 교차를 `exchange_calendar` + tz-aware ET datetime 비교로 판정한다.
-  ★ POST 를 기본 수집하는 1m 에서 16:00 만으로 완료 처리하면 진행 중 애프터마켓 봉이 샌다(#72 핵심).
+  거래일. 완료 시각은 **수집 세션 범위**를 저장 결정자인 `classify_session` 의 **고정** 창에 맞춘다:
+  regular/1d = 16:00 ET, POST 포함(기본 1m) = 20:00 ET, OVERNIGHT 포함 = 익일 04:00 ET.
+  조기폐장일에도 이 창을 좁히지 않는다(classify_session 이 고정 창이라 앞당기면 저장/완료 불일치로
+  partial 이 샌다 — 이슈 #72 핵심). 주말·휴장·DST·자정 교차는 `exchange_calendar` + tz-aware ET
+  datetime 비교로 판정한다.
 - `validate_completed_through(requested, now_utc)` — 요청 cutoff 가 형식·범위·거래일·완료 여부를
   통과하지 못하면 fail-closed(자격증명/ API/DB 접근 전에 거부).
 - `partition_by_cutoff(candles, completed_through)` — 저장 전 필터. `ts_exchange` 거래소-로컬
@@ -37,8 +38,14 @@ from src.models import ET, SESSION_OVERNIGHT, SESSION_POST
 SCOPE_REGULAR = "regular"
 SCOPE_POST = "post"
 SCOPE_OVERNIGHT = "overnight"
-_POST_AFTERMARKET_MINUTES = 4 * 60      # 정규 마감 후 애프터마켓 길이(16→20 정상, 13→17 조기폐장)
-_OVERNIGHT_END_HOUR = 4                  # OVERNIGHT 종료 = 익일 04:00 ET
+# ★완료 판정 창은 **저장을 결정하는** classify_session(src/models.py)의 **고정** US 세션 창과
+#   정확히 일치시킨다. classify_session 은 조기폐장을 모르고 항상 REGULAR 09:30–16:00 /
+#   POST 16:00–20:00 / OVERNIGHT(그 외, ~익일 04:00) 을 쓴다. 완료 경계를 조기폐장으로 앞당기면
+#   (예 POST 17:00) classify_session 은 여전히 19:00 봉을 POST 로 저장하므로 '완료' 후 partial 이
+#   샌다(이슈 #72 핵심 결함). 따라서 여기서도 조기폐장으로 창을 좁히지 않는다(고정 창 사용).
+_US_REGULAR_END_MIN = 16 * 60      # REGULAR 창 끝(= classify_session REGULAR 09:30–16:00)
+_US_POST_END_MIN = 20 * 60         # POST 창 끝(= classify_session POST 16:00–20:00)
+_US_OVERNIGHT_END_HOUR = 4         # OVERNIGHT 종료 = 익일 04:00 ET
 
 
 class CompletedThroughError(ValueError):
@@ -79,16 +86,20 @@ def completion_scope_for_sessions(interval: str, allowed_sessions) -> str:
 def completion_deadline_et(d: date, scope: str) -> datetime:
     """거래일 d 의 수집 세션이 모두 끝나는 ET 시각(tz-aware). d 는 거래일이어야 한다.
 
-    - regular: 정규 마감(정상 16:00 / 조기폐장 13:00).
-    - post:    정규 마감 + 애프터마켓 4h(정상 20:00 / 조기폐장 17:00).
-    - overnight: 익일 04:00 ET(자정 교차 — 심야 세션 종료의 항상 안전한 경계).
+    ★classify_session(저장 시 세션 라벨)의 **고정** 창과 정확히 일치시킨다(조기폐장이어도 앞당기지
+    않는다 — 저장/완료 불일치로 partial 이 새는 것 방지, 이슈 #72):
+    - regular: 16:00 ET(REGULAR 창 끝. 정상일 일봉 마감과도 동일).
+    - post:    20:00 ET(POST 창 끝).
+    - overnight: 익일 04:00 ET(OVERNIGHT 종료, 자정 교차).
+
+    조기폐장일(실 마감 13:00)에도 16:00/20:00 창을 유지한다: classify_session 이 그 창을 유지하므로
+    완료 경계를 앞당기면 17:00 '완료' 후에도 19:00 봉이 POST 로 저장돼 partial 이 샌다.
     """
     if scope == SCOPE_OVERNIGHT:
         nd = d + timedelta(days=1)
-        return datetime(nd.year, nd.month, nd.day, _OVERNIGHT_END_HOUR, 0, tzinfo=ET)
-    close_min = cal.regular_close_minute(d)      # 780(조기)/960(정상), 거래일이면 non-None
-    total = close_min + (_POST_AFTERMARKET_MINUTES if scope == SCOPE_POST else 0)
-    return datetime(d.year, d.month, d.day, total // 60, total % 60, tzinfo=ET)
+        return datetime(nd.year, nd.month, nd.day, _US_OVERNIGHT_END_HOUR, 0, tzinfo=ET)
+    end_min = _US_POST_END_MIN if scope == SCOPE_POST else _US_REGULAR_END_MIN
+    return datetime(d.year, d.month, d.day, end_min // 60, end_min % 60, tzinfo=ET)
 
 
 def last_completed_trading_day(now_utc: datetime, *,

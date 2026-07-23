@@ -78,7 +78,7 @@ def test_unknown_symbol_rejected(guard_creds):
                     now_utc=AFTER_CLOSE) == 2
 
 
-def test_happy_path_passes_validated_cutoff_and_universe(monkeypatch):
+def test_happy_path_passes_validated_cutoff_and_universe(monkeypatch, tmp_path):
     """검증 통과 시: 유니버스 기본 심볼·검증된 cutoff(date)·1m 세션필터가 backfill 로 전달."""
     from datetime import date as _date
 
@@ -113,7 +113,8 @@ def test_happy_path_passes_validated_cutoff_and_universe(monkeypatch):
     monkeypatch.setattr(off, "HistoryStore", lambda db: FakeStore())
     monkeypatch.setattr(off, "backfill_symbols", fake_backfill)
 
-    code = off.main(["--completed-through", "2025-07-15", "--json"], now_utc=AFTER_CLOSE)
+    code = off.main(["--completed-through", "2025-07-15", "--json",
+                     "--raw-snapshot-dir", str(tmp_path / "raw")], now_utc=AFTER_CLOSE)
     assert code == 0
     # 기본 심볼 = P0-US30 유니버스 30종목
     assert len(captured["symbols"]) == 30
@@ -122,3 +123,49 @@ def test_happy_path_passes_validated_cutoff_and_universe(monkeypatch):
     assert captured["completed_through"] == _date(2025, 7, 15)
     # 1m 세션 필터 기본(PRE/REGULAR/POST)
     assert captured["session_filter"] is not None
+
+
+def test_1m_requires_raw_snapshot_dir(guard_creds):
+    # ★리뷰 P1: 공식 1분봉은 immutable raw 필수 — 없으면 creds 접근 전 fail-closed.
+    assert off.main(["--completed-through", "2025-07-15"], now_utc=AFTER_CLOSE) == 2
+
+
+def test_1d_does_not_require_raw(monkeypatch):
+    # 1d 는 raw 필수 아님(세션 필터 없음). 검증 통과 후 backfill 로 진행.
+    captured = {}
+
+    class FakeSettings:
+        has_credentials = True
+
+    class FakeReport:
+        def as_dict(self): return {"interval": "1d", "results": []}
+        results = []
+
+    class FakeCtx:
+        def __init__(self, *a): pass
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def fake_bf(*a, **k):
+        captured["ok"] = True
+        return FakeReport()
+
+    monkeypatch.setattr(off, "load_settings", lambda: FakeSettings())
+    monkeypatch.setattr(off, "TossMarketDataProvider", FakeCtx)
+    monkeypatch.setattr(off, "HistoryStore", lambda db: FakeCtx())
+    monkeypatch.setattr(off, "backfill_symbols", fake_bf)
+    code = off.main(["--completed-through", "2025-07-15", "--interval", "1d", "--json"],
+                    now_utc=AFTER_CLOSE)
+    assert code == 0 and captured.get("ok")
+
+
+def test_invalid_universe_yaml_rejected(guard_creds, tmp_path):
+    # ★리뷰 P2: count!=30·중복·비USD 등 계약 위반 유니버스는 외부 접근 전 fail-closed.
+    bad = tmp_path / "bad.yaml"
+    bad.write_text(
+        "version: 1\nas_of: '2026-07-21'\nmarket: US\ncurrency: USD\ncount: 2\n"
+        "symbols:\n  - {symbol: AAPL}\n  - {symbol: MSFT}\n"
+        "requirements:\n  swing_daily: {min_years: 5}\n", encoding="utf-8")
+    code = off.main(["--completed-through", "2025-07-15", "--yaml", str(bad),
+                     "--raw-snapshot-dir", str(tmp_path / "raw")], now_utc=AFTER_CLOSE)
+    assert code == 2

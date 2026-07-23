@@ -60,6 +60,17 @@ def main(argv: list[str]) -> int:
         print("--days 가 비었습니다(YYYY-MM-DD 쉼표 구분).", file=sys.stderr)
         return 2
 
+    # 파괴적 삭제(--execute)는 expected 행수/hash + 감사 receipt 를 **DB 열기 전에** 강제한다
+    # (감사 가능한 삭제 정책 — receipt 없는 삭제 금지).
+    if args.execute:
+        missing = [flag for flag, val in (("--expected-rows", args.expected_rows),
+                                          ("--expected-hash", args.expected_hash),
+                                          ("--receipt", args.receipt)) if val is None]
+        if missing:
+            print(f"--execute 삭제에는 {', '.join(missing)} 가 필수다"
+                  "(먼저 dry-run 으로 확인 — 감사 가능한 삭제 보장).", file=sys.stderr)
+            return 2
+
     info = identify_partial(args.db, args.symbol, args.interval, days)
     if not args.execute:
         # dry-run: 현재 대상 상태 보고(이 행수·hash 를 execute 의 expected 로 넣으면 된다).
@@ -76,10 +87,7 @@ def main(argv: list[str]) -> int:
                   f"--expected-hash {info['content_hash']}")
         return 0
 
-    if args.expected_rows is None or args.expected_hash is None:
-        print("--execute 삭제에는 --expected-rows 와 --expected-hash 가 필수다"
-              "(먼저 dry-run 으로 확인).", file=sys.stderr)
-        return 2
+    # (expected-rows/hash/receipt 필수 검증은 위에서 DB 열기 전에 이미 완료)
     plan = RemediationPlan(args.symbol, args.interval, tuple(days),
                            expected_row_count=args.expected_rows,
                            expected_content_hash=args.expected_hash)

@@ -131,8 +131,23 @@ def test_remediation_cli_execute_deletes_target(tmp_path):
     info = identify_partial(dbp, "QQQ", "1m", ["2025-07-16"])
     code = rem.main(["--db", dbp, "--symbol", "QQQ", "--interval", "1m",
                      "--days", "2025-07-16", "--backup-dir", str(tmp_path / "bk"),
+                     "--receipt", str(tmp_path / "r.jsonl"),
                      "--execute", "--expected-rows", str(info["row_count"]),
                      "--expected-hash", info["content_hash"]])
     assert code == 0
     assert _count(dbp, "2025-07-16") == 0       # 대상 삭제
     assert _count(dbp, "2025-07-15") == 1       # 나머지 보존
+
+
+def test_remediation_cli_execute_requires_receipt(tmp_path):
+    # ★리뷰 P2: --execute 는 감사 receipt 필수 — 없으면 DB 열기 전 거부(무변경).
+    dbp = str(tmp_path / "m.sqlite")
+    _seed(dbp)
+    from src.history.partial_remediation import identify_partial
+    info = identify_partial(dbp, "QQQ", "1m", ["2025-07-16"])
+    code = rem.main(["--db", dbp, "--symbol", "QQQ", "--interval", "1m",
+                     "--days", "2025-07-16", "--backup-dir", str(tmp_path / "bk"),
+                     "--execute", "--expected-rows", str(info["row_count"]),
+                     "--expected-hash", info["content_hash"]])  # no --receipt
+    assert code == 2
+    assert _count(dbp, "2025-07-16") == 2       # 무변경

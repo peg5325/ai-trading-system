@@ -17,6 +17,7 @@ from src.history.completed_session import (
     SCOPE_POST,
     SCOPE_REGULAR,
     CompletedThroughError,
+    completion_deadline_et,
     completion_scope_for_sessions,
     last_completed_trading_day,
     parse_completed_through,
@@ -73,17 +74,16 @@ def test_normal_day_after_close_is_completed_est():
 # --------------------------------------------------------------------------
 # 조기폐장(13:00 ET) — 정상 16:00 로직이면 오판할 구간에서 검증
 # --------------------------------------------------------------------------
-def test_early_close_before_1300_not_completed():
-    # 2025-07-03 조기폐장. 16:30Z = 12:30 EDT (< 13:00) → 미완료.
-    now = _utc("2025-07-03T16:30")
+def test_early_close_regular_uses_fixed_1600_not_1300():
+    # ★리뷰 회귀(P1): 조기폐장일이라도 REGULAR 완료 경계는 classify_session 고정 창(16:00)과
+    #   일치한다. 13:00 으로 앞당기지 않는다(그래야 저장/완료가 어긋나지 않음).
     assert cal.is_early_close(date(2025, 7, 3))
-    assert last_completed_trading_day(now) == date(2025, 7, 2)
-
-
-def test_early_close_after_1300_completed_even_before_1600():
-    # 17:30Z = 13:30 EDT ≥ 13:00 조기폐장 → 완료. (16:00 로직이면 미완료로 오판)
-    now = _utc("2025-07-03T17:30")
-    assert last_completed_trading_day(now) == date(2025, 7, 3)
+    # 12:30 EDT → 미완료
+    assert last_completed_trading_day(_utc("2025-07-03T16:30")) == date(2025, 7, 2)
+    # 13:30 EDT → 여전히 미완료(16:00 전)
+    assert last_completed_trading_day(_utc("2025-07-03T17:30")) == date(2025, 7, 2)
+    # 16:00 EDT → 완료
+    assert last_completed_trading_day(_utc("2025-07-03T20:00")) == date(2025, 7, 3)
 
 
 # --------------------------------------------------------------------------
@@ -112,12 +112,26 @@ def test_post_scope_requires_extended_close_2000_normal():
                                       session_scope=SCOPE_POST) == date(2025, 7, 15)
 
 
-def test_post_scope_early_close_requires_1700():
-    # 조기폐장(13:00) POST 완료 = 13:00+4h = 17:00 ET. 16:59 미완료 / 17:00 완료.
-    assert last_completed_trading_day(_utc("2025-07-03T20:59"),  # 16:59 EDT
+def test_post_scope_early_close_uses_fixed_2000():
+    # ★리뷰 회귀(P1): 조기폐장일에도 POST 완료 = 20:00(classify_session POST 창 끝)과 일치.
+    #   17:00·19:00 EDT 는 아직 미완료 — classify_session 이 19:00 봉을 POST 로 저장하므로
+    #   17:00 으로 앞당기면 그 봉이 '완료' 후에도 새어 들어간다(이슈 #72 결함).
+    assert last_completed_trading_day(_utc("2025-07-03T21:00"),   # 17:00 EDT
                                       session_scope=SCOPE_POST) == date(2025, 7, 2)
-    assert last_completed_trading_day(_utc("2025-07-03T21:00"),  # 17:00 EDT
+    assert last_completed_trading_day(_utc("2025-07-03T23:00"),   # 19:00 EDT
+                                      session_scope=SCOPE_POST) == date(2025, 7, 2)
+    assert last_completed_trading_day(_utc("2025-07-04T00:00"),   # 20:00 EDT
                                       session_scope=SCOPE_POST) == date(2025, 7, 3)
+
+
+def test_completion_deadline_et_matches_classify_session_windows():
+    # 완료 경계가 classify_session 고정 창(REGULAR 16:00 / POST 20:00 / OVERNIGHT 익일 04:00)과
+    # 일치하고, 조기폐장일에도 좁혀지지 않음을 고정.
+    for d in (date(2025, 7, 3), date(2025, 7, 15)):   # 조기폐장 / 정상
+        assert completion_deadline_et(d, SCOPE_REGULAR).hour == 16
+        assert completion_deadline_et(d, SCOPE_POST).hour == 20
+    ov = completion_deadline_et(date(2025, 7, 3), SCOPE_OVERNIGHT)
+    assert (ov.date(), ov.hour) == (date(2025, 7, 4), 4)
 
 
 def test_post_scope_rejects_today_between_1600_and_2000():

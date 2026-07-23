@@ -119,9 +119,14 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
         print(f"--completed-through 거부: {e}", file=sys.stderr)
         return 2
 
-    # === 4) 유니버스 로드 + US-only + P0-US30 소속 검증(비 US 시장 추측 금지) ===
+    # === 4) 유니버스 로드 + 계약 검증(count 30·중복·시장 US·통화 USD·min_years) + 소속 검증 ===
     uni = read_p0_universe(args.yaml)
-    if uni["market"] != "US":
+    if not uni["valid"]:
+        # count!=30·중복·비USD·min_years 누락 등 계약 위반 malformed 유니버스로 공식 수집 금지.
+        print(f"P0-US30 유니버스 계약 위반 — 공식 수집 거부(fail-closed): {uni['errors']}",
+              file=sys.stderr)
+        return 2
+    if uni["market"] != "US":   # 방어적 재확인(valid 면 이미 US — US 외 시장 추측 금지).
         print(f"유니버스 시장이 US 가 아님({uni['market']}) — 공식 경로는 US(NYSE) 전용.",
               file=sys.stderr)
         return 2
@@ -136,6 +141,13 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
             return 2
     else:
         symbols = universe
+
+    # === 5) 공식 1분봉 수집은 immutable raw 스냅샷 필수(Phase 1B 계약 §4.1 · ADR-0001) ===
+    #   재수집 비용이 큰 대량 호출에서 parse 전 원본 payload 를 영구 소실하지 않도록 강제한다.
+    if args.interval == "1m" and not args.raw_snapshot_dir:
+        print("공식 1분봉 수집은 --raw-snapshot-dir 가 필수다(immutable raw 보존, Phase 1B 계약). "
+              "예: --raw-snapshot-dir data/raw_snapshots", file=sys.stderr)
+        return 2
 
     # gap-skip 예산 안전 점검(장기 휴장 조기 종료 경고).
     if args.gap_skip_minutes > 0:
