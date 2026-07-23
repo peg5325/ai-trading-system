@@ -93,6 +93,14 @@ def consistent_source(path: str):
       디렉터리로 **복사**(shutil, sqlite open 아님)한 뒤 임시본만 열어
       checkpoint(TRUNCATE) 로 병합한다. 원본은 sqlite 로 열지 않으므로
       사이드카 생성/체크포인트/변경이 원본에 일어나지 않는다.
+
+    한계(지원 범위): main 과 -wal 을 **순차 복사**하므로 두 복사 사이에 활성
+    writer 가 WAL 에 프레임을 append 하면 torn copy 가 될 수 있다. 이는
+    downstream integrity_check/의미검증 + snapshot 전후 원본 SHA 재확인으로
+    대부분 잡히나 원자적 일관성을 **보장하지는 않는다**. 따라서 이 도구는
+    정적/quiescent(활성 writer 없음) 원본을 대상 범위로 한다. 진짜 동시 writer
+    환경(향후 수집후 자동백업 등)에서는 live SQLite 연결 기반 backup 으로
+    보강해야 한다.
     """
     if not _pending_wal(path):
         yield path
@@ -625,8 +633,9 @@ def build_parser() -> argparse.ArgumentParser:
         description="market-history SQLite DB 를 외부 저장소로 안전 복제 (#73)"
     )
     p.add_argument("--source-db", required=True,
-                   help="복제할 원본 DB(변경하지 않음; snapshot 중 동시 writer "
-                        "없음 전제 — 원본 변경 감지 시 fail-closed)")
+                   help="복제할 원본 DB(변경하지 않음). 정적/quiescent(활성 writer "
+                        "없음) 원본 대상 — main-file 변경은 감지해 fail-closed 하나 "
+                        "동시 writer 완전 지원은 아님(아래 consistent_source 주석)")
     p.add_argument("--target-dir", required=True,
                    help="외부 저장소 디렉터리(외장/NAS/클라우드 동기화 경로)")
     p.add_argument("--target-id", required=True,

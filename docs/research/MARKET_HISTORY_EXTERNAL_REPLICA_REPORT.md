@@ -140,6 +140,23 @@ brctl status  com.apple.CloudDocs                                 # caught-up
 - 기존 P0 일봉 manifest `data_content_sha256=756e5bd7…`: **무변경**.
 - git diff: `*.sqlite`/`reports/` 는 gitignore 로 커밋 대상 아님. 시크릿 커밋 **0**.
 
+## 지원 범위 / 한계 (동시성)
+
+이 도구의 대상 범위는 **정적/quiescent(활성 writer 없음) 원본**이다.
+
+- 정적/체크포인트 완료 원본: immutable read-only + backup API 로 완전한 일관
+  snapshot. snapshot 전후 원본 main-file SHA 재확인으로 스냅샷 창의 원본 변경을
+  감지해 fail-closed.
+- 미체크포인트 WAL 원본: main 과 -wal 을 **순차 복사**하므로 두 복사 사이에 활성
+  writer 가 WAL 에 프레임을 append 하면 torn copy 가 될 수 있다. downstream
+  integrity_check·의미검증·원본 SHA 재확인이 대부분 잡지만 **원자적 일관성을
+  보장하지는 않는다**.
+- 이번 실 복제 시점: 활성 writer 없음(`lsof` 확인)·canonical SHA `4c72becc…`
+  전후 불변 → 현재 백업 무결성에 영향 없음.
+- 향후 **수집 직후 자동 백업**(진짜 동시 writer 가능) 도입 시에는 (a) writer
+  quiescent 조건에서만 실행하거나 (b) live SQLite 연결 기반 backup 으로 보강할
+  것. (#73 범위 밖, 자동화 이슈에서 결정.)
+
 ## 자동화 / 보존 정책 (초안)
 
 - retention: 기본 **OFF**. `--retention-count N` 명시 시에만 target 의 과거 복제본을
