@@ -11,6 +11,12 @@
 - unlock 은 단순 boolean 이 아니라 **provenance(사전등록 merge commit·구현 commit·snapshot
   hash·review 상태)** 를 요구한다 → CLI 플래그 하나로 우회 불가.
 - **이 모듈은 unlock artifact 를 생성하지 않는다.** 구조만 제공한다(향후 사전등록·리뷰 통과 후 생성).
+- **배선(opt-in 아님)**: 공식 연구/평가 코드는 이 로더를 경유해야 한다. `load_candles` 직접
+  import 는 `tests/test_oos_guard_wiring.py` 의 AST 경계 테스트가 src/·scripts/·analysis/ 전역에서
+  금지한다(PR #77 독립 리뷰 차단 1 반영).
+- **unlock 검증 깊이 한계**: 현재 `OOSUnlock.is_valid_for` 는 **형식**(필드 비어있지 않음 +
+  review=approved)만 본다. 실제 blind OOS 개봉 전에는 commit 실존·snapshot hash 일치·리뷰 증거를
+  대조하는 검증 로더가 선행돼야 한다(**#78, 개봉 전 필수**).
 
 경계(계약 §5.1, as-of 2026-07-21):
 - intraday(1m): blind OOS = 2026-01-21 ~ 2026-07-21.
@@ -49,6 +55,10 @@ class OOSUnlock:
 
     이번 작업에서는 **생성하지 않는다**. 향후 사전등록 merge·구현 commit·snapshot hash·독립
     리뷰 승인 뒤에만 유효한 인스턴스를 만든다.
+
+    한계: `is_valid_for` 는 형식 검증(비어있지 않은 문자열 + approved)이다. 실제 개봉 전에는
+    artifact 파일을 읽어 commit 실존·snapshot hash 일치·리뷰 증거를 대조하는 검증 로더가
+    필요하다(#78) — 임의 문자열로 만든 unlock 이 개봉에 쓰이면 안 된다.
     """
 
     track: str
