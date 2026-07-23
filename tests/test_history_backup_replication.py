@@ -571,3 +571,27 @@ def test_as_of_bad_format_rejected(tmp_path):
     ])
     assert code == rep.EXIT_SAFETY
     assert os.listdir(str(tgt)) == []
+
+
+def test_as_of_bad_format_still_writes_receipt(tmp_path):
+    # 입력 검증 실패도 다른 실패와 동일하게 receipt 에 기록된다("실패도 receipt").
+    src = _mk_source(tmp_path)
+    tgt = tmp_path / "ext"
+    tgt.mkdir()
+    receipt = str(tmp_path / "r.json")
+    san = str(tmp_path / "s.json")
+    code = rep.main([
+        "--source-db", src, "--target-dir", str(tgt),
+        "--target-id", "t", "--allow-same-device", "--smoke-dir", str(tgt),
+        "--as-of-utc", "not-a-date",
+        "--receipt", receipt, "--sanitized-receipt", san,
+    ])
+    assert code == rep.EXIT_SAFETY
+    d = json.load(open(receipt, encoding="utf-8"))
+    assert d["status"] == "failed"
+    s_text = open(san, encoding="utf-8").read()
+    s = json.loads(s_text)
+    assert s["status"] == "failed"
+    assert s["reason"] == "safety"           # 경로 없는 범주만
+    assert str(tmp_path) not in s_text        # 절대경로 비노출
+    assert os.listdir(str(tgt)) == []          # 복제본 미생성

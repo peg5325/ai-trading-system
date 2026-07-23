@@ -698,21 +698,11 @@ def default_replica_name(source_db: str, as_of_utc: str) -> str:
 def main(argv: Optional[list[str]] = None) -> int:
     args = build_parser().parse_args(argv)
 
-    if args.as_of_utc:
-        try:
-            as_of = normalize_as_of(args.as_of_utc)
-        except ValueError as exc:
-            print(_stable_json({"status": "failed", "reason": f"safety: {exc}"}))
-            return EXIT_SAFETY
-    else:
-        as_of = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    replica_name = args.replica_name or default_replica_name(
-        args.source_db, as_of
-    )
-    repo_root = (
-        _resolve(args.repo_root) if args.repo_root
-        else detect_repo_root(args.source_db)
-    )
+    result = ReplicationResult()
+    exit_code = EXIT_OK
+    # 실패도 receipt 에 남기기 위해 유효 시각을 먼저 확보한다(as_of 검증 실패 시
+    # 이 fallback 시각으로 실패 receipt 를 기록 — "실패도 receipt" 원칙 일관).
+    as_of = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     source_commit = args.source_commit or git_head(
         os.path.dirname(_resolve(args.source_db))
     )
@@ -720,9 +710,19 @@ def main(argv: Optional[list[str]] = None) -> int:
     if source_stem.endswith(".sqlite"):
         source_stem = source_stem[: -len(".sqlite")]
 
-    result = ReplicationResult()
-    exit_code = EXIT_OK
     try:
+        if args.as_of_utc:
+            try:
+                as_of = normalize_as_of(args.as_of_utc)
+            except ValueError as exc:
+                raise SafetyError(str(exc)) from exc
+        replica_name = args.replica_name or default_replica_name(
+            args.source_db, as_of
+        )
+        repo_root = (
+            _resolve(args.repo_root) if args.repo_root
+            else detect_repo_root(args.source_db)
+        )
         result = replicate(
             source_db=args.source_db,
             target_dir=args.target_dir,
