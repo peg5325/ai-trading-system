@@ -32,11 +32,13 @@ DEFAULT_MIN_YEARS = 3.0
 # REGULAR 세션 하루 커버리지 합격선(quality.py min_coverage_pct 기본 90% 와 정합).
 REGULAR_COVERAGE_FLOOR = 0.90
 
-# data_content_sha256 대상(데이터 유도 필드만 — provenance/시각 제외 → 재현 가능).
+# data_content_sha256 대상 = **포함된 데이터**의 유도 필드만(provenance/시각/제외행 카운트 제외).
+# bars_beyond_as_of(제외된 행 수)는 포함 데이터가 아니므로 넣지 않는다 — 같은 포함 데이터면
+# 진행 중 봉 존재 여부와 무관하게 동일 지문이어야 한다.
 _CONTENT_FIELDS = (
     "symbol", "market", "interval", "earliest", "latest",
     "row_count", "content_sha256", "sources", "adjusted", "trading_days",
-    "sessions", "bars_beyond_as_of",
+    "sessions",
 )
 
 
@@ -74,6 +76,7 @@ def intraday_symbol_fingerprint(con: sqlite3.Connection, symbol: str, *,
     seen_days: set[str] = set()
     per_session: dict[str, int] = {}
     reg_minutes: dict[str, set[int]] = {}     # ex_day → REGULAR minute-of-day 집합
+    unparseable_ts = 0                        # ts_exchange 형식 이상으로 분 파싱 실패한 REGULAR 봉
 
     cur = con.execute(
         "SELECT ts_utc, ts_exchange, session, open, high, low, close, volume "
@@ -104,9 +107,9 @@ def intraday_symbol_fingerprint(con: sqlite3.Connection, symbol: str, *,
                 hh = int(ex[11:13]); mm = int(ex[14:16])
                 reg_minutes.setdefault(ex_day, set()).add(hh * 60 + mm)
             except (ValueError, IndexError):
-                pass
+                unparseable_ts += 1        # 조용히 버리지 않고 보고(§감사)
 
-    coverage = _regular_coverage(reg_minutes)
+    coverage = _regular_coverage(reg_minutes, unparseable_ts)
     return {
         "symbol": symbol,
         "interval": INTERVAL,
@@ -124,7 +127,7 @@ def intraday_symbol_fingerprint(con: sqlite3.Connection, symbol: str, *,
     }
 
 
-def _regular_coverage(reg_minutes: dict[str, set[int]]) -> dict:
+def _regular_coverage(reg_minutes: dict[str, set[int]], unparseable_ts: int = 0) -> dict:
     """REGULAR 세션 일별 커버리지 요약 — 거래소 캘린더 기대분수 대비(§2.4)."""
     full = 0
     low = 0
@@ -160,6 +163,7 @@ def _regular_coverage(reg_minutes: dict[str, set[int]]) -> dict:
         "calendar_out_of_range_days": out_of_range,
         "mean_coverage": round(sum(ratios) / len(ratios), 4) if ratios else None,
         "coverage_floor": REGULAR_COVERAGE_FLOOR,
+        "unparseable_ts": unparseable_ts,      # ts_exchange 형식 이상 REGULAR 봉 수(0 이 정상)
     }
 
 
@@ -257,9 +261,17 @@ def _symbol_provenance(con: sqlite3.Connection, symbol: str) -> dict:
 
 
 def _parse_stopped_reason(note: str | None) -> str | None:
-    """ingest_log.note 앞부분(정지사유)만 추출(세션 provenance 는 ';' 뒤에 붙음)."""
+    """ingest_log.note 에서 정지사유를 추출.
+
+    세션 필터 경로는 `reason=<enum>; ...; error=<repr>` 형태(reason 은 ';' 미포함, error 는 맨
+    뒤)라 `reason=` 키를 안전하게 파싱한다. 키가 없으면(1d 등 unkeyed 노트) 첫 세그먼트를 쓴다.
+    """
     if not note:
         return None
+    for token in note.split(";"):
+        token = token.strip()
+        if token.startswith("reason="):
+            return token[len("reason="):].strip() or None
     return note.split(";", 1)[0].strip() or None
 
 

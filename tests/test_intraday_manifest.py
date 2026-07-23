@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.history import HistoryStore  # noqa: E402
 from src.history.intraday_manifest import (  # noqa: E402
+    _parse_stopped_reason,
     build_manifest,
     intraday_symbol_fingerprint,
     read_intraday_requirements,
@@ -187,6 +188,44 @@ def test_fingerprint_order_independent(tmp_path):
         fp2 = intraday_symbol_fingerprint(s2._con, "SPY", as_of="2026-07-21")
     assert fp1["content_sha256"] == fp2["content_sha256"]
     assert fp1["row_count"] == fp2["row_count"] == 8
+
+
+def test_parse_stopped_reason_robust_to_semicolon_error():
+    """LOW-1: error 에 ';' 가 있어도 reason= 를 안전하게 추출(위치 split 취약성 제거)."""
+    note = ("reason=max_pages; sessions_allowed=POST,PRE,REGULAR; all_sessions=False; "
+            "excluded={OVERNIGHT:2}; stored=3; error=RuntimeError('a; b; c')")
+    assert _parse_stopped_reason(note) == "max_pages"
+    # 세션 필터 없는 unkeyed 노트(1d)는 첫 세그먼트를 사유로.
+    assert _parse_stopped_reason("nextbefore_null") == "nextbefore_null"
+    assert _parse_stopped_reason(None) is None
+
+
+def test_full_backfill_note_reason_and_error_roundtrip(tmp_path):
+    """세션 필터 backfill 이 실패한 종목의 정지사유를 manifest 가 정확히 복원한다."""
+    from src.ingest.backfill_history import _ingest_note, SymbolBackfillResult
+    from src.history.session_filter import SessionFilter
+    res = SymbolBackfillResult(symbol="X", interval="1m", stopped_reason="max_pages",
+                               rows_stored=3, excluded_by_session={"OVERNIGHT": 2},
+                               error="ValueError('x; y')")
+    note = _ingest_note(res, SessionFilter.default())
+    assert note.startswith("reason=max_pages;")
+    assert _parse_stopped_reason(note) == "max_pages"
+
+
+def test_coverage_reports_unparseable_ts(tmp_path):
+    """LOW-3: ts_exchange 형식 이상 REGULAR 봉은 조용히 버리지 않고 카운트해 보고."""
+    import dataclasses
+    db = str(tmp_path / "m.sqlite")
+    with HistoryStore(db) as store:
+        _insert(store, "SPY", _reg_day(datetime(2026, 7, 20, 10, 0, tzinfo=ET), 3))
+        # 날짜 프리픽스는 유효(≤as_of, 포함)하되 시각부를 손상시켜 분 파싱 실패만 유발.
+        store._con.execute(
+            "UPDATE candle_history SET ts_exchange='2026-07-20XBADTIME' "
+            "WHERE symbol='SPY' AND session='REGULAR' AND ts_utc=("
+            "SELECT MIN(ts_utc) FROM candle_history WHERE symbol='SPY')")
+        store.commit()
+        fp = intraday_symbol_fingerprint(store._con, "SPY", as_of="2026-07-21")
+        assert fp["regular_coverage"]["unparseable_ts"] == 1
 
 
 def test_read_intraday_requirements(tmp_path):

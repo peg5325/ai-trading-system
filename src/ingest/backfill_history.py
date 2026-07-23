@@ -144,16 +144,21 @@ def _ingest_note(result: "SymbolBackfillResult",
     세션 필터가 없으면 기존과 동일(정지사유/에러만). 있으면 실제 허용 세션과 제외 행수를
     함께 남겨 감사(계약 §2.2: '기본값과 실제 실행값을 ingest log 에 기록')를 가능케 한다.
     """
-    base = result.error or result.stopped_reason
     if session_filter is None:
-        return base
+        # 세션 필터 없음(예: 1d) → 기존과 동일: 정지사유/에러만(daily_manifest 가 직접 읽음).
+        return result.error or result.stopped_reason
     allowed = ",".join(sorted(session_filter.allowed))
     excl = ",".join(f"{k}:{v}" for k, v in sorted(result.excluded_by_session.items()))
-    parts = [p for p in (base,) if p]
-    parts.append(f"sessions_allowed={allowed}")
-    parts.append(f"all_sessions={session_filter.all_sessions}")
-    parts.append(f"excluded={{{excl}}}")
-    parts.append(f"stored={result.rows_stored}")
+    # ★reason= 을 정지사유 enum(';' 미포함)으로 **첫 키** 에 둔다. error= 는 repr 이라 ';' 를
+    #   포함할 수 있어 **맨 뒤** 에 둔다 → 소비측(intraday_manifest._parse_stopped_reason)이
+    #   reason= 를 안전하게 파싱(위치 split 의 취약성 제거).
+    parts = [f"reason={result.stopped_reason or ''}",
+             f"sessions_allowed={allowed}",
+             f"all_sessions={session_filter.all_sessions}",
+             f"excluded={{{excl}}}",
+             f"stored={result.rows_stored}"]
+    if result.error:
+        parts.append(f"error={result.error}")
     return "; ".join(parts)
 
 

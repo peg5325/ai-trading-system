@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.config import load_settings  # noqa: E402
 from src.history import HistoryStore  # noqa: E402
+from src.history import exchange_calendar as _cal  # noqa: E402
 from src.history.raw_snapshot import RawSnapshotStore  # noqa: E402
 from src.history.session_filter import SessionFilter  # noqa: E402
 from src.ingest.backfill_history import backfill_symbols  # noqa: E402
@@ -63,14 +64,10 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--json", action="store_true")
     args = ap.parse_args(argv)
 
-    settings = load_settings()
-    if not settings.has_credentials:
-        print(".env 의 TOSS_CLIENT_ID / TOSS_CLIENT_SECRET 이 비어있습니다.", file=sys.stderr)
-        return 2
-
     symbols = [s.strip() for s in args.symbols.split(",") if s.strip()]
     max_pages = 5 if args.probe else args.max_pages
 
+    # --- 순수 인자 검증(자격증명 불필요, creds 확인보다 먼저) ---
     # 세션 필터: 1분봉 전용(일봉은 00:00 ET → OVERNIGHT 라벨이라 필터 부적합). 1d 에 세션 옵션
     # 지정 시 명시적 오류로 중단(조용한 오적용 방지).
     session_filter = None
@@ -78,6 +75,21 @@ def main(argv: list[str]) -> int:
         session_filter = SessionFilter.from_spec(args.sessions, all_sessions=args.all_sessions)
     elif args.sessions is not None or args.all_sessions:
         print("--sessions/--all-sessions 는 1분봉(1m)에만 적용된다(1d 미지원).", file=sys.stderr)
+        return 2
+
+    # gap-skip 예산 안전 점검(계약 §2.4): 거래소 캘린더 최장 비거래 span 을 커버하지 못하는
+    # --max-consecutive-empty 는 연말/롱위켄드에서 pagination 이 조기 종료될 수 있다 → 경고.
+    if args.gap_skip_minutes > 0:
+        recommended = _cal.recommended_max_consecutive_empty(
+            args.gap_skip_minutes, _cal.CALENDAR_START, _cal.CALENDAR_END)
+        if args.max_consecutive_empty < recommended:
+            print(f"⚠️  --max-consecutive-empty={args.max_consecutive_empty} 는 캘린더 최장 "
+                  f"비거래 span 커버 권장값 {recommended}(gap_skip={args.gap_skip_minutes}m) 미만 "
+                  f"— 장기 휴장에서 조기 종료 위험. 권장값 이상으로 올리세요.", file=sys.stderr)
+
+    settings = load_settings()
+    if not settings.has_credentials:
+        print(".env 의 TOSS_CLIENT_ID / TOSS_CLIENT_SECRET 이 비어있습니다.", file=sys.stderr)
         return 2
 
     raw_store = RawSnapshotStore(args.raw_snapshot_dir) if args.raw_snapshot_dir else None
