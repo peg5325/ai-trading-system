@@ -3,6 +3,11 @@
 read-only 집계(Toss API 미호출). 공식 평가는 chronological/embargo/LOSO 만 허용하며
 random split 은 모델선택 경로에서 금지(계약 §3-7).
 
+캔들 로드는 blind OOS 게이트(`src/history/oos_guard.research_load`)를 경유한다. 이 스크립트는
+bars 수·경계 시각만 보고하고 **성과·수익률을 계산하지 않으므로** purpose="coverage" 로 명시
+우회한다(§5.1 경계 분리). 성과를 계산하는 소비자는 기본 purpose="performance"(fail-closed)를
+써야 하며, `load_candles` 직접 import 는 `tests/test_oos_guard_wiring.py` 가 금지한다.
+
 사용:
   ./.venv/bin/python scripts/history_eval_slices.py --db data/market_history.sqlite
   ./.venv/bin/python scripts/history_eval_slices.py --db data/market_history.sqlite --ratio 0.7 --json
@@ -15,8 +20,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.history import OFFICIAL_SPLIT_METHODS, list_slices, load_candles  # noqa: E402
+from src.history import OFFICIAL_SPLIT_METHODS, list_slices  # noqa: E402
 from src.history.evaluation import chronological_split  # noqa: E402
+from src.history.oos_guard import research_load  # noqa: E402
 
 
 def main(argv: list[str]) -> int:
@@ -31,8 +37,11 @@ def main(argv: list[str]) -> int:
     slices = list_slices(args.db, args.interval)
     out = []
     for s in slices:
-        # market 격리 로드(시장 분리 평가 — 동일 티커의 통화/시장 혼재 방지)
-        candles = load_candles(args.db, s.symbol, args.interval, market=s.market)
+        # market 격리 로드(시장 분리 평가 — 동일 티커의 통화/시장 혼재 방지).
+        # ★guarded loader(계약 §5.1): 이 스크립트는 성과·수익률을 계산하지 않고 bars 수와
+        #   split 경계 시각만 보고하므로 purpose="coverage" 로 명시 우회한다(경계 분리).
+        candles = research_load(args.db, s.symbol, args.interval,
+                                purpose="coverage", market=s.market)
         row = {
             "market": s.market, "symbol": s.symbol, "interval": s.interval,
             "bars": s.bars, "days": s.days, "earliest": s.earliest, "latest": s.latest,
