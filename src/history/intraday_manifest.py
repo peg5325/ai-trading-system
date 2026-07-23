@@ -264,8 +264,9 @@ def _symbol_provenance(con: sqlite3.Connection, symbol: str) -> dict:
 def _parse_stopped_reason(note: str | None) -> str | None:
     """ingest_log.note 에서 정지사유를 추출.
 
-    세션 필터 경로는 `reason=<enum>; ...; error=<repr>` 형태(reason 은 ';' 미포함, error 는 맨
-    뒤)라 `reason=` 키를 안전하게 파싱한다. 키가 없으면(1d 등 unkeyed 노트) 첫 세그먼트를 쓴다.
+    세션 필터/cutoff 경로는 `reason=<enum>; ...; error=<repr>` 형태(reason 은 ';' 미포함, error 는
+    맨 뒤)라 `reason=` 키를 안전하게 파싱한다. 키가 없으면(레거시 unkeyed 노트) 통째로 유지한다
+    (daily_manifest._parse_stopped_reason 과 동일 규율 — error repr 의 ';' 절단 방지).
     """
     if not note:
         return None
@@ -273,7 +274,7 @@ def _parse_stopped_reason(note: str | None) -> str | None:
         token = token.strip()
         if token.startswith("reason="):
             return token[len("reason="):].strip() or None
-    return note.split(";", 1)[0].strip() or None
+    return note.strip() or None
 
 
 def symbol_manifest(con: sqlite3.Connection, symbol: str, *, min_years: float,
@@ -322,12 +323,16 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
                    allowed_sessions: list[str] | None = None,
                    as_of: str | None = None,
                    raw_manifest: dict | None = None,
-                   generated_at_utc: str | None = None) -> dict:
+                   generated_at_utc: str | None = None,
+                   collection_completed_through: str | None = None) -> dict:
     """P0-30 1분봉 coverage/snapshot manifest(read-only).
 
     as_of: 공식 포함 경계(YYYY-MM-DD). 미지정 시 YAML universe.as_of. 인자가 YAML 보다 늦으면
     거부(경계 완화 금지, fail-closed). allowed_sessions 미지정 시 YAML sessions_required.
     raw_manifest: RawSnapshotStore.manifest() 결과(선택) — raw_content_sha256 를 부기.
+
+    collection_completed_through(YYYY-MM-DD): 실제 수집 완료-거래일 cutoff(이슈 #72). 지정 시
+    collection 에 부기하고, cutoff 가 as_of 보다 이르면 fail-closed(daily 와 동일 규율).
     """
     uni = read_p0_universe(yaml_path)
     reqs = read_intraday_requirements(yaml_path)
@@ -347,6 +352,17 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
         raise ValueError(
             f"--as-of {as_of} 가 YAML 정본 as_of {yaml_as_of} 보다 늦음 — 거부(경계 완화 금지)")
     as_of = resolved
+    # ★수집 cutoff ↔ as_of 일관성(이슈 #72, daily_manifest 와 동일 규율).
+    if collection_completed_through is not None:
+        try:
+            date.fromisoformat(collection_completed_through)
+        except (ValueError, TypeError):
+            raise ValueError(
+                f"collection_completed_through 형식 오류(YYYY-MM-DD): {collection_completed_through!r}")
+        if collection_completed_through < as_of:
+            raise ValueError(
+                f"수집 cutoff {collection_completed_through} 가 as_of {as_of} 보다 이름 — "
+                f"(cutoff, as_of] 구간 미수집으로 OK 인증 불가(fail-closed).")
 
     con = _connect_ro(db_path)
     try:
@@ -385,7 +401,8 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
                       "start": _oos_lo.isoformat(), "end": _oos_hi.isoformat(),
                       "months": reqs["blind_oos_months"]},
         "collection": {**collection_params, "code_commit": collection_code_commit,
-                       "db_basename": os.path.basename(db_path)},
+                       "db_basename": os.path.basename(db_path),
+                       "completed_through": collection_completed_through},
         "raw_snapshot": ({"raw_content_sha256": raw_manifest.get("raw_content_sha256"),
                           "content_file_count": raw_manifest.get("content_file_count"),
                           "schema": raw_manifest.get("schema")}

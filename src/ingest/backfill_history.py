@@ -15,9 +15,10 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Callable, Protocol
 
+from src.history.completed_session import partition_by_cutoff
 from src.history.session_filter import SessionFilter
 from src.history.store import HistoryStore, ImportStats
 from src.models import Candle
@@ -30,6 +31,14 @@ logger = logging.getLogger(__name__)
 def _new_run_id(interval: str) -> str:
     """실행마다 유니크한 run_id — ingest_log/conflict provenance 를 실행별로 구분."""
     return f"backfill-{interval}-{datetime.now(timezone.utc).isoformat()}"
+
+
+def _day_range(days: set[str]) -> str | None:
+    """제외된 거래소-로컬 일자 집합을 감사용 범위 문자열로(단일=그 날, 다수='min..max')."""
+    if not days:
+        return None
+    s = sorted(days)
+    return s[0] if len(s) == 1 else f"{s[0]}..{s[-1]}"
 
 
 class MarketDataPort(Protocol):
@@ -66,6 +75,10 @@ class SymbolBackfillResult:
     rows_stored: int = 0        # 세션 필터 통과 후 실제 upsert 대상 행수(rows_seen 이상 아님)
     excluded_by_session: dict[str, int] = field(default_factory=dict)
     allowed_sessions: list[str] | None = None   # 실제 실행값(provenance)
+    # 완료-거래일 cutoff(계약 #72): 저장 전에 미완성 진행일 봉을 제외한 provenance.
+    completed_through: str | None = None                 # resolved cutoff(ISO date) or None
+    rows_excluded_after_cutoff: int = 0
+    excluded_after_cutoff_days: set[str] = field(default_factory=set)
 
     def as_dict(self) -> dict:
         return {
@@ -81,6 +94,10 @@ class SymbolBackfillResult:
             "excluded_by_session": dict(sorted(self.excluded_by_session.items())),
             "excluded_total": sum(self.excluded_by_session.values()),
             "allowed_sessions": self.allowed_sessions,
+            "completed_through": self.completed_through,
+            "rows_excluded_after_cutoff": self.rows_excluded_after_cutoff,
+            "excluded_after_cutoff_days": sorted(self.excluded_after_cutoff_days),
+            "excluded_after_cutoff_day_range": _day_range(self.excluded_after_cutoff_days),
         }
 
 
@@ -144,19 +161,27 @@ def _ingest_note(result: "SymbolBackfillResult",
     세션 필터가 없으면 기존과 동일(정지사유/에러만). 있으면 실제 허용 세션과 제외 행수를
     함께 남겨 감사(계약 §2.2: '기본값과 실제 실행값을 ingest log 에 기록')를 가능케 한다.
     """
-    if session_filter is None:
-        # 세션 필터 없음(예: 1d) → 기존과 동일: 정지사유/에러만(daily_manifest 가 직접 읽음).
+    if session_filter is None and result.completed_through is None:
+        # 세션 필터도 cutoff 도 없음(예: 레거시 1d) → 기존과 동일: 정지사유/에러만.
         return result.error or result.stopped_reason
-    allowed = ",".join(sorted(session_filter.allowed))
-    excl = ",".join(f"{k}:{v}" for k, v in sorted(result.excluded_by_session.items()))
     # ★reason= 을 정지사유 enum(';' 미포함)으로 **첫 키** 에 둔다. error= 는 repr 이라 ';' 를
-    #   포함할 수 있어 **맨 뒤** 에 둔다 → 소비측(intraday_manifest._parse_stopped_reason)이
-    #   reason= 를 안전하게 파싱(위치 split 의 취약성 제거).
-    parts = [f"reason={result.stopped_reason or ''}",
-             f"sessions_allowed={allowed}",
-             f"all_sessions={session_filter.all_sessions}",
-             f"excluded={{{excl}}}",
-             f"stored={result.rows_stored}"]
+    #   포함할 수 있어 **맨 뒤** 에 둔다 → 소비측(_parse_stopped_reason)이 reason= 를 안전하게
+    #   파싱(위치 split 의 취약성 제거). cutoff 필드는 세션 필드 뒤·error= 앞에 붙인다.
+    parts = [f"reason={result.stopped_reason or ''}"]
+    if session_filter is not None:
+        allowed = ",".join(sorted(session_filter.allowed))
+        excl = ",".join(f"{k}:{v}" for k, v in sorted(result.excluded_by_session.items()))
+        parts += [f"sessions_allowed={allowed}",
+                  f"all_sessions={session_filter.all_sessions}",
+                  f"excluded={{{excl}}}",
+                  f"stored={result.rows_stored}"]
+    if result.completed_through is not None:
+        # 완료-거래일 cutoff provenance(계약 #72): resolved 경계·제외 행수·제외 일자 범위.
+        parts += [f"completed_through={result.completed_through}",
+                  f"excluded_after_cutoff={result.rows_excluded_after_cutoff}"]
+        rng = _day_range(result.excluded_after_cutoff_days)
+        if rng:
+            parts.append(f"cutoff_excluded_days={rng}")
     if result.error:
         parts.append(f"error={result.error}")
     return "; ".join(parts)
@@ -193,8 +218,14 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
                     gap_skip_minutes: int = 0,
                     max_consecutive_empty: int = 40,
                     session_filter: SessionFilter | None = None,
+                    completed_through: date | None = None,
                     raw_sink: Callable[..., object] | None = None) -> SymbolBackfillResult:
     """한 종목을 과거로 backfill. 페이지마다 upsert + cursor 저장 + 커밋.
+
+    completed_through(계약 #72): 지정 시 **저장 전에** 거래소-로컬 일자가 그 cutoff 를 초과하는
+    (= 미완성 진행일 이후) 봉을 제외한다. 필터는 cursor 계산 **후**·SessionFilter **전**에 적용해
+    페이지네이션 탐색 깊이를 바꾸지 않는다(cursor 는 필터 전 전체 페이지 기준). raw 스냅샷은
+    parse 전 단계라 제외 봉도 그대로 보존한다. resolved cutoff·제외 행수는 결과/ingest_log 에 기록.
 
     gap_skip_minutes > 0 이면 **gap-skip 모드**(opt-in). Toss 1m 캔들 API 는
     `before` 기준 [before - count*interval, before] 구간만 돌려주고 **UTC 일자 경계를
@@ -226,6 +257,8 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
     result = SymbolBackfillResult(symbol=symbol, interval=interval)
     if session_filter is not None:
         result.allowed_sessions = sorted(session_filter.allowed)
+    if completed_through is not None:
+        result.completed_through = completed_through.isoformat()
 
     # resume: 미완(exhausted=False) 커서가 있으면 next_before 부터 + prev_oldest 시드(재개
     # 첫 페이지에서 즉시 no_progress 판정 가능). 완료/stalled 커서는 처음부터 재스캔.
@@ -287,17 +320,24 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
             if result.latest is None or newest_dt > datetime.fromisoformat(result.latest):
                 result.latest = newest
 
-            # ★세션 필터(계약 §2.2)는 **저장 전에** 적용한다(사후 DELETE 아님). 페이지네이션
-            #   커서(oldest/newest)는 위에서 **필터 전 전체 페이지** 기준으로 계산했으므로
-            #   필터가 과거로 페이징하는 경계를 바꾸지 않는다(제외돼도 커서는 정상 전진).
-            #   unknown 세션 라벨은 partition 이 fail-closed(UnknownSessionError) → 종목 격리.
+            # ★필터는 **저장 전에** 적용한다(사후 DELETE 아님). 페이지네이션 커서(oldest/newest)
+            #   는 위에서 **필터 전 전체 페이지** 기준으로 계산했으므로 어떤 필터도 과거로 페이징
+            #   하는 경계를 바꾸지 않는다(제외돼도 커서는 정상 전진).
+            #   순서(계약 #72): raw(provider) → parse → ①완료-거래일 cutoff → ②SessionFilter → upsert.
+            page = candles
+            # ① 완료-거래일 cutoff: 미완성 진행일(다음 거래일 이후) 봉을 세션 필터 전에 제외.
+            if completed_through is not None:
+                page, cut_n, cut_days = partition_by_cutoff(page, completed_through)
+                result.rows_excluded_after_cutoff += cut_n
+                result.excluded_after_cutoff_days |= cut_days
+            # ② SessionFilter: unknown 세션 라벨은 partition 이 fail-closed → 종목 격리.
             if session_filter is not None:
-                to_store, excluded = session_filter.partition(candles)
+                to_store, excluded = session_filter.partition(page)
                 for sess, cnt in excluded.items():
                     result.excluded_by_session[sess] = (
                         result.excluded_by_session.get(sess, 0) + cnt)
             else:
-                to_store = candles
+                to_store = page
             result.rows_stored += len(to_store)
             store.upsert_candles(to_store, source=BACKFILL_SOURCE, run_id=run_id, stats=stats)
 
@@ -369,8 +409,11 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
                      resume: bool = True, run_id: str | None = None,
                      gap_skip_minutes: int = 0, max_consecutive_empty: int = 40,
                      session_filter: SessionFilter | None = None,
+                     completed_through: date | None = None,
                      raw_sink: Callable[..., object] | None = None) -> BackfillReport:
-    """여러 종목을 순차 backfill. 종목 격리: 한 종목 실패가 나머지를 막지 않는다."""
+    """여러 종목을 순차 backfill. 종목 격리: 한 종목 실패가 나머지를 막지 않는다.
+
+    completed_through(계약 #72): 지정 시 모든 종목에 동일한 완료-거래일 cutoff 를 적용한다."""
     run_id = run_id or _new_run_id(interval)
     report = BackfillReport(interval=interval)
     last = len(symbols) - 1
@@ -382,7 +425,8 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
                 backoff_base=backoff_base, resume=resume, run_id=run_id,
                 gap_skip_minutes=gap_skip_minutes,
                 max_consecutive_empty=max_consecutive_empty,
-                session_filter=session_filter, raw_sink=raw_sink)
+                session_filter=session_filter, completed_through=completed_through,
+                raw_sink=raw_sink)
         except Exception as exc:  # noqa: BLE001 — 방어적 격리(backfill_symbol 은 내부 격리하지만 이중 안전)
             res = SymbolBackfillResult(symbol=sym, interval=interval,
                                        error=repr(exc), stopped_reason="error")

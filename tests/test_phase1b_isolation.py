@@ -17,7 +17,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VENV_PY = os.path.join(REPO, ".venv", "bin", "python")
 PY = VENV_PY if os.path.exists(VENV_PY) else sys.executable
 
-# Phase 1B 신규/확장 모듈.
+# Phase 1B 신규/확장 모듈 + 이슈 #72 완료-거래일 cutoff / partial remediation 모듈.
 _TARGETS = [
     "src.history.session_filter",
     "src.history.raw_snapshot",
@@ -26,6 +26,9 @@ _TARGETS = [
     "src.history.oos_guard",
     "src.history.resample",
     "src.ingest.backfill_history",
+    # 이슈 #72: 저장 전 cutoff 게이트·감사 remediation 은 주문/broker/risk/live 를 끌어오지 않는다.
+    "src.history.completed_session",
+    "src.history.partial_remediation",
 ]
 
 # 자본 경로(주문/broker/risk/live/pipeline/reconcile) — 신규 데이터 코드가 끌어오면 안 됨.

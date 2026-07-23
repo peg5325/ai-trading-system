@@ -146,6 +146,23 @@ def symbol_fingerprint(con: sqlite3.Connection, symbol: str,
     }
 
 
+def _parse_stopped_reason(note: str | None) -> str | None:
+    """ingest_log.note 에서 정지사유를 추출(구조화·bare 노트 양쪽 지원, 이슈 #72).
+
+    완료-거래일 cutoff/세션 필터 경로는 `reason=<enum>; ...` 구조화 노트를 남긴다(reason 은
+    ';' 미포함, error 는 맨 뒤). `reason=` 키가 있으면 그 값을, 없으면(레거시 1d bare 노트)
+    첫 세그먼트를 정지사유로 쓴다. intraday_manifest 의 동일 규율과 정합.
+    """
+    if not note:
+        return None
+    for token in note.split(";"):
+        token = token.strip()
+        if token.startswith("reason="):
+            return token[len("reason="):].strip() or None
+    # 구조화(reason=) 키가 없으면 레거시 bare 노트 → 통째로 유지(error repr 의 ';' 절단 방지).
+    return note.strip() or None
+
+
 def symbol_provenance(con: sqlite3.Connection, symbol: str,
                       interval: str = INTERVAL) -> dict:
     """candle_history + ingest_log + import_conflict + backfill_cursor 에서
@@ -188,7 +205,7 @@ def symbol_provenance(con: sqlite3.Connection, symbol: str,
         "conflict_rows": int(conflict_rows),
         "conflict_stat": int(agg["conf"]),
         "run_id": last["run_id"] if last else None,
-        "stopped_reason": last["note"] if last else None,
+        "stopped_reason": _parse_stopped_reason(last["note"] if last else None),
         "cursor_exhausted": (bool(cur["exhausted"]) if cur else None),
     }
 
@@ -325,11 +342,17 @@ def content_digest(symbol_entries: list[dict]) -> str:
 def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
                    collection_code_commit: str | None,
                    generated_at_utc: str | None = None,
-                   as_of: str | None = None) -> dict:
+                   as_of: str | None = None,
+                   collection_completed_through: str | None = None) -> dict:
     """P0-30 일봉 manifest 생성(read-only). db_path 는 절대경로여도 basename 만 기록.
 
     as_of(YYYY-MM-DD): 공식 포함 경계. 미지정 시 YAML universe.as_of 를 사용한다.
     거래소-로컬 일자가 as_of 초과인 봉(미완성 진행일)은 공식 지문/판정에서 제외된다.
+
+    collection_completed_through(YYYY-MM-DD): 실제 수집 때 적용한 완료-거래일 cutoff(이슈 #72).
+    지정 시 collection provenance 에 부기하고, cutoff 가 as_of 보다 **이르면**((cutoff, as_of]
+    구간이 미수집) fail-closed(raise) — as_of 가 실제 수집보다 먼 커버리지를 OK 로 인증하지 못하게
+    한다(경계 완화 금지 규율과 정합).
 
     generated_at_utc 를 주지 않으면 현재 UTC(테스트는 고정값 주입 가능). 이 필드는
     data_content_sha256 대상이 아니므로 hash 재현성에 영향 없다.
@@ -358,6 +381,18 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
         raise ValueError(
             f"--as-of {as_of} 가 YAML 정본 as_of {yaml_as_of} 보다 늦음 — 거부(경계 완화 금지)")
     as_of = resolved_as_of
+    # ★수집 cutoff ↔ as_of 일관성(이슈 #72): cutoff 가 as_of 보다 이르면 (cutoff, as_of] 미수집
+    #   구간을 as_of 커버리지로 오인증하게 된다 → fail-closed. (cutoff >= as_of 는 허용.)
+    if collection_completed_through is not None:
+        try:
+            date.fromisoformat(collection_completed_through)
+        except (ValueError, TypeError):
+            raise ValueError(
+                f"collection_completed_through 형식 오류(YYYY-MM-DD): {collection_completed_through!r}")
+        if collection_completed_through < as_of:
+            raise ValueError(
+                f"수집 cutoff {collection_completed_through} 가 as_of {as_of} 보다 이름 — "
+                f"(cutoff, as_of] 구간 미수집으로 OK 인증 불가(fail-closed).")
     con = _connect_ro(db_path)
     try:
         entries = [symbol_manifest(con, s, min_years=min_years, as_of=as_of)
@@ -390,6 +425,7 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
             **collection_params,
             "code_commit": collection_code_commit,
             "db_basename": os.path.basename(db_path),
+            "completed_through": collection_completed_through,
         },
         "summary": {
             "symbols_total": len(entries),

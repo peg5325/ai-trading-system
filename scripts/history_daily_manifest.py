@@ -177,6 +177,9 @@ def main(argv):
     ap.add_argument("--report", help="리포트 MD 출력 경로")
     ap.add_argument("--code-commit", default=None)
     ap.add_argument("--as-of", default=None, help="공식 포함 경계(YYYY-MM-DD). 미지정 시 YAML as_of")
+    ap.add_argument("--completed-through", default=None,
+                    help="실제 수집 완료-거래일 cutoff(YYYY-MM-DD, 이슈 #72). 지정 시 collection "
+                         "provenance 에 부기하고 cutoff<as_of 면 fail-closed(미수집 구간 OK 인증 방지).")
     ap.add_argument("--params-json", default="{}")
     ap.add_argument("--baseline-1m-sha", default=None, help="pre-1d OHLCV-content combined sha")
     ap.add_argument("--baseline-1m-full-sha", default=None, help="pre-1d 전체 저장 필드 sha")
@@ -189,7 +192,8 @@ def main(argv):
     params = json.loads(args.params_json)
     manifest = build_manifest(args.db, args.yaml, collection_params=params,
                               collection_code_commit=args.code_commit,
-                              generated_at_utc=args.generated_at, as_of=args.as_of)
+                              generated_at_utc=args.generated_at, as_of=args.as_of,
+                              collection_completed_through=args.completed_through)
     # P0 계약 게이트: count=30/중복/시장/통화 위반이면 산출물을 쓰지 않는다.
     if not manifest["universe"]["valid"]:
         print(f"[error] P0 유니버스 계약 위반 — 중단: {manifest['universe']['errors']}",
