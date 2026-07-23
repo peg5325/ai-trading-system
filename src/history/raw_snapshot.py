@@ -21,6 +21,10 @@ immutable 스냅샷으로 보존한다 → 재요청 없이 재현·감사 가�
 - **경로 gitignore**: 기본 저장 위치는 `data/` 하위(gitignore). manifest/receipt 에 홈 절대경로·secret 없음.
 - **외부 복제 대비**: content 트리 + receipts JSONL 는 파일 기반이라 #73 외부복제 대상에 raw 계층을
   그대로 포함할 수 있게 설계(경계 = 이 root 디렉터리).
+- **단일 writer 전제**: receipts.jsonl append 는 **한 프로세스의 순차 backfill**(현
+  `backfill_symbols` 는 종목 순차 실행)을 전제하며 동시 writer 안전성을 보장하지 않는다.
+  병렬 수집을 도입하려면 run별 receipts 분리 또는 파일 잠금이 선행돼야 한다(content 파일
+  자체는 content-addressed + atomic rename 이라 동시 기록에도 안전).
 
 ★ 자본 안전: 주문/broker/risk/pipeline 을 import 하지 않는다. Toss API 호출 없음(순수 저장).
 """
