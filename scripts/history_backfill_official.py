@@ -111,7 +111,7 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
         return 2
 
     # === 3) cutoff 완료 검증 — 수집 세션 범위(scope)에 맞춘 완료 경계로 판정 ===
-    #   POST 를 기본 수집하는 1m 은 애프터마켓(20:00/17:00 ET)까지 끝나야 그 날이 완료다.
+    #   POST 를 기본 수집하는 1m 은 애프터마켓(고정 20:00 ET, classify_session POST 창 끝)까지 완료돼야 한다.
     scope = completion_scope_for_sessions(
         args.interval, session_filter.allowed if session_filter else None)
     try:

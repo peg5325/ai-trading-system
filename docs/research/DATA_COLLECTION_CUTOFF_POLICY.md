@@ -125,8 +125,12 @@ REGULAR 09:30–16:00 / POST 16:00–20:00 창을 쓴다. 완료 경계를 실 �
 
 ## 7. 다음 단계 / 게이트
 
-- **다음 단계**: `scripts/history_backfill_official.py` 로 **30종목×3년 1m bulk 수집**(승인 후 실행).
-  10년 일봉은 이미 수집(#70)돼 있으므로 재수집은 선택.
+**실행 순서(§8 과 동일): PR #80 머지 → #79 → 실 1m bulk.** #79 를 건너뛰고 bulk 를 먼저 실행하지 않는다.
+
+- **선행 게이트 #79**(manifest `completed_through` ↔ ingest_log 교차검증): **실 1m bulk 전 필수**(§8).
+  오선언 cutoff 로 인한 거짓 OK 를 막는 연결이 없으면 공식 스냅샷 인증이 신뢰되지 않는다.
+- **그 다음**: `scripts/history_backfill_official.py --interval 1m --completed-through … --raw-snapshot-dir …`
+  로 **30종목×3년 1m bulk 수집**(사용자 승인 후 실행). 10년 일봉은 이미 수집(#70)돼 재수집은 선택.
 - **#76**(리샘플러 통일): ORB 공식 사전등록/백테스트 **전** 별도 blocking gate. 이번 PR 범위 밖.
 - **#78**(blind OOS unlock 검증 로더): blind OOS 개봉 **직전** 필수. 이번 PR 범위 밖.
 

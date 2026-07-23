@@ -108,8 +108,8 @@ def last_completed_trading_day(now_utc: datetime, *,
     """기준 시각(now_utc) 기준 NYSE 의 마지막 **완료** 거래일(ET 기준, 수집 세션 범위 반영).
 
     한 거래일 d 는 그 날 수집 세션이 모두 끝나는 시각(`completion_deadline_et`) 이후에만
-    '완료'로 본다. 정규까지면 정규 마감, POST 까지면 애프터마켓(20:00/17:00), OVERNIGHT 까지면
-    익일 04:00 ET. now 부터 하루씩 소급하며 첫 완료 거래일을 반환한다.
+    '완료'로 본다. classify_session 고정 창과 일치: regular 16:00 / POST 20:00 / OVERNIGHT 익일
+    04:00 ET(조기폐장일에도 동일). now 부터 하루씩 소급하며 첫 완료 거래일을 반환한다.
 
     ★ POST 를 기본 수집하는 1m 에서 16:00 만으로 '완료'라 하면 진행 중인 애프터마켓 봉이 새므로
       (이슈 #72 핵심 결함) 반드시 수집 세션 범위에 맞춘 경계를 쓴다. 전 판정은 tz-aware ET
@@ -136,7 +136,7 @@ def validate_completed_through(requested: date, now_utc: datetime, *,
     1. 캘린더 artifact 범위 밖 → `CalendarRangeError`(NYSE 재검증 필요).
     2. NYSE 거래일이 아님(주말/휴장) → `CompletedThroughError`.
     3. 기준 시각의 마지막 완료 거래일보다 늦음(진행 중/미래 세션) → `CompletedThroughError`.
-       완료 판정은 session_scope(수집 세션 범위)를 반영한다(POST 까지면 20:00/17:00 등).
+       완료 판정은 session_scope 를 반영한다(고정 창 — regular 16:00 / POST 20:00 / OVERNIGHT 익일 04:00).
     """
     # is_trading_day 가 범위 밖이면 CalendarRangeError 를 던진다(1).
     if not cal.is_trading_day(requested):
