@@ -3,7 +3,7 @@
 > 작성: 2026-07-23 (Claude) · 이슈 #75 · Phase 1B
 > 성격: **의사결정 문서.** 이번 달 전략 검증의 **우선순위**를 기록한다. 구현·백테스트·성과 열람은 범위 밖.
 > 근거 계약(무완화): `DATA_CONTRACT_4STRATEGY_V1.md`(FROZEN) · 근거 결정: `DECISION_MEMO_AB.md` · 근거 결과: `RESULT_screener_ranking_h4.md`
-> 정본 계획: `.omx/plans/one-month-strategy-selection-ai-shadow.md`(이 결정으로 실행순서 현행화).
+> 정본 계획: `PLAN_ONE_MONTH_STRATEGY_SELECTION_AI_SHADOW.md`(**Git 추적 정본** — 이 결정으로 실행순서 현행화. `.omx/plans/` 의 동명 파일은 로컬 실행용 mirror).
 
 ---
 
@@ -82,7 +82,7 @@ ORB 다음 후보. premarket/정규장 첫 유효 gap + RVOL 지속. catalyst �
 - **완화하지 않은 것**: 데이터 기간(1m ≥3.0년·1d ≥5년), 비용(0.14/0.34/0.68%p), OOS 경계(1m 2026-01-21~07-21·1d 최근 12개월), 품질 기준(3.0년 미달 INCONCLUSIVE_DATA). 전부 `DATA_CONTRACT_4STRATEGY_V1.md` 원문 그대로.
 - **성격**: GO 를 쉽게 만드는 변경이 아니라, **사용자 목표(당일청산 데이트레이딩)에 맞춘 전략 우선순위 교정**이다.
 - **원문 보존**: `DATA_CONTRACT_4STRATEGY_V1.md` v1 원문은 **조용히 다시 쓰지 않는다.** 우선순위 교정 사실은 그 문서 말미에 **append-only AMENDMENT**(A1)로만 부기하고, v1 본문은 Git 이력으로 보존한다.
-- **정본 계획 현행화**: `.omx/plans/one-month-strategy-selection-ai-shadow.md` 에 revision history 를 추가하고 실행 순서를 intraday 우선으로 현행화한다(전략 게이트·비용·OOS 는 무변경).
+- **정본 계획 현행화**: `docs/research/PLAN_ONE_MONTH_STRATEGY_SELECTION_AI_SHADOW.md`(**Git 추적 정본**) 에 revision history 를 추가하고 실행 순서를 intraday 우선으로 현행화한다(전략 게이트·비용·OOS 는 무변경). `.omx/plans/` 의 동명 파일은 로컬 실행용 mirror 로만 취급한다(저장소 미포함 — 새 clone 은 추적 정본만 본다).
 
 ---
 

@@ -304,7 +304,8 @@ blind OOS 경계는 **이 계약에서 고정**하며 backfill/품질 확인 단
 - **교정 사실**: §1(그리고 문서 상단 서문)의 "이번 달 연구 실행은 **VCP-lite 일봉 스윙 1개**에 우선 집중" 표현은 **전략 우선순위**였다. 사용자 목표가 **오버나잇 없는 당일청산 데이트레이딩**으로 확정됨에 따라, 이번 달 **첫 검증 전략을 Liquid-universe Opening Range Breakout(ORB, 당일청산)** 로 교정한다. VCP-lite 스윙은 **폐기가 아니라 후속 연구 후보로 보류**한다.
 - **바뀌지 않는 것(무완화 재확인)**: 유니버스(P0-US30 30종목), 1m ≥3.0년·세션 PRE/REGULAR/POST(§2.1·§2.2), 1d ≥5년(§2.1), blind OOS 경계(1m 2026-01-21~2026-07-21·1d 최근 12개월, §5.1), 비용 민감도(0.14/0.34/0.68%p), 품질 게이트(3.0년 미달 = `INCONCLUSIVE_DATA`, 기준 완화 금지 §6-4). **전부 v1 원문 그대로.**
 - **변경 시점**: 어떤 전략의 성과·수익률·forward return·blind OOS 도 **열람하기 전**. GO 를 쉽게 만드는 변경이 아니라 사용자 목표에 맞춘 우선순위 교정이다.
-- **상세**: `docs/research/DECISION_DAYTRADING_ORB_PRIORITY.md` (신규 결정 문서). 실행순서 현행화는 `.omx/plans/one-month-strategy-selection-ai-shadow.md` revision history.
+- **상세**: `docs/research/DECISION_DAYTRADING_ORB_PRIORITY.md` (신규 결정 문서). 실행순서 현행화는 `docs/research/PLAN_ONE_MONTH_STRATEGY_SELECTION_AI_SHADOW.md`(정본 계획의 **Git 추적본**) revision history.
+- **정본 계획의 Git 보존(PR #77 독립 리뷰 차단 2 반영)**: 정본 계획은 `docs/research/PLAN_ONE_MONTH_STRATEGY_SELECTION_AI_SHADOW.md` 로 저장소에 추적 보존한다. v1 원문(서문·§1.1)의 `.omx/plans/…` 참조는 **로컬 실행용 mirror** 를 가리키는 것으로 읽는다 — 원문은 append-only 원칙에 따라 다시 쓰지 않고, 이 A1 부기로 해석을 고정한다.
 
 ### A1 부기 — §7 "Phase 1B 선행/연기" 항목의 실제 구현 (이슈 #75)
 
@@ -316,6 +317,6 @@ blind OOS 경계는 **이 계약에서 고정**하며 backfill/품질 확인 단
 | §4.1 immutable raw 스냅샷 | `src/history/raw_snapshot.py` + provider raw_sink(parse 전) + ADR `docs/adr/ADR-0001-immutable-raw-snapshot.md` |
 | §2.4 NYSE 휴장/조기폐장 캘린더 | `src/history/exchange_calendar.py`(무의존, 3년 구간 추적 artifact) |
 | §4.4 snapshot hash / coverage manifest | `src/history/intraday_manifest.py` + `scripts/history_intraday_manifest.py` |
-| §5.1 blind OOS 코드 게이트("후속 고려") | `src/history/oos_guard.py`(연구 로더 fail-closed, coverage 허용) |
+| §5.1 blind OOS 코드 게이트("후속 고려") | `src/history/oos_guard.py`(연구 로더 fail-closed, coverage 허용) + 공식 스크립트 배선(`history_eval_slices` → guarded loader) + 직접 `load_candles` import 금지 경계 테스트(`tests/test_oos_guard_wiring.py`) |
 | §2.5 1m→5m + **1m→15m**·opening-range | `src/history/resample.py` 확장(15m·09:30–09:44 ET 완료봉만) |
 | §2.5 연구↔라이브 5m 통일 | **별도 Phase 2 blocking-gate 이슈 #76**(ORB 공식 연구 전 필수, 이 PR 미포함) |
