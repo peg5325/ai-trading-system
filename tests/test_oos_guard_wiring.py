@@ -6,6 +6,12 @@ blind OOS fail-closed 가 '자발적 opt-in wrapper' 로 남지 않도록 정적
     purpose="performance" 가 fail-closed 다. coverage 우회는 호출부에 명시적으로만 쓴다.
 tests/ 는 스캔 대상이 아니다(픽스처 구성에 로더 직접 사용 허용).
 AST 기반이므로 docstring/주석의 언급은 위반으로 잡지 않는다(import·속성접근·이름 사용만).
+
+범위 결정(기록): 스캔은 최상위 {src, scripts, analysis} 로 고정한다. **새 최상위 파이썬
+디렉터리를 만들면 SCAN_DIRS 에 추가해야 검사가 미친다**(누락 시 무검사 — 재리뷰 지적).
+알려진 한계(의도된 트립와이어 성격): `getattr(mod, "load_candles")` 문자열 접근·raw sqlite3
+직접 조회는 정적 검사로 못 잡는다 — 이 테스트의 목적은 **우발적 직접 import 방지**이며,
+실제 blind OOS 개봉의 증거 검증은 #78 검증 로더가 담당한다.
 """
 from __future__ import annotations
 
