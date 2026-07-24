@@ -28,9 +28,33 @@ BACKFILL_SOURCE = "toss_backfill"
 logger = logging.getLogger(__name__)
 
 
-def _new_run_id(interval: str) -> str:
-    """실행마다 유니크한 run_id — ingest_log/conflict provenance 를 실행별로 구분."""
+def new_run_id(interval: str) -> str:
+    """실행마다 유니크한 collection run_id — 한 수집 실행(공유 run_id)을 provenance 로 식별한다.
+
+    공식 CLI 는 API/DB 접근 **전에** 이 값을 생성·출력해 두고 backfill_symbols 에 명시 전달한다.
+    중단 후 resume 시 운영자가 같은 run_id 를 다시 지정하면(--run-id) ingest_log 가 같은 collection
+    식별자로 이어져 manifest 교차검증(이슈 #79)이 하나의 run 으로 인식한다.
+    """
     return f"backfill-{interval}-{datetime.now(timezone.utc).isoformat()}"
+
+
+def resolve_run_id(run_id: str | None, interval: str) -> str:
+    """명시 run_id 를 정규화하거나 새 collection identity 를 만든다.
+
+    공백 run_id 로 수집하면 ingest_log 에는 기록되지만 strict manifest 검증은
+    `EMPTY_RUN_ID` 로 영구 거부한다. 수집과 검증의 계약을 대칭으로 맞추기 위해
+    외부 접근 전에 strip 하고 빈 값은 fail-closed 한다.
+    """
+    if run_id is None:
+        return new_run_id(interval)
+    normalized = run_id.strip()
+    if not normalized:
+        raise ValueError("EMPTY_RUN_ID: collection run_id 는 비공백 문자열이어야 한다.")
+    return normalized
+
+
+# 하위호환 alias(기존 내부 호출부 유지).
+_new_run_id = new_run_id
 
 
 def _day_range(days: set[str]) -> str | None:
@@ -64,8 +88,16 @@ class SymbolBackfillResult:
     updated: int = 0
     duplicate: int = 0
     conflict: int = 0
-    earliest: str | None = None
-    latest: str | None = None
+    # ★범위 의미 구분(이슈 #79 Scope B):
+    #   earliest/latest = **fetch 도달 범위**(provider 가 돌려준 전체 candle, cutoff/session 제외분
+    #   포함). 저장 범위가 아니다 → deprecated alias(=fetched_*). 아래 accepted_* 와 혼동 금지.
+    earliest: str | None = None      # = fetched_earliest (legacy_fetch_range alias)
+    latest: str | None = None        # = fetched_latest (legacy_fetch_range alias)
+    # accepted_* = cutoff + SessionFilter 를 통과해 **이 실행에서 upsert 로 전달된** 범위.
+    #   페이지 전체가 cutoff/세션으로 제외되면 fetched 범위는 있어도 accepted 는 None 이다.
+    #   accepted 는 '실제 inserted'(=stats.inserted)와 다르다 — duplicate no-op 도 accepted 에 포함.
+    accepted_earliest: str | None = None
+    accepted_latest: str | None = None
     exhausted: bool = False
     stopped_reason: str | None = None
     error: str | None = None
@@ -86,7 +118,19 @@ class SymbolBackfillResult:
             "pages_fetched": self.pages_fetched, "rows_seen": self.rows_seen,
             "inserted": self.inserted, "updated": self.updated,
             "duplicate": self.duplicate, "conflict": self.conflict,
+            # deprecated alias(하위호환): earliest/latest == fetched_earliest/fetched_latest.
             "earliest": self.earliest, "latest": self.latest,
+            "fetched_earliest": self.earliest, "fetched_latest": self.latest,
+            "accepted_earliest": self.accepted_earliest,
+            "accepted_latest": self.accepted_latest,
+            # 소비자가 의미를 오독하지 않도록 범위 의미를 산출물에 명시(이슈 #79 Scope B).
+            "range_semantics": {
+                "earliest": "legacy_fetch_range (deprecated alias of fetched_earliest)",
+                "latest": "legacy_fetch_range (deprecated alias of fetched_latest)",
+                "fetched": "provider fetch-reached range (incl cutoff/session-excluded rows)",
+                "accepted": ("post-cutoff + SessionFilter range passed to upsert this run "
+                             "(None if all rows excluded; != actual inserted — dup included)"),
+            },
             "exhausted": self.exhausted, "stopped_reason": self.stopped_reason,
             "error": self.error, "gap_skips": self.gap_skips,
             "empty_fetches": self.empty_fetches,
@@ -105,9 +149,12 @@ class SymbolBackfillResult:
 class BackfillReport:
     interval: str
     results: list[SymbolBackfillResult] = field(default_factory=list)
+    # 이 수집 실행의 collection run_id(이슈 #79) — 공유 run_id 를 외부에 명확히 노출한다.
+    run_id: str | None = None
 
     def as_dict(self) -> dict:
-        return {"interval": self.interval, "results": [r.as_dict() for r in self.results]}
+        return {"interval": self.interval, "run_id": self.run_id,
+                "results": [r.as_dict() for r in self.results]}
 
 
 def _status_code(exc: Exception) -> int | None:
@@ -252,7 +299,7 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
 
     gap_skip_minutes = 0(기본)이면 기존 동작(빈 페이지/nextBefore=null → exhausted) 유지.
     """
-    run_id = run_id or _new_run_id(interval)
+    run_id = resolve_run_id(run_id, interval)
     stats = ImportStats(source=BACKFILL_SOURCE)
     result = SymbolBackfillResult(symbol=symbol, interval=interval)
     if session_filter is not None:
@@ -339,6 +386,18 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
             else:
                 to_store = page
             result.rows_stored += len(to_store)
+            # ★accepted 범위(이슈 #79 Scope B): cutoff+세션 필터를 통과해 실제 upsert 로 전달된
+            #   봉의 ts_utc 범위. 페이지 전체가 제외되면(to_store 비면) accepted 는 갱신되지 않아
+            #   None 으로 남는다(fetched 범위와 구분). duplicate no-op 도 accepted 에 포함된다.
+            if to_store:
+                acc_old = min(c.ts_utc for c in to_store)
+                acc_new = max(c.ts_utc for c in to_store)
+                if (result.accepted_earliest is None
+                        or acc_old < datetime.fromisoformat(result.accepted_earliest)):
+                    result.accepted_earliest = acc_old.isoformat()
+                if (result.accepted_latest is None
+                        or acc_new > datetime.fromisoformat(result.accepted_latest)):
+                    result.accepted_latest = acc_new.isoformat()
             store.upsert_candles(to_store, source=BACKFILL_SOURCE, run_id=run_id, stats=stats)
 
             if nxt is None:
@@ -393,6 +452,9 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
     result.updated = stats.updated
     result.duplicate = stats.duplicate
     result.conflict = stats.conflict
+    # ingest_log.earliest/latest 는 **legacy_fetch_range**(fetch 도달 범위)다 — 저장(accepted)
+    #   범위가 아니다(이슈 #79 Scope B). accepted 범위는 SymbolBackfillResult.accepted_* / report
+    #   JSON 으로 노출한다. cutoff cross-check(이슈 #79 Scope A)는 note 의 completed_through 를 쓴다.
     store.write_ingest_log(run_id, source=BACKFILL_SOURCE, stats=stats,
                            rows_seen=result.rows_seen, earliest=result.earliest,
                            latest=result.latest,
@@ -413,9 +475,13 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
                      raw_sink: Callable[..., object] | None = None) -> BackfillReport:
     """여러 종목을 순차 backfill. 종목 격리: 한 종목 실패가 나머지를 막지 않는다.
 
-    completed_through(계약 #72): 지정 시 모든 종목에 동일한 완료-거래일 cutoff 를 적용한다."""
-    run_id = run_id or _new_run_id(interval)
-    report = BackfillReport(interval=interval)
+    completed_through(계약 #72): 지정 시 모든 종목에 동일한 완료-거래일 cutoff 를 적용한다.
+
+    run_id(이슈 #79): 한 호출의 모든 종목이 공유하는 collection run_id. 지정하지 않으면 새로
+    생성하고 report.run_id 로 노출한다(공식 CLI 는 API 접근 전에 미리 생성·출력해 전달한다).
+    resume 시 같은 run_id 를 다시 지정하면 ingest_log 가 하나의 collection 으로 이어진다."""
+    run_id = resolve_run_id(run_id, interval)
+    report = BackfillReport(interval=interval, run_id=run_id)
     last = len(symbols) - 1
     for i, sym in enumerate(symbols):
         try:

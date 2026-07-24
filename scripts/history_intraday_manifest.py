@@ -75,6 +75,9 @@ def main(argv):
     ap.add_argument("--as-of", default=None, help="공식 포함 경계(YYYY-MM-DD). 미지정 시 YAML as_of")
     ap.add_argument("--completed-through", default=None,
                     help="실제 수집 완료-거래일 cutoff(YYYY-MM-DD, 이슈 #72). cutoff<as_of 면 fail-closed.")
+    ap.add_argument("--collection-run-id", default=None,
+                    help="수집 실행의 collection run_id(이슈 #79). 지정 시 ingest_log 의 실제 수집 "
+                         "cutoff 와 strict 교차검증(불일치/누락/malformed/conflicting 시 fail-closed).")
     ap.add_argument("--sessions", default=None, help="허용 세션(쉼표). 미지정 시 YAML sessions_required")
     ap.add_argument("--raw-manifest", default=None,
                     help="RawSnapshotStore.manifest() JSON 경로(선택) — raw_content_sha256 부기")
@@ -93,7 +96,8 @@ def main(argv):
         args.db, args.yaml, collection_params=json.loads(args.params_json),
         collection_code_commit=args.code_commit, allowed_sessions=allowed,
         as_of=args.as_of, raw_manifest=raw_manifest, generated_at_utc=args.generated_at,
-        collection_completed_through=args.completed_through)
+        collection_completed_through=args.completed_through,
+        collection_run_id=args.collection_run_id)
 
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2, sort_keys=True)

@@ -21,8 +21,9 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.history import HistoryStore  # noqa: E402
+# 정지사유 파서는 이슈 #79 에서 공통 모듈(ingest_provenance)로 통합됐다(중복 제거).
+from src.history.ingest_provenance import parse_stopped_reason as _parse_stopped_reason  # noqa: E402
 from src.history.intraday_manifest import (  # noqa: E402
-    _parse_stopped_reason,
     build_manifest,
     intraday_symbol_fingerprint,
     read_intraday_requirements,

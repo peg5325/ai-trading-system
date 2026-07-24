@@ -180,6 +180,10 @@ def main(argv):
     ap.add_argument("--completed-through", default=None,
                     help="실제 수집 완료-거래일 cutoff(YYYY-MM-DD, 이슈 #72). 지정 시 collection "
                          "provenance 에 부기하고 cutoff<as_of 면 fail-closed(미수집 구간 OK 인증 방지).")
+    ap.add_argument("--collection-run-id", default=None,
+                    help="수집 실행의 collection run_id(이슈 #79). 지정 시 ingest_log 의 실제 수집 "
+                         "cutoff 와 strict 교차검증(전 종목·동일 cutoff·선언값·as_of 경계 불일치 시 "
+                         "fail-closed). 공식 CLI 출력의 run_id 를 그대로 넘긴다.")
     ap.add_argument("--params-json", default="{}")
     ap.add_argument("--baseline-1m-sha", default=None, help="pre-1d OHLCV-content combined sha")
     ap.add_argument("--baseline-1m-full-sha", default=None, help="pre-1d 전체 저장 필드 sha")
@@ -193,7 +197,8 @@ def main(argv):
     manifest = build_manifest(args.db, args.yaml, collection_params=params,
                               collection_code_commit=args.code_commit,
                               generated_at_utc=args.generated_at, as_of=args.as_of,
-                              collection_completed_through=args.completed_through)
+                              collection_completed_through=args.completed_through,
+                              collection_run_id=args.collection_run_id)
     # P0 계약 게이트: count=30/중복/시장/통화 위반이면 산출물을 쓰지 않는다.
     if not manifest["universe"]["valid"]:
         print(f"[error] P0 유니버스 계약 위반 — 중단: {manifest['universe']['errors']}",

@@ -123,22 +123,99 @@ REGULAR 09:30–16:00 / POST 16:00–20:00 창을 쓴다. 완료 경계를 실 �
 - 전략 성과·forward return·blind OOS 성과 계산/열람 0.
 - 이번 PR 은 **예방(cutoff) + 감사 가능한 remediation 도구 + 테스트 + 문서**까지다.
 
-## 7. 다음 단계 / 게이트
+## 7. manifest ↔ ingest_log cutoff 교차검증 + backfill 범위 의미 (이슈 #79)
 
-**실행 순서(§8 과 동일): PR #80 머지 → #79 → 실 1m bulk.** #79 를 건너뛰고 bulk 를 먼저 실행하지 않는다.
+§3 의 manifest 연결은 지금까지 **CLI 인자로 선언한 `collection_completed_through`** 만 방어했다
+(`cutoff < as_of` 면 fail-closed). 그 값이 실제 수집 때 ingest_log 에 남은 cutoff 와 대조되지
+않아, 오선언된 cutoff(≥ as_of 인데 실제 미수집)로 거짓 OK 인증하는 경로가 남았다. 이슈 #79 가
+그 연결을 채운다(전부 **read-only** — canonical DB 무변경).
 
-- **선행 게이트 #79**(manifest `completed_through` ↔ ingest_log 교차검증): **실 1m bulk 전 필수**(§8).
-  오선언 cutoff 로 인한 거짓 OK 를 막는 연결이 없으면 공식 스냅샷 인증이 신뢰되지 않는다.
-- **그 다음**: `scripts/history_backfill_official.py --interval 1m --completed-through … --raw-snapshot-dir …`
-  로 **30종목×3년 1m bulk 수집**(사용자 승인 후 실행). 10년 일봉은 이미 수집(#70)돼 재수집은 선택.
+### 7.1 collection run identity(공유 run_id)
+
+한 공식 수집 실행은 **하나의 collection run_id** 를 전 종목에 공유해 ingest_log 에 남긴다.
+- `scripts/history_backfill_official.py` 는 API/DB 접근 **전에** run_id 를 확정·출력한다
+  (`--run-id` 로 지정 가능, 미지정 시 생성). 실행이 중단돼도 운영자가 그 run_id 를 안다.
+- **resume 은 같은 `--run-id` 와 같은 `--completed-through`** 를 다시 지정해야 ingest_log 가 하나의
+  collection 으로 이어진다(cursor 기반 이어받기와 별개로 provenance 식별자를 유지). run_id 는 같은데
+  cutoff 를 바꿔 resume 하면 §7.2 의 `CONFLICTING_CUTOFF` 로 fail-closed 된다(의도된 보호). 다른
+  run_id·레거시 로그를 섞지 않는다.
+- `BackfillReport.run_id`(+ `--json` 출력)로 run_id 를 외부에 노출한다.
+
+### 7.2 manifest strict 교차검증(`--collection-run-id`)
+
+`build_manifest(collection_run_id=…)`(daily/intraday, `src/history/ingest_provenance.py`)는 그 run_id 로
+ingest_log(source=`toss_backfill`, 대상 interval)를 읽어 검증한다 — 하나라도 어기면 `ProvenanceError`
+(fail-closed):
+
+1. run_id 로그 존재(다른 run 로그를 섞지 않음 — `NO_RUN_LOGS`).
+2. 유니버스 전 30종목이 그 run 에 로그를 남김(누락 시 `MISSING_SYMBOLS`, 다른 run 보충 금지).
+3. 각 로그 note 의 `completed_through` 존재(`INCONCLUSIVE_PROVENANCE`)·정확한 YYYY-MM-DD(`MALFORMED_…`).
+4. 같은 run 내부 전 종목·재시도 로그의 cutoff 동일(`CONFLICTING_CUTOFF`).
+5. 검증 cutoff == 선언 cutoff(선언값이 있으면, `DECLARED_MISMATCH`).
+6. 검증 cutoff ≥ manifest as_of(`VERIFIED_CUTOFF_BEFORE_ASOF`).
+
+성공 시 manifest 에 `provenance_verification`(provenance_status=VERIFIED, collection_run_id,
+declared/verified_completed_through, verified_symbol_count, source, interval)을 남긴다. **이 블록은
+실행 provenance 이며 `data_content_sha256`(데이터 내용 지문) 대상이 아니다** — 데이터 지문과
+실행 provenance 지문을 혼동하지 않는다(같은 데이터면 run/검증과 무관하게 같은 지문).
+
+레거시(추측 승격 금지): run_id/cutoff provenance 가 없는 로그를 strict 검증 요청 시 조용히 VERIFIED
+로 올리지 않고 `INCONCLUSIVE_PROVENANCE` 로 fail-closed 한다. run_id 미지정이면 기존 declared-only
+방어(§3, cutoff<as_of fail-closed)만 유지되고 provenance_status 는 `DECLARED_UNVERIFIED`/`NONE` 로
+정직 표기한다(기존 산출물 의미 소급 변경 없음).
+
+```bash
+# 권장: 공식 수집 출력의 run_id 만 넘긴다 — 검증된 cutoff 가 권위이므로 --completed-through 를
+#       중복 지정할 필요가 없다(중복 지정 시 오타로 DECLARED_MISMATCH 만 늘어난다).
+./.venv/bin/python scripts/history_intraday_manifest.py \
+    --db data/market_history.sqlite --yaml config/universe_p0_us30.yaml \
+    --out docs/research/P0_US30_INTRADAY_1M_MANIFEST.json --as-of 2026-07-21 \
+    --sessions PRE,REGULAR,POST \
+    --collection-run-id backfill-1m-2026-07-24T00:00:00+00:00
+# (선택) --completed-through 2026-07-21 을 함께 주면 선언값 == 검증값 교차 확인(DECLARED_MISMATCH).
+```
+
+**★인증 규칙(운영자 주의)**: `provenance_status == VERIFIED` 는 *선언 cutoff 가 실제 수집 cutoff 와
+일관됨*을 뜻할 뿐, 종목별 데이터가 그 cutoff 까지 **충분히 수집됐음을 증명하지 않는다**(종목별
+under-collection 은 `summary.verdict_counts` 의 데이터 verdict 가 잡는다). 따라서 bulk 스냅샷을
+인증하려면 **`provenance_status == VERIFIED` 그리고 전 종목 verdict OK** 를 함께 요구한다.
+
+**★MISSING_SYMBOLS 복구(중단된 실행)**: manifest 검증이 `MISSING_SYMBOLS` 를 내면 **같은 `--run-id`
+와 같은 `--completed-through`** 로 resume 해 provenance 를 완성한다 — **새 run_id 로 재시작하지
+않는다**(cursor 는 exhausted 라 새 run_id 는 이전 부분 실행과 재결합할 수 없다). run_id 를 잊고
+새로 시작하면 재수집(재스캔)이 필요하다.
+
+### 7.3 backfill 범위 의미(fetched vs accepted)
+
+`SymbolBackfillResult` 의 범위는 두 의미로 분리된다(혼동 금지):
+- `fetched_earliest/latest` — provider 가 돌려준 **전체** candle 범위(cutoff/session 제외분 포함).
+  기존 `earliest/latest` 는 이 값의 **deprecated alias**(legacy_fetch_range)로 유지된다.
+- `accepted_earliest/latest` — cutoff + SessionFilter 를 통과해 **이 실행에서 upsert 로 전달된**
+  범위. 페이지 전체가 제외되면 fetched 는 있어도 accepted 는 `None`. accepted 는 '실제 inserted'
+  와도 다르다(duplicate no-op 도 accepted 에 포함).
+
+report `as_dict()`/공식 CLI 출력은 두 범위와 `range_semantics` 설명을 함께 낸다. ingest_log 의
+`earliest/latest` 컬럼은 여전히 **legacy_fetch_range**(fetch 도달 범위)다 — canonical 전체
+coverage 범위가 필요하면 `HistoryStore.symbol_coverage()`(read-only 집계)를 별도로 쓴다.
+
+## 8. 다음 단계 / 게이트
+
+**실행 순서(§9 와 동일): PR #80 머지 → #79 → 실 1m bulk.** #79 를 건너뛰고 bulk 를 먼저 실행하지 않는다.
+
+- **선행 게이트 #79**(manifest `completed_through` ↔ ingest_log 교차검증): §7 로 **구현됨**. 오선언
+  cutoff 로 인한 거짓 OK 를 막는 연결이 이로써 채워진다. **단, #79 머지는 bulk 실행 승인 자체가
+  아니다** — 실 30종목×3년 1m bulk 는 사용자 승인 후 별도로 시작한다.
+- **그 다음**: `scripts/history_backfill_official.py --interval 1m --completed-through … --raw-snapshot-dir …
+  --run-id …` 로 **30종목×3년 1m bulk 수집**(사용자 승인 후 실행) → 그 run_id 로 §7.2 교차검증.
+  10년 일봉은 이미 수집(#70)돼 재수집은 선택.
 - **#76**(리샘플러 통일): ORB 공식 사전등록/백테스트 **전** 별도 blocking gate. 이번 PR 범위 밖.
 - **#78**(blind OOS unlock 검증 로더): blind OOS 개봉 **직전** 필수. 이번 PR 범위 밖.
 
-## 8. 알려진 잔여/후속(조용히 생략하지 않음)
+## 9. 알려진 잔여/후속(조용히 생략하지 않음)
 
-독립 리뷰(code-reviewer·architect)에서 나온 항목 중 이번 PR 에 반영한 것과 후속으로 분리한 것:
+독립 리뷰(code-reviewer·architect)에서 나온 항목 중 반영한 것과 후속으로 분리한 것:
 
-**반영됨(이번 PR)**
+**반영됨(#72 PR #80)**
 - 완료 경계를 세션 범위 + `classify_session` 고정 창(REGULAR 16:00 / POST 20:00 / OVERNIGHT
   익일 04:00)에 정확히 일치 — 리뷰 HIGH·P1 해소. **조기폐장일에도 앞당기지 않음**(17:00 완료 후
   19:00 POST 봉이 새는 결함 차단). 일봉(16:00 확정)에도 POST 20:00 은 4h 여유로 공급자 확정 지연 흡수.
@@ -149,10 +226,18 @@ REGULAR 09:30–16:00 / POST 16:00–20:00 창을 쓴다. 완료 경계를 실 �
   slug + backup_dir 내부 경로 검증(경로 이탈 차단, 리뷰 P2), `--execute` 는 감사 receipt 필수(리뷰 P2),
   백업 파일명 timestamp(덮어쓰기 방지)·refused 경로 receipt 대칭.
 
-**후속(별도 이슈 #79 로 분리 — 이번 PR 범위 밖, 실 1분봉 bulk 전 필수 처리)**
+**반영됨(#79 — 이 PR, §7)**
 - manifest 의 `collection_completed_through` 를 CLI 인자 신뢰 대신 **ingest_log 에 기록된 실제 수집
-  cutoff 와 교차검증**(현재는 정직하게 선언된 cutoff 만 방어). 오선언 cutoff 로 인한 거짓 OK 방지.
-- backfill report 의 `earliest/latest` 는 **fetch 도달 범위**(cutoff 제외분 포함)라 저장 범위와
-  다를 수 있음 — 라벨 명확화 또는 저장 범위 별도 노출.
+  cutoff 와 명시적 run_id 로 교차검증**. 오선언 cutoff 로 인한 거짓 OK 방지(§7.2).
+- backfill report 의 `earliest/latest` 는 **fetch 도달 범위**임을 명확화하고 **accepted 범위**를
+  별도 노출(§7.3).
 
-**진행 순서(리뷰 합의)**: PR #80 수정·머지 → **#79**(manifest↔ingest cutoff 교차검증) → 실 30종목×3년 1m bulk.
+**반영됨(#79 재검수 hardening)**
+- 공식 CLI 는 명시 `--run-id` 를 strip·비공백 검증하고, **resume 시점**에 기존 ingest_log 를
+  provider/API 호출 전에 읽어 `--completed-through` 가 다르면 즉시 거부(fast fail)한다.
+  manifest 검증도 대상 유니버스뿐 아니라 동일 run_id·interval·source 의 **전체 로그**에서 cutoff
+  일관성을 요구한다. 따라서 공백 identity·잘못된 cutoff resume·유니버스 밖 오염 로그가 장시간
+  수집 뒤에야 발견되는 경로를 사전에 닫는다.
+
+**진행 순서(리뷰 합의)**: PR #80 머지 → **#79 구현·머지**(§7) → 실 30종목×3년 1m bulk. #79 머지가
+bulk 실행 승인 자체를 의미하지 않는다.

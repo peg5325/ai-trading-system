@@ -31,8 +31,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sqlite3
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -46,12 +48,73 @@ from src.history.completed_session import (  # noqa: E402
     validate_completed_through,
 )
 from src.history.daily_manifest import read_p0_universe  # noqa: E402
+from src.history.ingest_provenance import (  # noqa: E402
+    BACKFILL_SOURCE,
+    ProvenanceError,
+    verify_resume_cutoff,
+)
 from src.history.raw_snapshot import RawSnapshotStore  # noqa: E402
 from src.history.session_filter import SessionFilter  # noqa: E402
-from src.ingest.backfill_history import backfill_symbols  # noqa: E402
+from src.ingest.backfill_history import backfill_symbols, resolve_run_id  # noqa: E402
 from src.providers.toss_market_data import TossMarketDataProvider  # noqa: E402
 
 DEFAULT_YAML = "config/universe_p0_us30.yaml"
+
+
+def _preflight_resume_cutoff(
+    db_path: str, *, run_id: str, interval: str, completed_through: str,
+) -> str | None:
+    """기존 DB가 있을 때 collection resume provenance 를 read-only 검사한다."""
+    path = Path(db_path)
+    if not path.exists():
+        return None
+    con = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        has_log = con.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ingest_log'"
+        ).fetchone()
+        if not has_log:
+            return None
+        columns = {row["name"] for row in con.execute("PRAGMA table_info(ingest_log)")}
+        missing = sorted({"symbol", "interval"} - columns)
+        if missing:
+            # HistoryStore 는 write-open 시 이 두 컬럼을 멱등 migration 한다. 다만 그보다 먼저
+            # 실행되는 read-only preflight 에서는 기존 legacy run 을 신뢰 있게 귀속할 수 없다.
+            # 새 run_id 면 migration 뒤 수집 가능하지만, 기존 run resume 은 명시적으로 거부한다.
+            if "interval" in columns:
+                existing_run = con.execute(
+                    "SELECT 1 FROM ingest_log "
+                    "WHERE run_id=? AND source=? AND interval=? LIMIT 1",
+                    (run_id, BACKFILL_SOURCE, interval),
+                ).fetchone()
+            else:
+                existing_run = con.execute(
+                    "SELECT 1 FROM ingest_log WHERE run_id=? AND source=? LIMIT 1",
+                    (run_id, BACKFILL_SOURCE),
+                ).fetchone()
+            if existing_run:
+                raise ProvenanceError(
+                    "LEGACY_INGEST_SCHEMA: 기존 run provenance 를 검증할 필수 컬럼 없음"
+                    f"({','.join(missing)}) — HistoryStore schema migration 후 새 run_id 로 수집하라"
+                    "(fail-closed).")
+            return None
+        legacy_attribution = con.execute(
+            "SELECT 1 FROM ingest_log "
+            "WHERE run_id=? AND source=? "
+            "AND (NULLIF(TRIM(symbol), '') IS NULL "
+            "OR NULLIF(TRIM(interval), '') IS NULL) LIMIT 1",
+            (run_id, BACKFILL_SOURCE),
+        ).fetchone()
+        if legacy_attribution:
+            raise ProvenanceError(
+                "LEGACY_INGEST_SCHEMA: 기존 run provenance 의 symbol/interval 귀속값 없음"
+                " — 새 run_id 로 수집하라(fail-closed).")
+        return verify_resume_cutoff(
+            con, run_id=run_id, interval=interval, source=BACKFILL_SOURCE,
+            completed_through=completed_through)
+    finally:
+        con.close()
 
 
 def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
@@ -72,6 +135,10 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
     ap.add_argument("--max-retries", type=int, default=3)
     ap.add_argument("--backoff-base", type=float, default=0.5)
     ap.add_argument("--no-resume", action="store_true")
+    ap.add_argument("--run-id", default=None,
+                    help="collection run_id(이슈 #79). 미지정 시 API/DB 접근 전에 새로 생성·출력한다. "
+                         "중단 후 resume 은 **같은 run_id 를 다시 지정**해야 manifest 교차검증이 하나의 "
+                         "collection 으로 인식한다. manifest 는 이 run_id 로 ingest_log cutoff 를 검증한다.")
     ap.add_argument("--gap-skip-minutes", type=int, default=0,
                     help="빈 페이지/nextBefore=null 을 UTC 일자 경계로 보고 이만큼 과거로 건너뜀")
     ap.add_argument("--max-consecutive-empty", type=int, default=40)
@@ -159,7 +226,28 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
             print(f"⚠️  --max-consecutive-empty={args.max_consecutive_empty} < 권장 {recommended}"
                   f"(gap_skip={args.gap_skip_minutes}m) — 장기 휴장 조기 종료 위험.", file=sys.stderr)
 
-    # === 6) 자격증명(검증을 모두 통과한 뒤에만) ===
+    # ★collection run_id(이슈 #79): API/DB 접근 **전에** 확정·출력한다 — 실행이 중단돼도 운영자가
+    #   같은 run_id 로 resume(--run-id) 하고 manifest 교차검증에 넘길 수 있게 한다.
+    try:
+        run_id = resolve_run_id(args.run_id, args.interval)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    print(f"collection run_id: {run_id} "
+          f"(resume 시 --run-id {run_id} · manifest 검증 시 --collection-run-id {run_id})",
+          file=sys.stderr)
+
+    # 기존 run_id resume 는 provider/API/쓰기 DB 접근 전에 ingest_log 의 cutoff 를 read-only 대조한다.
+    # 다른 cutoff/레거시/오염 로그를 같은 collection identity 에 추가해 장시간 수집을 무효화하지 않는다.
+    try:
+        _preflight_resume_cutoff(
+            args.db, run_id=run_id, interval=args.interval,
+            completed_through=completed_through.isoformat())
+    except (ProvenanceError, sqlite3.Error) as exc:
+        print(f"collection resume 거부: {exc}", file=sys.stderr)
+        return 2
+
+    # === 6) 자격증명/API(로컬 provenance 검증을 모두 통과한 뒤에만) ===
     settings = load_settings()
     if not settings.has_credentials:
         print(".env 의 TOSS_CLIENT_ID / TOSS_CLIENT_SECRET 이 비어있습니다.", file=sys.stderr)
@@ -168,24 +256,25 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
     raw_store = RawSnapshotStore(args.raw_snapshot_dir) if args.raw_snapshot_dir else None
     raw_sink = raw_store.emit if raw_store is not None else None
     max_pages = args.max_pages
-
-    with TossMarketDataProvider(settings) as prov, HistoryStore(args.db) as store:
-        report = backfill_symbols(
-            store, prov, symbols, args.interval,
-            max_pages=max_pages, page_size=args.page_size, spacing=args.spacing,
-            max_retries=args.max_retries, backoff_base=args.backoff_base,
-            resume=not args.no_resume, gap_skip_minutes=args.gap_skip_minutes,
-            max_consecutive_empty=args.max_consecutive_empty,
-            session_filter=session_filter, completed_through=completed_through,
-            raw_sink=raw_sink)
+    with HistoryStore(args.db) as store:
+        with TossMarketDataProvider(settings) as prov:
+            report = backfill_symbols(
+                store, prov, symbols, args.interval, run_id=run_id,
+                max_pages=max_pages, page_size=args.page_size, spacing=args.spacing,
+                max_retries=args.max_retries, backoff_base=args.backoff_base,
+                resume=not args.no_resume, gap_skip_minutes=args.gap_skip_minutes,
+                max_consecutive_empty=args.max_consecutive_empty,
+                session_filter=session_filter, completed_through=completed_through,
+                raw_sink=raw_sink)
 
     if args.json:
-        out = report.as_dict()
+        out = report.as_dict()   # run_id 를 이미 포함(이슈 #79)
         out["completed_through"] = completed_through.isoformat()
         print(json.dumps(out, ensure_ascii=False, indent=2))
         return 0
 
     print(f"=== 공식 P0-US30 backfill {args.db}  interval={args.interval} ===")
+    print(f"  collection run_id: {report.run_id}")
     print(f"  완료-거래일 cutoff: {completed_through.isoformat()} "
           f"(scope={scope}, 기준시각 {now_utc.isoformat()})")
     if session_filter is not None:
@@ -195,7 +284,11 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
         print(f"  raw 스냅샷: {raw_store.root}")
     excluded_total = 0
     for r in report.results:
-        depth = f"{r.earliest} ~ {r.latest}" if r.earliest else "(수집 없음)"
+        # ★범위 의미 구분(이슈 #79 Scope B): fetched=provider 도달 범위(제외분 포함),
+        #   accepted=cutoff+세션 통과해 upsert 로 전달된 범위(전량 제외 시 없음).
+        fetched = f"{r.earliest} ~ {r.latest}" if r.earliest else "(fetch 없음)"
+        accepted = (f"{r.accepted_earliest} ~ {r.accepted_latest}"
+                    if r.accepted_earliest else "(accepted 없음 — 전량 cutoff/세션 제외)")
         excluded_total += r.rows_excluded_after_cutoff
         print(f"\n### {r.symbol} [{r.interval}]")
         print(f"  pages={r.pages_fetched} rows_seen={r.rows_seen} stored={r.rows_stored} "
@@ -205,7 +298,8 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
                   f"days={_day_range_str(r)}")
         if r.excluded_by_session:
             print(f"  세션 제외: {dict(sorted(r.excluded_by_session.items()))}")
-        print(f"  깊이(UTC): {depth}")
+        print(f"  fetched 범위(UTC, 제외분 포함): {fetched}")
+        print(f"  accepted 범위(UTC, upsert 전달): {accepted}")
         print(f"  정지사유: {r.stopped_reason}")
         if r.error:
             print(f"  ⚠️ error: {r.error}")

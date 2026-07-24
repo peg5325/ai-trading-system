@@ -24,6 +24,13 @@ from datetime import date, datetime, timezone
 
 import yaml
 
+from src.history.ingest_provenance import (
+    BACKFILL_SOURCE,
+    declared_only_provenance,
+    parse_stopped_reason,
+    verify_collection_provenance,
+)
+
 INTERVAL = "1d"
 
 # manifest_content_sha256 대상(데이터 유도 필드만 — provenance/시각 제외 → 재현 가능).
@@ -146,23 +153,6 @@ def symbol_fingerprint(con: sqlite3.Connection, symbol: str,
     }
 
 
-def _parse_stopped_reason(note: str | None) -> str | None:
-    """ingest_log.note 에서 정지사유를 추출(구조화·bare 노트 양쪽 지원, 이슈 #72).
-
-    완료-거래일 cutoff/세션 필터 경로는 `reason=<enum>; ...` 구조화 노트를 남긴다(reason 은
-    ';' 미포함, error 는 맨 뒤). `reason=` 키가 있으면 그 값을, 없으면(레거시 1d bare 노트)
-    첫 세그먼트를 정지사유로 쓴다. intraday_manifest 의 동일 규율과 정합.
-    """
-    if not note:
-        return None
-    for token in note.split(";"):
-        token = token.strip()
-        if token.startswith("reason="):
-            return token[len("reason="):].strip() or None
-    # 구조화(reason=) 키가 없으면 레거시 bare 노트 → 통째로 유지(error repr 의 ';' 절단 방지).
-    return note.strip() or None
-
-
 def symbol_provenance(con: sqlite3.Connection, symbol: str,
                       interval: str = INTERVAL) -> dict:
     """candle_history + ingest_log + import_conflict + backfill_cursor 에서
@@ -205,7 +195,7 @@ def symbol_provenance(con: sqlite3.Connection, symbol: str,
         "conflict_rows": int(conflict_rows),
         "conflict_stat": int(agg["conf"]),
         "run_id": last["run_id"] if last else None,
-        "stopped_reason": _parse_stopped_reason(last["note"] if last else None),
+        "stopped_reason": parse_stopped_reason(last["note"] if last else None),
         "cursor_exhausted": (bool(cur["exhausted"]) if cur else None),
     }
 
@@ -343,16 +333,26 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
                    collection_code_commit: str | None,
                    generated_at_utc: str | None = None,
                    as_of: str | None = None,
-                   collection_completed_through: str | None = None) -> dict:
+                   collection_completed_through: str | None = None,
+                   collection_run_id: str | None = None) -> dict:
     """P0-30 일봉 manifest 생성(read-only). db_path 는 절대경로여도 basename 만 기록.
 
     as_of(YYYY-MM-DD): 공식 포함 경계. 미지정 시 YAML universe.as_of 를 사용한다.
     거래소-로컬 일자가 as_of 초과인 봉(미완성 진행일)은 공식 지문/판정에서 제외된다.
 
     collection_completed_through(YYYY-MM-DD): 실제 수집 때 적용한 완료-거래일 cutoff(이슈 #72).
-    지정 시 collection provenance 에 부기하고, cutoff 가 as_of 보다 **이르면**((cutoff, as_of]
-    구간이 미수집) fail-closed(raise) — as_of 가 실제 수집보다 먼 커버리지를 OK 로 인증하지 못하게
-    한다(경계 완화 금지 규율과 정합).
+    지정 시 collection provenance 에 부기한다.
+
+    collection_run_id(이슈 #79): 지정 시 **strict provenance 교차검증**을 켠다. ingest_log 에서
+    이 run 의 실제 수집 cutoff 를 읽어(BACKFILL_SOURCE·interval 고정), 유니버스 전 종목·재시도
+    로그가 동일 cutoff 인지, 선언 cutoff·as_of 와 일치하는지 검증한다(불일치/누락/malformed/
+    conflicting 은 ProvenanceError 로 fail-closed). 이때 **검증된 cutoff** 가 권위를 가지며
+    선언값(있으면)은 그와 일치해야 한다 — CLI 인자만 믿던 오선언 경로를 닫는다.
+    미지정이면 기존 declared-only 방어만 유지된다: collection_completed_through 가 as_of 보다
+    이르면 fail-closed(raise). provenance_status 는 DECLARED_UNVERIFIED/NONE 로 정직 표기(VERIFIED 아님).
+
+    반환 manifest 는 `provenance_verification` 블록(실행 provenance)을 담는다. 이 블록은
+    **data_content_sha256 대상이 아니다**(데이터 내용 지문과 실행 provenance 지문을 혼동하지 않음).
 
     generated_at_utc 를 주지 않으면 현재 UTC(테스트는 고정값 주입 가능). 이 필드는
     data_content_sha256 대상이 아니므로 hash 재현성에 영향 없다.
@@ -381,20 +381,31 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
         raise ValueError(
             f"--as-of {as_of} 가 YAML 정본 as_of {yaml_as_of} 보다 늦음 — 거부(경계 완화 금지)")
     as_of = resolved_as_of
-    # ★수집 cutoff ↔ as_of 일관성(이슈 #72): cutoff 가 as_of 보다 이르면 (cutoff, as_of] 미수집
-    #   구간을 as_of 커버리지로 오인증하게 된다 → fail-closed. (cutoff >= as_of 는 허용.)
+    # 선언 cutoff 형식 검증(양 경로 공통). run_id 미지정(declared-only) 경로에서는 이 값이 유일한
+    # 방어라 cutoff<as_of 를 여기서 fail-closed 한다(이슈 #72). run_id 지정 시엔 아래 strict
+    # 교차검증이 검증된 cutoff 로 as_of 경계를 판정하므로 여기서 조기 raise 하지 않는다(이슈 #79).
     if collection_completed_through is not None:
         try:
             date.fromisoformat(collection_completed_through)
         except (ValueError, TypeError):
             raise ValueError(
                 f"collection_completed_through 형식 오류(YYYY-MM-DD): {collection_completed_through!r}")
-        if collection_completed_through < as_of:
+        if collection_run_id is None and collection_completed_through < as_of:
             raise ValueError(
                 f"수집 cutoff {collection_completed_through} 가 as_of {as_of} 보다 이름 — "
                 f"(cutoff, as_of] 구간 미수집으로 OK 인증 불가(fail-closed).")
     con = _connect_ro(db_path)
     try:
+        # ★이슈 #79 strict provenance 교차검증(run_id 지정 시). read-only — DB 무변경.
+        if collection_run_id is not None:
+            prov_verification = verify_collection_provenance(
+                con, run_id=collection_run_id, interval=INTERVAL, source=BACKFILL_SOURCE,
+                symbols=uni["symbols"],
+                declared_completed_through=collection_completed_through, as_of=as_of)
+        else:
+            prov_verification = declared_only_provenance(
+                declared_completed_through=collection_completed_through,
+                interval=INTERVAL, source=BACKFILL_SOURCE)
         entries = [symbol_manifest(con, s, min_years=min_years, as_of=as_of)
                    for s in uni["symbols"]]
     finally:
@@ -427,6 +438,9 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
             "db_basename": os.path.basename(db_path),
             "completed_through": collection_completed_through,
         },
+        # 실행 provenance(이슈 #79) — schema v1 에 **추가된 필드**(하위호환: 기존 키·값 무변경,
+        # data_content_sha256 불변). 데이터 내용 지문과 실행 provenance 지문을 분리한다.
+        "provenance_verification": prov_verification,
         "summary": {
             "symbols_total": len(entries),
             "verdict_counts": by_status,
