@@ -17,6 +17,8 @@ from datetime import datetime, timezone
 import pytest
 
 import scripts.history_backfill_official as off
+from src.history.ingest_provenance import BACKFILL_SOURCE
+from src.history.store import HistoryStore, ImportStats
 
 
 def _utc(iso: str) -> datetime:
@@ -76,6 +78,42 @@ def test_non_us_universe_symbol_rejected(guard_creds):
 def test_unknown_symbol_rejected(guard_creds):
     assert off.main(["--completed-through", "2025-07-15", "--symbols", "QQQ,FAKE"],
                     now_utc=AFTER_CLOSE) == 2
+
+
+def test_blank_run_id_rejected_before_creds_api_db(guard_creds, tmp_path, capsys):
+    code = off.main([
+        "--completed-through", "2025-07-15", "--run-id", "   ",
+        "--raw-snapshot-dir", str(tmp_path / "raw"),
+    ], now_utc=AFTER_CLOSE)
+    assert code == 2
+    assert "EMPTY_RUN_ID" in capsys.readouterr().err
+
+
+def test_resume_different_cutoff_rejected_before_provider(monkeypatch, tmp_path, capsys):
+    dbp = str(tmp_path / "m.sqlite")
+    with HistoryStore(dbp) as store:
+        store.write_ingest_log(
+            "RUN-OLD", source=BACKFILL_SOURCE, stats=ImportStats(source=BACKFILL_SOURCE),
+            rows_seen=0, earliest=None, latest=None,
+            note="reason=nextbefore_null; completed_through=2025-07-14",
+            symbol="QQQ", interval="1m")
+        store.commit()
+
+    class FakeSettings:
+        has_credentials = True
+
+    def provider_must_not_open(*args, **kwargs):
+        raise AssertionError("resume cutoff preflight 전에 provider 접근")
+
+    monkeypatch.setattr(off, "load_settings", lambda: FakeSettings())
+    monkeypatch.setattr(off, "TossMarketDataProvider", provider_must_not_open)
+    monkeypatch.setattr(off, "backfill_symbols", provider_must_not_open)
+    code = off.main([
+        "--completed-through", "2025-07-15", "--run-id", "RUN-OLD",
+        "--db", dbp, "--raw-snapshot-dir", str(tmp_path / "raw"),
+    ], now_utc=AFTER_CLOSE)
+    assert code == 2
+    assert "RESUME_CUTOFF_MISMATCH" in capsys.readouterr().err
 
 
 def test_happy_path_passes_validated_cutoff_and_universe(monkeypatch, tmp_path):

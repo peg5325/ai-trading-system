@@ -16,7 +16,7 @@ from src.history import HistoryStore
 from src.history import daily_manifest as dm
 from src.history.ingest_provenance import parse_ingest_note
 from src.history.session_filter import SessionFilter
-from src.ingest.backfill_history import backfill_symbol, backfill_symbols
+from src.ingest.backfill_history import backfill_symbol, backfill_symbols, resolve_run_id
 from src.models import ET, Candle
 
 YAML = "config/universe_p0_us30.yaml"
@@ -150,6 +150,24 @@ def test_shared_run_id_across_symbols(tmp_path):
     assert {r[0] for r in rows} == set(syms)
     for _sym, _rid, note in rows:
         assert parse_ingest_note(note)["completed_through"] == "2026-07-21"
+
+
+def test_run_id_is_trimmed_and_blank_rejected():
+    assert resolve_run_id("  RUN-TRIM  ", "1m") == "RUN-TRIM"
+    with pytest.raises(ValueError, match="EMPTY_RUN_ID"):
+        resolve_run_id("   ", "1m")
+
+
+def test_backfill_symbols_rejects_blank_run_id_before_provider_access(tmp_path):
+    class ExplodingProvider:
+        def fetch_page(self, *args, **kwargs):
+            raise AssertionError("공백 run_id 거부 전에 provider 접근")
+
+    with HistoryStore(str(tmp_path / "m.sqlite")) as store:
+        with pytest.raises(ValueError, match="EMPTY_RUN_ID"):
+            backfill_symbols(
+                store, ExplodingProvider(), ["QQQ"], "1m", max_pages=1,
+                run_id="   ", sleep=_no_sleep)
 
 
 # ==========================================================================

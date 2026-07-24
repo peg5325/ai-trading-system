@@ -232,11 +232,12 @@ coverage 범위가 필요하면 `HistoryStore.symbol_coverage()`(read-only 집�
 - backfill report 의 `earliest/latest` 는 **fetch 도달 범위**임을 명확화하고 **accepted 범위**를
   별도 노출(§7.3).
 
-**후속(#79 독립 리뷰 — 비차단, 별도 개선)**
-- (architect 권고) 공식 CLI 가 **resume 시점**에 `--run-id` 로 기존 ingest_log 를 읽어
-  `--completed-through` 가 다르면 즉시 거부(fast fail)하는 collection-time 가드. 현재 conflicting
-  cutoff 는 manifest 검증 시점(§7.2 `CONFLICTING_CUTOFF`)에만 잡혀 정확성엔 문제없지만, 잘못된
-  resume 을 한 세션 낭비 후에야 발견한다 — 운영 편의 개선(정확성 필수 아님). 실 bulk 전 선택 반영.
+**반영됨(#79 재검수 hardening)**
+- 공식 CLI 는 명시 `--run-id` 를 strip·비공백 검증하고, **resume 시점**에 기존 ingest_log 를
+  provider/API 호출 전에 읽어 `--completed-through` 가 다르면 즉시 거부(fast fail)한다.
+  manifest 검증도 대상 유니버스뿐 아니라 동일 run_id·interval·source 의 **전체 로그**에서 cutoff
+  일관성을 요구한다. 따라서 공백 identity·잘못된 cutoff resume·유니버스 밖 오염 로그가 장시간
+  수집 뒤에야 발견되는 경로를 사전에 닫는다.
 
 **진행 순서(리뷰 합의)**: PR #80 머지 → **#79 구현·머지**(§7) → 실 30종목×3년 1m bulk. #79 머지가
 bulk 실행 승인 자체를 의미하지 않는다.

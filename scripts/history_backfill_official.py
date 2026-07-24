@@ -31,8 +31,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sqlite3
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -46,12 +48,39 @@ from src.history.completed_session import (  # noqa: E402
     validate_completed_through,
 )
 from src.history.daily_manifest import read_p0_universe  # noqa: E402
+from src.history.ingest_provenance import (  # noqa: E402
+    BACKFILL_SOURCE,
+    ProvenanceError,
+    verify_resume_cutoff,
+)
 from src.history.raw_snapshot import RawSnapshotStore  # noqa: E402
 from src.history.session_filter import SessionFilter  # noqa: E402
-from src.ingest.backfill_history import backfill_symbols, new_run_id  # noqa: E402
+from src.ingest.backfill_history import backfill_symbols, resolve_run_id  # noqa: E402
 from src.providers.toss_market_data import TossMarketDataProvider  # noqa: E402
 
 DEFAULT_YAML = "config/universe_p0_us30.yaml"
+
+
+def _preflight_resume_cutoff(
+    db_path: str, *, run_id: str, interval: str, completed_through: str,
+) -> str | None:
+    """기존 DB가 있을 때 collection resume provenance 를 read-only 검사한다."""
+    path = Path(db_path)
+    if not path.exists():
+        return None
+    con = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)
+    con.row_factory = sqlite3.Row
+    try:
+        has_log = con.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ingest_log'"
+        ).fetchone()
+        if not has_log:
+            return None
+        return verify_resume_cutoff(
+            con, run_id=run_id, interval=interval, source=BACKFILL_SOURCE,
+            completed_through=completed_through)
+    finally:
+        con.close()
 
 
 def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
@@ -163,7 +192,28 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
             print(f"⚠️  --max-consecutive-empty={args.max_consecutive_empty} < 권장 {recommended}"
                   f"(gap_skip={args.gap_skip_minutes}m) — 장기 휴장 조기 종료 위험.", file=sys.stderr)
 
-    # === 6) 자격증명(검증을 모두 통과한 뒤에만) ===
+    # ★collection run_id(이슈 #79): API/DB 접근 **전에** 확정·출력한다 — 실행이 중단돼도 운영자가
+    #   같은 run_id 로 resume(--run-id) 하고 manifest 교차검증에 넘길 수 있게 한다.
+    try:
+        run_id = resolve_run_id(args.run_id, args.interval)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    print(f"collection run_id: {run_id} "
+          f"(resume 시 --run-id {run_id} · manifest 검증 시 --collection-run-id {run_id})",
+          file=sys.stderr)
+
+    # 기존 run_id resume 는 provider/API/쓰기 DB 접근 전에 ingest_log 의 cutoff 를 read-only 대조한다.
+    # 다른 cutoff/레거시/오염 로그를 같은 collection identity 에 추가해 장시간 수집을 무효화하지 않는다.
+    try:
+        _preflight_resume_cutoff(
+            args.db, run_id=run_id, interval=args.interval,
+            completed_through=completed_through.isoformat())
+    except (ProvenanceError, sqlite3.Error) as exc:
+        print(f"collection resume 거부: {exc}", file=sys.stderr)
+        return 2
+
+    # === 6) 자격증명/API(로컬 provenance 검증을 모두 통과한 뒤에만) ===
     settings = load_settings()
     if not settings.has_credentials:
         print(".env 의 TOSS_CLIENT_ID / TOSS_CLIENT_SECRET 이 비어있습니다.", file=sys.stderr)
@@ -172,23 +222,16 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
     raw_store = RawSnapshotStore(args.raw_snapshot_dir) if args.raw_snapshot_dir else None
     raw_sink = raw_store.emit if raw_store is not None else None
     max_pages = args.max_pages
-
-    # ★collection run_id(이슈 #79): API/DB 접근 **전에** 확정·출력한다 — 실행이 중단돼도 운영자가
-    #   같은 run_id 로 resume(--run-id) 하고 manifest 교차검증에 넘길 수 있게 한다.
-    run_id = args.run_id or new_run_id(args.interval)
-    print(f"collection run_id: {run_id} "
-          f"(resume 시 --run-id {run_id} · manifest 검증 시 --collection-run-id {run_id})",
-          file=sys.stderr)
-
-    with TossMarketDataProvider(settings) as prov, HistoryStore(args.db) as store:
-        report = backfill_symbols(
-            store, prov, symbols, args.interval, run_id=run_id,
-            max_pages=max_pages, page_size=args.page_size, spacing=args.spacing,
-            max_retries=args.max_retries, backoff_base=args.backoff_base,
-            resume=not args.no_resume, gap_skip_minutes=args.gap_skip_minutes,
-            max_consecutive_empty=args.max_consecutive_empty,
-            session_filter=session_filter, completed_through=completed_through,
-            raw_sink=raw_sink)
+    with HistoryStore(args.db) as store:
+        with TossMarketDataProvider(settings) as prov:
+            report = backfill_symbols(
+                store, prov, symbols, args.interval, run_id=run_id,
+                max_pages=max_pages, page_size=args.page_size, spacing=args.spacing,
+                max_retries=args.max_retries, backoff_base=args.backoff_base,
+                resume=not args.no_resume, gap_skip_minutes=args.gap_skip_minutes,
+                max_consecutive_empty=args.max_consecutive_empty,
+                session_filter=session_filter, completed_through=completed_through,
+                raw_sink=raw_sink)
 
     if args.json:
         out = report.as_dict()   # run_id 를 이미 포함(이슈 #79)

@@ -38,6 +38,21 @@ def new_run_id(interval: str) -> str:
     return f"backfill-{interval}-{datetime.now(timezone.utc).isoformat()}"
 
 
+def resolve_run_id(run_id: str | None, interval: str) -> str:
+    """명시 run_id 를 정규화하거나 새 collection identity 를 만든다.
+
+    공백 run_id 로 수집하면 ingest_log 에는 기록되지만 strict manifest 검증은
+    `EMPTY_RUN_ID` 로 영구 거부한다. 수집과 검증의 계약을 대칭으로 맞추기 위해
+    외부 접근 전에 strip 하고 빈 값은 fail-closed 한다.
+    """
+    if run_id is None:
+        return new_run_id(interval)
+    normalized = run_id.strip()
+    if not normalized:
+        raise ValueError("EMPTY_RUN_ID: collection run_id 는 비공백 문자열이어야 한다.")
+    return normalized
+
+
 # 하위호환 alias(기존 내부 호출부 유지).
 _new_run_id = new_run_id
 
@@ -284,7 +299,7 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
 
     gap_skip_minutes = 0(기본)이면 기존 동작(빈 페이지/nextBefore=null → exhausted) 유지.
     """
-    run_id = run_id or _new_run_id(interval)
+    run_id = resolve_run_id(run_id, interval)
     stats = ImportStats(source=BACKFILL_SOURCE)
     result = SymbolBackfillResult(symbol=symbol, interval=interval)
     if session_filter is not None:
@@ -465,7 +480,7 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
     run_id(이슈 #79): 한 호출의 모든 종목이 공유하는 collection run_id. 지정하지 않으면 새로
     생성하고 report.run_id 로 노출한다(공식 CLI 는 API 접근 전에 미리 생성·출력해 전달한다).
     resume 시 같은 run_id 를 다시 지정하면 ingest_log 가 하나의 collection 으로 이어진다."""
-    run_id = run_id or new_run_id(interval)
+    run_id = resolve_run_id(run_id, interval)
     report = BackfillReport(interval=interval, run_id=run_id)
     last = len(symbols) - 1
     for i, sym in enumerate(symbols):

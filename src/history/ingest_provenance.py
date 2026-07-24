@@ -110,6 +110,68 @@ def _date_or_none(text: str | None) -> date | None:
         return None
 
 
+def _verified_cutoff_from_rows(rows: list[sqlite3.Row], *, run_id: str) -> str:
+    """같은 run_id 로 조회된 **모든 로그**의 cutoff 를 하나로 검증한다."""
+    cutoffs: set[str] = set()
+    missing_prov: list[str] = []
+    malformed: dict[str, list[str]] = {}
+    for row in rows:
+        symbol = row["symbol"] or "<none>"
+        parsed = parse_ingest_note(row["note"])
+        ct = parsed["completed_through"]
+        if ct is None:
+            missing_prov.append(symbol)
+        elif _date_or_none(ct) is None:
+            malformed.setdefault(symbol, []).append(ct)
+        else:
+            cutoffs.add(ct)
+    if missing_prov:
+        raise ProvenanceError(
+            f"INCONCLUSIVE_PROVENANCE: run_id={run_id!r} 로그에 completed_through provenance 없음"
+            f"(레거시/비-cutoff 수집) — 종목 {sorted(set(missing_prov))} — 추측 승격 금지(fail-closed).")
+    if malformed:
+        raise ProvenanceError(
+            f"MALFORMED_COMPLETED_THROUGH: run_id={run_id!r} completed_through 형식 오류"
+            f"(YYYY-MM-DD 필요): {malformed} (fail-closed).")
+    if not cutoffs:
+        raise ProvenanceError(
+            f"NO_VERIFIED_CUTOFF: run_id={run_id!r} 에서 검증 가능한 completed_through 없음(fail-closed).")
+    if len(cutoffs) > 1:
+        raise ProvenanceError(
+            f"CONFLICTING_CUTOFF: run_id={run_id!r} 내 completed_through 불일치: "
+            f"{sorted(cutoffs)} — resume/retry 는 동일 cutoff 여야 한다(fail-closed).")
+    return cutoffs.pop()
+
+
+def verify_resume_cutoff(
+    con: sqlite3.Connection, *, run_id: str, interval: str, source: str,
+    completed_through: str,
+) -> str | None:
+    """기존 collection run 을 resume 하기 전에 cutoff 일관성을 read-only 확인한다.
+
+    해당 run 로그가 없으면 새 collection 이므로 ``None``을 반환한다. 로그가 있으면
+    run 전체(유니버스 밖 로그 포함)의 provenance 를 검증하고 선언 cutoff 와 다를 때
+    provider 호출 전에 fail-closed 한다.
+    """
+    if not run_id or not run_id.strip():
+        raise ProvenanceError(
+            "EMPTY_RUN_ID: collection run_id 가 비어 있음 — 유효한 run_id 를 지정하라(fail-closed).")
+    rows = con.execute(
+        "SELECT symbol, note FROM ingest_log "
+        "WHERE run_id=? AND interval=? AND source=? ORDER BY symbol, rowid",
+        (run_id, interval, source),
+    ).fetchall()
+    if not rows:
+        return None
+    verified = _verified_cutoff_from_rows(rows, run_id=run_id)
+    if verified != completed_through:
+        raise ProvenanceError(
+            f"RESUME_CUTOFF_MISMATCH: 기존 run cutoff {verified} != 요청 cutoff "
+            f"{completed_through} (run_id={run_id!r}) — 새 run_id 를 쓰거나 동일 cutoff 로 resume 하라"
+            "(fail-closed).")
+    return verified
+
+
 def verify_collection_provenance(
     con: sqlite3.Connection, *, run_id: str, interval: str, source: str,
     symbols: list[str], declared_completed_through: str | None, as_of: str,
@@ -151,35 +213,9 @@ def verify_collection_provenance(
             f"MISSING_SYMBOLS: run_id={run_id!r} interval={interval} 에 대상 종목 로그 없음: "
             f"{missing} — 다른 run 로그로 보충 금지(fail-closed).")
 
-    cutoffs: set[str] = set()
-    missing_prov: list[str] = []
-    malformed: dict[str, list[str]] = {}
-    for s in universe:
-        for note in by_symbol[s]:
-            parsed = parse_ingest_note(note)
-            ct = parsed["completed_through"]
-            if ct is None:
-                missing_prov.append(s)
-            elif _date_or_none(ct) is None:
-                malformed.setdefault(s, []).append(ct)
-            else:
-                cutoffs.add(ct)
-    if missing_prov:
-        raise ProvenanceError(
-            f"INCONCLUSIVE_PROVENANCE: run_id={run_id!r} 로그에 completed_through provenance 없음"
-            f"(레거시/비-cutoff 수집) — 종목 {sorted(set(missing_prov))} — 추측 승격 금지(fail-closed).")
-    if malformed:
-        raise ProvenanceError(
-            f"MALFORMED_COMPLETED_THROUGH: run_id={run_id!r} completed_through 형식 오류"
-            f"(YYYY-MM-DD 필요): {malformed} (fail-closed).")
-    if not cutoffs:  # 방어적: 위 게이트를 통과하면 도달 불가(전 종목 ≥1 유효 로그).
-        raise ProvenanceError(
-            f"NO_VERIFIED_CUTOFF: run_id={run_id!r} 에서 검증 가능한 completed_through 없음(fail-closed).")
-    if len(cutoffs) > 1:
-        raise ProvenanceError(
-            f"CONFLICTING_CUTOFF: run_id={run_id!r} 내 completed_through 불일치: "
-            f"{sorted(cutoffs)} — resume/retry 는 동일 cutoff 여야 한다(fail-closed).")
-    verified = cutoffs.pop()
+    # run_id 는 collection identity 다. 대상 유니버스 밖 행도 같은 run 에 섞였다면
+    # 그 provenance 를 무시하지 않고 전체 로그의 cutoff 일관성을 요구한다.
+    verified = _verified_cutoff_from_rows(rows, run_id=run_id)
 
     if declared_completed_through is not None and declared_completed_through != verified:
         raise ProvenanceError(

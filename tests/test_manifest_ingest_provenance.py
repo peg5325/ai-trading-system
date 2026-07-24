@@ -25,6 +25,7 @@ from src.history.ingest_provenance import (
     ProvenanceError,
     parse_ingest_note,
     parse_stopped_reason,
+    verify_resume_cutoff,
 )
 from src.history.store import HistoryStore, ImportStats
 from src.ingest.backfill_history import BACKFILL_SOURCE as BF_SOURCE
@@ -213,6 +214,41 @@ def test_conflicting_cutoff_in_same_run_fails_closed(tmp_path, mod, interval):
         _build(mod, dbp, as_of="2026-07-17", collection_run_id="RUN-A")
 
 
+@pytest.mark.parametrize("mod,interval", MODS, ids=IDS)
+def test_conflicting_cutoff_on_unexpected_symbol_fails_closed(tmp_path, mod, interval):
+    """collection identity 는 run 전체다 — 유니버스 밖 오염 로그도 무시하지 않는다."""
+    dbp = _empty_db(tmp_path)
+    _seed_run(dbp, "RUN-A", interval, cutoff="2026-07-21")
+    with HistoryStore(dbp) as store:
+        _write_log(store, "RUN-A", "UNEXPECTED", interval, _note("2026-07-20"))
+        store.commit()
+    with pytest.raises(ProvenanceError, match="CONFLICTING_CUTOFF"):
+        _build(mod, dbp, as_of="2026-07-17", collection_run_id="RUN-A")
+
+
+def test_resume_preflight_new_and_matching_run(tmp_path):
+    dbp = _empty_db(tmp_path)
+    with HistoryStore(dbp) as store:
+        assert verify_resume_cutoff(
+            store._con, run_id="NEW", interval="1m", source=BACKFILL_SOURCE,
+            completed_through="2026-07-21") is None
+    _seed_run(dbp, "RUN-A", "1m", cutoff="2026-07-21", symbols=["QQQ"])
+    with HistoryStore(dbp) as store:
+        assert verify_resume_cutoff(
+            store._con, run_id="RUN-A", interval="1m", source=BACKFILL_SOURCE,
+            completed_through="2026-07-21") == "2026-07-21"
+
+
+def test_resume_preflight_rejects_different_cutoff(tmp_path):
+    dbp = _empty_db(tmp_path)
+    _seed_run(dbp, "RUN-A", "1m", cutoff="2026-07-20", symbols=["QQQ"])
+    with HistoryStore(dbp) as store:
+        with pytest.raises(ProvenanceError, match="RESUME_CUTOFF_MISMATCH"):
+            verify_resume_cutoff(
+                store._con, run_id="RUN-A", interval="1m", source=BACKFILL_SOURCE,
+                completed_through="2026-07-21")
+
+
 # ==========================================================================
 # test #7: 대상 symbol 하나의 로그 누락 → fail-closed
 # ==========================================================================
@@ -388,7 +424,7 @@ def test_error_message_has_no_abs_path_or_secret(tmp_path):
 # test #18: 자본 경로 격리(정적 AST) — 신규/변경 모듈이 자본 경로를 import 하지 않음
 # ==========================================================================
 FORBIDDEN_PREFIXES = (
-    "src.live", "src.order", "src.broker", "src.risk", "src.runtime",
+    "src.ai", "src.live", "src.order", "src.broker", "src.risk", "src.runtime",
     "src.pipeline", "src.strategy", "src.engines", "src.exits", "src.pnl",
     "src.portfolio", "src.reconcile", "src.journal",
 )
