@@ -43,12 +43,14 @@ class ProvenanceError(ValueError):
 
 
 def parse_ingest_note(note: str | None) -> dict:
-    """`_ingest_note` 구조화 note 를 엄격 파싱한다. 알 수 없는 키/형식은 조용히 통과시키지 않는다.
+    """`_ingest_note` 의 검증 대상 known field 를 구조적으로 파싱한다.
 
     note 문법(`backfill_history._ingest_note`): "; " 로 조인된 `key=value` 토큰.
       reason=<enum>; [sessions_allowed=..; all_sessions=..; excluded={..}; stored=..];
       [completed_through=YYYY-MM-DD; excluded_after_cutoff=N; cutoff_excluded_days=..];
       [error=<repr>]
+    forward-compatible parser 이므로 검증에 쓰지 않는 unknown/malformed 토큰(`excluded={...}` 포함)은
+    무시한다. cutoff 검증에 필요한 `completed_through` 의 누락·형식 오류는 호출측이 fail-closed 한다.
     error= 는 repr 이라 ';'/'=' 를 포함할 수 있어 **가장 먼저 맨 뒤에서 분리**한다.
     `structured` 는 구조화 키(또는 error=)가 하나라도 있으면 True(레거시 bare note 구별용).
     """

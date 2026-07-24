@@ -110,6 +110,16 @@ def test_parse_ingest_note_legacy_bare_has_no_completed_through():
     assert p["structured"] is False
 
 
+def test_parse_ingest_note_ignores_unknown_tokens_for_forward_compatibility():
+    p = parse_ingest_note(
+        "reason=nextbefore_null; excluded={'OVERNIGHT': 3}; future_key=value; "
+        "malformed-token; completed_through=2026-07-21")
+    assert p["reason"] == "nextbefore_null"
+    assert p["completed_through"] == "2026-07-21"
+    assert "future_key" not in p and "excluded" not in p
+    assert p["structured"] is True
+
+
 def test_parse_stopped_reason_matches_legacy_behavior():
     assert parse_stopped_reason("reason=max_pages; completed_through=2026-07-21") == "max_pages"
     assert parse_stopped_reason("no_progress") == "no_progress"       # bare 통째

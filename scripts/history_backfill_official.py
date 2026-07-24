@@ -76,6 +76,29 @@ def _preflight_resume_cutoff(
         ).fetchone()
         if not has_log:
             return None
+        columns = {row["name"] for row in con.execute("PRAGMA table_info(ingest_log)")}
+        missing = sorted({"symbol", "interval"} - columns)
+        if missing:
+            # HistoryStore 는 write-open 시 이 두 컬럼을 멱등 migration 한다. 다만 그보다 먼저
+            # 실행되는 read-only preflight 에서는 기존 legacy run 을 신뢰 있게 귀속할 수 없다.
+            # 새 run_id 면 migration 뒤 수집 가능하지만, 기존 run resume 은 명시적으로 거부한다.
+            if "interval" in columns:
+                existing_run = con.execute(
+                    "SELECT 1 FROM ingest_log "
+                    "WHERE run_id=? AND source=? AND interval=? LIMIT 1",
+                    (run_id, BACKFILL_SOURCE, interval),
+                ).fetchone()
+            else:
+                existing_run = con.execute(
+                    "SELECT 1 FROM ingest_log WHERE run_id=? AND source=? LIMIT 1",
+                    (run_id, BACKFILL_SOURCE),
+                ).fetchone()
+            if existing_run:
+                raise ProvenanceError(
+                    "LEGACY_INGEST_SCHEMA: 기존 run provenance 를 검증할 필수 컬럼 없음"
+                    f"({','.join(missing)}) — HistoryStore schema migration 후 새 run_id 로 수집하라"
+                    "(fail-closed).")
+            return None
         return verify_resume_cutoff(
             con, run_id=run_id, interval=interval, source=BACKFILL_SOURCE,
             completed_through=completed_through)

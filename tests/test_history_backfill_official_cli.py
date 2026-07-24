@@ -12,6 +12,7 @@ load_settings 를 '접근 시 실패'로 몽키패치해 창구 전 fail-closed 
 """
 from __future__ import annotations
 
+import sqlite3
 from datetime import datetime, timezone
 
 import pytest
@@ -114,6 +115,44 @@ def test_resume_different_cutoff_rejected_before_provider(monkeypatch, tmp_path,
     ], now_utc=AFTER_CLOSE)
     assert code == 2
     assert "RESUME_CUTOFF_MISMATCH" in capsys.readouterr().err
+
+
+def _create_legacy_ingest_db(dbp, *, run_id=None):
+    con = sqlite3.connect(dbp)
+    con.execute(
+        "CREATE TABLE ingest_log ("
+        "run_id TEXT NOT NULL, ts TEXT NOT NULL, source TEXT NOT NULL, "
+        "rows_seen INTEGER NOT NULL, rows_inserted INTEGER NOT NULL, "
+        "rows_updated INTEGER NOT NULL, rows_duplicate INTEGER NOT NULL, "
+        "rows_conflict INTEGER NOT NULL, earliest TEXT, latest TEXT, note TEXT)")
+    if run_id is not None:
+        con.execute(
+            "INSERT INTO ingest_log VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (run_id, "2026-07-24T00:00:00Z", BACKFILL_SOURCE,
+             0, 0, 0, 0, 0, None, None,
+             "reason=nextbefore_null; completed_through=2025-07-15"))
+    con.commit()
+    con.close()
+
+
+def test_legacy_schema_new_run_allows_history_store_migration(tmp_path):
+    dbp = str(tmp_path / "legacy.sqlite")
+    _create_legacy_ingest_db(dbp)
+    assert off._preflight_resume_cutoff(
+        dbp, run_id="NEW-RUN", interval="1m",
+        completed_through="2025-07-15") is None
+    with HistoryStore(dbp) as store:
+        columns = {row[1] for row in store._con.execute("PRAGMA table_info(ingest_log)")}
+    assert {"symbol", "interval"} <= columns
+
+
+def test_legacy_schema_existing_run_rejected_explicitly(tmp_path):
+    dbp = str(tmp_path / "legacy.sqlite")
+    _create_legacy_ingest_db(dbp, run_id="LEGACY-RUN")
+    with pytest.raises(off.ProvenanceError, match="LEGACY_INGEST_SCHEMA"):
+        off._preflight_resume_cutoff(
+            dbp, run_id="LEGACY-RUN", interval="1m",
+            completed_through="2025-07-15")
 
 
 def test_happy_path_passes_validated_cutoff_and_universe(monkeypatch, tmp_path):
