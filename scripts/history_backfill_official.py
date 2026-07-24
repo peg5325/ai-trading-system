@@ -99,6 +99,17 @@ def _preflight_resume_cutoff(
                     f"({','.join(missing)}) — HistoryStore schema migration 후 새 run_id 로 수집하라"
                     "(fail-closed).")
             return None
+        legacy_attribution = con.execute(
+            "SELECT 1 FROM ingest_log "
+            "WHERE run_id=? AND source=? "
+            "AND (NULLIF(TRIM(symbol), '') IS NULL "
+            "OR NULLIF(TRIM(interval), '') IS NULL) LIMIT 1",
+            (run_id, BACKFILL_SOURCE),
+        ).fetchone()
+        if legacy_attribution:
+            raise ProvenanceError(
+                "LEGACY_INGEST_SCHEMA: 기존 run provenance 의 symbol/interval 귀속값 없음"
+                " — 새 run_id 로 수집하라(fail-closed).")
         return verify_resume_cutoff(
             con, run_id=run_id, interval=interval, source=BACKFILL_SOURCE,
             completed_through=completed_through)

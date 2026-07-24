@@ -155,6 +155,23 @@ def test_legacy_schema_existing_run_rejected_explicitly(tmp_path):
             completed_through="2025-07-15")
 
 
+def test_migrated_legacy_run_with_null_attribution_rejected(tmp_path):
+    dbp = str(tmp_path / "legacy.sqlite")
+    _create_legacy_ingest_db(dbp, run_id="LEGACY-MIGRATED")
+    with HistoryStore(dbp):
+        pass
+    with sqlite3.connect(dbp) as con:
+        row = con.execute(
+            "SELECT symbol, interval FROM ingest_log WHERE run_id=?",
+            ("LEGACY-MIGRATED",),
+        ).fetchone()
+    assert row == (None, None)
+    with pytest.raises(off.ProvenanceError, match="LEGACY_INGEST_SCHEMA"):
+        off._preflight_resume_cutoff(
+            dbp, run_id="LEGACY-MIGRATED", interval="1m",
+            completed_through="2025-07-15")
+
+
 def test_happy_path_passes_validated_cutoff_and_universe(monkeypatch, tmp_path):
     """검증 통과 시: 유니버스 기본 심볼·검증된 cutoff(date)·1m 세션필터가 backfill 로 전달."""
     from datetime import date as _date
