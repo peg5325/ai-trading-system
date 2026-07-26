@@ -169,6 +169,97 @@ def test_input_order_invariance_reverse_and_shuffle():
     assert ser(live_bars(list(reversed(c)), "SPY")) == ser(live_bars(c, "SPY"))
 
 
+def test_adapter_dedup_matches_core_on_conflicting_duplicates():
+    """**어댑터**(프레임) 경로의 dedup 도 순서 무관 최대 튜플이다.
+
+    `candles_to_frame` 이 core 보다 **먼저** 중복을 지우므로, 실제로 tie-break 를 결정하는
+    것은 어댑터 쪽 규칙이다. core 만 검증하면 라이브가 조용히 다른 봉을 쓸 수 있다
+    (mutation review: `keep="last"`/`keep="first"` 로 바꿔도 기존 테스트는 전부 통과했다).
+    """
+    base = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 6)
+    lo = base[1]
+    hi = Candle(**{**lo.__dict__, "high": lo.high + 50})
+    fwd = base[:1] + [lo, hi] + base[2:]
+    rev = base[:1] + [hi, lo] + base[2:]
+    expect = ser(resample_1m_to_5m(fwd, closed_only=True))
+    assert ser(live_bars(fwd, "SPY")) == expect
+    assert ser(live_bars(rev, "SPY")) == expect
+    assert live_bars(fwd, "SPY")[0].high == hi.high
+
+
+def test_adapter_inherits_adjusted_false():
+    """`adjusted` 는 상속한다 — 하드코딩 True 로 되돌리면 실패한다."""
+    c = [Candle(**{**x.__dict__, "adjusted": False})
+         for x in mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 6)]
+    live = live_bars(c, "SPY")
+    assert [b.adjusted for b in live] == [False]
+    assert ser(live) == ser(resample_1m_to_5m(c, closed_only=True))
+
+
+def test_adapter_inherits_session_column_over_reclassifying():
+    """프레임의 session 을 **상속**한다 — 재분류하면 원본과 달라진다.
+
+    (원천이 09:30 을 PRE 로 라벨한 비정상 데이터를 어댑터가 조용히 REGULAR 로 고쳐 쓰면
+    core 와 갈라진다.)
+    """
+    c = [Candle(**{**x.__dict__, "session": "PRE"})
+         for x in mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 6)]
+    live = live_bars(c, "SPY")
+    assert [b.session for b in live] == ["PRE"]           # classify 였다면 REGULAR
+    assert ser(live) == ser(resample_1m_to_5m(c, closed_only=True))
+
+
+def test_adapter_rejects_same_ts_multiple_buckets_instead_of_dropping():
+    """프레임이 표현할 수 없는 입력은 **조용히 버리지 않고** fail-closed(독립 리뷰 HIGH)."""
+    c = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 6)
+    mixed = c[:1] + [Candle(**{**c[1].__dict__, "session": "PRE"})] + c[2:]
+    core = resample_1m(mixed, 5, closed_only=True)
+    assert len(core) == 2 and len({b.ts_utc for b in core}) == 1   # core 는 둘 다 낸다
+    with pytest.raises(ValueError, match="복수 버킷"):
+        resample(candles_to_frame(mixed), "5min")
+
+
+def test_adapter_rejects_timezone_naive_frames():
+    """tz-naive 프레임은 **머신 TZ 로 추측하지 않고** 거부한다(독립 리뷰 MEDIUM)."""
+    c = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 6)
+    df = candles_to_frame(c).drop(columns=["ts_exchange", "session", "market"])
+    naive = df.tz_localize(None)
+    with pytest.raises(ValueError, match="naive"):
+        resample(naive, "5min", drop_partial=False)
+    with pytest.raises(ValueError, match="naive"):
+        frame_to_candles(naive, "SPY")
+
+
+def test_adapter_ts_exchange_is_plain_datetime_like_core():
+    """어댑터가 pd.Timestamp 를 흘리지 않는다(경로별 타입 동일)."""
+    import pandas as _pd
+    c = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 6)
+    live = live_bars(c, "SPY")
+    assert not isinstance(live[0].ts_exchange, _pd.Timestamp)
+    assert not isinstance(live[0].ts_utc, _pd.Timestamp)
+    assert type(live[0].ts_exchange) is type(
+        resample_1m_to_5m(c, closed_only=True)[0].ts_exchange)
+
+
+def test_adapter_forwards_evaluation_time_to_core():
+    """어댑터의 `evaluation_time` 이 core 로 전달된다(무시되면 봉 수가 다르다)."""
+    c = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 5)   # 09:30..09:34
+    assert len(resample(candles_to_frame(c), "5min")) == 0
+    at = datetime(2026, 3, 3, 9, 35, tzinfo=ET)
+    df = resample(candles_to_frame(c), "5min", evaluation_time=at)
+    assert len(df) == 1
+    assert ser(frame_to_candles(df, "SPY")) == \
+        ser(resample_1m_to_5m(c, closed_only=True, evaluation_time=at))
+
+
+def test_adapter_default_interval_label_is_canonical():
+    c = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 6)
+    assert [b.interval for b in live_bars(c, "SPY")] == ["5m"]
+    assert [b.interval for b in live_bars(c, "SPY", rule="15min")] == []   # 미완
+    long = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 16)
+    assert [b.interval for b in live_bars(long, "SPY", rule="15min")] == ["15m"]
+
+
 def test_frontier_uses_deduped_max_ts_only():
     """중복 입력이 frontier 를 앞당기지 못한다(중복은 새 시간 증거가 아니다)."""
     c = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 5)    # 09:30..09:34

@@ -272,6 +272,14 @@ def opening_range(candles: list[Candle], *, minutes: int = 15, market: str = "US
         # 첫 분이 결측이어도 라벨은 개장 시각이다(`_resample_1m` 의 그리드 시작 규칙과 동일).
         window_start_ex = first.ts_exchange.replace(hour=lo // 60, minute=lo % 60,
                                                     second=0, microsecond=0)
+        # 방어: 개장 시각이 DST **전환 구간**에 걸리면 `replace` 가 조용히 전환 전 오프셋으로
+        # 해석한다(존재하지 않는 로컬 시각). US 09:30·KR 09:00 은 해당 없지만, 나중에 개장이
+        # 전환에 가까운 시장이 추가되면 라벨이 한 시간 어긋난 채 통과한다 — 크게 실패시킨다.
+        if window_start_ex.utcoffset() != first.ts_exchange.utcoffset():
+            raise RuntimeError(
+                f"opening range 창 시작이 DST 전환 구간에 걸린다"
+                f"(개장 offset {window_start_ex.utcoffset()} != 봉 offset "
+                f"{first.ts_exchange.utcoffset()}) — 라벨을 추측하지 않는다.")
         window_start_utc = window_start_ex.astimezone(timezone.utc)
         if closed_only:
             # 창 종료 = 시작 + minutes 를 UTC 산술로 — 끝났다는 증거가 없으면 방출 안 함.

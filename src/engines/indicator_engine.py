@@ -99,12 +99,30 @@ def _row_market(row, currency: str) -> str:
     return market_from_currency(currency)
 
 
+def _as_aware_datetime(value, *, field: str) -> datetime:
+    """tz-aware `datetime` 으로 정규화. naive 는 **fail-closed**(독립 리뷰 MEDIUM).
+
+    naive datetime 을 `astimezone` 하면 **실행 머신의 TZ** 로 해석돼 같은 입력이 기계마다
+    다른 세션 라벨을 낸다(TZ=UTC→PRE / Asia/Seoul→POST / America/New_York→REGULAR).
+    `src/history/loader.py` 가 같은 이유로 naive 를 거부한다. 결정론 계약(모듈 docstring)을
+    지키려면 여기서도 조용히 추측하지 않는다.
+
+    `pd.Timestamp` 는 `datetime` 하위형이라 그대로 두면 core(순수 datetime)와 **타입이
+    갈린다** — 값은 같아도 경로별 산출물이 달라지므로 `to_pydatetime()` 으로 통일한다.
+    """
+    if value.tzinfo is None:
+        raise ValueError(
+            f"{field} 가 timezone-naive 다 — 실행 환경 TZ 로 해석되면 세션/거래일이 "
+            f"기계마다 달라진다(결정론 위배). tz-aware 로 넘길 것.")
+    if isinstance(value, pd.Timestamp):
+        return value.to_pydatetime()
+    return value
+
+
 def _row_ts_exchange(row, ts, market: str) -> datetime:
     tsx = row.get("ts_exchange")
-    if isinstance(tsx, datetime) and tsx.tzinfo is not None:
-        return tsx
-    if isinstance(tsx, pd.Timestamp) and tsx.tzinfo is not None:
-        return tsx.to_pydatetime()
+    if isinstance(tsx, datetime):          # pd.Timestamp 포함(하위형)
+        return _as_aware_datetime(tsx, field="ts_exchange")
     return ts.astimezone(exchange_tz(market))
 
 
@@ -120,7 +138,7 @@ def frame_to_candles(df: pd.DataFrame, symbol: str, *,
     if df is None or df.empty:
         return out
     for ts, row in df.iterrows():
-        ts_utc = ts.to_pydatetime() if isinstance(ts, pd.Timestamp) else ts
+        ts_utc = _as_aware_datetime(ts, field="ts_utc(index)")
         currency = row.get("currency") or "USD"
         market = _row_market(row, currency)
         ts_exchange = _row_ts_exchange(row, ts_utc, market)
@@ -174,6 +192,15 @@ def resample(df: pd.DataFrame, rule: str = "5min", drop_partial: bool = True, *,
                        evaluation_time=evaluation_time)
     if not bars:
         return _empty_frame(_FRAME_COLUMNS)
+    # ★ 프레임 인덱스는 ts_utc 하나뿐이라 **같은 ts 의 두 버킷을 표현할 수 없다**.
+    # core 는 session 을 버킷 키에 넣으므로(세션 혼재 입력) 같은 ts 에 두 봉을 낼 수 있고,
+    # 그대로 `candles_to_frame` 에 넣으면 하나가 **조용히 사라진다**(독립 리뷰 HIGH:
+    # PRE 14:30 v=20 + REGULAR 14:30 v=130 → 130 유실). 정상 US/KR 데이터에서는 세션 경계가
+    # 5·15분 그리드에 정렬돼 발생하지 않지만, 라이브 결정 경로의 무성 데이터 손실은 막는다.
+    if len({b.ts_utc for b in bars}) != len(bars):
+        raise ValueError(
+            "DataFrame 경로 계약 위반: 같은 ts_utc 에 복수 버킷(세션/market 혼재)이 생겼다 — "
+            "프레임은 이를 표현할 수 없다. Candle API(`resample_1m`)를 쓸 것.")
     return candles_to_frame(bars)
 
 

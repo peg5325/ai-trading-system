@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+import scripts.resampler_parity_check as cli
 from scripts.resampler_parity_check import canon, main
 from src.history.store import HistoryStore, ImportStats
 from src.models import ET, Candle
@@ -137,6 +138,81 @@ def test_no_data_cell_is_reported_not_silently_passed(tmp_path):
     receipt = json.loads(out.read_text(encoding="utf-8"))
     assert rc == 1 and receipt["verdict"] == "NO_DATA"
     assert receipt["summary"]["cells_no_data"] == 1
+
+
+def _perturb_core(monkeypatch):
+    """core 결과를 한 봉 줄여 core != live 를 만든다."""
+    real = cli.resample_1m_to_5m
+    monkeypatch.setattr(cli, "resample_1m_to_5m",
+                        lambda c, **kw: real(c, **kw)[:-1])
+
+
+def _perturb_candidate_stream(monkeypatch):
+    import src.history.candidate_stream as cs
+    real = cs.build_decision_bars
+    monkeypatch.setattr(cs, "build_decision_bars",
+                        lambda c, s: real(c, s)[:-1])
+
+
+def _perturb_replay(monkeypatch):
+    class _Broken:
+        def __init__(self, **kw):
+            pass
+
+        def _candles(self, symbol, as_of):
+            return []
+    monkeypatch.setattr(cli, "ReplaySystem", _Broken)
+
+
+def _perturb_order_dependence(monkeypatch):
+    """입력 순서에 따라 다른 결과를 내는 core(순서 의존 회귀 시뮬레이션)."""
+    real = cli.resample_1m_to_5m
+
+    def _flaky(c, **kw):
+        out = real(c, **kw)
+        return out[:-1] if c and c[0].ts_utc > c[-1].ts_utc else out
+    monkeypatch.setattr(cli, "resample_1m_to_5m", _flaky)
+
+
+def _perturb_opening_range(monkeypatch):
+    real = cli.opening_range
+
+    def _wrong(c, **kw):
+        out = real(c, **kw)
+        if not out:
+            return out
+        first = out[0]
+        return [type(first)(**{**first.__dict__, "high": first.high + 1.0})]
+    monkeypatch.setattr(cli, "opening_range", _wrong)
+
+
+@pytest.mark.parametrize("perturb,tag", [
+    (_perturb_core, "5min:core!=live"),
+    (_perturb_candidate_stream, "5min:candidate_stream!=live"),
+    (_perturb_replay, "5min:replay!=live"),
+    (_perturb_order_dependence, "5min:order_dependent"),
+    (_perturb_opening_range, "15m_or:ohlcv!=15m_bucket"),
+])
+def test_cli_actually_detects_each_divergence(tmp_path, monkeypatch, perturb, tag):
+    """**checker 가 '아니오' 라고 말할 수 있는지** 검증한다(mutation review 최우선 지적).
+
+    `compare_day` 의 탐지 분기를 전부 `if False:` 로 만들어도 기존 스위트는 green 이었다.
+    receipt 가 이 PR 의 실데이터 증거인데 탐지 능력 자체가 미검증이면 증거가 아니다.
+    """
+    db = tmp_path / "snap.sqlite"
+    _seed(db)
+    out = tmp_path / "r.json"
+    perturb(monkeypatch)
+
+    rc = main(["--db", str(db), "--symbols", "SPY", "--days", DAY,
+               "--out", str(out), "--skip-identity-check"])
+
+    receipt = json.loads(out.read_text(encoding="utf-8"))
+    assert rc == 1
+    assert receipt["verdict"] == "PARITY_MISMATCH"
+    assert receipt["summary"]["cells_mismatched"] == 1
+    assert receipt["summary"]["cells_matched"] == 0
+    assert tag in receipt["cells"][0]["mismatches"]
 
 
 def test_canon_has_no_performance_fields():

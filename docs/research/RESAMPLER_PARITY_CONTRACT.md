@@ -101,7 +101,7 @@ core 를 `src/history` 가 아니라 **leaf `src/bars`** 에 둔 이유(독립 �
 
 ## 4. 증거
 
-### 4.1 계약 테스트 — `tests/test_resampler_parity.py` (39 tests, 전부 통과)
+### 4.1 계약 테스트 — `tests/test_resampler_parity.py` (47 tests, 전부 통과)
 
 | 요구 항목 | 테스트 |
 | --- | --- |
@@ -125,8 +125,14 @@ core 를 `src/history` 가 아니라 **leaf `src/bars`** 에 둔 이유(독립 �
 | 커버리지축/시간축 분리 | `test_min_bars_is_coverage_axis_not_time_axis`, `test_opening_range_shares_the_same_axes` |
 | opening range 라벨=개장 시각 | `test_opening_range_labels_window_start_even_when_first_minutes_missing`, `test_opening_range_closed_boundary_with_missing_first_minutes` |
 | 레이어 경계(라이브가 history 를 안 끌어옴) | `test_live_import_path_does_not_pull_history_package`, `test_shim_reexports_are_the_same_objects` |
+| **어댑터** dedup·상속·타입(핵심: core 만 보면 라이브가 다를 수 있다) | `test_adapter_dedup_matches_core_on_conflicting_duplicates`, `test_adapter_inherits_adjusted_false`, `test_adapter_inherits_session_column_over_reclassifying`, `test_adapter_ts_exchange_is_plain_datetime_like_core`, `test_adapter_default_interval_label_is_canonical`, `test_adapter_forwards_evaluation_time_to_core` |
+| 프레임이 표현 못 하는 입력 fail-closed | `test_adapter_rejects_same_ts_multiple_buckets_instead_of_dropping` |
+| tz-naive 거부(머신 TZ 의존 금지) | `test_adapter_rejects_timezone_naive_frames` |
+| **pre-#76 차등 동치**(옛 동작 고정) | `tests/test_resampler_legacy_equivalence.py` — 수기 14케이스×2 rule×2 partial + 무작위 200건 + KR 오분류 회귀 + 부동소수 ULP |
+| **checker 가 '아니오' 라고 말하는지** | `test_cli_actually_detects_each_divergence`(5개 탐지 분기 전부) |
 
-CLI 계약: `tests/test_resampler_parity_cli.py` (8 tests — snapshot identity·OOS 거부·sanitized receipt fail-closed 포함).
+차등 동치: `tests/test_resampler_legacy_equivalence.py` (59 tests).
+CLI 계약: `tests/test_resampler_parity_cli.py` (13 tests — snapshot identity·OOS 거부·sanitized receipt fail-closed 포함).
 
 ### 4.2 실데이터 parity — `docs/research/RESAMPLER_PARITY_RECEIPT.json`
 

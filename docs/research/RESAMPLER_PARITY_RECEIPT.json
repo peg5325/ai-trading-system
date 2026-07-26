@@ -608,7 +608,7 @@
     "input_order_invariance",
     "opening_range_15m == 09:30 15m bucket (OHLCV+label)"
   ],
-  "generated_at_utc": "2026-07-26T13:02:10Z",
+  "generated_at_utc": "2026-07-26T13:15:15Z",
   "issue": 76,
   "performance_computed": false,
   "purpose": "coverage",
