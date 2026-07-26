@@ -1,6 +1,6 @@
 {
   "schema": "prereg-orb/contract/v1",
-  "version": "1.0",
+  "version": "1.1",
   "issue": 89,
   "document": "docs/research/PREREG_P0_US30_ORB_V1.md",
   "results_examined": false,
@@ -17,18 +17,63 @@
     "collection_run_id": "p0-us30-1m-20260721-r82",
     "as_of": "2026-07-21",
     "source_interval": "1m",
-    "allowed_sessions": ["PRE", "REGULAR", "POST"],
+    "allowed_sessions": [
+      "PRE",
+      "REGULAR",
+      "POST"
+    ],
     "hash_mismatch_policy": "fail_closed"
   },
   "universe": {
-    "market_etf": ["SPY", "QQQ", "IWM", "DIA"],
-    "sector_etf": ["XLK", "XLF", "XLE", "XLV", "XLI", "XLY", "XLU", "SMH"],
-    "large_cap": ["AAPL", "MSFT", "NVDA", "AMD", "AVGO", "AMZN", "META", "GOOGL",
-                  "TSLA", "MU", "NFLX", "CRM", "PLTR", "VST"],
-    "leveraged_inverse": ["TQQQ", "SQQQ", "SOXL", "SOXS"],
+    "market_etf": [
+      "SPY",
+      "QQQ",
+      "IWM",
+      "DIA"
+    ],
+    "sector_etf": [
+      "XLK",
+      "XLF",
+      "XLE",
+      "XLV",
+      "XLI",
+      "XLY",
+      "XLU",
+      "SMH"
+    ],
+    "large_cap": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "AMD",
+      "AVGO",
+      "AMZN",
+      "META",
+      "GOOGL",
+      "TSLA",
+      "MU",
+      "NFLX",
+      "CRM",
+      "PLTR",
+      "VST"
+    ],
+    "leveraged_inverse": [
+      "TQQQ",
+      "SQQQ",
+      "SOXL",
+      "SOXS"
+    ],
     "exposure_families": {
-      "QQQ_FAMILY": ["QQQ", "TQQQ", "SQQQ"],
-      "SOX_FAMILY": ["SMH", "SOXL", "SOXS"]
+      "QQQ_FAMILY": [
+        "QQQ",
+        "TQQQ",
+        "SQQQ"
+      ],
+      "SOX_FAMILY": [
+        "SMH",
+        "SOXL",
+        "SOXS"
+      ]
     },
     "generalization": "fixed 30-symbol high-liquidity sample as of 2026-07-21; not point-in-time; no catalyst/news data"
   },
@@ -57,33 +102,97 @@
     "oos_warmup_may_use_pre_oos_bars": true,
     "development_may_use_oos_bars": false,
     "boundaries": [
-      {"fold": "F01", "start": "2023-05-18", "end": "2023-10-13", "trading_days": 103},
-      {"fold": "F02", "start": "2023-10-16", "end": "2024-01-16", "trading_days": 63},
-      {"fold": "F03", "start": "2024-01-17", "end": "2024-04-16", "trading_days": 63},
-      {"fold": "F04", "start": "2024-04-17", "end": "2024-07-17", "trading_days": 63},
-      {"fold": "F05", "start": "2024-07-18", "end": "2024-10-15", "trading_days": 63},
-      {"fold": "F06", "start": "2024-10-16", "end": "2025-01-16", "trading_days": 63},
-      {"fold": "F07", "start": "2025-01-17", "end": "2025-04-17", "trading_days": 63},
-      {"fold": "F08", "start": "2025-04-21", "end": "2025-07-21", "trading_days": 63},
-      {"fold": "F09", "start": "2025-07-22", "end": "2025-10-17", "trading_days": 63},
-      {"fold": "F10", "start": "2025-10-20", "end": "2026-01-20", "trading_days": 63}
+      {
+        "fold": "F01",
+        "start": "2023-05-18",
+        "end": "2023-10-13",
+        "trading_days": 103
+      },
+      {
+        "fold": "F02",
+        "start": "2023-10-16",
+        "end": "2024-01-16",
+        "trading_days": 63
+      },
+      {
+        "fold": "F03",
+        "start": "2024-01-17",
+        "end": "2024-04-16",
+        "trading_days": 63
+      },
+      {
+        "fold": "F04",
+        "start": "2024-04-17",
+        "end": "2024-07-17",
+        "trading_days": 63
+      },
+      {
+        "fold": "F05",
+        "start": "2024-07-18",
+        "end": "2024-10-15",
+        "trading_days": 63
+      },
+      {
+        "fold": "F06",
+        "start": "2024-10-16",
+        "end": "2025-01-16",
+        "trading_days": 63
+      },
+      {
+        "fold": "F07",
+        "start": "2025-01-17",
+        "end": "2025-04-17",
+        "trading_days": 63
+      },
+      {
+        "fold": "F08",
+        "start": "2025-04-21",
+        "end": "2025-07-21",
+        "trading_days": 63
+      },
+      {
+        "fold": "F09",
+        "start": "2025-07-22",
+        "end": "2025-10-17",
+        "trading_days": 63
+      },
+      {
+        "fold": "F10",
+        "start": "2025-10-20",
+        "end": "2026-01-20",
+        "trading_days": 63
+      }
     ],
     "development_early_close_days": [
-      "2023-07-03", "2023-11-24", "2024-07-03", "2024-11-29",
-      "2024-12-24", "2025-07-03", "2025-11-28", "2025-12-24"
+      "2023-07-03",
+      "2023-11-24",
+      "2024-07-03",
+      "2024-11-29",
+      "2024-12-24",
+      "2025-07-03",
+      "2025-11-28",
+      "2025-12-24"
     ],
     "blind_oos_early_close_days": []
   },
   "spec": {
-    "primary": {"opening_range_minutes": 15, "window_et": "09:30:00-09:44:59", "authority": "decides_go_nogo"},
-    "sensitivity": {"opening_range_minutes": 5, "window_et": "09:30:00-09:34:59", "authority": "diagnostic_only"},
+    "primary": {
+      "opening_range_minutes": 15,
+      "window_et": "09:30:00-09:44:59",
+      "authority": "decides_go_nogo"
+    },
+    "sensitivity": {
+      "opening_range_minutes": 5,
+      "window_et": "09:30:00-09:34:59",
+      "authority": "diagnostic_only"
+    },
     "sensitivity_may_rescue_primary": false,
     "decision_bar_minutes": 5
   },
   "candidate": {
     "gap": {
-      "definition": "(first REGULAR 09:30 1m open - previous trading day last REGULAR 1m close) / previous close",
-      "threshold_abs": 0.0030
+      "definition": "(first REGULAR 09:30 1m open - previous trading day last REGULAR 1m close at or before regular_close_minute(that day)) / previous close",
+      "threshold_abs": 0.003
     },
     "rvol": {
       "definition": "cumulative REGULAR volume 09:30..opening_range_end / median of same-clock cumulative volume over prior 20 trading days",
@@ -99,7 +208,13 @@
       "insufficient_rvol_lookback",
       "opening_range_not_closed"
     ],
-    "excluded_symbol_days_are_recorded": true
+    "excluded_symbol_days_are_recorded": true,
+    "opening_range_completeness_coverage_check": {
+      "sampled_symbol_days": 120,
+      "complete_pct": 97.5,
+      "excluded_pct": 2.5,
+      "scope": "development window only, coverage purpose, bar counts only"
+    }
   },
   "signal": {
     "breakout": "completed 5m decision bar close strictly greater than OR_high",
@@ -108,7 +223,10 @@
     "extra_confirmation_bars": 0,
     "direction": "long_only",
     "naked_short_individual_stocks": false,
-    "downside_exposure_via": ["SQQQ", "SOXS"],
+    "downside_exposure_via": [
+      "SQQQ",
+      "SOXS"
+    ],
     "or_low_used_for": "stop_only",
     "fill": "open_of_next_completed_decision_bar",
     "signal_bar_fill": false,
@@ -117,22 +235,35 @@
     "max_entry_minutes_before_close": 90,
     "expired_signal": "discarded",
     "max_trades_per_symbol_per_day": 1,
-    "reentry_same_day": false
+    "reentry_same_day": false,
+    "max_entry_cutoff_applies_to": "fill_bar_start",
+    "capacity_skipped_signal_requeued": false,
+    "trading_day_basis": "ET"
   },
   "portfolio": {
     "rank_keys": [
-      {"key": "rvol", "order": "desc"},
-      {"key": "abs_gap", "order": "desc"},
-      {"key": "symbol", "order": "asc"}
+      {
+        "key": "rvol",
+        "order": "desc"
+      },
+      {
+        "key": "abs_gap",
+        "order": "desc"
+      },
+      {
+        "key": "symbol",
+        "order": "asc"
+      }
     ],
     "composite_score": null,
     "order_invariant": true,
     "max_positions": 2,
-    "max_portfolio_effective_pct": 0.50,
-    "max_symbol_effective_pct": 0.30,
-    "max_symbol_notional_pct": 0.20,
+    "max_portfolio_effective_pct": 0.5,
+    "max_symbol_effective_pct": 0.3,
+    "max_symbol_notional_pct": 0.2,
     "max_positions_per_exposure_family": 1,
-    "insufficient_capacity": "skip_candidate_and_record"
+    "insufficient_capacity": "cap_quantity_then_skip_only_if_qty_lt_1",
+    "family_cap_includes_pending_same_bar_picks": true
   },
   "risk": {
     "one_r": "entry - OR_low",
@@ -141,7 +272,7 @@
     "target": "entry + 2.0R",
     "target_r_multiple": 2.0,
     "risk_budget_pct_of_equity": 0.01,
-    "sizing": "floor(risk_budget / one_r)",
+    "sizing": "floor(min(risk_budget/one_r, notional_cap_qty, effective_cap_qty, portfolio_cap_qty))",
     "partial_take_profit": false,
     "trailing_stop": false,
     "averaging_down": false,
@@ -153,14 +284,35 @@
     "eod_decision_then_next_bar_open": true,
     "overnight": false,
     "session_end_bucket_policy": "post_inclusive_load",
-    "tradable_sessions": ["REGULAR"],
-    "stale_bars_to_force_exit": 3
+    "tradable_sessions": [
+      "REGULAR"
+    ],
+    "stale_bars_to_force_exit": 3,
+    "equity_base": "start_of_trading_day",
+    "limits_applied_as": "cap_not_block",
+    "skip_if_qty_lt": 1,
+    "exit_priority": [
+      "stop",
+      "eod",
+      "target"
+    ]
   },
   "costs": {
-    "round_trip_pct_points": {"low": 0.14, "official": 0.34, "stress": 0.68},
-    "allocation": {"entry": 0.5, "exit": 0.5},
+    "round_trip_pct_points": {
+      "low": 0.14,
+      "official": 0.34,
+      "stress": 0.68
+    },
+    "allocation": {
+      "entry": 0.5,
+      "exit": 0.5
+    },
     "basis": "notional",
-    "includes": ["commission", "slippage", "spread"],
+    "includes": [
+      "commission",
+      "slippage",
+      "spread"
+    ],
     "additional_fee_on_top": false,
     "official_level": "official"
   },
@@ -168,8 +320,8 @@
     "D1_min_trades": 200,
     "D2_min_trading_days_with_trade": 150,
     "D3_net_expectancy_gt": 0,
-    "D4_profit_factor_gte": 1.20,
-    "D5_abs_mdd_lte": 0.10,
+    "D4_profit_factor_gte": 1.2,
+    "D5_abs_mdd_lte": 0.1,
     "D6_min_positive_folds": 7,
     "D6_total_folds": 10,
     "D7_stress_cumulative_pnl_gte": 0,
@@ -187,32 +339,89 @@
     "can_change_primary": false,
     "one_axis_only": true,
     "variants": [
-      {"axis": "rvol_threshold", "primary": 1.5, "neighbors": [1.3, 1.7]},
-      {"axis": "gap_threshold_abs", "primary": 0.0030, "neighbors": [0.0020, 0.0040]},
-      {"axis": "target_r_multiple", "primary": 2.0, "neighbors": [1.5, 2.5]}
+      {
+        "axis": "rvol_threshold",
+        "primary": 1.5,
+        "neighbors": [
+          1.3,
+          1.7
+        ]
+      },
+      {
+        "axis": "gap_threshold_abs",
+        "primary": 0.003,
+        "neighbors": [
+          0.002,
+          0.004
+        ]
+      },
+      {
+        "axis": "target_r_multiple",
+        "primary": 2.0,
+        "neighbors": [
+          1.5,
+          2.5
+        ]
+      }
     ],
     "cliff_if_opposite_sign_variants_gte": 2
   },
   "oos_gate": {
     "O1_net_expectancy_gt": 0,
-    "O2_profit_factor_gte": 1.20,
+    "O2_profit_factor_gte": 1.2,
     "O3_min_trading_days": 60,
     "O4_min_trades": 100,
     "O5_min_positive_months": 4,
     "O5_total_months": 6,
-    "O6_abs_mdd_lte": 0.10,
+    "O6_abs_mdd_lte": 0.1,
     "O7_stress_cumulative_pnl_gte": 0,
     "O8_max_single_symbol_profit_share": 0.25,
     "O8_symbol_means_family_aggregated": true,
-    "O9_max_single_day_profit_share": 0.20,
+    "O9_max_single_day_profit_share": 0.2,
     "O10_parameter_cliff": "no_sign_flip",
     "O11_major_data_defects": 0,
     "single_pass": {
       "load_once": true,
       "compute_once": true,
-      "same_pass_includes": ["primary", "parameter_cliff_neighborhood", "sensitivity"],
+      "same_pass_includes": [
+        "primary",
+        "parameter_cliff_neighborhood",
+        "sensitivity"
+      ],
       "rerun_on_bad_result": false
-    }
+    },
+    "O5_month_boundaries": [
+      {
+        "month": "M1",
+        "start": "2026-01-21",
+        "end": "2026-02-20"
+      },
+      {
+        "month": "M2",
+        "start": "2026-02-21",
+        "end": "2026-03-20"
+      },
+      {
+        "month": "M3",
+        "start": "2026-03-21",
+        "end": "2026-04-20"
+      },
+      {
+        "month": "M4",
+        "start": "2026-04-21",
+        "end": "2026-05-20"
+      },
+      {
+        "month": "M5",
+        "start": "2026-05-21",
+        "end": "2026-06-20"
+      },
+      {
+        "month": "M6",
+        "start": "2026-06-21",
+        "end": "2026-07-21"
+      }
+    ]
   },
   "defect_policy": {
     "counted_as_defect": [
@@ -222,7 +431,11 @@
       "session_label_violation",
       "snapshot_hash_mismatch"
     ],
-    "normal_handling_not_defect": ["candidate_exclusion", "stale_exit", "eod_fallback"],
+    "normal_handling_not_defect": [
+      "candidate_exclusion",
+      "stale_exit",
+      "eod_fallback"
+    ],
     "escalate_to_defect_if_share_gt": 0.05
   },
   "verdict_definitions": {
@@ -232,13 +445,45 @@
     "pick_least_bad": false
   },
   "revision_policy": {
-    "allowed_before_results": ["typo", "ambiguity", "internal_inconsistency"],
-    "forbidden_after_results": ["thresholds", "windows", "filters", "entry", "exit",
-                                "costs", "tie_break", "evaluation_stats", "gates"],
+    "allowed_before_results": [
+      "typo",
+      "ambiguity",
+      "internal_inconsistency"
+    ],
+    "forbidden_after_results": [
+      "thresholds",
+      "windows",
+      "filters",
+      "entry",
+      "exit",
+      "costs",
+      "tie_break",
+      "evaluation_stats",
+      "gates"
+    ],
     "post_merge_corrections": "append_only_erratum",
-    "invalidation_reasons": ["data_contract_violation", "look_ahead_defect",
-                             "fill_or_cost_contract_violation", "calendar_or_session_defect"],
+    "invalidation_reasons": [
+      "data_contract_violation",
+      "look_ahead_defect",
+      "fill_or_cost_contract_violation",
+      "calendar_or_session_defect"
+    ],
     "invalidation_not_allowed_for": "poor_performance",
     "invalidation_preserves_existing_results": true
+  },
+  "evaluation_definitions": {
+    "net_pnl": "realized PnL at fill prices minus costs (USD)",
+    "net_expectancy": "arithmetic mean net PnL per trade (per-1R also reported)",
+    "profit_factor": "sum(positive net PnL) / abs(sum(negative net PnL)); infinite if no losing trade",
+    "daily_equity_curve": "cash + holdings marked at regular close each trading day (flat at close)",
+    "mdd": "peak-to-trough of the daily equity curve at official cost",
+    "trading_days_counted": "ET trading days with >= 1 trade",
+    "concentration_share": "unit net PnL / total net PnL; auto-fail if total <= 0"
+  },
+  "revision": {
+    "version": "1.1",
+    "results_examined_at_revision": false,
+    "corrections": 8,
+    "audit": "docs section 14.3"
   }
 }

@@ -264,6 +264,77 @@ def test_safety_invariants_are_fixed(contract):
     assert contract["verdict_definitions"]["pick_least_bad"] is False
 
 
+def test_sizing_caps_instead_of_blocking(contract, doc):
+    """v1.1 핵심 교정 — 한도를 '차단'으로 쓰면 명목 한도가 거의 모든 거래를 없앤다.
+
+    1R/entry >= risk_pct/notional_cap = 5% 여야 한도가 binding 하지 않는데, 15분 opening range
+    폭은 통상 0.5~2% 다. 차단 규칙이면 거래가 사실상 발생하지 않아 표본 게이트가 엣지와 무관하게
+    미달한다. 이 테스트가 그 회귀를 막는다.
+    """
+    r = contract["risk"]
+    assert r["limits_applied_as"] == "cap_not_block"
+    assert r["skip_if_qty_lt"] == 1
+    assert r["equity_base"] == "start_of_trading_day"
+    assert "min(" in r["sizing"]
+    assert contract["portfolio"]["insufficient_capacity"].startswith("cap_quantity")
+    assert "축소" in doc and "차단이 아니라" in doc
+    # 산술 근거가 문서에 남아 있어야 한다(왜 차단이 불가능한지)
+    assert "5%" in doc
+
+
+def test_exit_priority_is_conservative_and_total(contract, doc):
+    assert contract["risk"]["exit_priority"] == ["stop", "eod", "target"]
+    assert "stop > EOD > target" in doc
+
+
+def test_oos_month_buckets_tile_the_window_exactly(contract):
+    """'6개월 중 4개월 양수' 의 월 경계가 OOS 창을 빈틈·중복 없이 덮는지."""
+    w = contract["windows"]
+    months = contract["oos_gate"]["O5_month_boundaries"]
+    assert len(months) == contract["oos_gate"]["O5_total_months"] == 6
+    assert months[0]["start"] == w["blind_oos_start"]
+    assert months[-1]["end"] == w["blind_oos_end"]
+    for prev, nxt in zip(months, months[1:]):
+        assert (date.fromisoformat(nxt["start"]) - date.fromisoformat(prev["end"])).days == 1
+    covered = sum(len(trading_days(date.fromisoformat(m["start"]),
+                                   date.fromisoformat(m["end"]))) for m in months)
+    assert covered == w["blind_oos_trading_days"], "월 구간 합이 OOS 거래일 수와 다르다"
+
+
+def test_evaluation_statistics_are_defined(contract, doc):
+    ev = contract["evaluation_definitions"]
+    for key in ("net_pnl", "net_expectancy", "profit_factor", "daily_equity_curve",
+                "mdd", "trading_days_counted", "concentration_share"):
+        assert ev.get(key), key
+    assert "auto-fail" in ev["concentration_share"]      # 분모 <= 0 이면 자동 미달
+    assert "profit factor" in doc.lower() or "profit_factor" in doc
+
+
+def test_discretion_removing_clauses_are_present(contract):
+    s, p = contract["signal"], contract["portfolio"]
+    assert s["max_entry_cutoff_applies_to"] == "fill_bar_start"
+    assert s["capacity_skipped_signal_requeued"] is False
+    assert s["trading_day_basis"] == "ET"
+    assert p["family_cap_includes_pending_same_bar_picks"] is True
+
+
+def test_revision_history_records_the_go_easier_audit(contract, doc):
+    """개정이 있었다면 '이 변경이 GO 를 쉽게 만드는가' 감사가 문서에 있어야 한다."""
+    rev = contract["revision"]
+    assert rev["results_examined_at_revision"] is False
+    assert contract["version"] == rev["version"]
+    assert f"| v{contract['version']} |" in doc, "개정 이력 표에 현재 버전이 없다"
+    assert "GO 를 쉽게 만드는가" in doc
+    assert "O6" in doc, "게이트 난이도에 영향을 준 항목의 방향이 명시돼야 한다"
+
+
+def test_opening_range_completeness_evidence_is_recorded(contract, doc):
+    c = contract["candidate"]["opening_range_completeness_coverage_check"]
+    assert c["complete_pct"] >= 95.0
+    assert "coverage" in c["scope"] and "development" in c["scope"]
+    assert str(c["complete_pct"]) in doc
+
+
 def test_referenced_paths_exist(contract, doc):
     for rel in ("docs/research/DATA_CONTRACT_4STRATEGY_V1.md",
                 "docs/research/RESAMPLER_PARITY_CONTRACT.md",
