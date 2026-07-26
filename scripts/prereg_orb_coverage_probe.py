@@ -74,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
     receipt = {
         "schema": "prereg-orb-coverage-probe/v1", "issue": 89,
         "purpose": "coverage", "performance_computed": False,
-        "measures_only": "incomplete_opening_range",
+        "measures_only": ["incomplete_opening_range", "post_bar_presence"],
         "window": {"start": DEV_START.isoformat(), "end": DEV_END.isoformat(),
                    "warmup_trading_days": WARMUP, "blind_oos_days_included": 0},
         "sample": {"days": [d.isoformat() for d in days],

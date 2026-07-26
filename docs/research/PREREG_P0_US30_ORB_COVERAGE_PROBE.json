@@ -23,7 +23,10 @@
     }
   ],
   "issue": 89,
-  "measures_only": "incomplete_opening_range",
+  "measures_only": [
+    "incomplete_opening_range",
+    "post_bar_presence"
+  ],
   "performance_computed": false,
   "purpose": "coverage",
   "result": {

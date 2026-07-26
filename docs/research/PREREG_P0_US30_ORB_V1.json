@@ -1,6 +1,6 @@
 {
   "schema": "prereg-orb/contract/v1",
-  "version": "1.8",
+  "version": "1.9",
   "issue": 89,
   "document": "docs/research/PREREG_P0_US30_ORB_V1.md",
   "results_examined": false,
@@ -218,7 +218,10 @@
       "complete_pct": 97.5,
       "excluded_pct": 2.5,
       "scope": "development window only, coverage purpose, bar counts only",
-      "measures_only": "incomplete_opening_range",
+      "measures_only": [
+        "incomplete_opening_range",
+        "post_bar_presence"
+      ],
       "lookback_validity_unmeasured": true,
       "reproduction_script": "scripts/prereg_orb_coverage_probe.py",
       "receipt": "docs/research/PREREG_P0_US30_ORB_COVERAGE_PROBE.json",
@@ -518,7 +521,8 @@
       "denominator": "universe_symbols x trading_days in the evaluated window",
       "threshold": 0.05,
       "unit": "symbol_day_deduplicated",
-      "excludes_operational_reasons": true
+      "excludes_operational_reasons": true,
+      "audit_note": "[A] numerator shrank while its 5% threshold held; the removed items moved to [B], which became 3.75x stricter (1,005 symbol-days -> 268 trades)"
     },
     "high_stale_or_eod_fallback_may_indicate_issue": "#44",
     "computed_on": "primary",
@@ -598,10 +602,10 @@
     "rounding": "no intermediate rounding; display 2dp"
   },
   "revision": {
-    "version": "1.8",
+    "version": "1.9",
     "results_examined_at_revision": false,
-    "corrections": 80,
-    "audit": "docs section 14.10 (v1.8 부기)"
+    "corrections": 82,
+    "audit": "docs section 14.10"
   },
   "account_model": {
     "initial_capital": 100000.0,

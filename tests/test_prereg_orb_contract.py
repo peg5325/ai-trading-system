@@ -632,7 +632,7 @@ def test_stage5_unlock_fields_are_designated(contract, doc):
 def test_audit_statement_matches_what_was_actually_run(doc):
     """§13 은 §5.5 의 coverage 측정을 포함해야 한다 — 아니면 문서가 스스로를 반증한다(A3)."""
     assert "research_load" in doc and "coverage" in doc
-    assert "봉 개수만" in doc or "개수만 센" in doc
+    assert "개수와 POST 봉 존재 여부" in doc
     assert "캘린더 계산과 tracked manifest 조회**뿐이며" not in doc
 
 
@@ -714,7 +714,8 @@ def test_v15_discretion_closures_are_pinned(contract, doc):
 def test_coverage_measurement_scope_is_honest(contract):
     """§5.5 실측치가 무엇을 재지 않았는지 문서가 밝히는지 (#5)."""
     c = contract["candidate"]["opening_range_completeness_coverage_check"]
-    assert c["measures_only"] == "incomplete_opening_range"
+    # receipt 는 POST 존재 여부도 센다 — 좁게 적으면 **테스트가 거짓 진술을 고정**한다
+    assert c["measures_only"] == ["incomplete_opening_range", "post_bar_presence"]
     assert c["lookback_validity_unmeasured"] is True
     # POST 측정은 표본 추정치다 — 모집단 값처럼 읽히지 않게 상한을 함께 고정
     assert c["eod_fallback_exposure_is_sample_estimate"] is True
@@ -878,6 +879,7 @@ def test_coverage_probe_receipt_is_reproducible_evidence(contract):
     assert r["window"]["blind_oos_days_included"] == 0
     assert r["result"]["complete_pct"] == c["complete_pct"]
     assert r["measures_only"] == c["measures_only"]
+    assert "post_bar_presence" in r["measures_only"]
 
 
 def test_conflict_baseline_is_adjudicated_before_results(contract):
