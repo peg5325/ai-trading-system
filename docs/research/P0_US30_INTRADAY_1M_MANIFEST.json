@@ -26,6 +26,7 @@
     "spacing_initial_seconds": 0.5
   },
   "data_content_sha256": "fc337950786f5fb07149869c561586917a2c55a2749a960768011b22d30680a9",
+  "expected_latest_trading_day": "2026-07-21",
   "generated_at_utc": "2026-07-26T03:01:37.636385+00:00",
   "interval": "1m",
   "min_years": 3.0,
@@ -44,7 +45,7 @@
     "schema": "raw_snapshot_manifest/v1"
   },
   "requested_as_of": "2026-07-21",
-  "schema": "p0_us30_intraday_1m_manifest/v1",
+  "schema": "p0_us30_intraday_1m_manifest/v2",
   "summary": {
     "attempted": 30,
     "bars_beyond_as_of_total": 0,
@@ -59,6 +60,7 @@
     },
     "symbols_total": 30,
     "total_rows": 22773133,
+    "trailing_gap_symbol_count": 11,
     "verdict_counts": {
       "INCONCLUSIVE_DATA": 11,
       "OK": 19
@@ -70,6 +72,12 @@
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2023-04-03T18:41:00+00:00",
+      "allowed_earliest_trading_day": "2023-04-03",
+      "allowed_latest": "2026-07-20T09:21:00+00:00",
+      "allowed_latest_trading_day": "2026-07-20",
+      "allowed_row_count": 652688,
+      "allowed_trading_days": 818,
       "bars_beyond_as_of": 0,
       "conflict": 3,
       "content_sha256": "a2c373b7e166be8ebd04e63280878224ed72716774e9a60ddce146c004295ccf",
@@ -78,6 +86,7 @@
       "earliest": "2023-04-03T18:41:00+00:00",
       "earliest_trading_day": "2023-04-03",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": true,
         "max_missing_trading_days": 8
@@ -115,6 +124,7 @@
       "stopped_reason": "max_pages",
       "symbol": "SPY",
       "trading_days": 840,
+      "trailing_missing_trading_days": 1,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "page_budget_capped",
@@ -122,16 +132,24 @@
           "OVERNIGHT"
         ],
         "inconclusive_reasons": [
+          "trailing_gap:1_trading_days",
           "disallowed_sessions:['OVERNIGHT']"
         ],
         "meets_min_years": true,
-        "status": "INCONCLUSIVE_DATA"
+        "status": "INCONCLUSIVE_DATA",
+        "trailing_missing_trading_days": 1
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2023-04-11T08:01:00+00:00",
+      "allowed_earliest_trading_day": "2023-04-11",
+      "allowed_latest": "2026-07-20T09:09:00+00:00",
+      "allowed_latest_trading_day": "2026-07-20",
+      "allowed_row_count": 694617,
+      "allowed_trading_days": 814,
       "bars_beyond_as_of": 0,
       "conflict": 5,
       "content_sha256": "7f57bbf3f2477d0151e46a6e80d48ac12617591fcf1373bb51d84a824b3be2ea",
@@ -140,6 +158,7 @@
       "earliest": "2023-04-11T08:01:00+00:00",
       "earliest_trading_day": "2023-04-11",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": true,
         "max_missing_trading_days": 7
@@ -178,6 +197,7 @@
       "stopped_reason": "max_pages",
       "symbol": "QQQ",
       "trading_days": 852,
+      "trailing_missing_trading_days": 1,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "page_budget_capped",
@@ -185,16 +205,24 @@
           "OVERNIGHT"
         ],
         "inconclusive_reasons": [
+          "trailing_gap:1_trading_days",
           "disallowed_sessions:['OVERNIGHT']"
         ],
         "meets_min_years": true,
-        "status": "INCONCLUSIVE_DATA"
+        "status": "INCONCLUSIVE_DATA",
+        "trailing_missing_trading_days": 1
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2022-10-19T14:21:00+00:00",
+      "allowed_earliest_trading_day": "2022-10-19",
+      "allowed_latest": "2026-07-21T23:58:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 617403,
+      "allowed_trading_days": 933,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "79aa35a3c116076f41d65d5162620720d17270107d4b12254b5af84d12164a07",
@@ -203,6 +231,7 @@
       "earliest": "2022-10-19T14:21:00+00:00",
       "earliest_trading_day": "2022-10-19",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -240,19 +269,27 @@
       "stopped_reason": "max_pages",
       "symbol": "IWM",
       "trading_days": 933,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "page_budget_capped",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:04:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:52:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 633622,
+      "allowed_trading_days": 1155,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "36e6121a7c2961458179382736b750b0ed52c61fd4fa05aefa47448f83131f87",
@@ -261,6 +298,7 @@
       "earliest": "2021-12-01T09:04:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -297,19 +335,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "DIA",
       "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:29:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:57:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 555906,
+      "allowed_trading_days": 1155,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "fac69fc898e19919b89329cfe7eff8de1f816889f8dda3859e1730362f5ebe60",
@@ -318,6 +364,7 @@
       "earliest": "2021-12-01T09:29:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -354,19 +401,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "XLK",
       "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:05:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:56:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 585377,
+      "allowed_trading_days": 1155,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "52f1c4e180ee038cab6148a5930904a277608fb7c85f4e6b2b5ecd7486d4d730",
@@ -375,6 +430,7 @@
       "earliest": "2021-12-01T09:05:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -411,19 +467,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "XLF",
       "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:02:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:54:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 612514,
+      "allowed_trading_days": 1155,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "f3d03e77a3d55aaba08b5eb779dc7b2d7912c7e0555ba5b31c9afee3e1eabc35",
@@ -432,6 +496,7 @@
       "earliest": "2021-12-01T09:02:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -468,19 +533,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "XLE",
       "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:14:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:57:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 515073,
+      "allowed_trading_days": 1155,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "7b78a7a233c979ba53233fb462aac6b60a26ce5396625541a07cd2e611d73dd1",
@@ -489,6 +562,7 @@
       "earliest": "2021-12-01T09:14:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -525,19 +599,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "XLV",
       "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:03:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:42:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 484418,
+      "allowed_trading_days": 1155,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "27d68bc1000f1a9ac2f8ba39055b6a5602e05199fbb387f53e9975185bb6f7f2",
@@ -546,6 +628,7 @@
       "earliest": "2021-12-01T09:03:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -582,19 +665,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "XLI",
       "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T11:59:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:35:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 479590,
+      "allowed_trading_days": 1155,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "eb1fc69015bfae2f1af90dd40406761582f8bc0057f591c2bd1ded21529cd91d",
@@ -603,6 +694,7 @@
       "earliest": "2021-12-01T11:59:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -639,19 +731,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "XLY",
       "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:06:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-17T23:53:00+00:00",
+      "allowed_latest_trading_day": "2026-07-17",
+      "allowed_row_count": 508847,
+      "allowed_trading_days": 1153,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "3a7179f2c8c8a5ca6350248c1b582f0e73413ba604c499b40d817b9cbbbae6ea",
@@ -660,6 +760,7 @@
       "earliest": "2021-12-01T09:06:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -693,10 +794,11 @@
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 4.632,
+      "span_years": 4.626,
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "XLU",
       "trading_days": 1173,
+      "trailing_missing_trading_days": 2,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
@@ -704,16 +806,24 @@
           "OVERNIGHT"
         ],
         "inconclusive_reasons": [
+          "trailing_gap:2_trading_days",
           "disallowed_sessions:['OVERNIGHT']"
         ],
         "meets_min_years": true,
-        "status": "INCONCLUSIVE_DATA"
+        "status": "INCONCLUSIVE_DATA",
+        "trailing_missing_trading_days": 2
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2022-05-06T13:35:00+00:00",
+      "allowed_earliest_trading_day": "2022-05-06",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 592916,
+      "allowed_trading_days": 1051,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "8c6914efcef1195e297630d1696ac61596e83603ff3444e262eaa1744e4f00ec",
@@ -722,6 +832,7 @@
       "earliest": "2022-05-06T13:35:00+00:00",
       "earliest_trading_day": "2022-05-06",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 3
@@ -758,19 +869,27 @@
       "stopped_reason": "max_pages",
       "symbol": "SMH",
       "trading_days": 1051,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "page_budget_capped",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 964264,
+      "allowed_trading_days": 1154,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "d3a52fd2f8e71b3f635da322699141e5d0e1a5b97a894a6158e4d886e521f9bc",
@@ -779,6 +898,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 8
@@ -813,19 +933,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "AAPL",
       "trading_days": 1154,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-17T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-17",
+      "allowed_row_count": 922853,
+      "allowed_trading_days": 1152,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "55718e76f510cbd37a3d14005cfd3a5d59c51ceeef9dc4cde2db78cbe6c42eab",
@@ -834,6 +962,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 8
@@ -867,10 +996,11 @@
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 4.632,
+      "span_years": 4.626,
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "MSFT",
       "trading_days": 1161,
+      "trailing_missing_trading_days": 2,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
@@ -878,16 +1008,24 @@
           "OVERNIGHT"
         ],
         "inconclusive_reasons": [
+          "trailing_gap:2_trading_days",
           "disallowed_sessions:['OVERNIGHT']"
         ],
         "meets_min_years": true,
-        "status": "INCONCLUSIVE_DATA"
+        "status": "INCONCLUSIVE_DATA",
+        "trailing_missing_trading_days": 2
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-17T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-17",
+      "allowed_row_count": 989165,
+      "allowed_trading_days": 1153,
       "bars_beyond_as_of": 0,
       "conflict": 5,
       "content_sha256": "cd4c8c453ec08c90c8c6d72a8178cab26bcb0c540a32ff2999031f42280543a4",
@@ -896,6 +1034,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -930,10 +1069,11 @@
         "import:market_us_exit_test_2000usd.sqlite",
         "toss_backfill"
       ],
-      "span_years": 4.632,
+      "span_years": 4.626,
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "NVDA",
       "trading_days": 1162,
+      "trailing_missing_trading_days": 2,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
@@ -941,16 +1081,24 @@
           "OVERNIGHT"
         ],
         "inconclusive_reasons": [
+          "trailing_gap:2_trading_days",
           "disallowed_sessions:['OVERNIGHT']"
         ],
         "meets_min_years": true,
-        "status": "INCONCLUSIVE_DATA"
+        "status": "INCONCLUSIVE_DATA",
+        "trailing_missing_trading_days": 2
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-17T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-17",
+      "allowed_row_count": 937637,
+      "allowed_trading_days": 1155,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "d2b23013251b09d118fe799e27bac188335132381c28365e7ce56f6566dd73be",
@@ -959,6 +1107,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 5
@@ -990,10 +1139,11 @@
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 4.632,
+      "span_years": 4.626,
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "AMD",
       "trading_days": 1164,
+      "trailing_missing_trading_days": 2,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
@@ -1001,16 +1151,24 @@
           "OVERNIGHT"
         ],
         "inconclusive_reasons": [
+          "trailing_gap:2_trading_days",
           "disallowed_sessions:['OVERNIGHT']"
         ],
         "meets_min_years": true,
-        "status": "INCONCLUSIVE_DATA"
+        "status": "INCONCLUSIVE_DATA",
+        "trailing_missing_trading_days": 2
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2023-02-28T18:01:00+00:00",
+      "allowed_earliest_trading_day": "2023-02-28",
+      "allowed_latest": "2026-07-17T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-17",
+      "allowed_row_count": 606766,
+      "allowed_trading_days": 843,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "d36480612ca3e0c29064886e3a7947fa13640f13bf23af6d320693144ee96d4b",
@@ -1019,6 +1177,7 @@
       "earliest": "2023-02-28T18:01:00+00:00",
       "earliest_trading_day": "2023-02-28",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": true,
         "max_missing_trading_days": 6
@@ -1052,10 +1211,11 @@
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 3.388,
+      "span_years": 3.382,
       "stopped_reason": "max_pages",
       "symbol": "AVGO",
       "trading_days": 852,
+      "trailing_missing_trading_days": 2,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "page_budget_capped",
@@ -1063,16 +1223,24 @@
           "OVERNIGHT"
         ],
         "inconclusive_reasons": [
+          "trailing_gap:2_trading_days",
           "disallowed_sessions:['OVERNIGHT']"
         ],
         "meets_min_years": true,
-        "status": "INCONCLUSIVE_DATA"
+        "status": "INCONCLUSIVE_DATA",
+        "trailing_missing_trading_days": 2
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 932326,
+      "allowed_trading_days": 1155,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "2b50cca8f6e97b92714efdec8095456dc97ad08d5ceb229d7e2dea122252c47b",
@@ -1081,6 +1249,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -1115,19 +1284,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "AMZN",
       "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 912645,
+      "allowed_trading_days": 1156,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "c585b4892a65fdd1186a4c28b2e0148860e0d5b79c871a0277c246998798abb4",
@@ -1136,6 +1313,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 6
@@ -1170,19 +1348,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "META",
       "trading_days": 1156,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-17T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-17",
+      "allowed_row_count": 927838,
+      "allowed_trading_days": 1153,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "f0a2be690ed7d6139cf0a286f09e80c7f653865ded62ed5cf5d0175368c566f8",
@@ -1191,6 +1377,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -1222,10 +1409,11 @@
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 4.632,
+      "span_years": 4.626,
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "GOOGL",
       "trading_days": 1162,
+      "trailing_missing_trading_days": 2,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
@@ -1233,16 +1421,24 @@
           "OVERNIGHT"
         ],
         "inconclusive_reasons": [
+          "trailing_gap:2_trading_days",
           "disallowed_sessions:['OVERNIGHT']"
         ],
         "meets_min_years": true,
-        "status": "INCONCLUSIVE_DATA"
+        "status": "INCONCLUSIVE_DATA",
+        "trailing_missing_trading_days": 2
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 1005334,
+      "allowed_trading_days": 1156,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "956d547b025c38d6fa9d06f4d80f73583286a349001003a9afebb8d9595ebf11",
@@ -1251,6 +1447,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 6
@@ -1285,19 +1482,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "TSLA",
       "trading_days": 1156,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 807262,
+      "allowed_trading_days": 1154,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "f8142824f68f9434f9ea812c32c20b880b92ea23435112b17e8e32134fdc26cf",
@@ -1306,6 +1511,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 8
@@ -1342,19 +1548,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "MU",
       "trading_days": 1154,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2023-04-20T18:22:00+00:00",
+      "allowed_earliest_trading_day": "2023-04-20",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 590795,
+      "allowed_trading_days": 808,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "5e3a08c3132e86c9629fb66ee88acda016436bd1050eac718877e1ee2be27822",
@@ -1363,6 +1577,7 @@
       "earliest": "2023-04-20T18:22:00+00:00",
       "earliest_trading_day": "2023-04-20",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": true,
         "max_missing_trading_days": 7
@@ -1399,19 +1614,27 @@
       "stopped_reason": "max_pages",
       "symbol": "NFLX",
       "trading_days": 808,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "page_budget_capped",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2022-02-16T18:57:00+00:00",
+      "allowed_earliest_trading_day": "2022-02-16",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 633800,
+      "allowed_trading_days": 1102,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "cd39211bf5328968a8cccbf78c12956efbe7ff98b202ba58382d376775d1366d",
@@ -1420,6 +1643,7 @@
       "earliest": "2022-02-16T18:57:00+00:00",
       "earliest_trading_day": "2022-02-16",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 7
@@ -1457,19 +1681,27 @@
       "stopped_reason": "max_pages",
       "symbol": "CRM",
       "trading_days": 1102,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "page_budget_capped",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 907734,
+      "allowed_trading_days": 1160,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "6b7de39db7b594a952cb1f28cdce7d08962701b87161951c0d622dc9da803a09",
@@ -1478,6 +1710,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 3
@@ -1514,19 +1747,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "PLTR",
       "trading_days": 1160,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T12:55:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-17T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-17",
+      "allowed_row_count": 592884,
+      "allowed_trading_days": 1156,
       "bars_beyond_as_of": 0,
       "conflict": 1,
       "content_sha256": "0012be94a14ad8d67dd65a032c4040f092b4da8babcabcb59a2d02353d583325",
@@ -1535,6 +1776,7 @@
       "earliest": "2021-12-01T12:55:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 4
@@ -1568,10 +1810,11 @@
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 4.631,
+      "span_years": 4.625,
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "VST",
       "trading_days": 1169,
+      "trailing_missing_trading_days": 2,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
@@ -1579,16 +1822,24 @@
           "OVERNIGHT"
         ],
         "inconclusive_reasons": [
+          "trailing_gap:2_trading_days",
           "disallowed_sessions:['OVERNIGHT']"
         ],
         "meets_min_years": true,
-        "status": "INCONCLUSIVE_DATA"
+        "status": "INCONCLUSIVE_DATA",
+        "trailing_missing_trading_days": 2
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 1001972,
+      "allowed_trading_days": 1156,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "ecdea0f77d4df0e1a727fba07b9d864034e1aa8e80a0f5b2643b5c02f5b193f5",
@@ -1597,6 +1848,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 6
@@ -1631,19 +1883,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "TQQQ",
       "trading_days": 1156,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 956746,
+      "allowed_trading_days": 1156,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "c42cb19b86ccb7a0ddccb60844cc37dc303a04d9f6dd083154795a4376d2c94c",
@@ -1652,6 +1912,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 6
@@ -1686,19 +1947,27 @@
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "SQQQ",
       "trading_days": 1156,
+      "trailing_missing_trading_days": 0,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
         "disallowed_sessions": [],
         "inconclusive_reasons": [],
         "meets_min_years": true,
-        "status": "OK"
+        "status": "OK",
+        "trailing_missing_trading_days": 0
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-17T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-17",
+      "allowed_row_count": 993383,
+      "allowed_trading_days": 1154,
       "bars_beyond_as_of": 0,
       "conflict": 12,
       "content_sha256": "485efa1661121706c2df59fd36779d2fb1ef46aa957cd444ccd9f6f4c35e89be",
@@ -1707,6 +1976,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 6
@@ -1741,10 +2011,11 @@
         "import:market_us_exit_test_2000usd.sqlite",
         "toss_backfill"
       ],
-      "span_years": 4.632,
+      "span_years": 4.626,
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "SOXL",
       "trading_days": 1163,
+      "trailing_missing_trading_days": 2,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
@@ -1752,16 +2023,24 @@
           "OVERNIGHT"
         ],
         "inconclusive_reasons": [
+          "trailing_gap:2_trading_days",
           "disallowed_sessions:['OVERNIGHT']"
         ],
         "meets_min_years": true,
-        "status": "INCONCLUSIVE_DATA"
+        "status": "INCONCLUSIVE_DATA",
+        "trailing_missing_trading_days": 2
       }
     },
     {
       "adjusted": [
         1
       ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-17T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-17",
+      "allowed_row_count": 898959,
+      "allowed_trading_days": 1154,
       "bars_beyond_as_of": 0,
       "conflict": 0,
       "content_sha256": "aab3305a21a583cf7813a47d531ed9ddaf7b4e34659bc6833e8f2b735681e237",
@@ -1770,6 +2049,7 @@
       "earliest": "2021-12-01T09:01:00+00:00",
       "earliest_trading_day": "2021-12-01",
       "error": null,
+      "expected_latest_trading_day": "2026-07-21",
       "gap": {
         "calendar_based": false,
         "max_missing_trading_days": 6
@@ -1801,10 +2081,11 @@
       "sources": [
         "toss_backfill"
       ],
-      "span_years": 4.632,
+      "span_years": 4.626,
       "stopped_reason": "empty_budget_exhausted",
       "symbol": "SOXS",
       "trading_days": 1163,
+      "trailing_missing_trading_days": 2,
       "verdict": {
         "bars_beyond_as_of": 0,
         "depth_source": "listing_full",
@@ -1812,10 +2093,12 @@
           "OVERNIGHT"
         ],
         "inconclusive_reasons": [
+          "trailing_gap:2_trading_days",
           "disallowed_sessions:['OVERNIGHT']"
         ],
         "meets_min_years": true,
-        "status": "INCONCLUSIVE_DATA"
+        "status": "INCONCLUSIVE_DATA",
+        "trailing_missing_trading_days": 2
       }
     }
   ],

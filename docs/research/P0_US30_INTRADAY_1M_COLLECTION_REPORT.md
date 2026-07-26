@@ -1,21 +1,23 @@
-# P0-US30 3년 1분봉 공식 수집 완료 보고
+# P0-US30 3년 1분봉 공식 수집 및 품질 판정 보고
 
 ## 결론
 
-- 공식 collection run `p0-us30-1m-20260721-r82`는 **30/30 종목 수집을 완료**했다.
+- 공식 collection run `p0-us30-1m-20260721-r82`는 **30/30 종목의 최소 3년 범위
+  수집을 완료**했다.
 - 30/30 종목이 `as_of=2026-07-21` 기준 **3.0년 이상**의 1분봉 범위를 확보했다.
 - collection provenance는 `VERIFIED`, SQLite `integrity_check`와 `quick_check`는 모두 `ok`,
   수집 로그의 conflict는 0이다.
 - 품질 판정은 두 축으로 분리한다.
   - **기간 커버리지: GO** — 30/30이 3년 기준 충족.
-  - **허용 세션 정합성: INCONCLUSIVE** — 기존 canonical DB에 있던 OVERNIGHT
-    257,799행 때문에 19종목만 `OK`, 11종목은 `INCONCLUSIVE_DATA`.
+  - **허용 세션·후행 경계 정합성: INCONCLUSIVE** — 기존 canonical DB에 있던
+    OVERNIGHT 257,799행과 허용 세션 최신일의 1~2거래일 후행 결측 때문에 19종목만
+    `OK`, 11종목은 `INCONCLUSIVE_DATA`.
 - OVERNIGHT 행은 이번 공식 수집에서 새로 허용한 데이터가 아니다. 새 수집은
   `PRE,REGULAR,POST` 필터를 저장 전에 적용했다. 기존 행을 사후에 조용히 삭제하지 않고
   fail-closed 판정과 함께 보존했다.
 - 따라서 이 스냅샷은 **3년 커버리지 확보본**으로 고정할 수 있지만, 30/30 clean-session
   데이터셋이라고 주장하거나 blind OOS 성과 분석에 바로 사용하는 것은 금지한다. 별도 승인된
-  감사 삭제 또는 immutable filtered derivative가 먼저 필요하다.
+  후행 구간 보충과 감사 삭제 또는 immutable filtered derivative가 먼저 필요하다.
 
 ## 고정 계약
 
@@ -73,6 +75,8 @@ canonical 행도 포함된다. 두 수치를 같은 의미로 해석하지 않�
 
 - tracked manifest:
   `docs/research/P0_US30_INTRADAY_1M_MANIFEST.json`
+- manifest schema: `p0_us30_intraday_1m_manifest/v2`
+  (허용 세션 span/gap·후행 경계 판정을 추가해 v1에서 명시적으로 상승)
 - data content SHA-256:
   `fc337950786f5fb07149869c561586917a2c55a2749a960768011b22d30680a9`
 - raw 고유 payload 파일: 154,181
@@ -92,10 +96,13 @@ content-addressed payload 파일은 동일 SHA로 deduplicate하기 때문이다
 | as_of 경계 | PASS | 초과 행 0 |
 | provenance | PASS | run_id/cutoff/30 symbols `VERIFIED` |
 | 허용 세션만 존재 | FAIL-CLOSED | OVERNIGHT 257,799행 |
+| 허용 세션 최신일 | FAIL-CLOSED | SPY·QQQ 1거래일, 나머지 9종목 2거래일 후행 결측 |
 | 최종 종목 verdict | 19 `OK`, 11 `INCONCLUSIVE_DATA` | manifest 종목별 사유 참조 |
 
 OVERNIGHT 혼입 종목은 SPY, QQQ, XLU, MSFT, NVDA, AMD, AVGO, GOOGL, VST, SOXL,
-SOXS다. 삭제·재분류·성과 계산은 수행하지 않았다.
+SOXS다. 같은 11종목이 후행 결측도 가진다. SPY·QQQ의 허용 세션 최신일은
+`2026-07-20`(1거래일 결측), 나머지 9종목은 `2026-07-17`(2거래일 결측)이다.
+삭제·재분류·후행 구간 추가 수집·성과 계산은 수행하지 않았다.
 
 ## 외부 복제와 restore smoke
 
@@ -135,10 +142,10 @@ SHA가 다른 것은 정상이다. 판정 기준은 snapshot과 replica의 SHA �
 
 ## 테스트
 
-- 관련 테스트:
-  `148 passed`
+- manifest/provenance targeted:
+  `65 passed`
 - 전체 테스트:
-  `1020 passed`
+  `1024 passed`
 - collection/manifest/replica 생성 중 전략 성과·forward return·blind OOS:
   미계산·미열람
 - 주문·broker·risk·Paper·전략·config:
@@ -150,16 +157,27 @@ SHA가 다른 것은 정상이다. 판정 기준은 snapshot과 replica의 SHA �
 
 - verdict: **APPROVE**
 - blocking findings: **0**
-- provenance, 30/30 3년 커버리지, 19 `OK`/11 `INCONCLUSIVE_DATA`,
-  OVERNIGHT 257,799행, DB/raw 외부 복제 receipt, 비밀정보·절대경로 부재를 확인했다.
+- provenance, 30/30 3년 커버리지, 당시 판정의 19 `OK`/11 `INCONCLUSIVE_DATA`,
+  OVERNIGHT 257,799행, DB/raw 외부 복제 receipt, tracked 산출물의
+  비밀정보·절대경로 부재를 확인했다.
+- 이 초기 검증 뒤 PR 재검수에서 허용 세션 최신일 후행 결측을 추가 발견했다. 판정 수(19/11)는
+  변하지 않았지만 “OVERNIGHT가 유일한 사유”라는 서술은 철회했고, manifest 판정·리포트·
+  회귀 테스트를 fail-closed로 보강했다. gitignored 원본 stderr의 로컬 절대경로는 감사 원문으로
+  유지되며 tracked 산출물 무경로 주장에 포함되지 않는다.
+- 최종 독립 재검토에서 code-reviewer는 차단 없는 `COMMENT`, architect는 evidence-freeze
+  범위의 `WATCH`로 판정했다. 두 검토 모두 이 PR의 증거 동결은 허용하되 ORB 연구 입력
+  준비 완료로 해석하지 않고, #84의 tail repair와 clean-session immutable snapshot을
+  선행하도록 요구했다.
 - 독립 검증자는 대용량 전체 data hash 재계산을 중단했지만, 본 작업의 별도 결정론 재실행에서
   `data_content_sha256`, `raw_content_sha256`, 종목별 품질 결과와 provenance가 모두
   원본 manifest와 일치했다.
 
 ## 남은 결정
 
-이번 작업은 3년 커버리지 수집과 현재 품질 판정을 완료했다. ORB 공식 성과 연구 전에 다음 중
-하나를 별도 사전 승인·감사 하에 선택해야 한다.
+이번 작업은 최소 3년 커버리지 수집과 현재 품질 판정을 완료했다. ORB 공식 성과 연구 전에는
+먼저 11종목의 후행 1~2거래일을 동일 cutoff 계약으로 보충하고 manifest를 다시 고정해야 한다.
+그 다음 OVERNIGHT 257,799행에 대해 다음 중 하나를 별도 사전 승인·감사 하에 선택해야 한다.
+이 blocking 후속은 GitHub 이슈 `#84`로 추적한다.
 
 1. pre-bulk backup과 외부 복제본을 근거로 legacy OVERNIGHT 257,799행을 canonical DB에서
    감사 삭제한 뒤 manifest·외부 복제를 다시 고정한다.

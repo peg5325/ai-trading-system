@@ -9,6 +9,8 @@
   거래소 캘린더(`exchange_calendar`)로 휴장·조기폐장을 결측과 구별하고 조기폐장일 커버리지를
   정규 390 으로 과대계상하지 않는다(§2.4).
 - **3.0년 게이트(§5.1)**: span<3.0년 종목은 `INCONCLUSIVE_DATA`(기준 완화 금지).
+- **후행 경계 게이트**: 허용 세션의 마지막 거래일이 as_of 기준 마지막 NYSE 거래일보다
+  이르면 `INCONCLUSIVE_DATA`. 실행 cutoff 선언만으로 실제 최신 구간 수집을 인증하지 않는다.
 - **결정론 content hash(§4.4)**: (ts_utc, session, o,h,l,c,v) 정렬 스트리밍 SHA-256.
 - **raw snapshot hash(§4.1)**: 선택적으로 RawSnapshotStore.manifest() 의 raw_content_sha256 부기.
 
@@ -20,7 +22,7 @@ import hashlib
 import json
 import os
 import sqlite3
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import yaml
 
@@ -35,6 +37,7 @@ from src.history.ingest_provenance import (
 from src.history.oos_guard import TRACK_INTRADAY, blind_oos_window
 
 INTERVAL = "1m"
+MANIFEST_SCHEMA = "p0_us30_intraday_1m_manifest/v2"
 DEFAULT_MIN_YEARS = 3.0
 # REGULAR 세션 하루 커버리지 합격선(quality.py min_coverage_pct 기본 90% 와 정합).
 REGULAR_COVERAGE_FLOOR = 0.90
@@ -82,6 +85,8 @@ def intraday_symbol_fingerprint(con: sqlite3.Connection, symbol: str, *,
     days: list[str] = []
     seen_days: set[str] = set()
     per_session: dict[str, int] = {}
+    session_days: dict[str, set[str]] = {}
+    session_bounds: dict[str, list[str]] = {}
     reg_minutes: dict[str, set[int]] = {}     # ex_day → REGULAR minute-of-day 집합
     unparseable_ts = 0                        # ts_exchange 형식 이상으로 분 파싱 실패한 REGULAR 봉
 
@@ -102,6 +107,9 @@ def intraday_symbol_fingerprint(con: sqlite3.Connection, symbol: str, *,
         h.update(line.encode("utf-8"))
         n += 1
         per_session[sess] = per_session.get(sess, 0) + 1
+        session_days.setdefault(sess, set()).add(ex_day)
+        bounds = session_bounds.setdefault(sess, [r["ts_utc"], r["ts_utc"]])
+        bounds[1] = r["ts_utc"]
         if earliest is None:
             earliest = r["ts_utc"]
         latest = r["ts_utc"]
@@ -131,6 +139,8 @@ def intraday_symbol_fingerprint(con: sqlite3.Connection, symbol: str, *,
         "regular_coverage": coverage,
         "content_sha256": h.hexdigest(),
         "_days": days,     # 내부 계산용(gap) — build 에서 제거
+        "_session_days": session_days,
+        "_session_bounds": session_bounds,
     }
 
 
@@ -195,15 +205,38 @@ def _max_gap_trading_days(days: list[str]) -> dict:
     return {"max_missing_trading_days": worst, "calendar_based": calendar_based}
 
 
+def _latest_expected_trading_day(as_of: str) -> str:
+    """as_of 이하의 마지막 NYSE 거래일. 캘린더 artifact 밖이면 fail-closed."""
+    d = date.fromisoformat(as_of)
+    while not cal.is_trading_day(d):
+        d -= timedelta(days=1)
+    return d.isoformat()
+
+
+def _trailing_missing_trading_days(
+        latest_allowed_trading_day: str | None,
+        expected_latest_trading_day: str) -> int | None:
+    """허용 세션 최신일 다음부터 기대 최신일까지 빠진 NYSE 거래일 수."""
+    if latest_allowed_trading_day is None:
+        return None
+    latest = date.fromisoformat(latest_allowed_trading_day)
+    expected = date.fromisoformat(expected_latest_trading_day)
+    if latest >= expected:
+        return 0
+    return len(cal.trading_days(latest + timedelta(days=1), expected))
+
+
 def intraday_verdict(*, span_yrs: float | None, min_years: float, row_count: int,
                      bars_beyond_as_of: int, sessions: dict, allowed_sessions: list,
-                     stopped_reason: str | None) -> dict:
+                     stopped_reason: str | None,
+                     trailing_missing_trading_days: int | None = None) -> dict:
     """1분봉 커버리지 판정(기준 완화 금지).
 
     OK 조건(전부 충족):
       · row_count>0, span_years>=min_years(=3.0)   ★기준 완화 금지
       · bars_beyond_as_of==0                        (진행 중/미래 거래일 없음, B)
       · 저장 세션이 허용 세션의 부분집합            (계약 밖 세션 유입 없음, A)
+      · 허용 세션 최신일이 as_of 기준 마지막 거래일 도달
     하나라도 불충족이면 INCONCLUSIVE_DATA + 사유. depth_source 는 stopped_reason 에서 유도.
     """
     _FLOOR = {"nextbefore_null", "empty_page", "empty_budget_exhausted", "no_progress"}
@@ -223,6 +256,8 @@ def intraday_verdict(*, span_yrs: float | None, min_years: float, row_count: int
         reasons.append(f"span<{min_years}y")
     if bars_beyond_as_of > 0:
         reasons.append("bars_beyond_as_of")
+    if trailing_missing_trading_days:
+        reasons.append(f"trailing_gap:{trailing_missing_trading_days}_trading_days")
     disallowed = sorted(set(sessions) - set(allowed_sessions))
     if disallowed:
         reasons.append(f"disallowed_sessions:{disallowed}")
@@ -232,6 +267,7 @@ def intraday_verdict(*, span_yrs: float | None, min_years: float, row_count: int
         "meets_min_years": (span_yrs is not None and span_yrs >= min_years),
         "depth_source": depth_source,
         "bars_beyond_as_of": bars_beyond_as_of,
+        "trailing_missing_trading_days": trailing_missing_trading_days,
         "disallowed_sessions": disallowed,
         "inconclusive_reasons": reasons,
     }
@@ -268,22 +304,47 @@ def _symbol_provenance(con: sqlite3.Connection, symbol: str) -> dict:
 
 
 def symbol_manifest(con: sqlite3.Connection, symbol: str, *, min_years: float,
-                    as_of: str, allowed_sessions: list) -> dict:
+                    as_of: str, allowed_sessions: list,
+                    expected_latest_trading_day: str) -> dict:
     fp = intraday_symbol_fingerprint(con, symbol, as_of=as_of)
     prov = _symbol_provenance(con, symbol)
-    yrs = span_years(fp["earliest"], fp["latest"])
-    gap = _max_gap_trading_days(fp["_days"])
+    allowed_days = sorted({
+        day for sess in allowed_sessions for day in fp["_session_days"].get(sess, set())
+    })
+    allowed_bounds = [
+        fp["_session_bounds"][sess]
+        for sess in allowed_sessions
+        if sess in fp["_session_bounds"]
+    ]
+    allowed_earliest = min((b[0] for b in allowed_bounds), default=None)
+    allowed_latest = max((b[1] for b in allowed_bounds), default=None)
+    allowed_earliest_day = allowed_days[0] if allowed_days else None
+    allowed_latest_day = allowed_days[-1] if allowed_days else None
+    allowed_rows = sum(fp["sessions"].get(sess, 0) for sess in allowed_sessions)
+    yrs = span_years(allowed_earliest, allowed_latest)
+    gap = _max_gap_trading_days(allowed_days)
+    trailing_gap = _trailing_missing_trading_days(
+        allowed_latest_day, expected_latest_trading_day)
     verdict = intraday_verdict(
-        span_yrs=yrs, min_years=min_years, row_count=fp["row_count"],
+        span_yrs=yrs, min_years=min_years, row_count=allowed_rows,
         bars_beyond_as_of=fp["bars_beyond_as_of"], sessions=fp["sessions"],
-        allowed_sessions=allowed_sessions, stopped_reason=prov["stopped_reason"])
+        allowed_sessions=allowed_sessions, stopped_reason=prov["stopped_reason"],
+        trailing_missing_trading_days=trailing_gap)
     market_row = con.execute(
         "SELECT market FROM candle_history WHERE symbol=? AND interval=? LIMIT 1",
         (symbol, INTERVAL)).fetchone()
-    entry = {k: v for k, v in fp.items() if k != "_days"}
+    entry = {k: v for k, v in fp.items() if not k.startswith("_")}
     entry.update({
         "market": (market_row[0] if market_row else None),
         "span_years": yrs,
+        "allowed_row_count": allowed_rows,
+        "allowed_earliest": allowed_earliest,
+        "allowed_latest": allowed_latest,
+        "allowed_earliest_trading_day": allowed_earliest_day,
+        "allowed_latest_trading_day": allowed_latest_day,
+        "allowed_trading_days": len(allowed_days),
+        "expected_latest_trading_day": expected_latest_trading_day,
+        "trailing_missing_trading_days": trailing_gap,
         "gap": gap,
         "sources": prov["sources"],
         "adjusted": prov["adjusted"],
@@ -373,8 +434,12 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
             prov_verification = declared_only_provenance(
                 declared_completed_through=collection_completed_through,
                 interval=INTERVAL, source=BACKFILL_SOURCE)
-        entries = [symbol_manifest(con, s, min_years=min_years, as_of=as_of,
-                                   allowed_sessions=allowed) for s in uni["symbols"]]
+        expected_latest_trading_day = _latest_expected_trading_day(as_of)
+        entries = [symbol_manifest(
+            con, s, min_years=min_years, as_of=as_of,
+            allowed_sessions=allowed,
+            expected_latest_trading_day=expected_latest_trading_day,
+        ) for s in uni["symbols"]]
     finally:
         con.close()
 
@@ -391,7 +456,8 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
     _oos_lo, _oos_hi = blind_oos_window(TRACK_INTRADAY)   # 단일 원천(oos_guard)
 
     manifest = {
-        "schema": "p0_us30_intraday_1m_manifest/v1",
+        # v2: allowed-session span/gap과 as_of 후행 결측을 verdict 계약에 추가.
+        "schema": MANIFEST_SCHEMA,
         "interval": INTERVAL,
         "universe": {
             "source": os.path.basename(yaml_path), "version": uni["yaml_version"],
@@ -400,6 +466,7 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
             "valid": uni["valid"], "errors": uni["errors"],
         },
         "requested_as_of": as_of,
+        "expected_latest_trading_day": expected_latest_trading_day,
         "min_years": min_years,
         "allowed_sessions": sorted(allowed),
         # blind OOS 경계는 oos_guard 를 단일 원천으로 인용(이중 정의 drift 방지). oos_guard 는
@@ -410,8 +477,8 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
         "collection": {**collection_params, "code_commit": collection_code_commit,
                        "db_basename": os.path.basename(db_path),
                        "completed_through": collection_completed_through},
-        # 실행 provenance(이슈 #79) — schema v1 에 **추가된 필드**(하위호환: 기존 키·값 무변경,
-        # data_content_sha256 불변). 데이터 내용 지문과 실행 provenance 지문을 분리한다.
+        # 실행 provenance(이슈 #79) — 데이터 내용 지문과 실행 provenance 지문을 분리한다.
+        # v2 판정 강화에도 data_content_sha256 정의는 불변이다.
         "provenance_verification": prov_verification,
         "raw_snapshot": ({"raw_content_sha256": raw_manifest.get("raw_content_sha256"),
                           "content_file_count": raw_manifest.get("content_file_count"),
@@ -424,6 +491,8 @@ def build_manifest(db_path: str, yaml_path: str, *, collection_params: dict,
             "with_rows": sum(1 for e in entries if e["row_count"] > 0),
             "total_rows": sum(e["row_count"] for e in entries),
             "bars_beyond_as_of_total": sum(e["bars_beyond_as_of"] for e in entries),
+            "trailing_gap_symbol_count": sum(
+                1 for e in entries if (e["trailing_missing_trading_days"] or 0) > 0),
             "session_row_totals": dict(sorted(session_totals.items())),
             "min_earliest": min(earliests) if earliests else None,
             "max_latest": max(latests) if latests else None,
