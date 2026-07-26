@@ -135,6 +135,10 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
     ap.add_argument("--max-retries", type=int, default=3)
     ap.add_argument("--backoff-base", type=float, default=0.5)
     ap.add_argument("--no-resume", action="store_true")
+    ap.add_argument(
+        "--tail-repair", action="store_true",
+        help="명시 심볼의 최신 구간을 다시 읽되 기존 과거 backfill cursor는 보존한다. "
+             "1m + --symbols 전용이며 resume는 자동 비활성화된다.")
     ap.add_argument("--run-id", default=None,
                     help="collection run_id(이슈 #79). 미지정 시 API/DB 접근 전에 새로 생성·출력한다. "
                          "중단 후 resume 은 **같은 run_id 를 다시 지정**해야 manifest 교차검증이 하나의 "
@@ -211,6 +215,14 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
     else:
         symbols = universe
 
+    if args.tail_repair:
+        if args.interval != "1m":
+            print("--tail-repair 는 1분봉(1m)에만 지원된다.", file=sys.stderr)
+            return 2
+        if not args.symbols:
+            print("--tail-repair 는 대상 범위를 명시하도록 --symbols 가 필수다.", file=sys.stderr)
+            return 2
+
     # === 5) 공식 1분봉 수집은 immutable raw 스냅샷 필수(Phase 1B 계약 §4.1 · ADR-0001) ===
     #   재수집 비용이 큰 대량 호출에서 parse 전 원본 payload 를 영구 소실하지 않도록 강제한다.
     if args.interval == "1m" and not args.raw_snapshot_dir:
@@ -262,10 +274,11 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
                 store, prov, symbols, args.interval, run_id=run_id,
                 max_pages=max_pages, page_size=args.page_size, spacing=args.spacing,
                 max_retries=args.max_retries, backoff_base=args.backoff_base,
-                resume=not args.no_resume, gap_skip_minutes=args.gap_skip_minutes,
+                resume=(not args.no_resume and not args.tail_repair),
+                gap_skip_minutes=args.gap_skip_minutes,
                 max_consecutive_empty=args.max_consecutive_empty,
                 session_filter=session_filter, completed_through=completed_through,
-                raw_sink=raw_sink)
+                raw_sink=raw_sink, persist_cursor=not args.tail_repair)
 
     if args.json:
         out = report.as_dict()   # run_id 를 이미 포함(이슈 #79)
@@ -275,6 +288,8 @@ def main(argv: list[str], *, now_utc: datetime | None = None) -> int:
 
     print(f"=== 공식 P0-US30 backfill {args.db}  interval={args.interval} ===")
     print(f"  collection run_id: {report.run_id}")
+    if args.tail_repair:
+        print("  모드: tail-repair (최신부터 재조회, 기존 backfill cursor 보존)")
     print(f"  완료-거래일 cutoff: {completed_through.isoformat()} "
           f"(scope={scope}, 기준시각 {now_utc.isoformat()})")
     if session_filter is not None:

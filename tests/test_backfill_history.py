@@ -125,6 +125,36 @@ def test_max_pages_then_resume(tmp_path):
         assert store.total_rows() == 3
 
 
+def test_tail_repair_preserves_existing_deep_cursor(tmp_path):
+    """최신 구간 repair는 새 데이터를 저장하되 기존 과거 탐색 cursor를 덮어쓰지 않는다."""
+    prov = FakeProvider({
+        ("QQQ", None): ([_c("QQQ", 2), _c("QQQ", 1)], "recent-next"),
+    })
+    dbp = str(tmp_path / "market_history.sqlite")
+    _, sleep = _no_sleep()
+    with HistoryStore(dbp) as store:
+        store.save_cursor(
+            "QQQ", "1m",
+            oldest_ts_utc="2023-07-01T00:00:00+00:00",
+            next_before="deep-history-next", exhausted=False)
+        store.commit()
+        before = store.get_cursor("QQQ", "1m")
+
+        result = backfill_symbol(
+            store, prov, "QQQ", "1m", max_pages=1, sleep=sleep,
+            resume=False, persist_cursor=False, run_id="TAIL-REPAIR")
+
+        assert result.cursor_persisted is False
+        assert result.inserted == 2
+        assert result.stopped_reason == "max_pages"
+        assert store.total_rows() == 2
+        assert store.get_cursor("QQQ", "1m") == before
+        log = store._con.execute(
+            "SELECT note FROM ingest_log WHERE run_id='TAIL-REPAIR'"
+        ).fetchone()[0]
+        assert "cursor_persisted=false" in log
+
+
 def test_idempotent_rerun(tmp_path):
     """full backfill 재실행 → 신규 insert 0, 전부 duplicate, 총 행수 불변."""
     prov = FakeProvider({

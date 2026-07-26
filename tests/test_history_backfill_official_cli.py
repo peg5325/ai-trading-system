@@ -81,6 +81,21 @@ def test_unknown_symbol_rejected(guard_creds):
                     now_utc=AFTER_CLOSE) == 2
 
 
+def test_tail_repair_requires_1m_and_explicit_symbols(guard_creds, tmp_path, capsys):
+    raw = str(tmp_path / "raw")
+    assert off.main([
+        "--completed-through", "2025-07-15", "--tail-repair",
+        "--raw-snapshot-dir", raw,
+    ], now_utc=AFTER_CLOSE) == 2
+    assert "--symbols" in capsys.readouterr().err
+
+    assert off.main([
+        "--completed-through", "2025-07-15", "--interval", "1d",
+        "--tail-repair", "--symbols", "QQQ",
+    ], now_utc=AFTER_CLOSE) == 2
+    assert "1분봉" in capsys.readouterr().err
+
+
 def test_blank_run_id_rejected_before_creds_api_db(guard_creds, tmp_path, capsys):
     code = off.main([
         "--completed-through", "2025-07-15", "--run-id", "   ",
@@ -217,6 +232,49 @@ def test_happy_path_passes_validated_cutoff_and_universe(monkeypatch, tmp_path):
     assert captured["completed_through"] == _date(2025, 7, 15)
     # 1m 세션 필터 기본(PRE/REGULAR/POST)
     assert captured["session_filter"] is not None
+
+
+def test_tail_repair_disables_resume_and_cursor_persistence(monkeypatch, tmp_path):
+    captured = {}
+
+    class FakeSettings:
+        has_credentials = True
+
+    class FakeReport:
+        run_id = "TAIL"
+        results = []
+
+        def as_dict(self):
+            return {"interval": "1m", "run_id": self.run_id, "results": []}
+
+    class FakeCtx:
+        def __init__(self, *a):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake_backfill(*args, **kwargs):
+        captured.update(kwargs)
+        return FakeReport()
+
+    monkeypatch.setattr(off, "load_settings", lambda: FakeSettings())
+    monkeypatch.setattr(off, "TossMarketDataProvider", FakeCtx)
+    monkeypatch.setattr(off, "HistoryStore", lambda db: FakeCtx())
+    monkeypatch.setattr(off, "backfill_symbols", fake_backfill)
+
+    code = off.main([
+        "--completed-through", "2025-07-15",
+        "--symbols", "QQQ", "--tail-repair", "--run-id", "TAIL",
+        "--raw-snapshot-dir", str(tmp_path / "raw"), "--json",
+    ], now_utc=AFTER_CLOSE)
+
+    assert code == 0
+    assert captured["resume"] is False
+    assert captured["persist_cursor"] is False
 
 
 def test_1m_requires_raw_snapshot_dir(guard_creds):
