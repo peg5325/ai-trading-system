@@ -1,0 +1,595 @@
+{
+  "blind_oos": {
+    "days_inside_window": 0,
+    "end": "2026-07-21",
+    "start": "2026-01-21",
+    "track": "intraday"
+  },
+  "cells": [
+    {
+      "bars_15m": 56,
+      "bars_1m": 784,
+      "bars_5m": 168,
+      "day": "2025-03-10",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SPY"
+    },
+    {
+      "bars_15m": 56,
+      "bars_1m": 839,
+      "bars_5m": 168,
+      "day": "2025-03-10",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "QQQ"
+    },
+    {
+      "bars_15m": 56,
+      "bars_1m": 841,
+      "bars_5m": 168,
+      "day": "2025-03-10",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "NVDA"
+    },
+    {
+      "bars_15m": 56,
+      "bars_1m": 841,
+      "bars_5m": 168,
+      "day": "2025-03-10",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "TSLA"
+    },
+    {
+      "bars_15m": 56,
+      "bars_1m": 840,
+      "bars_5m": 168,
+      "day": "2025-03-10",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXL"
+    },
+    {
+      "bars_15m": 56,
+      "bars_1m": 808,
+      "bars_5m": 168,
+      "day": "2025-03-10",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXS"
+    },
+    {
+      "bars_15m": 59,
+      "bars_1m": 856,
+      "bars_5m": 179,
+      "day": "2025-11-03",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SPY"
+    },
+    {
+      "bars_15m": 59,
+      "bars_1m": 900,
+      "bars_5m": 179,
+      "day": "2025-11-03",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "QQQ"
+    },
+    {
+      "bars_15m": 59,
+      "bars_1m": 900,
+      "bars_5m": 179,
+      "day": "2025-11-03",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "NVDA"
+    },
+    {
+      "bars_15m": 59,
+      "bars_1m": 900,
+      "bars_5m": 179,
+      "day": "2025-11-03",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "TSLA"
+    },
+    {
+      "bars_15m": 59,
+      "bars_1m": 900,
+      "bars_5m": 179,
+      "day": "2025-11-03",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXL"
+    },
+    {
+      "bars_15m": 58,
+      "bars_1m": 716,
+      "bars_5m": 164,
+      "day": "2025-11-03",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXS"
+    },
+    {
+      "bars_15m": 52,
+      "bars_1m": 671,
+      "bars_5m": 154,
+      "day": "2025-11-28",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SPY"
+    },
+    {
+      "bars_15m": 52,
+      "bars_1m": 755,
+      "bars_5m": 156,
+      "day": "2025-11-28",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "QQQ"
+    },
+    {
+      "bars_15m": 52,
+      "bars_1m": 779,
+      "bars_5m": 156,
+      "day": "2025-11-28",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "NVDA"
+    },
+    {
+      "bars_15m": 52,
+      "bars_1m": 771,
+      "bars_5m": 156,
+      "day": "2025-11-28",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "TSLA"
+    },
+    {
+      "bars_15m": 52,
+      "bars_1m": 762,
+      "bars_5m": 156,
+      "day": "2025-11-28",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXL"
+    },
+    {
+      "bars_15m": 51,
+      "bars_1m": 584,
+      "bars_5m": 140,
+      "day": "2025-11-28",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXS"
+    },
+    {
+      "bars_15m": 52,
+      "bars_1m": 639,
+      "bars_5m": 150,
+      "day": "2025-12-24",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SPY"
+    },
+    {
+      "bars_15m": 52,
+      "bars_1m": 712,
+      "bars_5m": 155,
+      "day": "2025-12-24",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "QQQ"
+    },
+    {
+      "bars_15m": 52,
+      "bars_1m": 774,
+      "bars_5m": 156,
+      "day": "2025-12-24",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "NVDA"
+    },
+    {
+      "bars_15m": 52,
+      "bars_1m": 739,
+      "bars_5m": 156,
+      "day": "2025-12-24",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "TSLA"
+    },
+    {
+      "bars_15m": 52,
+      "bars_1m": 744,
+      "bars_5m": 156,
+      "day": "2025-12-24",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXL"
+    },
+    {
+      "bars_15m": 49,
+      "bars_1m": 529,
+      "bars_5m": 131,
+      "day": "2025-12-24",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXS"
+    },
+    {
+      "bars_15m": 63,
+      "bars_1m": 894,
+      "bars_5m": 191,
+      "day": "2026-01-02",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SPY"
+    },
+    {
+      "bars_15m": 63,
+      "bars_1m": 953,
+      "bars_5m": 191,
+      "day": "2026-01-02",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "QQQ"
+    },
+    {
+      "bars_15m": 63,
+      "bars_1m": 957,
+      "bars_5m": 191,
+      "day": "2026-01-02",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "NVDA"
+    },
+    {
+      "bars_15m": 63,
+      "bars_1m": 960,
+      "bars_5m": 191,
+      "day": "2026-01-02",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "TSLA"
+    },
+    {
+      "bars_15m": 63,
+      "bars_1m": 957,
+      "bars_5m": 191,
+      "day": "2026-01-02",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXL"
+    },
+    {
+      "bars_15m": 63,
+      "bars_1m": 773,
+      "bars_5m": 174,
+      "day": "2026-01-02",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXS"
+    },
+    {
+      "bars_15m": 59,
+      "bars_1m": 885,
+      "bars_5m": 179,
+      "day": "2026-01-20",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SPY"
+    },
+    {
+      "bars_15m": 59,
+      "bars_1m": 900,
+      "bars_5m": 179,
+      "day": "2026-01-20",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "QQQ"
+    },
+    {
+      "bars_15m": 59,
+      "bars_1m": 900,
+      "bars_5m": 179,
+      "day": "2026-01-20",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "NVDA"
+    },
+    {
+      "bars_15m": 59,
+      "bars_1m": 900,
+      "bars_5m": 179,
+      "day": "2026-01-20",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "TSLA"
+    },
+    {
+      "bars_15m": 59,
+      "bars_1m": 899,
+      "bars_5m": 179,
+      "day": "2026-01-20",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXL"
+    },
+    {
+      "bars_15m": 59,
+      "bars_1m": 760,
+      "bars_5m": 174,
+      "day": "2026-01-20",
+      "in_blind_oos": false,
+      "mismatches": [],
+      "sessions": [
+        "POST",
+        "PRE",
+        "REGULAR"
+      ],
+      "status": "OK",
+      "symbol": "SOXS"
+    }
+  ],
+  "compared_fields": [
+    "ts_utc",
+    "ts_exchange",
+    "symbol",
+    "interval",
+    "session",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "currency",
+    "adjusted",
+    "market"
+  ],
+  "compared_paths": [
+    "research_core",
+    "live_adapter",
+    "candidate_stream",
+    "replay"
+  ],
+  "generated_at_utc": "2026-07-26T12:30:25Z",
+  "issue": 76,
+  "performance_computed": false,
+  "purpose": "coverage",
+  "schema": "resampler-parity/receipt/v1",
+  "snapshot": {
+    "as_of": "2026-07-21",
+    "basename": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+    "collection_run_id": "p0-us30-1m-20260721-r82",
+    "content_sha256": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+    "file_sha256": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33"
+  },
+  "snapshot_basename_checked": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+  "summary": {
+    "bars_15m_total": 2041,
+    "bars_1m_total": 29322,
+    "bars_5m_total": 6087,
+    "cells_matched": 36,
+    "cells_mismatched": 0,
+    "cells_no_data": 0,
+    "cells_requested": 36,
+    "cells_with_data": 36
+  },
+  "verdict": "PARITY_OK"
+}

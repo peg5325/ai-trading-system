@@ -320,3 +320,60 @@ blind OOS 경계는 **이 계약에서 고정**하며 backfill/품질 확인 단
 | §5.1 blind OOS 코드 게이트("후속 고려") | `src/history/oos_guard.py`(연구 로더 fail-closed, coverage 허용) + 공식 스크립트 배선(`history_eval_slices` → guarded loader) + 직접 `load_candles` import 금지 경계 테스트(`tests/test_oos_guard_wiring.py`) |
 | §2.5 1m→5m + **1m→15m**·opening-range | `src/history/resample.py` 확장(15m·09:30–09:44 ET 완료봉만) |
 | §2.5 연구↔라이브 5m 통일 | **별도 Phase 2 blocking-gate 이슈 #76**(ORB 공식 연구 전 필수, 이 PR 미포함) |
+
+---
+
+## AMENDMENT A2 — §2.5 이중 구현 해소 (2026-07-26, 이슈 #76)
+
+> **성격: append-only 부기.** §2.5 본문과 그 "⚠ 이중 구현 주의" 단락은 **다시 쓰지 않는다**
+> (Git 이력으로 원문 보존). A2 는 그 경고가 **해소된 사실**과 새로 확정된 세부 계약만 부기한다.
+> **데이터 계약(기간·세션·adjusted·OOS 경계·비용·품질)은 무변경.**
+
+### A2-1. 해소된 사실
+
+§2.5 는 연구용 `src/history/resample.py` 와 라이브용 `src/engines/indicator_engine.resample`
+의 **이중 구현**을 경고하며 "연구 5분봉 = 라이브 5분봉 은 아직 보장되지 않는다", "§4.4 재현성
+주장은 연구 파생에 한정한다"고 적었다. 이슈 #76 에서 **단일 소스화**했다:
+
+- 유일한 집계 권위 = `src/history/resample.py`(pure·market-aware·순서독립·세션 버킷키).
+- `indicator_engine.resample` 과 `frame_to_candles` 는 **DataFrame ↔ Candle thin adapter** 로
+  축소됐고, `paper_loop`·`candidate_stream`·`replay` 가 **같은 core·같은 변환**을 호출한다.
+- pandas `resample` 은 권위 경로에서 제거됐다.
+
+→ §2.5 의 (a) 부분버킷 / (b) dedup / (c) 세션 market-aware **세 차이가 모두 사라졌다.**
+따라서 "연구 5분봉 = 라이브 5분봉" 은 이제 보장되며, §4.4 재현성 주장의 "연구 파생 한정"
+단서도 **파생 리샘플에 한해** 해제된다.
+
+### A2-2. 새로 확정한 세부 계약 (기존 조항 완화 아님)
+
+1. **두 축 분리** — `closed_only`(시간축: 버킷 구간이 끝났는가) 와
+   `min_bars`/`require_complete`(커버리지축: 1분봉이 몇 개인가)는 **독립**이며 호출자마다
+   다르게 쓰지 않는다.
+2. **완료 경계(frontier)** — `closed_only=True` 는 `버킷 종료 <= frontier` 만 방출한다.
+   frontier = `evaluation_time` 또는 **입력 마지막 1분봉의 `ts_utc`**(형성 중일 수 있어 +1분
+   하지 않음). 기존 라이브 `drop_partial=True` 와 **관측 동치** — 라이브 결정 시점 불변.
+   버킷 종료는 **UTC 산술**로 계산한다(DST 전환 구간 길이 왜곡 방지).
+3. **dedup** — 프레임 경로의 `keep="last"`(순서 의존)를 제거하고 §2.5 의 최대 튜플 규칙으로
+   통일했다. 중복은 frontier 를 앞당기지 못한다.
+4. **세션/market** — 버킷 키에 session 포함(구조적), 버킷 경계는 거래소 로컬 분 floor,
+   session/`ts_exchange`/`market` 은 원본에서 상속. **ET 하드코딩 제거**(KR 정확).
+   VWAP 일일 리셋 키 `et_date` 는 **거래소 로컬 날짜**로 정정(컬럼명은 하위호환 유지).
+5. **DST 가을 fold** — §2.5 가 "라이브 통일 시 처리"로 미뤘던 항목: 로컬 라벨이 같아도 UTC
+   offset 이 달라 **버킷이 합쳐지지 않는다**(테스트로 고정). 해당 구간이 OVERNIGHT 이라
+   4전략이 쓰지 않는다는 §2.2 판단은 그대로다.
+6. **fail-closed** — 파생봉 재리샘플·지원 밖 rule(5min/15min 외)·무시되는 인자
+   (`evaluation_time` without `closed_only`)·`min_bars<1` 은 `ValueError`.
+7. **interval 라벨** — 파생봉은 `"5m"`/`"15m"`. `candidate_stream` 이 rule 문자열 `"5min"` 을
+   라벨로 쓰던 불일치를 제거했다.
+
+### A2-3. 증거와 범위
+
+- 계약 테스트 `tests/test_resampler_parity.py` 33건 + CLI `tests/test_resampler_parity_cli.py` 6건.
+- 실데이터 parity: 고정 clean snapshot(file SHA `3c2c4751…`)에서 6종목 × 6거래일 = **36셀,
+  불일치 0**(1m 29,322봉 → 5m 6,087 / 15m 2,041). DST 전환일·조기폐장일 포함,
+  **blind OOS 거래일 0**. receipt: `docs/research/RESAMPLER_PARITY_RECEIPT.json`.
+- 정본 계약 문서: `docs/research/RESAMPLER_PARITY_CONTRACT.md`.
+- **성과·forward return·blind OOS 미열람.** 로드는 `oos_guard.research_load(purpose="coverage")`
+  경유. 주문/broker/risk/Paper/전략/runtime config·canonical DB **무변경**.
+- 남은 한계: stale 종목의 마지막 버킷 지연(**#44** 범위, 이번에 의도적으로 동작 보존),
+  조기폐장 커버리지 390분 가정(§2.4 알려진 한계 유지), KR 실데이터 parity 미실측(US-30 스냅샷).
