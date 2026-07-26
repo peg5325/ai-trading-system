@@ -192,17 +192,21 @@ def test_nan_duplicate_is_order_invariant_and_prefers_real_value():
 
     NaN 은 모든 비교에서 False 라 tie-break 가 입력 순서에 좌우됐다. 정상 OHLCV 에는
     NaN 이 없지만, 계약이 "순서 무관"이라고 적혀 있으면 이 코너에서도 참이어야 한다.
+
+    NaN 을 **출력에 실제로 전파되는 값**(버킷 마지막 봉의 close)에 둔다 — 전파되지 않는
+    필드에 두면 단언이 아무것도 구별하지 못한다(mutation 리뷰가 첫 판을 이렇게 잡아냈다).
     """
     nan = float("nan")
-    base = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 6)
-    good = base[1]
-    bad = Candle(**{**good.__dict__, "open": nan})
-    for order in ([bad, good], [good, bad]):
-        c = base[:1] + order + base[2:]
+    base = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 6)   # 09:30..09:35
+    last_in_bucket = base[4]                     # 09:34 → 버킷 close 를 결정한다
+    bad = Candle(**{**last_in_bucket.__dict__, "close": nan})
+    for order in ([bad, last_in_bucket], [last_in_bucket, bad]):
+        c = base[:4] + order + base[5:]
         core = resample_1m_to_5m(c, closed_only=True)
         live = live_bars(c, "SPY")
-        assert core[0].open == 100.0            # 결측 아닌 행 선호
-        assert ser(live) == ser(core)           # 어댑터도 같은 총순서
+        assert core[0].close == 105.0           # 결측 아닌 행 선호(NaN 이면 NaN 결정봉)
+        assert live[0].close == 105.0           # 어댑터도 동일 — na_position 되돌리면 NaN
+        assert ser(live) == ser(core)
 
 
 def test_adapter_inherits_adjusted_false():
@@ -531,6 +535,79 @@ def test_shim_reexports_are_the_same_objects():
     for name in ("resample_1m", "resample_1m_to_5m", "resample_1m_to_15m",
                  "opening_range", "bucket_minutes_from_rule", "SUPPORTED_BUCKETS"):
         assert getattr(shim, name) is getattr(core, name)
+
+
+def test_opening_range_ignores_foreign_market_bars():
+    """`market=` 밖 종목의 봉은 opening range 에 **섞이지 않는다**(mutation review #3).
+
+    ORB 사전등록이 이 함수를 직접 소비한다. 필터가 조용히 타 시장 봉을 받아들이면 연구
+    결과가 아무도 모르게 오염된다.
+
+    KR 봉은 **자기 로컬 09:30**(= 창 시각과 같은 분 오프셋)에 둔다. 09:00 KST 로 두면
+    시간창 필터가 먼저 걸러버려 market 필터를 지워도 테스트가 통과한다(첫 판이 그랬다).
+    """
+    us = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 16)
+    kr = mk_1m("005930", datetime(2026, 3, 3, 9, 30, tzinfo=KST), 16,
+               currency="KRW", base=1000.0)      # 훨씬 큰 값 — 섞이면 눈에 띈다
+    out = opening_range(us + kr, minutes=15, market="US")
+    assert [b.symbol for b in out] == ["SPY"]        # 필터 없으면 005930 도 나온다
+    assert out[0].market == "US"
+    # 창(09:30~09:44) 안 15봉만 — 09:45 봉은 구조적으로 제외된다.
+    assert out[0].high == max(b.high for b in us[:15])
+
+    # KR 정규장 개장은 09:00 KST 라 KR opening range 창은 09:00~09:14 다(그 시장 기준).
+    kr_open = mk_1m("005930", datetime(2026, 3, 3, 9, 0, tzinfo=KST), 15,
+                    currency="KRW", base=1000.0)
+    kr_out = opening_range(us + kr_open, minutes=15, market="KR")
+    assert [b.symbol for b in kr_out] == ["005930"]
+    assert kr_out[0].ts_exchange.strftime("%H:%M") == "09:00"
+
+
+def test_sub_minute_timestamps_floor_to_the_grid():
+    """초 단위가 섞인 1분봉도 그리드 시작으로 floor 된다(mutation review #4, 방어적).
+
+    실데이터 1분봉은 초가 0 이지만, floor 가 초를 지우지 않으면 버킷이 봉마다 쪼개진다.
+    """
+    start = datetime(2026, 3, 3, 9, 30, tzinfo=ET)
+    c = [Candle.from_moment("SPY", "1m", start + timedelta(minutes=i, seconds=7 * i),
+                            100.0 + i, 102.0 + i, 99.0 + i, 101.0 + i, 10.0, "USD", True)
+         for i in range(6)]
+    bars = resample_1m_to_5m(c)
+    assert [b.ts_exchange.strftime("%H:%M:%S") for b in bars] == ["09:30:00", "09:35:00"]
+
+
+def test_full_trading_day_all_sessions_live_matches_core():
+    """04:00→20:00 ET 전 세션 하루 — 경로 동치 테스트가 REGULAR 전용이 아니게 한다.
+
+    옛 코드가 실제로 갈라졌던 형태(PRE/REGULAR/POST 혼재)라 여기서 고정한다.
+    """
+    c = mk_1m("SPY", datetime(2026, 3, 3, 4, 0, tzinfo=ET), 16 * 60)   # 04:00..19:59
+    core = resample_1m_to_5m(c, closed_only=True)
+    assert {b.session for b in core} == {"PRE", "REGULAR", "POST"}
+    assert ser(live_bars(c, "SPY")) == ser(core)
+    core15 = resample_1m_to_15m(c, closed_only=True)
+    assert ser(live_bars(c, "SPY", rule="15min")) == ser(core15)
+
+
+def test_frame_without_metadata_columns_uses_market_not_et():
+    """`ts_exchange`/`market`/`session` 컬럼이 없는 프레임도 **통화로 market 을 유도**한다.
+
+    (이 fallback 경로는 현재 호출자에게 도달하지 않지만, 맨 OHLCV 프레임을 넘기는 미래
+    호출자를 위한 계약이다 — ET 로 고정하면 KR 이 조용히 틀린다.)
+    """
+    kr = mk_1m("005930", datetime(2026, 3, 3, 9, 0, tzinfo=KST), 6, currency="KRW")
+    bare = candles_to_frame(kr).drop(columns=["ts_exchange", "market", "session",
+                                              "et_date", "interval", "adjusted"])
+    out = frame_to_candles(bare, "005930", interval="1m")
+    assert [b.market for b in out] == ["KR"] * 6
+    assert out[0].ts_exchange.utcoffset() == timedelta(hours=9)
+    assert out[0].session == "REGULAR"           # ET 로 유도하면 POST 가 된다
+
+
+def test_frame_without_interval_column_defaults_to_canonical_label():
+    c = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 6)
+    df = resample(candles_to_frame(c), "5min").drop(columns=["interval"])
+    assert [b.interval for b in frame_to_candles(df, "SPY")] == ["5m"]
 
 
 def test_empty_input_is_empty_not_error():

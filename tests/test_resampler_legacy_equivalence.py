@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import math
 import random
 from datetime import datetime, timedelta
 
@@ -178,13 +179,16 @@ def test_legacy_would_fail_the_kr_session_contract():
     assert set(new["market"]) == {"KR"}
 
 
-def test_float_volume_sums_differ_only_within_ulp():
-    """비정수 거래량에서는 두 구현이 **1 ULP** 차이날 수 있다 — 정직하게 고정한다.
+def test_float_volume_sums_differ_only_in_summation_order():
+    """비정수 거래량에서 두 구현의 합이 **부동소수 누적 순서** 때문에 갈릴 수 있다.
 
-    옛 경로는 pandas/numpy 의 pairwise 합, 새 core 는 파이썬 순차 `sum` 이다. 실거래량은
-    정수 주식수라 두 합이 모두 정확해 실데이터 parity 는 29,322봉에서 불일치 0 이었다.
-    (경로 간 parity — core/adapter/candidate_stream/replay — 는 **같은 core** 를 쓰므로
-    이 뉘앙스와 무관하게 bit-identical 이다.)
+    옛 경로는 pandas/numpy 의 pairwise 합, 새 core 는 파이썬 순차 `sum` 이다. 오차는
+    순차 O(n·ε) vs pairwise O(log n·ε) 라 **버킷 크기에 따라 커진다** — 독립 리뷰가 n=60
+    에서 최대 5 ULP 를 실측했으므로 "1 ULP" 라고 못박지 않는다(여유 8 ULP 로 고정).
+
+    실거래량은 정수 주식수라 두 합이 모두 정확하고, 실데이터 대조(29,322봉·14,536봉)는
+    불일치 0 이었다. 경로 간 parity(core/adapter/candidate_stream/replay)는 **같은 core**
+    를 쓰므로 이 뉘앙스와 무관하게 bit-identical 이다.
     """
     rng = random.Random(760)
     start = datetime(*D, 9, 30, tzinfo=ET)
@@ -199,4 +203,4 @@ def test_float_volume_sums_differ_only_within_ulp():
     assert len(new) == len(old)
     for a, b in zip(new, old):
         assert a[:5] == b[:5]                       # ts·OHLC 는 선택 연산 → 정확히 일치
-        assert a[5] == pytest.approx(b[5], rel=1e-12)
+        assert abs(a[5] - b[5]) <= 8 * math.ulp(b[5])   # rel 허용치는 주장보다 4000배 느슨했다

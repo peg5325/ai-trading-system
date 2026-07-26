@@ -105,7 +105,7 @@ core 를 `src/history` 가 아니라 **leaf `src/bars`** 에 둔 이유(독립 �
 
 ## 4. 증거
 
-### 4.1 계약 테스트 — `tests/test_resampler_parity.py` (47 tests, 전부 통과)
+### 4.1 계약 테스트 — `tests/test_resampler_parity.py` (53 tests, 전부 통과)
 
 | 요구 항목 | 테스트 |
 | --- | --- |
@@ -134,6 +134,10 @@ core 를 `src/history` 가 아니라 **leaf `src/bars`** 에 둔 이유(독립 �
 | tz-naive 거부(머신 TZ 의존 금지) | `test_adapter_rejects_timezone_naive_frames` |
 | **pre-#76 차등 동치**(옛 동작 고정) | `tests/test_resampler_legacy_equivalence.py` — 수기 14케이스×2 rule×2 partial + 무작위 200건 + KR 오분류 회귀 + 부동소수 ULP |
 | **checker 가 '아니오' 라고 말하는지** | `test_cli_actually_detects_each_divergence`(5개 탐지 분기 전부) |
+| 전 세션 하루(PRE·REGULAR·POST) 경로 동치 | `test_full_trading_day_all_sessions_live_matches_core` |
+| opening range 타 시장 봉 차단(ORB 직접 소비) | `test_opening_range_ignores_foreign_market_bars` |
+| 초 단위 ts floor / 메타 컬럼 없는 프레임 fallback | `test_sub_minute_timestamps_floor_to_the_grid`, `test_frame_without_metadata_columns_uses_market_not_et`, `test_frame_without_interval_column_defaults_to_canonical_label` |
+| NaN 중복 순서 불변(출력 전파 필드 기준) | `test_nan_duplicate_is_order_invariant_and_prefers_real_value` |
 
 차등 동치: `tests/test_resampler_legacy_equivalence.py` (59 tests).
 CLI 계약: `tests/test_resampler_parity_cli.py` (13 tests — snapshot identity·OOS 거부·sanitized receipt fail-closed 포함).
@@ -208,8 +212,9 @@ python scripts/resampler_parity_check.py \
 - `adjusted` 상속은 **실데이터로 검증되지 않았다** — 스냅샷이 전부 `adjusted=True` 라
   변이가 없다. synthetic 테스트(`test_adapter_inherits_adjusted_false`)로만 고정돼 있다.
 - 거래량 합: 옛 경로(pandas/numpy pairwise)와 새 core(순차 `sum`)는 **비정수 거래량**에서
-  1 ULP 차이가 날 수 있다. 실거래량은 정수 주식수라 실데이터 14,536봉·29,322봉 대조에서
-  모두 정확히 일치했다. 경로 간 parity 는 같은 core 를 쓰므로 이 뉘앙스와 무관하다
+  누적 순서 차이로 갈릴 수 있다(순차 O(n·ε) vs pairwise O(log n·ε) — 독립 리뷰 실측 최대
+  5 ULP, 테스트는 8 ULP 여유로 고정). 실거래량은 정수 주식수라 실데이터 14,536봉·29,322봉
+  대조에서 모두 정확히 일치했다. 경로 간 parity 는 같은 core 를 쓰므로 이 뉘앙스와 무관하다
   (`test_float_volume_sums_differ_only_within_ulp`).
 - `src/backtest/engine.py` 는 여전히 ET 고정 `classify_session`/`et_dates` 를 쓴다(같은 결함
   분류, 이 PR 범위 밖). ORB stage 4~5 가 그 경로를 쓰므로 **후속 이슈 #88** 로 분리했다.
