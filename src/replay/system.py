@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from src.engines.indicator_engine import candles_to_frame, resample
+from src.engines.indicator_engine import (candles_to_frame, frame_to_candles,
+                                          resample)
 from src.replay.models import CycleNotFoundError, ReplayContext
 
 
@@ -100,7 +101,8 @@ class ReplaySystem:
         if not raw:
             return []
         df = resample(candles_to_frame(raw), self._resample_rule)
-        from src.live.paper_loop import frame_to_candles
+        # live/research 와 동일한 단일 변환 구현(이슈 #76). 이전에는 live 모듈을 지연 import
+        # 했으나 변환 권위는 adapter 에 있다 — 주문/broker 를 끌어오지 않는 순수 경로다.
         candles = frame_to_candles(df, symbol)
         if as_of is not None:
             candles = [c for c in candles if c.ts_utc <= as_of]

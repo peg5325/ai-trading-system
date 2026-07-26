@@ -173,12 +173,17 @@ def test_extractor_window_is_causal(monkeypatch):
 
 
 def test_extract_rejects_non_us_market_loudly():
-    """market 인자가 계산에 반영되지 않으므로 조용히 틀리느니 크게 실패한다."""
+    """비-US 는 조용히 틀리느니 크게 실패한다.
+
+    이슈 #76 이후 **봉 생성 경로의 ET 고정은 사라졌지만**(세션/거래소시각/market 상속),
+    스크리너 파라미터·거래일 경계·KR 캘린더가 미검증이라 게이트는 그대로 유지한다.
+    """
     import pytest
     ex = CandidateStreamExtractor()
     ones = [_c1(m, 100.0) for m in range(60)]
-    with pytest.raises(NotImplementedError, match="ET"):
+    with pytest.raises(NotImplementedError, match="미검증") as err:
         ex.extract("005930", ones, market="KR")
+    assert "KR" in str(err.value)
 
 
 def test_alignment_returns_none_when_ambiguous():

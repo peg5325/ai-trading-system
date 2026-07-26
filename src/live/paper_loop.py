@@ -17,7 +17,9 @@ from typing import Callable
 
 from collections import defaultdict
 
-from src.engines.indicator_engine import candles_to_frame, resample
+from src.engines.indicator_engine import (candles_to_frame,
+                                          frame_to_candles as _frame_to_candles,
+                                          resample)
 from src.exits.generator import ExitContext, ExitSignalGenerator, PositionView
 from src.market_context.builder import build_benchmark_context
 from src.shadow.decider import build_shadow_record
@@ -58,14 +60,13 @@ def _bar_index(ts) -> int | None:
 
 
 def frame_to_candles(df, symbol: str) -> list[Candle]:
-    out: list[Candle] = []
-    for ts, row in df.iterrows():
-        out.append(Candle.from_moment(
-            symbol, "5m", ts.to_pydatetime(),
-            float(row["open"]), float(row["high"]), float(row["low"]),
-            float(row["close"]), float(row["volume"]),
-            str(row.get("currency", "USD")), True))
-    return out
+    """리샘플 프레임 → 결정봉 Candle.
+
+    구현은 `indicator_engine.frame_to_candles` 단일 소스로 이관됐다(이슈 #76). 연구
+    (`candidate_stream`)·replay 도 같은 함수를 쓰므로 세 경로의 변환이 구조적으로 동일하다.
+    이 이름은 기존 호출부 호환을 위해 유지한다.
+    """
+    return _frame_to_candles(df, symbol)
 
 
 class PaperTradingLoop:

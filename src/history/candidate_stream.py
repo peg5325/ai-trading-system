@@ -41,13 +41,18 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-from src.engines.indicator_engine import IndicatorEngine, candles_to_frame, resample
+from src.engines.indicator_engine import (IndicatorEngine, candles_to_frame,
+                                          frame_to_candles as _frame_to_candles,
+                                          resample)
 from src.models import ET, Candle, classify_session
 from src.universe.screener import Candidate, ScreenerConfig, SymbolData, UniverseScreener, leverage_for
 
 # live(paper_loop)와 동일한 결정 타임프레임.
 DECISION_RULE = "5min"
 DECISION_BAR_MINUTES = 5
+# 결정봉 interval 라벨. 라이브는 "5m" 를 쓰는데 이 모듈만 rule 문자열("5min")을 라벨로 써서
+# 두 경로의 Candle 이 달랐다 — canonical 라벨로 통일한다(이슈 #76 parity).
+DECISION_INTERVAL = "5m"
 
 # 컴포넌트 이름(스크리너 score_components 키와 동일).
 COMPONENT_NAMES = ("trend", "momentum", "volume", "vwap_position", "volatility")
@@ -138,24 +143,7 @@ def build_decision_bars(candles_1m: list[Candle], symbol: str) -> list[Candle]:
     if not candles_1m:
         return []
     df5 = resample(candles_to_frame(candles_1m), DECISION_RULE, drop_partial=True)
-    return _frame_to_candles(df5, symbol)
-
-
-def _frame_to_candles(df: pd.DataFrame, symbol: str) -> list[Candle]:
-    """resample 결과 프레임 → Candle 리스트(live paper_loop.frame_to_candles 와 동일 규약)."""
-    out: list[Candle] = []
-    if df is None or df.empty:
-        return out
-    for ts, row in df.iterrows():
-        et = ts.tz_convert(ET)
-        out.append(Candle(
-            symbol=symbol, interval=DECISION_RULE, ts_utc=ts.to_pydatetime(),
-            ts_exchange=et.to_pydatetime(),
-            session=row["session"],          # _add_meta 가 항상 채운다
-            open=float(row["open"]), high=float(row["high"]), low=float(row["low"]),
-            close=float(row["close"]), volume=float(row["volume"]),
-            currency=row.get("currency") or "USD", adjusted=True))
-    return out
+    return _frame_to_candles(df5, symbol, interval=DECISION_INTERVAL)
 
 
 def compute_forward_returns(bars: list[Candle], idx: int,
@@ -260,17 +248,17 @@ class CandidateStreamExtractor:
 
         include_excluded=False(기본)면 live 와 동일하게 LONG_SETUP 후보만 남긴다.
 
-        ⚠ 현재 US 전용이다. 봉 생성 경로가 ET 고정이라(`_frame_to_candles` 의
-        `tz_convert(ET)`, 그 앞단 `resample`→`_add_meta` 의 `classify_session`)
-        market="KR" 로 부르면 `ts_exchange`/`session`/`et_date` 가 전부 ET 기준으로
-        계산된 채 레코드에만 "KR" 이 찍힌다. `et_date` 는 forward return 의 거래일
-        경계 clip 기준이라 KR 종목의 오버나이트 차단이 엉뚱한 시각에 걸린다.
-        조용히 틀린 값을 내느니 크게 실패시킨다.
+        ⚠ 현재 US 전용이다. **봉 생성 경로의 ET 고정은 이슈 #76 에서 해소됐다**(세션/거래소
+        시각/market 은 원본 1분봉에서 상속한다 — `tests/test_resampler_parity.py` 의 KR 케이스).
+        게이트를 유지하는 이유는 이제 **봉이 아니라 그 위층**이다: 스크리너 파라미터·레버리지
+        분류·거래일 경계(`et_date` 기반 forward return clip)가 US 기준으로만 검증됐고,
+        KR 캘린더(휴장·조기폐장)와 유동성 가정도 미검증이다. 조용히 틀린 값을 내느니 크게
+        실패시킨다. KR 지원은 별도 검증과 함께 연다.
         """
         if market != "US":
             raise NotImplementedError(
-                f"market={market!r} 미지원 — 봉/세션 계산이 ET 고정이다. "
-                "KR 지원은 거래소 타임존 배선이 선행되어야 한다(조용한 오분류 방지).")
+                f"market={market!r} 미지원 — 봉 생성은 market-aware 로 통일됐으나(#76) "
+                "스크리너·거래일 경계·KR 캘린더가 미검증이다(조용한 오분류 방지).")
         bars, ind = self.prepare(candles_1m, symbol)
         if not bars or ind.empty:
             return []
