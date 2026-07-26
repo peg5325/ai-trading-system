@@ -187,6 +187,24 @@ def test_adapter_dedup_matches_core_on_conflicting_duplicates():
     assert live_bars(fwd, "SPY")[0].high == hi.high
 
 
+def test_nan_duplicate_is_order_invariant_and_prefers_real_value():
+    """NaN 중복도 **순서 무관**하며 core 와 어댑터가 같은 행을 남긴다(#76 독립 리뷰 LOW).
+
+    NaN 은 모든 비교에서 False 라 tie-break 가 입력 순서에 좌우됐다. 정상 OHLCV 에는
+    NaN 이 없지만, 계약이 "순서 무관"이라고 적혀 있으면 이 코너에서도 참이어야 한다.
+    """
+    nan = float("nan")
+    base = mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 6)
+    good = base[1]
+    bad = Candle(**{**good.__dict__, "open": nan})
+    for order in ([bad, good], [good, bad]):
+        c = base[:1] + order + base[2:]
+        core = resample_1m_to_5m(c, closed_only=True)
+        live = live_bars(c, "SPY")
+        assert core[0].open == 100.0            # 결측 아닌 행 선호
+        assert ser(live) == ser(core)           # 어댑터도 같은 총순서
+
+
 def test_adapter_inherits_adjusted_false():
     """`adjusted` 는 상속한다 — 하드코딩 True 로 되돌리면 실패한다."""
     c = [Candle(**{**x.__dict__, "adjusted": False})
@@ -391,7 +409,7 @@ def test_multi_symbol_frontier_is_per_symbol_and_compositional():
     assert resample_1m_to_5m(stale, closed_only=True) == []
 
 
-def test_market_wide_clock_requires_explicit_evaluation_time():
+def test_market_wide_clock_is_enabled_by_explicit_evaluation_time():
     """시장 전체 시계는 **명시적으로만** 쓴다 — 그때는 stale 종목 버킷도 닫힌다."""
     fresh = mk_1m("AAA", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 11)
     stale = mk_1m("BBB", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 5)

@@ -61,7 +61,9 @@ def _dedup_deterministic(df: pd.DataFrame) -> pd.DataFrame:
     if not df.index.has_duplicates:
         return df
     if all(c in df.columns for c in _VALUE_COLUMNS):
-        ordered = df.sort_values(_VALUE_COLUMNS, kind="mergesort")
+        # na_position="first": core 가 NaN 을 최소값(-inf)으로 보는 것과 **같은 총순서**.
+        # 기본값(last)이면 NaN 행이 살아남아 core 와 갈린다(#76 독립 리뷰 LOW).
+        ordered = df.sort_values(_VALUE_COLUMNS, kind="mergesort", na_position="first")
         ordered = ordered.sort_index(kind="mergesort")     # stable → 값 순서 보존
         return ordered[~ordered.index.duplicated(keep="last")]
     return df[~df.index.duplicated(keep="last")]

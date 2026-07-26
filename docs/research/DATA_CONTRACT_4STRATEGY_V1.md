@@ -381,7 +381,8 @@ blind OOS 경계는 **이 계약에서 고정**하며 backfill/품질 확인 단
 
 ### A2-3. 증거와 범위
 
-- 계약 테스트 `tests/test_resampler_parity.py` 33건 + CLI `tests/test_resampler_parity_cli.py` 6건.
+- 계약 테스트: `tests/test_resampler_parity.py`(계약 축) · `tests/test_resampler_legacy_equivalence.py`(pre-#76 차등 동치) · `tests/test_resampler_parity_cli.py`(CLI·증거 fail-closed).
+  **개수는 적지 않는다** — 이 절은 병합과 동시에 append-only 로 동결되므로, 테스트가 늘 때마다 ERRATUM 이 필요해지는 숫자 대신 파일을 정본으로 둔다(독립 리뷰 권고).
 - 실데이터 parity: 고정 clean snapshot(file SHA `3c2c4751…`, **실행 시 재계산해 대조**)에서
   6종목 × 6거래일 = **36셀, 불일치 0**(1m 29,322봉 → 5m 6,087 / 15m 2,041 / 15m opening range 36).
   입력 순서 불변과 `opening_range == 09:30 15m 버킷` 불변식도 실데이터로 확인. DST 전환일·

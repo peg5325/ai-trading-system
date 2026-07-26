@@ -70,6 +70,10 @@ core 를 `src/history` 가 아니라 **leaf `src/bars`** 에 둔 이유(독립 �
   리샘플 경계가 아니다.
 - 시장 전체 시계가 필요한 호출자는 `evaluation_time` 으로 **명시**한다(암묵적 cross-symbol 누출 금지).
   **stale 종목의 마지막 버킷 지연은 이 이슈에서 바꾸지 않는다 → #44 의 범위**다.
+- ⚠ 합성 가능성은 **Candle API 의 보장**이다. DataFrame 어댑터는 인덱스가 ts 뿐이라 계약상
+  **단일 symbol** 이고 내부적으로 자리표시자 symbol 하나를 쓴다 — 복수 symbol 프레임을 넣으면
+  frontier 가 하나로 합쳐진다(애초에 표현 불가한 입력이며, 같은 ts 충돌은 fail-closed 로 거부).
+  복수 종목은 Candle API 를 쓴다.
 - wall clock·난수 미사용. 동일 입력 → 동일 출력.
 
 ### 3.3 dedup / 순서
@@ -199,6 +203,8 @@ python scripts/resampler_parity_check.py \
   리샘플 자체는 조기폐장일에도 parity 를 만족한다(2025-11-28·12-24 실측).
 - **KR 실데이터 parity 미실측**: 이 스냅샷은 US-30 전용이라 KR 은 synthetic 테스트로만 검증했다.
 - DataFrame 어댑터는 **단일 symbol 프레임** 전용이다(인덱스가 ts 뿐). 복수 symbol 은 Candle API.
+- NaN OHLCV 는 정상 데이터에 없다. tie-break 는 NaN 을 최소값으로 보아 결측 아닌 행을
+  결정론적으로 선호하도록 **양쪽 경로 모두** 맞춰 뒀다(순서 무관).
 - `src/backtest/engine.py` 는 여전히 ET 고정 `classify_session`/`et_dates` 를 쓴다(같은 결함
   분류, 이 PR 범위 밖). ORB stage 4~5 가 그 경로를 쓰므로 **후속 이슈 #88** 로 분리했다.
 - `candidate_stream.extract` 의 US 전용 게이트는 유지한다 — 봉 생성은 market-aware 가 됐지만

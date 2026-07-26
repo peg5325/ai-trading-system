@@ -12,25 +12,25 @@
 | 입력 | `list[Candle]` 또는 `pd.DataFrame` |
 | 출력 | tz-aware UTC `DatetimeIndex`(name=`ts_utc`) 의 `pd.DataFrame` |
 
-출력 컬럼은 항상 `OUTPUT_COLUMNS` (`indicator_engine.py:19`):
+출력 컬럼은 항상 `OUTPUT_COLUMNS` (`indicator_engine.py`):
 `open, high, low, close, volume, ema7, ema20, rsi14, vwap, bb_mid, bb_upper, bb_lower, stochrsi_k, stochrsi_d`
 
 ## 3. 주요 클래스/함수
 
-- `IndicatorEngine(params: IndicatorParams | None = None)` — `indicator_engine.py:111`
+- `IndicatorEngine(params: IndicatorParams | None = None)` — `indicator_engine.py`
 - `.compute(data: list[Candle] | pd.DataFrame) -> pd.DataFrame`.
   인덱스 정렬 + **순서 무관** 중복 제거(`(o,h,l,c,v)` 최대 튜플, 이슈 #76). 빈 입력이면 빈 프레임(컬럼 유지).
-- `IndicatorParams` (frozen) — `:98`: `ema_fast=7, ema_slow=20, rsi_period=14, bb_period=20,
+- `IndicatorParams` (frozen): `ema_fast=7, ema_slow=20, rsi_period=14, bb_period=20,
   bb_std=2.0, stoch_rsi_period=14, stoch_period=14, stoch_k=3, stoch_d=3`
-- `candles_to_frame(candles) -> pd.DataFrame` — `:34`
+- `candles_to_frame(candles) -> pd.DataFrame`
 - `resample(df, rule="5min", drop_partial=True, *, evaluation_time=None) -> pd.DataFrame`
   — **`src/bars/resample.py` canonical core 에 위임하는 thin adapter**(이슈 #76). 버킷은
   시작시각 라벨, 빈 버킷 없음. `drop_partial=True` 는 `iloc[:-1]` 이 아니라 **완료 경계**
   (버킷 종료 <= frontier) 판정이다. rule 은 `5min`/`15min`(`5m`/`15m`)만 허용 — 그 외 fail-closed.
 - `frame_to_candles(df, symbol, *, interval=None) -> list[Candle]` — live/research/replay
   **공용 단일 변환**. session/`ts_exchange`/`market` 은 원본에서 상속한다.
-- 순수 함수(`indicators.py`): `ema` `:21`, `rsi` `:27`(Wilder), `vwap` `:43`(세션 앵커),
-  `bollinger` `:57`(모집단 std, ddof=0), `stoch_rsi` `:67`
+- 순수 함수(`indicators.py`): `ema`, `rsi`(Wilder), `vwap`(세션 앵커),
+  `bollinger`(모집단 std, ddof=0), `stoch_rsi`
 
 ## 4. 다른 모듈과의 관계
 

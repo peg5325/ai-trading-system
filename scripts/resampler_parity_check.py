@@ -3,7 +3,7 @@
 고정된 clean research snapshot 의 1분봉을 네 경로에 동일하게 넣고 **직렬화 결과가
 byte-equivalent** 인지만 확인한다:
 
-  1. research canonical core  (`src/history/resample.py`)
+  1. research canonical core  (`src/bars/resample.py`)
   2. live adapter             (`indicator_engine.resample` + `paper_loop.frame_to_candles`)
   3. research 소비자          (`candidate_stream.build_decision_bars`, 5m)
   4. replay                   (`ReplaySystem._candles`)
@@ -36,8 +36,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.engines.indicator_engine import candles_to_frame, resample  # noqa: E402
 from src.history.oos_guard import (TRACK_INTRADAY, blind_oos_window,  # noqa: E402
                                    research_load)
-from src.history.resample import (opening_range,  # noqa: E402
-                                  resample_1m_to_5m, resample_1m_to_15m)
+from src.bars.resample import (opening_range,  # noqa: E402
+                               resample_1m_to_5m, resample_1m_to_15m)
 from src.live.paper_loop import frame_to_candles  # noqa: E402
 from src.models import ET, Candle  # noqa: E402
 from src.replay.system import ReplaySystem, candle_to_dict  # noqa: E402

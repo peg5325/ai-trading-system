@@ -102,7 +102,15 @@ def _floor_exchange(ts_exchange, bucket_minutes: int):
 
 
 def _value_tuple(c: Candle):
-    return (c.open, c.high, c.low, c.close, c.volume)
+    """dedup tie-break 키. **NaN 은 최소값으로 취급**한다(순서 불변 보장, #76 독립 리뷰).
+
+    NaN 은 모든 비교에서 False 라 그대로 `>` 로 겨루면 결과가 **입력 순서에 좌우된다**
+    (NaN 이 먼저 오면 NaN 이 남고, 나중에 오면 정상값이 남는다). 계약이 "순서 무관"이라고
+    적혀 있으면 이 코너에서도 참이어야 하므로 NaN → -inf 로 사상해 **결측 아닌 행을
+    결정론적으로 선호**한다. 정상 OHLCV 에는 NaN 이 없다(방어적 계약).
+    """
+    return tuple(float("-inf") if v != v else v          # v != v → NaN
+                 for v in (c.open, c.high, c.low, c.close, c.volume))
 
 
 def _resample_1m(candles: list[Candle], bucket_minutes: int, *,
@@ -117,7 +125,7 @@ def _resample_1m(candles: list[Candle], bucket_minutes: int, *,
     - min_bars(**커버리지축**): 버킷 최소 1분봉 수(기본 1 = 존재하는 분만으로 생성,
       =bucket_minutes 는 결측 없는 버킷만). 진행 중 버킷을 버리는 수단이 **아니다**.
     - closed_only(**시간축**): True 면 `버킷 종료 <= frontier` 인 버킷만 방출한다(진행 중 배제).
-      frontier = `evaluation_time` 또는 입력 최대 ts_utc(모듈 docstring 참조). 버킷 종료는
+      frontier = `evaluation_time` 또는 **그 symbol 의** 최대 ts_utc(모듈 docstring 참조). 버킷 종료는
       UTC 산술(`시작 + Δ분`)로 계산해 DST 전환 구간에서도 길이가 일정하다.
       `evaluation_time` 은 `closed_only=True` 에서만 의미가 있으며, False 와 함께 주면
       **조용히 무시하지 않고 ValueError**(정책이 호출자마다 몰래 달라지지 않게).
@@ -222,7 +230,7 @@ def opening_range(candles: list[Candle], *, minutes: int = 15, market: str = "US
       만든다(불완전이면 해당 (symbol,거래일)은 생략 — 조작 없이 '미완'으로 둔다).
       False 면 존재하는 분만으로 집계.
     - closed_only(**시간축**, #76)=True: 창이 **끝났다는 증거**가 있을 때만 방출한다
-      (`창 종료 <= frontier`, frontier = `evaluation_time` 또는 입력 최대 ts_utc).
+      (`창 종료 <= frontier`, frontier = `evaluation_time` 또는 **그 symbol 의** 최대 ts_utc).
       마지막 분 봉이 형성 중인 상태에서 opening range 를 확정하지 않으려는 호출자용.
       `_resample_1m` 과 **같은 계약**이다(축을 호출자마다 다르게 두지 않는다).
     - open=존재하는 첫 분 open, high=max, low=min, close=창의 **마지막 분** close, volume=합.
