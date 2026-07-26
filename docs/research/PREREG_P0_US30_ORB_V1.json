@@ -1,6 +1,6 @@
 {
   "schema": "prereg-orb/contract/v1",
-  "version": "1.2",
+  "version": "1.3",
   "issue": 89,
   "document": "docs/research/PREREG_P0_US30_ORB_V1.md",
   "results_examined": false,
@@ -192,7 +192,8 @@
   "candidate": {
     "gap": {
       "definition": "(first REGULAR 09:30 1m open - previous trading day last REGULAR 1m close at or before regular_close_minute(that day)) / previous close",
-      "threshold_abs": 0.003
+      "threshold_abs": 0.003,
+      "dividend_unadjusted_noise_acknowledged": true
     },
     "rvol": {
       "definition": "cumulative REGULAR volume 09:30..opening_range_end / median of same-clock cumulative volume over prior 20 trading days",
@@ -263,7 +264,8 @@
     "max_symbol_notional_pct": 0.2,
     "max_positions_per_exposure_family": 1,
     "insufficient_capacity": "cap_quantity_then_skip_only_if_qty_lt_1",
-    "family_cap_includes_pending_same_bar_picks": true
+    "family_cap_includes_pending_same_bar_picks": true,
+    "slot_allocation_is_arrival_time_priority": true
   },
   "risk": {
     "one_r": "entry - OR_low",
@@ -300,7 +302,8 @@
     "entry_bar_is_scanned_for_exits": true,
     "intrabar_touch_fill": "at_level",
     "gap_through_target": "fill_at_bar_open",
-    "exit_priority_applies_when": "no level already through at bar open"
+    "exit_priority_applies_when": "no level already through at bar open",
+    "current_effective_exposure_basis": "entry_fill_cost"
   },
   "costs": {
     "round_trip_pct_points": {
@@ -500,15 +503,15 @@
     "net_expectancy": "arithmetic mean net PnL per trade (per-1R also reported)",
     "profit_factor": "sum(positive net PnL) / abs(sum(negative net PnL)); infinite if no losing trade",
     "daily_equity_curve": "cash + holdings marked at regular close each trading day (flat at close)",
-    "mdd": "peak-to-trough of the daily equity curve at official cost",
+    "mdd": "max((peak - trough)/peak) on the daily equity curve, denominator is the running peak, at official cost",
     "trading_days_counted": "ET trading days with >= 1 trade",
-    "concentration_share": "unit net PnL / total net PnL; auto-fail if total <= 0"
+    "concentration_share": "unit net PnL / total net PnL at official cost; auto-fail if total <= 0"
   },
   "revision": {
-    "version": "1.2",
+    "version": "1.3",
     "results_examined_at_revision": false,
-    "corrections": 19,
-    "audit": "docs section 14.3"
+    "corrections": 23,
+    "audit": "docs sections 14.3/14.4/14.5"
   },
   "account_model": {
     "initial_capital": 100000.0,

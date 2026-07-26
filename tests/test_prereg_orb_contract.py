@@ -189,6 +189,18 @@ def test_cost_official_level_and_rank_keys_are_pinned(contract):
     assert contract["portfolio"]["composite_score"] is None
 
 
+def test_exposure_basis_and_metric_denominators_are_pinned(contract, doc):
+    """경로 의존을 되살리는 값들 — 되돌리면 반드시 깨져야 한다(통계 리뷰 최종 지적)."""
+    assert contract["risk"]["current_effective_exposure_basis"] == "entry_fill_cost"
+    assert "진입 체결 원가" in doc
+    mdd = contract["evaluation_definitions"]["mdd"]
+    assert "peak" in mdd and "official cost" in mdd
+    assert "(peak - trough) / peak" in doc
+    assert "official cost" in contract["evaluation_definitions"]["concentration_share"]
+    assert contract["portfolio"]["slot_allocation_is_arrival_time_priority"] is True
+    assert "도착 시각 우선" in doc
+
+
 def test_process_preconditions_are_separate_from_result_criteria(contract):
     p = contract["preconditions_not_result_criteria"]
     assert p["unmet_verdict"] == "NOT_RUN"
