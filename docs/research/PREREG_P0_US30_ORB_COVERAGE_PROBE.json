@@ -1,4 +1,10 @@
 {
+  "eod_fallback_exposure": {
+    "meaning": "POST 봉이 없는 날은 마지막 REGULAR 버킷이 닫히지 않아 §8.7 fallback 이 발동한다",
+    "symbol_days_with_post_bars": 120,
+    "symbol_days_without_post_bars": 0,
+    "without_post_pct": 0.0
+  },
   "incomplete_cases": [
     {
       "day": "2023-05-18",

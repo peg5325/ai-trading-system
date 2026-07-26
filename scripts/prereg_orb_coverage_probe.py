@@ -46,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     assert all(d < oos_lo for d in days), "blind OOS 날짜가 표본에 들어갔다"
 
     full = incomplete = nodata = 0
+    post_present = post_absent = 0        # §8.7 fallback 의 구조적 빈도
     cases = []
     for d in days:
         lo, hi = day_bounds(d)
@@ -56,6 +57,11 @@ def main(argv: list[str] | None = None) -> int:
             if not reg:
                 nodata += 1
                 continue
+            # 그 날 POST 봉이 있는가 — 없으면 마지막 REGULAR 버킷이 닫히지 않아 §8.7 fallback
+            if any(x.session == "POST" for x in c):
+                post_present += 1
+            else:
+                post_absent += 1
             n = sum(1 for x in reg
                     if OR_LO <= x.ts_exchange.hour * 60 + x.ts_exchange.minute < OR_HI)
             if n == 15:
@@ -76,6 +82,12 @@ def main(argv: list[str] | None = None) -> int:
         "result": {"or_complete": full, "or_incomplete": incomplete,
                    "no_regular_data": nodata,
                    "complete_pct": round(100.0 * full / total, 2) if total else None},
+        "eod_fallback_exposure": {
+            "symbol_days_with_post_bars": post_present,
+            "symbol_days_without_post_bars": post_absent,
+            "without_post_pct": round(100.0 * post_absent / (post_present + post_absent), 2)
+                                if (post_present + post_absent) else None,
+            "meaning": "POST 봉이 없는 날은 마지막 REGULAR 버킷이 닫히지 않아 §8.7 fallback 이 발동한다"},
         "incomplete_cases": cases,
     }
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)

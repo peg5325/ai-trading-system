@@ -173,10 +173,11 @@ def test_defect_escalation_ratio_is_pinned(contract):
     assert e["numerator_excludes_strategy_filters"] is True
     # 분자는 **데이터 사유 4종 + 운영 2종** 뿐이다. gap/RVOL 임계 미달(전략이 의도한 필터링)이
     # 들어가면 비율이 구조적으로 70~80% 가 되어 결함 게이트가 항상 발동한다.
+    # v1.7: 모집단이 다른 운영 실패는 [B] 로 분리했다(같은 분모에 섞으면 활동량이 데이터 게이트를 움직인다)
     assert sorted(e["numerator"]) == sorted([
         "incomplete_opening_range", "no_previous_regular_close",
-        "insufficient_rvol_lookback", "opening_range_not_closed",
-        "stale_exit", "eod_fallback", "unclosable"])
+        "insufficient_rvol_lookback", "opening_range_not_closed"])
+    assert e["excludes_operational_reasons"] is True
     assert e["unit"] == "symbol_day_deduplicated"      # 중복 계상은 비율을 2배까지 흔든다
     assert not [x for x in e["numerator"] if "threshold" in x or "below_" in x]
     assert "trading_days" in e["denominator"]
@@ -705,9 +706,8 @@ def test_v15_discretion_closures_are_pinned(contract, doc):
     assert contract["parameter_cliff_neighborhood"][
         "zero_trade_variant_counts_as_opposite_sign"] is False     # #8
     assert contract["candidate"]["rvol"]["median_even_sample"] == "midpoint average"   # #16
-    assert set(contract["portfolio"]["skipped_reason_vocabulary"]) == {   # #15
-        "one_r_not_positive", "qty_lt_1", "family_cap", "slot_cap",
-        "portfolio_exposure_cap", "signal_expired"}
+    assert set(contract["portfolio"]["skipped_reason_vocabulary"]) == {   # #15 / v1.7 N3
+        "one_r_not_positive", "qty_lt_1", "family_cap", "slot_cap", "signal_expired"}
     assert contract["portfolio"]["skipped_reasons_are_not_defects"] is True
 
 
@@ -874,3 +874,34 @@ def test_coverage_probe_receipt_is_reproducible_evidence(contract):
     assert r["window"]["blind_oos_days_included"] == 0
     assert r["result"]["complete_pct"] == c["complete_pct"]
     assert r["measures_only"] == c["measures_only"]
+
+
+def test_conflict_baseline_is_adjudicated_before_results(contract):
+    """N2 — 이미 0 이 아닌 conflict 기준선을 **결과 전에** 판정해 두었는가.
+
+    기준선이 없으면 "1건 이상 = 중대 결함" 이 시작과 동시에 발동하고, 그 해석이 결과를 본 뒤에
+    이뤄진다. tracked artifact 의 실제 값과 대조해 기준선이 지어낸 값이 아님을 확인한다.
+    """
+    b = contract["defect_policy"]["duplicate_ts_conflict_baseline"]
+    man = _json(MANIFEST)
+    actual = {x["symbol"]: x["conflict"] for x in man["symbols"] if x.get("conflict")}
+    assert b["manifest_by_symbol"] == actual
+    assert b["manifest_conflict_total"] == sum(actual.values()) == 28
+    assert "not a contract violation" in b["adjudication"]
+    assert b["defect_is"] == "new conflicts beyond this baseline"
+
+
+def test_operational_failures_use_a_trade_denominator(contract, doc):
+    """N1 — 운영 실패가 종목-일 분모에 희석되지 않는가."""
+    op = contract["defect_policy"]["operational_failure_ratio"]
+    assert op["denominator"] == "total_trades" and op["threshold"] == 0.20
+    assert set(op["numerator"]) == {"stale_exit", "eod_fallback", "unclosable"}
+    assert "[A] 데이터 품질 비율" in doc and "[B] 운영 실패 비율" in doc
+
+
+def test_evidence_chain_obligation_is_pinned(contract, doc):
+    """Q_A — 결과 보고가 unlock artifact 를 인용하지 않으면 판정으로 인정하지 않는다."""
+    sp = contract["oos_gate"]["single_pass"]
+    assert sp["report_must_cite_unlock_artifact"] is True
+    assert sp["unlock_artifact_must_be_git_tracked"] is True
+    assert "판정으로 인정하지 않는다" in doc

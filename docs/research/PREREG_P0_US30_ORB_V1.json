@@ -1,6 +1,6 @@
 {
   "schema": "prereg-orb/contract/v1",
-  "version": "1.6",
+  "version": "1.7",
   "issue": 89,
   "document": "docs/research/PREREG_P0_US30_ORB_V1.md",
   "results_examined": false,
@@ -221,7 +221,8 @@
       "measures_only": "incomplete_opening_range",
       "lookback_validity_unmeasured": true,
       "reproduction_script": "scripts/prereg_orb_coverage_probe.py",
-      "receipt": "docs/research/PREREG_P0_US30_ORB_COVERAGE_PROBE.json"
+      "receipt": "docs/research/PREREG_P0_US30_ORB_COVERAGE_PROBE.json",
+      "eod_fallback_exposure_without_post_pct": 0.0
     }
   },
   "signal": {
@@ -285,10 +286,10 @@
       "qty_lt_1",
       "family_cap",
       "slot_cap",
-      "portfolio_exposure_cap",
       "signal_expired"
     ],
-    "skipped_reasons_are_not_defects": true
+    "skipped_reasons_are_not_defects": true,
+    "binding_cap_recorded_separately": true
   },
   "risk": {
     "one_r": "entry - OR_low",
@@ -452,7 +453,9 @@
       "rerun_on_bad_result": false,
       "publish_all_parameterizations": true,
       "variants_are_independent_simulations": true,
-      "rerun_allowed_only_if": "no artifact written and no interim result viewed"
+      "rerun_allowed_only_if": "no artifact written and no interim result viewed",
+      "report_must_cite_unlock_artifact": true,
+      "unlock_artifact_must_be_git_tracked": true
     },
     "O5_month_boundaries": [
       {
@@ -507,15 +510,13 @@
         "incomplete_opening_range",
         "no_previous_regular_close",
         "insufficient_rvol_lookback",
-        "opening_range_not_closed",
-        "stale_exit",
-        "eod_fallback",
-        "unclosable"
+        "opening_range_not_closed"
       ],
       "numerator_excludes_strategy_filters": true,
       "denominator": "universe_symbols x trading_days in the evaluated window",
       "threshold": 0.05,
-      "unit": "symbol_day_deduplicated"
+      "unit": "symbol_day_deduplicated",
+      "excludes_operational_reasons": true
     },
     "high_stale_or_eod_fallback_may_indicate_issue": "#44",
     "computed_on": "primary",
@@ -529,6 +530,19 @@
       "threshold": 0.2,
       "on_exceed": "INCONCLUSIVE_DATA",
       "reason": "symbol-day denominator dilutes: all trades failing EOD would read only 6.7%"
+    },
+    "duplicate_ts_conflict_baseline": {
+      "manifest_conflict_total": 28,
+      "manifest_by_symbol": {
+        "SPY": 3,
+        "QQQ": 7,
+        "NVDA": 5,
+        "VST": 1,
+        "SOXL": 12
+      },
+      "snapshot_report_conflict_candles": 1,
+      "adjudication": "not a contract violation — first-write-wins resolved deterministically and preserved evidence",
+      "defect_is": "new conflicts beyond this baseline"
     }
   },
   "verdict_definitions": {
@@ -581,10 +595,10 @@
     "rounding": "no intermediate rounding; display 2dp"
   },
   "revision": {
-    "version": "1.6",
+    "version": "1.7",
     "results_examined_at_revision": false,
-    "corrections": 71,
-    "audit": "docs section 14.9"
+    "corrections": 77,
+    "audit": "docs section 14.10"
   },
   "account_model": {
     "initial_capital": 100000.0,
