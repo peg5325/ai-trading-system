@@ -25,6 +25,7 @@ _TARGETS = [
     "src.history.intraday_manifest",
     "src.history.oos_guard",
     "src.history.resample",
+    "src.bars.resample",          # 이슈 #76: 집계 kernel(leaf) 도 자본 경로 무관
     "src.ingest.backfill_history",
     # 이슈 #72: 저장 전 cutoff 게이트·감사 remediation 은 주문/broker/risk/live 를 끌어오지 않는다.
     "src.history.completed_session",

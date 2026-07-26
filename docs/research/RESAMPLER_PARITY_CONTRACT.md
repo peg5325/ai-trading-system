@@ -23,13 +23,19 @@
 
 ```
 1분봉(단일 진실원천)
-   └── src/history/resample.py           ← ★ 유일한 집계 권위(pure, market-aware)
+   └── src/bars/resample.py              ← ★ 유일한 집계 권위(pure leaf, models 만 import)
          ├── indicator_engine.resample           (DataFrame ↔ Candle thin adapter)
          │     ├── live/paper_loop.py
          │     ├── history/candidate_stream.py   (연구 결정봉)
          │     └── replay/system.py
+         ├── src/history/resample.py             (하위호환 re-export shim)
          └── (연구 직접 호출) resample_1m_to_5m / _15m / opening_range
 ```
+
+core 를 `src/history` 가 아니라 **leaf `src/bars`** 에 둔 이유(독립 리뷰 R1): 라이브 결정
+경로가 `src/history/__init__.py`(loader·store·quality·sqlite3)를 실행하게 되고,
+`src/history/candidate_stream` 이 engines 를 되짚어 import 하므로 패키지 초기화 순환에
+노출된다. 이 경계는 `test_live_import_path_does_not_pull_history_package` 로 고정했다.
 
 - `indicator_engine` 은 **집계·dedup·세션·버킷 경계를 스스로 계산하지 않는다.**
 - `frame_to_candles` 도 **단일 구현**이다(`indicator_engine`). `paper_loop.frame_to_candles`
@@ -56,8 +62,13 @@
   "시간이 진행됐다"고 인정한다(보수적). 결과적으로 기존 라이브 `drop_partial=True`
   (`iloc[:-1]`)와 **관측 동치**이며, 이번 변경으로 라이브 결정 시점(cadence)은 바뀌지 않는다.
 - 버킷 종료는 **UTC 산술**(`시작 + Δ분`)이다 → DST 전환을 포함하는 버킷에서도 길이 왜곡 없음.
-- frontier 는 입력 **전체**(복수 symbol 포함)의 최대 ts 다. 라이브 루프도 유니버스 전체의
-  최신 봉으로 사이클을 판정하므로 같은 계약이다. 라이브는 종목별로 호출하므로 종목별 clock 이고,
+- **frontier 는 symbol 별**이다 → `resample(A∪B) == resample(A) ∪ resample(B)` (합성 가능).
+  라이브(`paper_loop`)가 **종목별로** 리샘플하므로, 연구가 하루치 30종목을 한 번에 로드해도
+  결과가 라이브와 같아야 한다. frontier 를 입력 전체의 최대 ts 로 잡으면 신선한 종목이 stale
+  종목의 버킷을 닫아버려 연구≠라이브가 재발한다(독립 리뷰 B1 가 실측: AAA 단독 73봉 vs
+  신선한 BBB 와 함께 74봉). 유니버스 전체의 최신 봉은 라이브에서 **사이클 트리거**이지
+  리샘플 경계가 아니다.
+- 시장 전체 시계가 필요한 호출자는 `evaluation_time` 으로 **명시**한다(암묵적 cross-symbol 누출 금지).
   **stale 종목의 마지막 버킷 지연은 이 이슈에서 바꾸지 않는다 → #44 의 범위**다.
 - wall clock·난수 미사용. 동일 입력 → 동일 출력.
 
@@ -90,7 +101,7 @@
 
 ## 4. 증거
 
-### 4.1 계약 테스트 — `tests/test_resampler_parity.py` (33 tests, 전부 통과)
+### 4.1 계약 테스트 — `tests/test_resampler_parity.py` (39 tests, 전부 통과)
 
 | 요구 항목 | 테스트 |
 | --- | --- |
@@ -105,20 +116,25 @@
 | 세션 버킷키(구조적) | `test_session_in_bucket_key_is_structural_not_grid_luck` |
 | US DST 전환 전후 | `test_us_dst_spring_forward_labels_stay_local`, `test_us_dst_fall_back_repeated_hour_does_not_merge`, `test_bucket_end_uses_utc_arithmetic_across_transition` |
 | KR market session | `test_kr_market_session_and_timezone_not_et_hardcoded`, `test_kr_pre_and_regular_sessions_split` |
-| 복수 symbol 혼합 | `test_multi_symbol_input_grouped_and_sorted`, `test_multi_symbol_frontier_is_market_wide` |
+| 복수 symbol 혼합·합성 가능성 | `test_multi_symbol_input_grouped_and_sorted`, `test_multi_symbol_frontier_is_per_symbol_and_compositional`, `test_market_wide_clock_requires_explicit_evaluation_time`, `test_batched_multi_symbol_matches_per_symbol_live_path` |
 | replay vs research | `test_replay_equals_live_path` |
 | candidate_stream vs live | `test_candidate_stream_equals_live_path`(+`_kr`) |
 | research core vs live | `test_research_core_equals_live_adapter`(+`_15m`) |
 | full-session 회귀 | `test_full_regular_session_regression` |
 | 빈 입력·잘못된 interval·rule fail-closed | `test_empty_input_is_empty_not_error`, `test_non_1m_input_fails_closed`, `test_unsupported_rule_fails_closed`, `test_unsupported_bucket_and_bad_args_fail_closed` |
 | 커버리지축/시간축 분리 | `test_min_bars_is_coverage_axis_not_time_axis`, `test_opening_range_shares_the_same_axes` |
+| opening range 라벨=개장 시각 | `test_opening_range_labels_window_start_even_when_first_minutes_missing`, `test_opening_range_closed_boundary_with_missing_first_minutes` |
+| 레이어 경계(라이브가 history 를 안 끌어옴) | `test_live_import_path_does_not_pull_history_package`, `test_shim_reexports_are_the_same_objects` |
 
-CLI 계약: `tests/test_resampler_parity_cli.py` (6 tests).
+CLI 계약: `tests/test_resampler_parity_cli.py` (8 tests — snapshot identity·OOS 거부·sanitized receipt fail-closed 포함).
 
 ### 4.2 실데이터 parity — `docs/research/RESAMPLER_PARITY_RECEIPT.json`
 
-고정된 clean snapshot(`p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite`,
-file SHA `3c2c4751…`, content SHA `d0d14551…`)에서 **coverage 목적**으로만 로드했다.
+고정된 clean snapshot(`p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite`)에서 **coverage
+목적**으로만 로드했다. CLI 는 basename 대조에 그치지 않고 **파일 SHA-256 을 직접 재계산**해
+tracked receipt(`3c2c4751…`)와 대조하고 불일치 시 fail-closed 한다(독립 리뷰 B2 — 이전에는
+이름만 맞으면 canonical hash 가 박힌 receipt 가 나올 수 있었다). receipt 의
+`snapshot.identity_verified=true` 와 `file_sha256_recomputed` 가 그 증거다.
 
 | 항목 | 값 |
 | --- | ---: |
@@ -126,6 +142,8 @@ file SHA `3c2c4751…`, content SHA `d0d14551…`)에서 **coverage 목적**으�
 | **불일치** | **0** |
 | 1m 입력 봉 | 29,322 |
 | 파생 5m / 15m 봉 | 6,087 / 2,041 |
+| 15m opening range 봉 | 36 (전 셀, 09:30 15m 버킷과 OHLCV·라벨 일치) |
+| snapshot file SHA-256 재계산 검증 | **일치**(`identity_verified: true`) |
 | blind OOS 안쪽 거래일 | **0** |
 
 - 종목: SPY, QQQ, NVDA, TSLA, SOXL, SOXS
@@ -134,6 +152,8 @@ file SHA `3c2c4751…`, content SHA `d0d14551…`)에서 **coverage 목적**으�
 - 비교 필드: `ts_utc`, `ts_exchange`, `symbol`, `interval`, `session`, OHLCV, `currency`,
   `adjusted`, `market`
 - 비교 경로: research core / live adapter / candidate_stream / replay — **4경로 byte-equivalent**
+- 추가 불변식(실데이터): 입력 순서 섞기 불변 · `opening_range(15m)` == 09:30 15m 버킷
+  (OHLCV·라벨) — ORB 의 실제 결정 객체를 같은 core 에 묶는다(독립 리뷰 R4)
 
 재현:
 
@@ -152,7 +172,20 @@ python scripts/resampler_parity_check.py \
   (`load_candles` 직접 사용 금지 — AST 경계 테스트).
 - 주문·broker·risk·Paper·전략·runtime config **변경 없음**. canonical DB **변경 없음**.
 
-## 6. 알려진 한계 / 후속
+## 6. Stage 3(사전등록)이 반드시 정해야 할 것
+
+리샘플 계약이 **답을 주지 않는** 항목이다. 사전등록 동결 후에는 바꿀 수 없으므로 prereg 본문에
+명시해야 한다(독립 리뷰 R3).
+
+- **세션 마지막 봉**: 보수적 frontier 때문에 정규장 마지막 버킷 `[15:55,16:00)` 은 POST 봉이
+  없으면 닫히지 않는다. 390분 정규장 1분봉 → 닫힌 5m **77개, 마지막 라벨 15:50**. ORB 는 EOD
+  청산이므로 prereg 는 둘 중 하나를 고정해야 한다:
+  (a) POST 포함 로드로 자연히 닫히게 하거나, (b) `evaluation_time=16:00 ET`(조기폐장일은 13:00)
+  를 명시. 조기폐장일에도 같은 규칙을 적용한다.
+- **opening range 확정 시각**: `closed_only=True` 는 창 종료(09:45) 증거를 요구한다. 진입은
+  그 다음 거래 가능 봉이므로, prereg 는 "OR 확정 → 최초 진입 가능 봉"의 정확한 라벨을 적어야 한다.
+
+## 7. 알려진 한계 / 후속
 
 - **stale 종목 EOD 지연(#44)**: 종목별 clock 에서는 마지막 REGULAR 버킷이 다음 세션 봉이
   올 때까지 닫히지 않는다. 이번 통일은 그 동작을 **보존**했다(고의). fail-safe 는 #44 에서 다룬다.
@@ -160,3 +193,14 @@ python scripts/resampler_parity_check.py \
   리샘플 자체는 조기폐장일에도 parity 를 만족한다(2025-11-28·12-24 실측).
 - **KR 실데이터 parity 미실측**: 이 스냅샷은 US-30 전용이라 KR 은 synthetic 테스트로만 검증했다.
 - DataFrame 어댑터는 **단일 symbol 프레임** 전용이다(인덱스가 ts 뿐). 복수 symbol 은 Candle API.
+- `src/backtest/engine.py` 는 여전히 ET 고정 `classify_session`/`et_dates` 를 쓴다(같은 결함
+  분류, 이 PR 범위 밖). ORB stage 4~5 가 그 경로를 쓰므로 **후속 이슈 #88** 로 분리했다.
+- `candidate_stream.extract` 의 US 전용 게이트는 유지한다 — 봉 생성은 market-aware 가 됐지만
+  스크리너·거래일 경계·KR 캘린더가 미검증이다.
+
+### 6.1 legacy A/B 대조 (독립 리뷰 R7 — 병합 후 재현 불가하므로 기록)
+
+독립 아키텍처 리뷰가 pre-#76 구현(`git show e2e1c27:src/engines/indicator_engine.py`)을 복원해
+신·구를 A/B 비교했다. **US 5m/15m 은 bar-for-bar 동일**(full session, PRE→POST, 13:00 조기폐장,
+데이터 공백, DST fall-back), KR 세션 라벨만 신 구현에서 정정됐다. 즉 "라이브 관측 동치·
+cadence 불변" 주장은 독립 재현으로 확인됐다.

@@ -7,7 +7,7 @@
 - 진행 중인(미완결) 캔들은 사용하지 않는다: resample 시 닫히지 않은 버킷을 버린다.
 
 **리샘플 단일 소스화(이슈 #76)**: `resample`/`frame_to_candles` 는 더 이상 자체 집계를 하지
-않는다. 유일한 집계 권위는 `src/history/resample.py`(market-aware·순서독립·세션 버킷키)이고
+않는다. 유일한 집계 권위는 `src/bars/resample.py`(pure leaf·market-aware·순서독립·세션 버킷키)이고
 이 모듈은 **DataFrame ↔ Candle thin adapter** 다. 따라서 연구(`candidate_stream`)·
 라이브(`paper_loop`)·`replay` 가 동일 1분봉에서 **동일 직렬화 결과**를 낸다
 (계약 §2.5 / AMENDMENT A2, `docs/research/RESAMPLER_PARITY_CONTRACT.md`).
@@ -28,7 +28,7 @@ import pandas as pd
 from src.models import (MARKET_US, Candle, classify_session, exchange_tz,
                         market_from_currency)
 from src.engines.indicators import bollinger, ema, rsi, stoch_rsi, vwap
-from src.history.resample import bucket_minutes_from_rule, resample_1m
+from src.bars.resample import bucket_minutes_from_rule, resample_1m
 
 # 결과 DataFrame 컬럼 순서
 OUTPUT_COLUMNS = [

@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -280,17 +281,41 @@ def test_multi_symbol_input_grouped_and_sorted():
            ser(resample_1m_to_5m(a, closed_only=True))
 
 
-def test_multi_symbol_frontier_is_market_wide():
-    """frontier 는 입력 전체의 최신 봉 — stale 종목의 닫힌 버킷도 방출된다.
+def test_multi_symbol_frontier_is_per_symbol_and_compositional():
+    """frontier 는 **symbol 별** — 신선한 종목이 stale 종목의 버킷을 닫아주지 않는다(#76 리뷰 B1).
 
-    (라이브 루프도 유니버스 최신 봉으로 사이클을 판정한다. stale 종목 **청산 지연**은 #44 범위.)
+    라이브(`paper_loop`)는 종목별로 리샘플한다. frontier 가 입력 전체의 최대 ts 라면
+    `resample(A∪B) != resample(A) ∪ resample(B)` 가 되어 연구가 하루치 30종목을 한 번에
+    로드하는 순간 다시 연구≠라이브가 된다.
     """
     fresh = mk_1m("AAA", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 11)   # ..09:40
     stale = mk_1m("BBB", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 5)    # ..09:34 에서 멈춤
-    bars = resample_1m_to_5m(fresh + stale, closed_only=True)
-    assert ("BBB", "09:30") in [(x.symbol, x.ts_exchange.strftime("%H:%M")) for x in bars]
-    # 종목 단독으로는 증거가 없어 방출되지 않는다(라이브는 종목별 호출 → 기존 동작 유지)
+    batched = resample_1m_to_5m(fresh + stale, closed_only=True)
+    apart = resample_1m_to_5m(fresh, closed_only=True) + \
+        resample_1m_to_5m(stale, closed_only=True)
+    assert ser(batched) == ser(sorted(apart, key=lambda b: (b.ts_utc, b.symbol, b.session)))
+    # stale 종목은 단독일 때와 똑같이 방출되지 않는다(라이브 per-symbol 동작 보존)
+    assert {x.symbol for x in batched} == {"AAA"}
+    assert [x.ts_exchange.strftime("%H:%M") for x in batched] == ["09:30", "09:35"]
     assert resample_1m_to_5m(stale, closed_only=True) == []
+
+
+def test_market_wide_clock_requires_explicit_evaluation_time():
+    """시장 전체 시계는 **명시적으로만** 쓴다 — 그때는 stale 종목 버킷도 닫힌다."""
+    fresh = mk_1m("AAA", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 11)
+    stale = mk_1m("BBB", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 5)
+    at = datetime(2026, 3, 3, 9, 40, tzinfo=ET)
+    bars = resample_1m_to_5m(fresh + stale, closed_only=True, evaluation_time=at)
+    assert ("BBB", "09:30") in [(x.symbol, x.ts_exchange.strftime("%H:%M")) for x in bars]
+
+
+def test_batched_multi_symbol_matches_per_symbol_live_path():
+    """어댑터(라이브) 경로와 batched core 결과가 종목별로 일치한다."""
+    a = mk_1m("AAA", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 23)
+    b = mk_1m("BBB", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 9, base=200.0)
+    batched = resample_1m_to_5m(a + b, closed_only=True)
+    for sym, src in (("AAA", a), ("BBB", b)):
+        assert ser([x for x in batched if x.symbol == sym]) == ser(live_bars(src, sym))
 
 
 # --------------------------------------------------------------------------
@@ -363,6 +388,42 @@ def test_frame_roundtrip_preserves_contract_fields():
 # --------------------------------------------------------------------------
 # (e) fail-closed
 # --------------------------------------------------------------------------
+def test_live_import_path_does_not_pull_history_package():
+    """라이브 결정 경로가 오프라인 데이터 인프라를 끌어오지 않는다(#76 리뷰 R1).
+
+    core 가 `src/history` 안에 있으면 `indicator_engine` import 가
+    `src/history/__init__.py`(loader·store·quality·sqlite3)를 실행하고, `candidate_stream`
+    이 engines 를 되짚어 import 하므로 패키지 초기화 순환에 노출된다. core 를 leaf
+    `src/bars` 로 옮긴 상태를 **구조적으로** 고정한다.
+    """
+    import subprocess
+    import sys as _sys
+
+    code = ("import sys, importlib;"
+            "importlib.import_module('src.engines.indicator_engine');"
+            "print('\\n'.join(m for m in sys.modules if m.startswith('src.')))")
+    out = subprocess.run([_sys.executable, "-c", code], capture_output=True,
+                         text=True, cwd=os.path.dirname(os.path.dirname(
+                             os.path.abspath(__file__))))
+    assert out.returncode == 0, out.stderr
+    loaded = set(out.stdout.split())
+    assert "src.bars.resample" in loaded          # kernel 은 온다
+    assert not [m for m in loaded if m.startswith("src.history")], loaded
+    assert not [m for m in loaded
+                if m.startswith(("src.order", "src.risk", "src.live",
+                                 "src.pipeline", "src.ai"))], loaded
+
+
+def test_shim_reexports_are_the_same_objects():
+    """`src.history.resample` shim 은 core 와 동일 객체를 노출한다(중복 구현 금지)."""
+    from src.bars import resample as core
+    from src.history import resample as shim
+
+    for name in ("resample_1m", "resample_1m_to_5m", "resample_1m_to_15m",
+                 "opening_range", "bucket_minutes_from_rule", "SUPPORTED_BUCKETS"):
+        assert getattr(shim, name) is getattr(core, name)
+
+
 def test_empty_input_is_empty_not_error():
     assert resample_1m_to_5m([]) == []
     assert resample_1m_to_5m([], closed_only=True) == []
@@ -418,3 +479,32 @@ def test_opening_range_shares_the_same_axes():
                              evaluation_time=at_end)) == 1
     with pytest.raises(ValueError, match="evaluation_time"):
         opening_range(c, minutes=15, evaluation_time=at_end)
+
+
+def test_opening_range_labels_window_start_even_when_first_minutes_missing():
+    """라벨은 **개장 시각**이다 — 첫 분 결측 시 존재하는 첫 봉으로 밀리지 않는다(#76).
+
+    docstring 은 '창 시작' 이라고 적었지만 `require_complete=False` 에서는 첫 멤버 시각이
+    라벨로 나갔다. ORB 사전등록이 이 라벨을 신호 시각으로 고정하기 전에 문서와 코드를 맞춘다.
+    """
+    c = mk_1m("SPY", datetime(2026, 3, 3, 9, 32, tzinfo=ET), 13)     # 09:32..09:44
+    bars = opening_range(c, minutes=15, require_complete=False)
+    assert len(bars) == 1
+    assert bars[0].ts_exchange.strftime("%H:%M") == "09:30"
+    assert bars[0].ts_utc == datetime(2026, 3, 3, 9, 30, tzinfo=ET).astimezone(UTC)
+    assert bars[0].open == 100.0                    # open 은 존재하는 첫 봉(09:32)
+    # 완전한 창에서는 기존과 동일한 라벨
+    full = opening_range(mk_1m("SPY", datetime(2026, 3, 3, 9, 30, tzinfo=ET), 15),
+                         minutes=15)
+    assert full[0].ts_exchange.strftime("%H:%M") == "09:30"
+
+
+def test_opening_range_closed_boundary_with_missing_first_minutes():
+    """창 종료 판정도 개장 기준이다(첫 분 결측이 경계를 밀지 않는다)."""
+    c = mk_1m("SPY", datetime(2026, 3, 3, 9, 32, tzinfo=ET), 13)     # 09:32..09:44
+    just_before = datetime(2026, 3, 3, 9, 44, 59, tzinfo=ET)
+    at_end = datetime(2026, 3, 3, 9, 45, tzinfo=ET)
+    assert opening_range(c, minutes=15, require_complete=False,
+                         closed_only=True, evaluation_time=just_before) == []
+    assert len(opening_range(c, minutes=15, require_complete=False,
+                             closed_only=True, evaluation_time=at_end)) == 1

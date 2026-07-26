@@ -335,7 +335,10 @@ blind OOS 경계는 **이 계약에서 고정**하며 backfill/품질 확인 단
 의 **이중 구현**을 경고하며 "연구 5분봉 = 라이브 5분봉 은 아직 보장되지 않는다", "§4.4 재현성
 주장은 연구 파생에 한정한다"고 적었다. 이슈 #76 에서 **단일 소스화**했다:
 
-- 유일한 집계 권위 = `src/history/resample.py`(pure·market-aware·순서독립·세션 버킷키).
+- 유일한 집계 권위 = **`src/bars/resample.py`**(pure leaf·market-aware·순서독립·세션 버킷키).
+  `src/history/resample.py` 는 하위호환 re-export shim 이다. leaf 로 둔 이유: 라이브 결정
+  경로가 `src/history/__init__.py`(loader·store·sqlite3)를 실행하지 않게 하기 위함
+  (독립 리뷰 R1, `test_live_import_path_does_not_pull_history_package` 로 고정).
 - `indicator_engine.resample` 과 `frame_to_candles` 는 **DataFrame ↔ Candle thin adapter** 로
   축소됐고, `paper_loop`·`candidate_stream`·`replay` 가 **같은 core·같은 변환**을 호출한다.
 - pandas `resample` 은 권위 경로에서 제거됐다.
@@ -350,9 +353,16 @@ blind OOS 경계는 **이 계약에서 고정**하며 backfill/품질 확인 단
    `min_bars`/`require_complete`(커버리지축: 1분봉이 몇 개인가)는 **독립**이며 호출자마다
    다르게 쓰지 않는다.
 2. **완료 경계(frontier)** — `closed_only=True` 는 `버킷 종료 <= frontier` 만 방출한다.
-   frontier = `evaluation_time` 또는 **입력 마지막 1분봉의 `ts_utc`**(형성 중일 수 있어 +1분
-   하지 않음). 기존 라이브 `drop_partial=True` 와 **관측 동치** — 라이브 결정 시점 불변.
+   frontier = `evaluation_time` 또는 **그 symbol 의 마지막 1분봉 `ts_utc`**(형성 중일 수 있어
+   +1분 하지 않음). 기존 라이브 `drop_partial=True` 와 **관측 동치** — 라이브 결정 시점 불변
+   (독립 리뷰가 pre-#76 구현을 복원해 US 5m/15m bar-for-bar 동일함을 재현).
    버킷 종료는 **UTC 산술**로 계산한다(DST 전환 구간 길이 왜곡 방지).
+   frontier 는 **symbol 별**이라 `resample(A∪B) == resample(A) ∪ resample(B)`(합성 가능) —
+   라이브가 종목별로 리샘플하므로 연구가 여러 종목을 한 번에 로드해도 결과가 같다
+   (독립 리뷰 B1). 시장 전체 시계는 `evaluation_time` 으로 **명시**한다.
+   ※ **잠정(provisional)**: #44(stale 캔들로 인한 종목별 EOD 청산 지연)의 fail-safe 는
+   `evaluation_time` 기반이 될 가능성이 높다. 그 수정이 이 조항의 **운영 기본값**을 바꿀 수
+   있으므로, ORB 사전등록은 이 조항을 인용할 때 #44 확정 여부를 함께 적는다(독립 리뷰 R2).
 3. **dedup** — 프레임 경로의 `keep="last"`(순서 의존)를 제거하고 §2.5 의 최대 튜플 규칙으로
    통일했다. 중복은 frontier 를 앞당기지 못한다.
 4. **세션/market** — 버킷 키에 session 포함(구조적), 버킷 경계는 거래소 로컬 분 floor,
@@ -365,15 +375,24 @@ blind OOS 경계는 **이 계약에서 고정**하며 backfill/품질 확인 단
    (`evaluation_time` without `closed_only`)·`min_bars<1` 은 `ValueError`.
 7. **interval 라벨** — 파생봉은 `"5m"`/`"15m"`. `candidate_stream` 이 rule 문자열 `"5min"` 을
    라벨로 쓰던 불일치를 제거했다.
+8. **opening range 라벨** — 창이 불완전(`require_complete=False`)해도 라벨은 **개장 시각**이다.
+   기존 구현은 존재하는 첫 봉 시각으로 라벨해 자기 docstring 과 어긋났다. ORB 사전등록이 이
+   타임스탬프를 신호 시각으로 고정하기 전에 문서와 코드를 맞췄다.
 
 ### A2-3. 증거와 범위
 
 - 계약 테스트 `tests/test_resampler_parity.py` 33건 + CLI `tests/test_resampler_parity_cli.py` 6건.
-- 실데이터 parity: 고정 clean snapshot(file SHA `3c2c4751…`)에서 6종목 × 6거래일 = **36셀,
-  불일치 0**(1m 29,322봉 → 5m 6,087 / 15m 2,041). DST 전환일·조기폐장일 포함,
-  **blind OOS 거래일 0**. receipt: `docs/research/RESAMPLER_PARITY_RECEIPT.json`.
+- 실데이터 parity: 고정 clean snapshot(file SHA `3c2c4751…`, **실행 시 재계산해 대조**)에서
+  6종목 × 6거래일 = **36셀, 불일치 0**(1m 29,322봉 → 5m 6,087 / 15m 2,041 / 15m opening range 36).
+  입력 순서 불변과 `opening_range == 09:30 15m 버킷` 불변식도 실데이터로 확인. DST 전환일·
+  조기폐장일 포함, **blind OOS 거래일 0**. receipt: `docs/research/RESAMPLER_PARITY_RECEIPT.json`.
 - 정본 계약 문서: `docs/research/RESAMPLER_PARITY_CONTRACT.md`.
 - **성과·forward return·blind OOS 미열람.** 로드는 `oos_guard.research_load(purpose="coverage")`
   경유. 주문/broker/risk/Paper/전략/runtime config·canonical DB **무변경**.
 - 남은 한계: stale 종목의 마지막 버킷 지연(**#44** 범위, 이번에 의도적으로 동작 보존),
-  조기폐장 커버리지 390분 가정(§2.4 알려진 한계 유지), KR 실데이터 parity 미실측(US-30 스냅샷).
+  조기폐장 커버리지 390분 가정(§2.4 알려진 한계 유지), KR 실데이터 parity 미실측(US-30 스냅샷),
+  `src/backtest/engine.py` 의 ET 고정 세션/거래일(같은 결함 분류 — 후속 **#88**).
+- **사전등록이 정해야 할 잔여 항목**: 보수적 frontier 때문에 정규장 마지막 버킷
+  `[15:55,16:00)` 은 POST 봉 없이는 닫히지 않는다(390분 → 닫힌 5m 77개, 마지막 15:50).
+  ORB 는 EOD 청산이므로 prereg 가 (a) POST 포함 로드 또는 (b) `evaluation_time=마감시각`
+  중 하나를 **명시 고정**해야 한다(조기폐장일 포함). 상세: RESAMPLER_PARITY_CONTRACT §6.

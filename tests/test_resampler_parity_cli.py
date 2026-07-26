@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -18,6 +19,7 @@ from src.models import ET, Candle
 
 DAY = "2026-01-20"          # blind OOS(2026-01-21~) 직전 거래일
 OOS_DAY = "2026-03-02"      # blind OOS 안쪽
+REPO = Path(__file__).resolve().parent.parent
 
 
 def _seed(db, symbol="SPY", day=(2026, 1, 20), minutes=45):
@@ -78,6 +80,34 @@ def test_identity_check_rejects_foreign_snapshot(tmp_path):
     with pytest.raises(SystemExit):
         main(["--db", str(db), "--symbols", "SPY", "--days", DAY,
               "--out", str(tmp_path / "r.json")])
+
+
+def test_identity_check_rejects_right_name_wrong_content(tmp_path):
+    """basename 만 맞춘 DB 는 **파일 SHA-256 불일치**로 거부된다(독립 리뷰 B2).
+
+    이름 대조만 하면 아무 DB 로도 canonical hash 가 박힌 receipt 를 만들 수 있었다.
+    """
+    tracked = json.loads(
+        (REPO / "docs" / "research"
+         / "P0_US30_ORB_CLEAN_SNAPSHOT_RECEIPT.json").read_text(encoding="utf-8"))
+    db = tmp_path / tracked["snapshot"]["basename"]      # 이름은 정확히 일치
+    _seed(db)                                            # 내용은 전혀 다름
+    out = tmp_path / "r.json"
+    with pytest.raises(SystemExit, match="SHA-256"):
+        main(["--db", str(db), "--symbols", "SPY", "--days", DAY, "--out", str(out)])
+    assert not out.exists()
+
+
+def test_skipped_identity_receipt_does_not_claim_canonical_hashes(tmp_path):
+    """--skip-identity-check 로 만든 receipt 는 canonical hash 를 주장하지 않는다."""
+    db = tmp_path / "snap.sqlite"
+    _seed(db)
+    out = tmp_path / "r.json"
+    main(["--db", str(db), "--symbols", "SPY", "--days", DAY,
+          "--out", str(out), "--skip-identity-check"])
+    snap = json.loads(out.read_text(encoding="utf-8"))["snapshot"]
+    assert snap["identity_verified"] is False
+    assert "file_sha256" not in snap and "content_sha256" not in snap
 
 
 def test_blind_oos_day_requires_explicit_flag(tmp_path):

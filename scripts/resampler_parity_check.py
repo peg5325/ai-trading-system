@@ -25,6 +25,7 @@ byte-equivalent** 인지만 확인한다:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -35,8 +36,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.engines.indicator_engine import candles_to_frame, resample  # noqa: E402
 from src.history.oos_guard import (TRACK_INTRADAY, blind_oos_window,  # noqa: E402
                                    research_load)
-from src.history.resample import (resample_1m_to_5m,  # noqa: E402
-                                  resample_1m_to_15m)
+from src.history.resample import (opening_range,  # noqa: E402
+                                  resample_1m_to_5m, resample_1m_to_15m)
 from src.live.paper_loop import frame_to_candles  # noqa: E402
 from src.models import ET, Candle  # noqa: E402
 from src.replay.system import ReplaySystem, candle_to_dict  # noqa: E402
@@ -118,9 +119,40 @@ def compare_day(db: str, symbol: str, day: date, *, allow_oos: bool) -> dict:
             result["sessions"] = sorted({r[4] for r in core})
         else:
             result["bars_15m"] = len(core)
+        # 순서 불변(실데이터): 입력을 섞어도 같은 결과여야 한다.
+        shuffled = c1m[len(c1m) // 3:] + c1m[:len(c1m) // 3]
+        if canon(core_fn(shuffled, closed_only=True)) != core:
+            mismatches.append(f"{rule}:order_dependent")
+
+    # ORB 결정 객체(15분 opening range)도 같은 core 에서 나오는지 — 완전한 창이면 09:30 15m
+    # 버킷과 OHLCV 가 정확히 같아야 한다(둘 다 09:30~09:44 REGULAR 1분봉 집합이다).
+    ors = opening_range(c1m, minutes=15, market="US", closed_only=True)
+    result["bars_15m_or"] = len(ors)
+    if ors:
+        b15 = [b for b in resample_1m_to_15m(c1m, closed_only=True)
+               if b.session == "REGULAR"
+               and b.ts_exchange.hour == 9 and b.ts_exchange.minute == 30]
+        if not b15:
+            mismatches.append("15m_or:no_matching_bucket")
+        else:
+            o, b = ors[0], b15[0]
+            if (o.open, o.high, o.low, o.close, o.volume) != \
+                    (b.open, b.high, b.low, b.close, b.volume):
+                mismatches.append("15m_or:ohlcv!=15m_bucket")
+            if o.ts_utc != b.ts_utc:
+                mismatches.append("15m_or:label!=15m_bucket")
+
     result.update({"status": "OK" if not mismatches else "MISMATCH",
                    "mismatches": mismatches})
     return result
+
+
+def sha256_file(path: str, chunk: int = 1 << 20) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(chunk), b""):
+            h.update(block)
+    return h.hexdigest()
 
 
 def tracked_snapshot_identity(repo_root: str) -> dict:
@@ -150,9 +182,22 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     identity = tracked_snapshot_identity(repo_root)
     db_base = os.path.basename(args.db)
-    if not args.skip_identity_check and db_base != identity["basename"]:
-        raise SystemExit(
-            f"거부: --db basename({db_base}) 이 tracked snapshot({identity['basename']}) 과 다르다.")
+    # identity 검증: basename 뿐 아니라 **실제 파일 SHA-256** 을 계산해 tracked receipt 와 대조한다.
+    # (이름만 맞는 아무 DB 로 canonical hash 가 박힌 receipt 를 만들 수 없게 — 독립 리뷰 B2)
+    if args.skip_identity_check:
+        snapshot_block = {"basename": db_base, "identity_verified": False,
+                          "note": "identity check skipped (--skip-identity-check)"}
+    else:
+        if db_base != identity["basename"]:
+            raise SystemExit(
+                f"거부: --db basename({db_base}) 이 tracked snapshot({identity['basename']}) 과 다르다.")
+        actual = sha256_file(args.db)
+        if actual != identity["file_sha256"]:
+            raise SystemExit(
+                f"거부: --db file SHA-256 이 tracked receipt 와 다르다 "
+                f"(계산 {actual[:16]}… vs 기대 {str(identity['file_sha256'])[:16]}…).")
+        snapshot_block = {**identity, "identity_verified": True,
+                          "file_sha256_recomputed": actual}
 
     rows = []
     for day_s in args.days:
@@ -169,13 +214,15 @@ def main(argv: list[str] | None = None) -> int:
         "purpose": "coverage",
         "performance_computed": False,
         "generated_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "snapshot": identity,
+        "snapshot": snapshot_block,
         "snapshot_basename_checked": db_base,
         "blind_oos": {"track": TRACK_INTRADAY,
                       "start": blind_oos_window(TRACK_INTRADAY)[0].isoformat(),
                       "end": blind_oos_window(TRACK_INTRADAY)[1].isoformat(),
                       "days_inside_window": sum(1 for r in rows if r["in_blind_oos"])},
         "compared_paths": ["research_core", "live_adapter", "candidate_stream", "replay"],
+        "extra_invariants": ["input_order_invariance",
+                             "opening_range_15m == 09:30 15m bucket (OHLCV+label)"],
         "compared_fields": ["ts_utc", "ts_exchange", "symbol", "interval", "session",
                             "open", "high", "low", "close", "volume",
                             "currency", "adjusted", "market"],
@@ -188,6 +235,7 @@ def main(argv: list[str] | None = None) -> int:
             "bars_1m_total": sum(r["bars_1m"] for r in rows),
             "bars_5m_total": sum(r.get("bars_5m", 0) for r in rows),
             "bars_15m_total": sum(r.get("bars_15m", 0) for r in rows),
+            "bars_15m_or_total": sum(r.get("bars_15m_or", 0) for r in rows),
         },
         "cells": rows,
         "verdict": "PARITY_OK" if (checked and not mism) else
