@@ -470,7 +470,8 @@ def test_evaluation_statistics_are_defined(contract, doc):
                 "mdd", "trading_days_counted", "concentration_share"):
         assert ev.get(key), key
     assert "auto-fail" in ev["concentration_share"]      # 분모 <= 0 이면 자동 미달
-    assert "profit factor" in doc.lower() or "profit_factor" in doc
+    # 게이트 표의 D4/O2 행으로도 참이 되므로 §10.3 의 **정의 행** 고유 문구로 앵커한다.
+    assert "gross profit / gross loss" in doc or "Σ(net PnL > 0)" in doc
 
 
 def test_discretion_removing_clauses_are_present(contract):
@@ -488,7 +489,10 @@ def test_revision_history_records_the_go_easier_audit(contract, doc):
     assert contract["version"] == rev["version"]
     assert f"| v{contract['version']} |" in doc, "개정 이력 표에 현재 버전이 없다"
     assert "GO 를 쉽게 만드는가" in doc
-    assert "O6" in doc, "게이트 난이도에 영향을 준 항목의 방향이 명시돼야 한다"
+    # `"O6" in doc` 은 §11 게이트 표 행으로도 참이 되어, **게이트가 쉬워졌다는 자기 공시 3곳을
+    # 전부 지워도 통과**했다(적대적 리뷰 실증). 공시 문장 고유 문구로 앵커한다.
+    assert "부분적으로 그렇다" in doc, "GO 를 쉽게 만든 항목의 공시가 지워졌다"
+    assert "D5/O6(MDD ≤ 10%)은 통과하기 쉬워진다" in doc
 
 
 def test_opening_range_completeness_evidence_is_recorded(contract, doc):
@@ -564,8 +568,11 @@ def test_no_orb_strategy_implementation_exists_yet():
                 if not fn.endswith(".py") or not _ORB_NAME.search(fn):
                     continue
                 rel = os.path.relpath(os.path.join(dirpath, fn), REPO)
+                # 허용 목록은 **명시적**으로만 늘린다. 패턴을 느슨하게 하면 트립와이어가 죽는다.
                 if rel == os.path.join("src", "bars", "resample.py"):
                     continue        # #76 의 opening_range 파생기(전략 구현 아님)
+                if rel == os.path.join("scripts", "prereg_orb_coverage_probe.py"):
+                    continue        # §5.5 커버리지 측정(봉 개수만 셈, 성과 계산 없음)
                 found.append(rel)
     assert found == [], f"ORB 구현 파일이 이미 존재한다: {found}"
 
@@ -709,3 +716,161 @@ def test_coverage_measurement_scope_is_honest(contract):
     c = contract["candidate"]["opening_range_completeness_coverage_check"]
     assert c["measures_only"] == "incomplete_opening_range"
     assert c["lookback_validity_unmeasured"] is True
+
+
+# --------------------------------------------------------------------------
+# (g) **정본은 마크다운**인데 테스트는 JSON(사본)만 고정하고 있었다.
+#     적대적 리뷰가 JSON 13곳 + 마크다운 11곳을 동시에 약화시켜도 전 스위트가 초록임을
+#     실증했다 — 동결된 정본을 읽는 사람은 훨씬 쉬운 연구를 보게 된다.
+#     아래가 정본 자체의 규범 문자열과 JSON 키를 전수 고정한다.
+# --------------------------------------------------------------------------
+_MD_GATE_ROWS = [
+    # development D1~D9 (게이트 표의 기준 칸 고유 문구)
+    "| D1 | 표본 — 거래 수 | **≥ 536**",
+    "| D2 | 표본 — 거래 발생 거래일 수 | **≥ 322**",
+    "| D3 | 순 기대값 | **> 0**",
+    "| D4 | profit factor | **≥ 1.20** |",
+    "| D5 | 최대낙폭 |",
+    "| D6 | fold 안정성 | 10 folds 중 **순손익 양수 fold ≥ 7**",
+    "| D7 | 비용 stress | **0.68%p 에서 누적 순손익 ≥ 0** |",
+    # blind OOS O1~O11
+    "| O1 | 공식 비용 후 net expectancy | **> 0** |",
+    "| O2 | profit factor | **≥ 1.20** |",
+    "| O4 | OOS 거래 수 | **≥ 100** |",
+    "| O5 | 월별 일관성 | 6개월 중 **≥ 4개월 순손익 양수** |",
+    "| O6 | 최대낙폭 | **|MDD| ≤ 10%** |",
+    "| O7 | 비용 stress | **0.68%p 에서 누적 순손익 ≥ 0** |",
+    "| O8 | 종목 집중도 |",
+    "| O9 | 일자 집중도 |",
+    "| O11 | 데이터 결함 | 누수·survivorship·corporate action **중대 결함 0** |",
+]
+
+_MD_NORMATIVE = [
+    "**≥ 60** (창 길이 125일 자체가 아니라 **거래 발생일** 수)",      # O3
+    "25% 초과 기여 금지",                                          # O8 수치
+    "20% 초과 기여 금지",                                          # O9 수치
+    "RVOL 임계 | 1.5 | 1.3, 1.7",                                # §10.1 이웃
+    "gap 임계 | 0.30% | 0.20%, 0.40%",
+    "target 배수 | 2.0R | 1.5R, 2.5R",
+    "**5% 를 초과하면** 결함으로 승격",                              # §11.2 임계
+    "분모 = 평가 구간의 (유니버스 30종목 × 거래일) 전체 종목-일",       # §11.2 분모
+    "상대적으로 덜 나쁜 전략을 선택하지 않는다",                       # §12 결론 규칙
+    "결과를 확인한 뒤에는 기준을 바꾸지 않는다",                       # §14.1
+    "**\"성과가 나빠서\"는 무효화 사유가 아니다.**",                   # §14.2
+    "규칙을 수정하지 않는다",                                       # §10.2
+    "8개 파라미터화(primary + 6 이웃 + sensitivity) 전부를 보고서에 게재한다",  # §11.1
+]
+
+
+def test_authoritative_markdown_gate_tables_are_pinned(doc):
+    """**정본 문서**의 게이트 표를 직접 고정한다 (적대적 리뷰 blocking).
+
+    JSON 만 고정하면, 정본인 마크다운을 약화시켜도 스위트가 초록이다. 동결되는 것은 문서다.
+    """
+    missing = [row for row in _MD_GATE_ROWS if row not in doc]
+    assert missing == [], f"정본 게이트 표가 변경/삭제됐다: {missing}"
+
+
+def test_authoritative_markdown_normative_clauses_are_pinned(doc):
+    """숫자 외에 **결론 규칙·개정 금지·무효화 사유**도 정본에서 지워질 수 있었다."""
+    missing = [c for c in _MD_NORMATIVE if c not in doc]
+    assert missing == [], f"정본 규범 문구가 사라졌다: {missing}"
+
+
+_JSON_LITERALS = {
+    ("development_gate", "D1_min_trades"): 536,
+    ("development_gate", "D2_min_trading_days_with_trade"): 322,
+    ("development_gate", "D4_profit_factor_gte"): 1.20,
+    ("development_gate", "D5_abs_mdd_lte"): 0.10,
+    ("development_gate", "D6_min_positive_folds"): 7,
+    ("oos_gate", "O2_profit_factor_gte"): 1.20,
+    ("oos_gate", "O3_min_trading_days_with_trade"): 60,
+    ("oos_gate", "O4_min_trades"): 100,
+    ("oos_gate", "O5_min_positive_months"): 4,
+    ("oos_gate", "O6_abs_mdd_lte"): 0.10,
+    ("oos_gate", "O8_max_single_symbol_profit_share"): 0.25,
+    ("oos_gate", "O8_symbol_means_family_aggregated"): True,
+    ("oos_gate", "O9_max_single_day_profit_share"): 0.20,
+    ("oos_gate", "O11_major_data_defects"): 0,
+    ("costs", "official_level"): "official",
+    ("costs", "additional_fee_on_top"): False,
+    ("signal", "signal_bar_fill"): False,
+    ("signal", "touch_fill"): False,
+    ("signal", "buffer"): 0.0,
+    ("signal", "gap_through_entry"): "fill_at_next_bar_open_no_price_improvement",
+    ("signal", "chase_cap"): None,
+    ("risk", "gap_through_stop"): "fill_at_bar_open",
+    ("risk", "gap_through_target"): "fill_at_bar_open",
+    ("risk", "intrabar_touch_fill"): "at_level",
+    ("risk", "same_bar_stop_and_target"): "stop_first_conservative",
+    ("risk", "reject_if_one_r_not_positive"): True,
+    ("risk", "trailing_stop"): False,
+    ("risk", "partial_take_profit"): False,
+    ("risk", "time_stop"): None,
+    ("risk", "averaging_down"): False,
+    ("risk", "scale_in_max"): 0,
+    ("risk", "overnight"): False,
+    ("risk", "target_r_multiple"): 2.0,
+    ("portfolio", "max_positions_per_exposure_family"): 1,
+    ("portfolio", "composite_score"): None,
+    ("data_identity", "hash_mismatch_policy"): "fail_closed",
+    ("verdict_definitions", "pick_least_bad"): False,
+    ("blind_enforcement", "development_purpose"): "performance",
+    ("blind_enforcement", "coverage_purpose_forbidden_in_performance_code"): True,
+    ("blind_enforcement", "direct_load_candles_forbidden"): True,
+    ("revision_policy", "invalidation_not_allowed_for"): "poor_performance",
+    ("revision_policy", "post_merge_corrections"): "append_only_erratum",
+    ("revision_policy", "invalidation_preserves_existing_results"): True,
+}
+
+
+def test_every_normative_json_value_is_pinned(contract):
+    """게이트를 쉽게 만들 수 있는 JSON 키를 **전수** 리터럴 비교한다 (H2~H6)."""
+    wrong = []
+    for (section, key), want in _JSON_LITERALS.items():
+        got = contract.get(section, {}).get(key, "<missing>")
+        if got != want:
+            wrong.append(f"{section}.{key}: {got!r} != {want!r}")
+    assert wrong == [], "규범 값이 변경됐다:\n  " + "\n  ".join(wrong)
+
+
+def test_defect_and_verdict_definitions_cannot_be_emptied(contract):
+    """H3/H2 — 결함 목록·결론 규칙을 비우면 게이트가 공허해진다."""
+    dp = contract["defect_policy"]
+    assert set(dp["counted_as_defect"]) == {
+        "ohlc_invariant_violation", "duplicate_ts_value_conflict",
+        "unexplained_1m_price_jump_gt_50pct", "session_label_violation",
+        "snapshot_hash_mismatch"}
+    assert dp["escalate_to_defect_if_share_gt"] == dp["escalation_ratio"]["threshold"] == 0.05
+    op = dp["operational_failure_ratio"]                 # 운영 실패 희석 방지
+    assert op["denominator"] == "total_trades" and op["threshold"] == 0.20
+    assert "any development_gate or oos_gate item unmet" in contract[
+        "verdict_definitions"]["NO_SELECTION"]
+    fam = contract["universe"]["exposure_families"]
+    assert set(fam) == {"QQQ_FAMILY", "SOX_FAMILY"}
+    assert all(len(v) == 3 for v in fam.values())        # 단일 종목으로 축소 불가
+    assert contract["revision_policy"]["forbidden_after_results"]
+
+
+def test_publish_all_and_successor_lock_cannot_be_disabled(contract, doc):
+    """H6 / §10.4 — 선택적 보고와 후속 우회를 한 불리언으로 열 수 없게."""
+    sp = contract["oos_gate"]["single_pass"]
+    assert sp["publish_all_parameterizations"] is True
+    lock = contract["parameter_cliff_neighborhood"]["non_primary_permanently_ineligible"]
+    assert lock["scope"] == "any ORB parameterization on this snapshot"
+    assert set(lock["successor_must_use_post_as_of_for"]) == {"development", "oos"}
+    assert "인접한 미평가 값" in doc
+
+
+def test_coverage_probe_receipt_is_reproducible_evidence(contract):
+    """§5.5 수치에 재현 경로가 있는지 — 없으면 근거가 아니라 주장이다(적대적 리뷰 지적)."""
+    c = contract["candidate"]["opening_range_completeness_coverage_check"]
+    assert c["reproduction_script"] == "scripts/prereg_orb_coverage_probe.py"
+    assert os.path.exists(os.path.join(REPO, c["reproduction_script"]))
+    receipt_path = os.path.join(REPO, c["receipt"])
+    assert os.path.exists(receipt_path)
+    r = _json(receipt_path)
+    assert r["performance_computed"] is False
+    assert r["window"]["blind_oos_days_included"] == 0
+    assert r["result"]["complete_pct"] == c["complete_pct"]
+    assert r["measures_only"] == c["measures_only"]

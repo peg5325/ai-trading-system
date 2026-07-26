@@ -1,6 +1,6 @@
 {
   "schema": "prereg-orb/contract/v1",
-  "version": "1.5",
+  "version": "1.6",
   "issue": 89,
   "document": "docs/research/PREREG_P0_US30_ORB_V1.md",
   "results_examined": false,
@@ -219,7 +219,9 @@
       "excluded_pct": 2.5,
       "scope": "development window only, coverage purpose, bar counts only",
       "measures_only": "incomplete_opening_range",
-      "lookback_validity_unmeasured": true
+      "lookback_validity_unmeasured": true,
+      "reproduction_script": "scripts/prereg_orb_coverage_probe.py",
+      "receipt": "docs/research/PREREG_P0_US30_ORB_COVERAGE_PROBE.json"
     }
   },
   "signal": {
@@ -417,7 +419,12 @@
     "non_primary_permanently_ineligible": {
       "scope_snapshot": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
       "scope_oos_window": "2026-01-21..2026-07-21",
-      "successor_must_use_data_after": "2026-07-21"
+      "successor_must_use_data_after": "2026-07-21",
+      "scope": "any ORB parameterization on this snapshot",
+      "successor_must_use_post_as_of_for": [
+        "development",
+        "oos"
+      ]
     },
     "zero_trade_variant_counts_as_opposite_sign": false
   },
@@ -511,7 +518,18 @@
       "unit": "symbol_day_deduplicated"
     },
     "high_stale_or_eod_fallback_may_indicate_issue": "#44",
-    "computed_on": "primary"
+    "computed_on": "primary",
+    "operational_failure_ratio": {
+      "numerator": [
+        "stale_exit",
+        "eod_fallback",
+        "unclosable"
+      ],
+      "denominator": "total_trades",
+      "threshold": 0.2,
+      "on_exceed": "INCONCLUSIVE_DATA",
+      "reason": "symbol-day denominator dilutes: all trades failing EOD would read only 6.7%"
+    }
   },
   "verdict_definitions": {
     "SELECT_ONE": "all development_gate and all oos_gate satisfied by primary",
@@ -546,7 +564,11 @@
       "calendar_or_session_defect"
     ],
     "invalidation_not_allowed_for": "poor_performance",
-    "invalidation_preserves_existing_results": true
+    "invalidation_preserves_existing_results": true,
+    "post_result_invalidation_requires": [
+      "confirmation by an independent reviewer who has not seen the results",
+      "fresh post-as_of OOS window unless data corruption is proven"
+    ]
   },
   "evaluation_definitions": {
     "net_pnl": "realized PnL at fill prices minus costs (USD)",
@@ -559,10 +581,10 @@
     "rounding": "no intermediate rounding; display 2dp"
   },
   "revision": {
-    "version": "1.5",
+    "version": "1.6",
     "results_examined_at_revision": false,
-    "corrections": 59,
-    "audit": "docs section 14.8"
+    "corrections": 71,
+    "audit": "docs section 14.9"
   },
   "account_model": {
     "initial_capital": 100000.0,
@@ -594,7 +616,18 @@
     "direct_load_candles_forbidden": true,
     "ast_boundary_test": "tests/test_oos_guard_wiring.py",
     "unlock_verifier_required_before_oos": "#78",
-    "bypass_is_invalidation_grade": true
+    "bypass_is_invalidation_grade": true,
+    "coverage_purpose_forbidden_in_performance_code": true,
+    "coverage_bypasses_the_gate": true,
+    "ast_scan_dirs": [
+      "src",
+      "scripts",
+      "analysis"
+    ],
+    "ast_scan_does_not_cover": [
+      "tests",
+      "spikes"
+    ]
   },
   "md_is_authoritative_on_conflict": true,
   "unlock_artifact_reference": {
@@ -629,5 +662,17 @@
   "implementation_note": {
     "backtest_engine_reuse": "not mandated; src/backtest/engine.py has ET-hardcoded sessions (#88)",
     "requirement": "standalone simulator, or resolve #88 first"
+  },
+  "threshold_provenance": {
+    "gap_0_003": "round convention value; no measurement",
+    "rvol_1_5": "round convention value; no measurement",
+    "target_2_0R": "round convention value; no measurement",
+    "unchanged_since_first_commit": true
+  },
+  "prior_access_disclosure": {
+    "issue": 76,
+    "what": "resampler parity check read this snapshot via research_load(purpose='coverage')",
+    "scope": "8 trading days x 8 symbols, all before blind OOS",
+    "performance_computed": false
   }
 }
