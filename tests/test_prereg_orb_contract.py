@@ -716,6 +716,9 @@ def test_coverage_measurement_scope_is_honest(contract):
     c = contract["candidate"]["opening_range_completeness_coverage_check"]
     assert c["measures_only"] == "incomplete_opening_range"
     assert c["lookback_validity_unmeasured"] is True
+    # POST 측정은 표본 추정치다 — 모집단 값처럼 읽히지 않게 상한을 함께 고정
+    assert c["eod_fallback_exposure_is_sample_estimate"] is True
+    assert c["eod_fallback_rule_of_three_upper_bound_pct"] == 2.5
 
 
 # --------------------------------------------------------------------------
@@ -843,7 +846,8 @@ def test_defect_and_verdict_definitions_cannot_be_emptied(contract):
         "snapshot_hash_mismatch"}
     assert dp["escalate_to_defect_if_share_gt"] == dp["escalation_ratio"]["threshold"] == 0.05
     op = dp["operational_failure_ratio"]                 # 운영 실패 희석 방지
-    assert op["denominator"] == "total_trades" and op["threshold"] == 0.20
+    assert op["denominator"] == "all_entered_trades_including_unclosable"
+    assert op["threshold"] == 0.20
     assert "any development_gate or oos_gate item unmet" in contract[
         "verdict_definitions"]["NO_SELECTION"]
     fam = contract["universe"]["exposure_families"]
@@ -888,13 +892,15 @@ def test_conflict_baseline_is_adjudicated_before_results(contract):
     assert b["manifest_by_symbol"] == actual
     assert b["manifest_conflict_total"] == sum(actual.values()) == 28
     assert "not a contract violation" in b["adjudication"]
+    assert b["operative_baseline"] == "manifest_conflict_total"   # 어느 행이 기준인가
     assert b["defect_is"] == "new conflicts beyond this baseline"
 
 
 def test_operational_failures_use_a_trade_denominator(contract, doc):
     """N1 — 운영 실패가 종목-일 분모에 희석되지 않는가."""
     op = contract["defect_policy"]["operational_failure_ratio"]
-    assert op["denominator"] == "total_trades" and op["threshold"] == 0.20
+    assert op["denominator"] == "all_entered_trades_including_unclosable"
+    assert op["threshold"] == 0.20
     assert set(op["numerator"]) == {"stale_exit", "eod_fallback", "unclosable"}
     assert "[A] 데이터 품질 비율" in doc and "[B] 운영 실패 비율" in doc
 

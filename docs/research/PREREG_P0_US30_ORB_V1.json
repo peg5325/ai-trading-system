@@ -1,6 +1,6 @@
 {
   "schema": "prereg-orb/contract/v1",
-  "version": "1.7",
+  "version": "1.8",
   "issue": 89,
   "document": "docs/research/PREREG_P0_US30_ORB_V1.md",
   "results_examined": false,
@@ -222,7 +222,9 @@
       "lookback_validity_unmeasured": true,
       "reproduction_script": "scripts/prereg_orb_coverage_probe.py",
       "receipt": "docs/research/PREREG_P0_US30_ORB_COVERAGE_PROBE.json",
-      "eod_fallback_exposure_without_post_pct": 0.0
+      "eod_fallback_exposure_without_post_pct": 0.0,
+      "eod_fallback_exposure_is_sample_estimate": true,
+      "eod_fallback_rule_of_three_upper_bound_pct": 2.5
     }
   },
   "signal": {
@@ -526,7 +528,7 @@
         "eod_fallback",
         "unclosable"
       ],
-      "denominator": "total_trades",
+      "denominator": "all_entered_trades_including_unclosable",
       "threshold": 0.2,
       "on_exceed": "INCONCLUSIVE_DATA",
       "reason": "symbol-day denominator dilutes: all trades failing EOD would read only 6.7%"
@@ -542,7 +544,8 @@
       },
       "snapshot_report_conflict_candles": 1,
       "adjudication": "not a contract violation — first-write-wins resolved deterministically and preserved evidence",
-      "defect_is": "new conflicts beyond this baseline"
+      "defect_is": "new conflicts beyond this baseline",
+      "operative_baseline": "manifest_conflict_total"
     }
   },
   "verdict_definitions": {
@@ -595,10 +598,10 @@
     "rounding": "no intermediate rounding; display 2dp"
   },
   "revision": {
-    "version": "1.7",
+    "version": "1.8",
     "results_examined_at_revision": false,
-    "corrections": 77,
-    "audit": "docs section 14.10"
+    "corrections": 80,
+    "audit": "docs section 14.10 (v1.8 부기)"
   },
   "account_model": {
     "initial_capital": 100000.0,
