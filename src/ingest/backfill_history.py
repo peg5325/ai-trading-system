@@ -107,6 +107,7 @@ class SymbolBackfillResult:
     rows_stored: int = 0        # 세션 필터 통과 후 실제 upsert 대상 행수(rows_seen 이상 아님)
     excluded_by_session: dict[str, int] = field(default_factory=dict)
     allowed_sessions: list[str] | None = None   # 실제 실행값(provenance)
+    cursor_persisted: bool = True               # tail repair=False: 기존 deep cursor 보존
     # 완료-거래일 cutoff(계약 #72): 저장 전에 미완성 진행일 봉을 제외한 provenance.
     completed_through: str | None = None                 # resolved cutoff(ISO date) or None
     rows_excluded_after_cutoff: int = 0
@@ -138,6 +139,7 @@ class SymbolBackfillResult:
             "excluded_by_session": dict(sorted(self.excluded_by_session.items())),
             "excluded_total": sum(self.excluded_by_session.values()),
             "allowed_sessions": self.allowed_sessions,
+            "cursor_persisted": self.cursor_persisted,
             "completed_through": self.completed_through,
             "rows_excluded_after_cutoff": self.rows_excluded_after_cutoff,
             "excluded_after_cutoff_days": sorted(self.excluded_after_cutoff_days),
@@ -208,7 +210,8 @@ def _ingest_note(result: "SymbolBackfillResult",
     세션 필터가 없으면 기존과 동일(정지사유/에러만). 있으면 실제 허용 세션과 제외 행수를
     함께 남겨 감사(계약 §2.2: '기본값과 실제 실행값을 ingest log 에 기록')를 가능케 한다.
     """
-    if session_filter is None and result.completed_through is None:
+    if (session_filter is None and result.completed_through is None
+            and result.cursor_persisted):
         # 세션 필터도 cutoff 도 없음(예: 레거시 1d) → 기존과 동일: 정지사유/에러만.
         return result.error or result.stopped_reason
     # ★reason= 을 정지사유 enum(';' 미포함)으로 **첫 키** 에 둔다. error= 는 repr 이라 ';' 를
@@ -229,6 +232,7 @@ def _ingest_note(result: "SymbolBackfillResult",
         rng = _day_range(result.excluded_after_cutoff_days)
         if rng:
             parts.append(f"cutoff_excluded_days={rng}")
+    parts.append(f"cursor_persisted={str(result.cursor_persisted).lower()}")
     if result.error:
         parts.append(f"error={result.error}")
     return "; ".join(parts)
@@ -266,7 +270,8 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
                     max_consecutive_empty: int = 40,
                     session_filter: SessionFilter | None = None,
                     completed_through: date | None = None,
-                    raw_sink: Callable[..., object] | None = None) -> SymbolBackfillResult:
+                    raw_sink: Callable[..., object] | None = None,
+                    persist_cursor: bool = True) -> SymbolBackfillResult:
     """한 종목을 과거로 backfill. 페이지마다 upsert + cursor 저장 + 커밋.
 
     completed_through(계약 #72): 지정 시 **저장 전에** 거래소-로컬 일자가 그 cutoff 를 초과하는
@@ -302,6 +307,7 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
     run_id = resolve_run_id(run_id, interval)
     stats = ImportStats(source=BACKFILL_SOURCE)
     result = SymbolBackfillResult(symbol=symbol, interval=interval)
+    result.cursor_persisted = persist_cursor
     if session_filter is not None:
         result.allowed_sessions = sorted(session_filter.allowed)
     if completed_through is not None:
@@ -320,6 +326,16 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
 
     pages = 0
     consecutive_empty = 0
+
+    def checkpoint_cursor(*, oldest_ts_utc: str | None,
+                          next_before: str | None, exhausted: bool) -> None:
+        """페이지 데이터는 항상 commit하되 tail repair는 기존 deep cursor를 보존한다."""
+        if persist_cursor:
+            store.save_cursor(
+                symbol, interval, oldest_ts_utc=oldest_ts_utc,
+                next_before=next_before, exhausted=exhausted)
+        store.commit()
+
     try:
         while pages < max_pages:
             candles, nxt = _fetch_with_retry(
@@ -342,17 +358,15 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
                         continue
                     result.exhausted = True
                     result.stopped_reason = "empty_budget_exhausted"
-                    store.save_cursor(symbol, interval,
-                                      oldest_ts_utc=prev_oldest.isoformat() if prev_oldest else None,
-                                      next_before=None, exhausted=True)
-                    store.commit()
+                    checkpoint_cursor(
+                        oldest_ts_utc=prev_oldest.isoformat() if prev_oldest else None,
+                        next_before=None, exhausted=True)
                     break
                 result.exhausted = True
                 result.stopped_reason = "empty_page"
-                store.save_cursor(symbol, interval,
-                                  oldest_ts_utc=prev_oldest.isoformat() if prev_oldest else None,
-                                  next_before=None, exhausted=True)
-                store.commit()
+                checkpoint_cursor(
+                    oldest_ts_utc=prev_oldest.isoformat() if prev_oldest else None,
+                    next_before=None, exhausted=True)
                 break
             consecutive_empty = 0
 
@@ -407,15 +421,13 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
                     result.gap_skips += 1
                     prev_oldest = oldest_dt
                     before = _shift_before(oldest, 1)
-                    store.save_cursor(symbol, interval, oldest_ts_utc=oldest,
-                                      next_before=before, exhausted=False)
-                    store.commit()
+                    checkpoint_cursor(
+                        oldest_ts_utc=oldest, next_before=before, exhausted=False)
                     if spacing:
                         sleep(spacing)
                     continue
-                store.save_cursor(symbol, interval, oldest_ts_utc=oldest,
-                                  next_before=None, exhausted=True)
-                store.commit()
+                checkpoint_cursor(
+                    oldest_ts_utc=oldest, next_before=None, exhausted=True)
                 result.exhausted = True
                 result.stopped_reason = "nextbefore_null"
                 break
@@ -424,16 +436,14 @@ def backfill_symbol(store: HistoryStore, provider: MarketDataPort, symbol: str,
             # 처음부터 재스캔하도록(영구 미완/API 낭비 방지). next_before 는 exhausted 커서라
             # 어차피 소비되지 않으므로 다른 종료 경로와 동일하게 None(일관성).
             if prev_oldest is not None and oldest_dt >= prev_oldest:
-                store.save_cursor(symbol, interval, oldest_ts_utc=oldest,
-                                  next_before=None, exhausted=True)
-                store.commit()
+                checkpoint_cursor(
+                    oldest_ts_utc=oldest, next_before=None, exhausted=True)
                 result.stopped_reason = "no_progress"
                 break
 
             prev_oldest = oldest_dt
-            store.save_cursor(symbol, interval, oldest_ts_utc=oldest,
-                              next_before=nxt, exhausted=False)
-            store.commit()
+            checkpoint_cursor(
+                oldest_ts_utc=oldest, next_before=nxt, exhausted=False)
             before = nxt
             if spacing:
                 sleep(spacing)
@@ -472,7 +482,8 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
                      gap_skip_minutes: int = 0, max_consecutive_empty: int = 40,
                      session_filter: SessionFilter | None = None,
                      completed_through: date | None = None,
-                     raw_sink: Callable[..., object] | None = None) -> BackfillReport:
+                     raw_sink: Callable[..., object] | None = None,
+                     persist_cursor: bool = True) -> BackfillReport:
     """여러 종목을 순차 backfill. 종목 격리: 한 종목 실패가 나머지를 막지 않는다.
 
     completed_through(계약 #72): 지정 시 모든 종목에 동일한 완료-거래일 cutoff 를 적용한다.
@@ -492,7 +503,7 @@ def backfill_symbols(store: HistoryStore, provider: MarketDataPort, symbols: lis
                 gap_skip_minutes=gap_skip_minutes,
                 max_consecutive_empty=max_consecutive_empty,
                 session_filter=session_filter, completed_through=completed_through,
-                raw_sink=raw_sink)
+                raw_sink=raw_sink, persist_cursor=persist_cursor)
         except Exception as exc:  # noqa: BLE001 — 방어적 격리(backfill_symbol 은 내부 격리하지만 이중 안전)
             res = SymbolBackfillResult(symbol=sym, interval=interval,
                                        error=repr(exc), stopped_reason="error")

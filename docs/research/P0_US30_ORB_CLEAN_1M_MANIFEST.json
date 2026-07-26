@@ -1,0 +1,2040 @@
+{
+  "allowed_sessions": [
+    "POST",
+    "PRE",
+    "REGULAR"
+  ],
+  "blind_oos": {
+    "end": "2026-07-21",
+    "months": 6,
+    "start": "2026-01-21",
+    "track": "intraday"
+  },
+  "collection": {
+    "code_commit": "bd9fc14",
+    "completed_through": "2026-07-21",
+    "db_basename": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+    "interval": "1m",
+    "snapshot_schema": "orb-clean-session-snapshot/receipt/v1",
+    "source": "canonical-clean-derivative"
+  },
+  "data_content_sha256": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+  "expected_latest_trading_day": "2026-07-21",
+  "generated_at_utc": "2026-07-26T09:25:00Z",
+  "interval": "1m",
+  "min_years": 3.0,
+  "provenance_verification": {
+    "collection_run_id": "p0-us30-1m-20260721-r82",
+    "declared_completed_through": "2026-07-21",
+    "interval": "1m",
+    "provenance_status": "VERIFIED",
+    "source": "toss_backfill",
+    "verified_completed_through": "2026-07-21",
+    "verified_symbol_count": 30
+  },
+  "raw_snapshot": {
+    "content_file_count": 154621,
+    "raw_content_sha256": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+    "schema": "raw_snapshot_manifest/v1"
+  },
+  "requested_as_of": "2026-07-21",
+  "schema": "p0_us30_intraday_1m_manifest/v2",
+  "summary": {
+    "attempted": 30,
+    "bars_beyond_as_of_total": 0,
+    "max_latest": "2026-07-21T23:59:00+00:00",
+    "meets_3y_count": 30,
+    "min_earliest": "2021-12-01T09:01:00+00:00",
+    "session_row_totals": {
+      "POST": 3541915,
+      "PRE": 6164815,
+      "REGULAR": 12827823
+    },
+    "symbols_total": 30,
+    "total_rows": 22534553,
+    "trailing_gap_symbol_count": 0,
+    "verdict_counts": {
+      "OK": 30
+    },
+    "with_rows": 30
+  },
+  "symbols": [
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2023-04-03T18:41:00+00:00",
+      "allowed_earliest_trading_day": "2023-04-03",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 654495,
+      "allowed_trading_days": 819,
+      "bars_beyond_as_of": 0,
+      "conflict": 3,
+      "content_sha256": "80f1bfbdce65c4d0ce52a024403d24ee25470161168b531296356073faa4813c",
+      "cursor_exhausted": false,
+      "duplicate": 1027,
+      "earliest": "2023-04-03T18:41:00+00:00",
+      "earliest_trading_day": "2023-04-03",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": true,
+        "max_missing_trading_days": 8
+      },
+      "inserted": 545664,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 0,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 818,
+        "low_coverage_day_list": [
+          "2023-04-03"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.999,
+        "regular_days": 819,
+        "unparseable_ts": 0
+      },
+      "row_count": 654495,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 133958,
+        "PRE": 201617,
+        "REGULAR": 318920
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 3.3,
+      "stopped_reason": "max_pages",
+      "symbol": "SPY",
+      "trading_days": 819,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2023-04-11T08:01:00+00:00",
+      "allowed_earliest_trading_day": "2023-04-11",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 696467,
+      "allowed_trading_days": 815,
+      "bars_beyond_as_of": 0,
+      "conflict": 7,
+      "content_sha256": "9f1312851728812ef3da6eb241254b517f65ab459a0119ff2588fcd97463fcb6",
+      "cursor_exhausted": false,
+      "duplicate": 69,
+      "earliest": "2023-04-11T08:01:00+00:00",
+      "earliest_trading_day": "2023-04-11",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": true,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 541845,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 0,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 815,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 1.0,
+        "regular_days": 815,
+        "unparseable_ts": 0
+      },
+      "row_count": 696467,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 132811,
+        "PRE": 246031,
+        "REGULAR": 317625
+      },
+      "sources": [
+        "import:market_mixed.sqlite",
+        "import:market_us.sqlite",
+        "import:market_us_exit_test_2000usd.sqlite",
+        "toss_backfill"
+      ],
+      "span_years": 3.279,
+      "stopped_reason": "max_pages",
+      "symbol": "QQQ",
+      "trading_days": 815,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2022-10-19T14:21:00+00:00",
+      "allowed_earliest_trading_day": "2022-10-19",
+      "allowed_latest": "2026-07-21T23:58:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 617403,
+      "allowed_trading_days": 933,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "79aa35a3c116076f41d65d5162620720d17270107d4b12254b5af84d12164a07",
+      "cursor_exhausted": false,
+      "duplicate": 0,
+      "earliest": "2022-10-19T14:21:00+00:00",
+      "earliest_trading_day": "2022-10-19",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 617403,
+      "interval": "1m",
+      "latest": "2026-07-21T23:58:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 51,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 931,
+        "low_coverage_day_list": [
+          "2022-10-19",
+          "2022-11-25"
+        ],
+        "low_coverage_days": 2,
+        "mean_coverage": 0.9994,
+        "regular_days": 933,
+        "unparseable_ts": 0
+      },
+      "row_count": 617403,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 91772,
+        "PRE": 162741,
+        "REGULAR": 362890
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 3.755,
+      "stopped_reason": "max_pages",
+      "symbol": "IWM",
+      "trading_days": 933,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:04:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:52:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 633622,
+      "allowed_trading_days": 1155,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "36e6121a7c2961458179382736b750b0ed52c61fd4fa05aefa47448f83131f87",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:04:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 633622,
+      "interval": "1m",
+      "latest": "2026-07-21T23:52:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1154,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9996,
+        "regular_days": 1155,
+        "unparseable_ts": 0
+      },
+      "row_count": 633622,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 75183,
+        "PRE": 109021,
+        "REGULAR": 449418
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "DIA",
+      "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:29:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:57:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 555906,
+      "allowed_trading_days": 1155,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "fac69fc898e19919b89329cfe7eff8de1f816889f8dda3859e1730362f5ebe60",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:29:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 555906,
+      "interval": "1m",
+      "latest": "2026-07-21T23:57:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1154,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9994,
+        "regular_days": 1155,
+        "unparseable_ts": 0
+      },
+      "row_count": 555906,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 45001,
+        "PRE": 61922,
+        "REGULAR": 448983
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "XLK",
+      "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:05:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:56:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 585377,
+      "allowed_trading_days": 1155,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "52f1c4e180ee038cab6148a5930904a277608fb7c85f4e6b2b5ecd7486d4d730",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:05:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 271673,
+      "interval": "1m",
+      "latest": "2026-07-21T23:56:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1154,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9995,
+        "regular_days": 1155,
+        "unparseable_ts": 0
+      },
+      "row_count": 585377,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 56313,
+        "PRE": 79912,
+        "REGULAR": 449152
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "XLF",
+      "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:02:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:54:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 612514,
+      "allowed_trading_days": 1155,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "f3d03e77a3d55aaba08b5eb779dc7b2d7912c7e0555ba5b31c9afee3e1eabc35",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:02:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 612514,
+      "interval": "1m",
+      "latest": "2026-07-21T23:54:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1154,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9996,
+        "regular_days": 1155,
+        "unparseable_ts": 0
+      },
+      "row_count": 612514,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 66043,
+        "PRE": 97353,
+        "REGULAR": 449118
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "XLE",
+      "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:14:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:57:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 515073,
+      "allowed_trading_days": 1155,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "7b78a7a233c979ba53233fb462aac6b60a26ce5396625541a07cd2e611d73dd1",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:14:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 515073,
+      "interval": "1m",
+      "latest": "2026-07-21T23:57:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1154,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9994,
+        "regular_days": 1155,
+        "unparseable_ts": 0
+      },
+      "row_count": 515073,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 30381,
+        "PRE": 35732,
+        "REGULAR": 448960
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "XLV",
+      "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:03:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:42:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 484418,
+      "allowed_trading_days": 1155,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "27d68bc1000f1a9ac2f8ba39055b6a5602e05199fbb387f53e9975185bb6f7f2",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:03:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 484418,
+      "interval": "1m",
+      "latest": "2026-07-21T23:42:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1154,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9994,
+        "regular_days": 1155,
+        "unparseable_ts": 0
+      },
+      "row_count": 484418,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 17411,
+        "PRE": 18165,
+        "REGULAR": 448842
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "XLI",
+      "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T11:59:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:35:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 479590,
+      "allowed_trading_days": 1155,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "eb1fc69015bfae2f1af90dd40406761582f8bc0057f591c2bd1ded21529cd91d",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T11:59:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 90770,
+      "interval": "1m",
+      "latest": "2026-07-21T23:35:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1154,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9993,
+        "regular_days": 1155,
+        "unparseable_ts": 0
+      },
+      "row_count": 479590,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 13582,
+        "PRE": 17192,
+        "REGULAR": 448816
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "XLY",
+      "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:06:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:55:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 509786,
+      "allowed_trading_days": 1155,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "5bec736198ef0788346e07407589b67f94c0a769f3428d44cdddd7d8ec359397",
+      "cursor_exhausted": true,
+      "duplicate": 4161,
+      "earliest": "2021-12-01T09:06:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 460128,
+      "interval": "1m",
+      "latest": "2026-07-21T23:55:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1154,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9994,
+        "regular_days": 1155,
+        "unparseable_ts": 0
+      },
+      "row_count": 509786,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 29542,
+        "PRE": 31315,
+        "REGULAR": 448929
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "max_pages",
+      "symbol": "XLU",
+      "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2022-05-06T13:35:00+00:00",
+      "allowed_earliest_trading_day": "2022-05-06",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 592916,
+      "allowed_trading_days": 1051,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "8c6914efcef1195e297630d1696ac61596e83603ff3444e262eaa1744e4f00ec",
+      "cursor_exhausted": false,
+      "duplicate": 0,
+      "earliest": "2022-05-06T13:35:00+00:00",
+      "earliest_trading_day": "2022-05-06",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 3
+      },
+      "inserted": 592916,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 165,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1050,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9994,
+        "regular_days": 1051,
+        "unparseable_ts": 0
+      },
+      "row_count": 592916,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 76264,
+        "PRE": 108006,
+        "REGULAR": 408646
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.209,
+      "stopped_reason": "max_pages",
+      "symbol": "SMH",
+      "trading_days": 1051,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 964264,
+      "allowed_trading_days": 1154,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "d3a52fd2f8e71b3f635da322699141e5d0e1a5b97a894a6158e4d886e521f9bc",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 8
+      },
+      "inserted": 964264,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1154,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 1.0,
+        "regular_days": 1154,
+        "unparseable_ts": 0
+      },
+      "row_count": 964264,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 175978,
+        "PRE": 338431,
+        "REGULAR": 449855
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "AAPL",
+      "trading_days": 1154,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 924768,
+      "allowed_trading_days": 1154,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "b1fa14bcf817efe06e88875c2041a2db5a7c9b55364ab35001677e1117413f91",
+      "cursor_exhausted": true,
+      "duplicate": 960,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 8
+      },
+      "inserted": 887728,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1153,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9998,
+        "regular_days": 1154,
+        "unparseable_ts": 0
+      },
+      "row_count": 924768,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 170120,
+        "PRE": 304929,
+        "REGULAR": 449719
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "max_pages",
+      "symbol": "MSFT",
+      "trading_days": 1154,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 991085,
+      "allowed_trading_days": 1155,
+      "bars_beyond_as_of": 0,
+      "conflict": 5,
+      "content_sha256": "107e1f100367b77ff9fc21d8231dc8f15e6b203a42ab9ee48867e774366c8352",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 954769,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1155,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 0.9999,
+        "regular_days": 1155,
+        "unparseable_ts": 0
+      },
+      "row_count": 991085,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 176207,
+        "PRE": 364640,
+        "REGULAR": 450238
+      },
+      "sources": [
+        "import:market_mixed.sqlite",
+        "import:market_us.sqlite",
+        "import:market_us_exit_test_2000usd.sqlite",
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "max_pages",
+      "symbol": "NVDA",
+      "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 939554,
+      "allowed_trading_days": 1157,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "41aa5eaf76d3e4803601cddff1e7327631852965083b765e50de0ff6592d1a98",
+      "cursor_exhausted": true,
+      "duplicate": 399,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 5
+      },
+      "inserted": 901404,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1157,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 0.9999,
+        "regular_days": 1157,
+        "unparseable_ts": 0
+      },
+      "row_count": 939554,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 173478,
+        "PRE": 315139,
+        "REGULAR": 450937
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "max_pages",
+      "symbol": "AMD",
+      "trading_days": 1157,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2023-02-28T18:01:00+00:00",
+      "allowed_earliest_trading_day": "2023-02-28",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 608634,
+      "allowed_trading_days": 845,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "aa768a81b36a161e848db80afe6b53dea12f2d557527f5f8df46eadf6c64a6f9",
+      "cursor_exhausted": false,
+      "duplicate": 947,
+      "earliest": "2023-02-28T18:01:00+00:00",
+      "earliest_trading_day": "2023-02-28",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": true,
+        "max_missing_trading_days": 6
+      },
+      "inserted": 569943,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 0,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 844,
+        "low_coverage_day_list": [
+          "2023-02-28"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9993,
+        "regular_days": 845,
+        "unparseable_ts": 0
+      },
+      "row_count": 608634,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 115792,
+        "PRE": 163956,
+        "REGULAR": 328886
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 3.393,
+      "stopped_reason": "max_pages",
+      "symbol": "AVGO",
+      "trading_days": 845,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 932326,
+      "allowed_trading_days": 1155,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "2b50cca8f6e97b92714efdec8095456dc97ad08d5ceb229d7e2dea122252c47b",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 932326,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1155,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 1.0,
+        "regular_days": 1155,
+        "unparseable_ts": 0
+      },
+      "row_count": 932326,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 175760,
+        "PRE": 306315,
+        "REGULAR": 450251
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "AMZN",
+      "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 912645,
+      "allowed_trading_days": 1156,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "c585b4892a65fdd1186a4c28b2e0148860e0d5b79c871a0277c246998798abb4",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 6
+      },
+      "inserted": 912645,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1156,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 0.9999,
+        "regular_days": 1156,
+        "unparseable_ts": 0
+      },
+      "row_count": 912645,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 173586,
+        "PRE": 288471,
+        "REGULAR": 450588
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "META",
+      "trading_days": 1156,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 929752,
+      "allowed_trading_days": 1155,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "5baf7710bd7c10391cb55f4f1c31354f61be103cf31efdc3affc8fe4b4958305",
+      "cursor_exhausted": true,
+      "duplicate": 199,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 892437,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1155,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 0.9999,
+        "regular_days": 1155,
+        "unparseable_ts": 0
+      },
+      "row_count": 929752,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 171156,
+        "PRE": 308422,
+        "REGULAR": 450174
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "max_pages",
+      "symbol": "GOOGL",
+      "trading_days": 1155,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 1005334,
+      "allowed_trading_days": 1156,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "956d547b025c38d6fa9d06f4d80f73583286a349001003a9afebb8d9595ebf11",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 6
+      },
+      "inserted": 1005334,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1156,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 1.0,
+        "regular_days": 1156,
+        "unparseable_ts": 0
+      },
+      "row_count": 1005334,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 176939,
+        "PRE": 377753,
+        "REGULAR": 450642
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "TSLA",
+      "trading_days": 1156,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 807262,
+      "allowed_trading_days": 1154,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "f8142824f68f9434f9ea812c32c20b880b92ea23435112b17e8e32134fdc26cf",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 8
+      },
+      "inserted": 807262,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1153,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9996,
+        "regular_days": 1154,
+        "unparseable_ts": 0
+      },
+      "row_count": 807262,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 133466,
+        "PRE": 224397,
+        "REGULAR": 449399
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "MU",
+      "trading_days": 1154,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2023-04-20T18:22:00+00:00",
+      "allowed_earliest_trading_day": "2023-04-20",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 590795,
+      "allowed_trading_days": 808,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "5e3a08c3132e86c9629fb66ee88acda016436bd1050eac718877e1ee2be27822",
+      "cursor_exhausted": false,
+      "duplicate": 0,
+      "earliest": "2023-04-20T18:22:00+00:00",
+      "earliest_trading_day": "2023-04-20",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": true,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 590795,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 0,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 807,
+        "low_coverage_day_list": [
+          "2023-04-20"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9991,
+        "regular_days": 808,
+        "unparseable_ts": 0
+      },
+      "row_count": 590795,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 125254,
+        "PRE": 150964,
+        "REGULAR": 314577
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 3.253,
+      "stopped_reason": "max_pages",
+      "symbol": "NFLX",
+      "trading_days": 808,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2022-02-16T18:57:00+00:00",
+      "allowed_earliest_trading_day": "2022-02-16",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 633800,
+      "allowed_trading_days": 1102,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "cd39211bf5328968a8cccbf78c12956efbe7ff98b202ba58382d376775d1366d",
+      "cursor_exhausted": false,
+      "duplicate": 0,
+      "earliest": "2022-02-16T18:57:00+00:00",
+      "earliest_trading_day": "2022-02-16",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 7
+      },
+      "inserted": 633800,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 220,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1100,
+        "low_coverage_day_list": [
+          "2022-02-16",
+          "2022-11-25"
+        ],
+        "low_coverage_days": 2,
+        "mean_coverage": 0.999,
+        "regular_days": 1102,
+        "unparseable_ts": 0
+      },
+      "row_count": 633800,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 92205,
+        "PRE": 113157,
+        "REGULAR": 428438
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.425,
+      "stopped_reason": "max_pages",
+      "symbol": "CRM",
+      "trading_days": 1102,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 907734,
+      "allowed_trading_days": 1160,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "6b7de39db7b594a952cb1f28cdce7d08962701b87161951c0d622dc9da803a09",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 3
+      },
+      "inserted": 907734,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1159,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9998,
+        "regular_days": 1160,
+        "unparseable_ts": 0
+      },
+      "row_count": 907734,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 166178,
+        "PRE": 289516,
+        "REGULAR": 452040
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "PLTR",
+      "trading_days": 1160,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T12:55:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 594133,
+      "allowed_trading_days": 1158,
+      "bars_beyond_as_of": 0,
+      "conflict": 1,
+      "content_sha256": "2509bdba9d098c255fa3cdd0ece525bcdabc1eeb60df25cf5ded4866051c0e8a",
+      "cursor_exhausted": true,
+      "duplicate": 3226,
+      "earliest": "2021-12-01T12:55:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 4
+      },
+      "inserted": 548609,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1157,
+        "low_coverage_day_list": [
+          "2022-11-25"
+        ],
+        "low_coverage_days": 1,
+        "mean_coverage": 0.9987,
+        "regular_days": 1158,
+        "unparseable_ts": 0
+      },
+      "row_count": 594133,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 65605,
+        "PRE": 78557,
+        "REGULAR": 449971
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.636,
+      "stopped_reason": "max_pages",
+      "symbol": "VST",
+      "trading_days": 1158,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 1001972,
+      "allowed_trading_days": 1156,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "ecdea0f77d4df0e1a727fba07b9d864034e1aa8e80a0f5b2643b5c02f5b193f5",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 6
+      },
+      "inserted": 1001972,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1156,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 0.9999,
+        "regular_days": 1156,
+        "unparseable_ts": 0
+      },
+      "row_count": 1001972,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 175920,
+        "PRE": 375480,
+        "REGULAR": 450572
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "TQQQ",
+      "trading_days": 1156,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 956746,
+      "allowed_trading_days": 1156,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "c42cb19b86ccb7a0ddccb60844cc37dc303a04d9f6dd083154795a4376d2c94c",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 6
+      },
+      "inserted": 956746,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1156,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 0.9999,
+        "regular_days": 1156,
+        "unparseable_ts": 0
+      },
+      "row_count": 956746,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 172298,
+        "PRE": 333990,
+        "REGULAR": 450458
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "empty_budget_exhausted",
+      "symbol": "SQQQ",
+      "trading_days": 1156,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "listing_full",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 995303,
+      "allowed_trading_days": 1156,
+      "bars_beyond_as_of": 0,
+      "conflict": 12,
+      "content_sha256": "2c06f166546cd8be1b99860ee44ac3dc71f8534b59eb3390e738f4949980e078",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 6
+      },
+      "inserted": 958984,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1156,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 0.9999,
+        "regular_days": 1156,
+        "unparseable_ts": 0
+      },
+      "row_count": 995303,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 173888,
+        "PRE": 370895,
+        "REGULAR": 450520
+      },
+      "sources": [
+        "import:market_mixed.sqlite",
+        "import:market_us.sqlite",
+        "import:market_us_exit_test_2000usd.sqlite",
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "max_pages",
+      "symbol": "SOXL",
+      "trading_days": 1156,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    },
+    {
+      "adjusted": [
+        1
+      ],
+      "allowed_earliest": "2021-12-01T09:01:00+00:00",
+      "allowed_earliest_trading_day": "2021-12-01",
+      "allowed_latest": "2026-07-21T23:59:00+00:00",
+      "allowed_latest_trading_day": "2026-07-21",
+      "allowed_row_count": 900879,
+      "allowed_trading_days": 1156,
+      "bars_beyond_as_of": 0,
+      "conflict": 0,
+      "content_sha256": "698eb208b97a8ac7076a109ff083fbe55443f8f1127c9a3777c0896043308606",
+      "cursor_exhausted": true,
+      "duplicate": 0,
+      "earliest": "2021-12-01T09:01:00+00:00",
+      "earliest_trading_day": "2021-12-01",
+      "error": null,
+      "expected_latest_trading_day": "2026-07-21",
+      "gap": {
+        "calendar_based": false,
+        "max_missing_trading_days": 6
+      },
+      "inserted": 863913,
+      "interval": "1m",
+      "latest": "2026-07-21T23:59:00+00:00",
+      "latest_trading_day": "2026-07-21",
+      "market": "US",
+      "regular_coverage": {
+        "calendar_out_of_range_days": 273,
+        "coverage_floor": 0.9,
+        "early_close_days_seen": 8,
+        "full_regular_days": 1156,
+        "low_coverage_day_list": [],
+        "low_coverage_days": 0,
+        "mean_coverage": 0.9995,
+        "regular_days": 1156,
+        "unparseable_ts": 0
+      },
+      "row_count": 900879,
+      "run_id": "p0-us30-1m-20260721-r82",
+      "sessions": {
+        "POST": 159824,
+        "PRE": 290796,
+        "REGULAR": 450259
+      },
+      "sources": [
+        "toss_backfill"
+      ],
+      "span_years": 4.637,
+      "stopped_reason": "max_pages",
+      "symbol": "SOXS",
+      "trading_days": 1156,
+      "trailing_missing_trading_days": 0,
+      "verdict": {
+        "bars_beyond_as_of": 0,
+        "depth_source": "page_budget_capped",
+        "disallowed_sessions": [],
+        "inconclusive_reasons": [],
+        "meets_min_years": true,
+        "status": "OK",
+        "trailing_missing_trading_days": 0
+      }
+    }
+  ],
+  "universe": {
+    "as_of": "2026-07-21",
+    "currency": "USD",
+    "declared_count": 30,
+    "errors": [],
+    "market": "US",
+    "source": "universe_p0_us30.yaml",
+    "valid": true,
+    "version": 1
+  }
+}
