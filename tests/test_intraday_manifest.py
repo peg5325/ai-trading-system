@@ -157,6 +157,89 @@ def test_short_history_is_inconclusive(tmp_path):
     assert man["summary"]["meets_3y_count"] == 1
 
 
+def test_trailing_gap_from_allowed_sessions_blocks_ok(tmp_path):
+    """수집 cutoff 선언과 달리 허용 세션 최신일이 as_of 에 못 미치면 fail-closed."""
+    db = str(tmp_path / "m.sqlite")
+    with HistoryStore(db) as store:
+        _insert(store, "SPY", [
+            datetime(2023, 6, 1, 10, 0, tzinfo=ET),
+            datetime(2026, 7, 20, 10, 0, tzinfo=ET),
+        ])
+        _ingest_log(store, "SPY")
+    man = build_manifest(
+        db, _yaml(tmp_path, ["SPY"]),
+        collection_params={}, collection_code_commit=None,
+        as_of="2026-07-21", generated_at_utc="2026-07-23T00:00:00Z")
+    e = man["symbols"][0]
+    assert man["schema"] == "p0_us30_intraday_1m_manifest/v2"
+    assert man["expected_latest_trading_day"] == "2026-07-21"
+    assert e["allowed_latest_trading_day"] == "2026-07-20"
+    assert e["trailing_missing_trading_days"] == 1
+    assert e["verdict"]["status"] == "INCONCLUSIVE_DATA"
+    assert "trailing_gap:1_trading_days" in e["verdict"]["inconclusive_reasons"]
+    assert man["summary"]["trailing_gap_symbol_count"] == 1
+
+
+def test_weekend_as_of_uses_previous_trading_day(tmp_path):
+    """주말 as_of 는 직전 NYSE 거래일까지 도달하면 후행 결측이 아니다."""
+    db = str(tmp_path / "m.sqlite")
+    with HistoryStore(db) as store:
+        _insert(store, "SPY", [
+            datetime(2023, 6, 1, 10, 0, tzinfo=ET),
+            datetime(2026, 7, 17, 10, 0, tzinfo=ET),
+        ])
+        _ingest_log(store, "SPY")
+    man = build_manifest(
+        db, _yaml(tmp_path, ["SPY"], as_of="2026-07-19"),
+        collection_params={}, collection_code_commit=None,
+        as_of="2026-07-19", generated_at_utc="2026-07-20T00:00:00Z")
+    e = man["symbols"][0]
+    assert man["expected_latest_trading_day"] == "2026-07-17"
+    assert e["trailing_missing_trading_days"] == 0
+    assert e["verdict"]["status"] == "OK"
+
+
+def test_disallowed_session_cannot_satisfy_minimum_span(tmp_path):
+    """오래된 OVERNIGHT 행이 허용 세션의 3년 span 을 대신 충족할 수 없다."""
+    db = str(tmp_path / "m.sqlite")
+    with HistoryStore(db) as store:
+        _insert(store, "SPY", [
+            datetime(2023, 6, 1, 23, 0, tzinfo=ET),   # OVERNIGHT
+            datetime(2025, 7, 21, 10, 0, tzinfo=ET),
+            datetime(2026, 7, 21, 10, 0, tzinfo=ET),
+        ])
+        _ingest_log(store, "SPY")
+    man = build_manifest(
+        db, _yaml(tmp_path, ["SPY"]),
+        collection_params={}, collection_code_commit=None,
+        as_of="2026-07-21", generated_at_utc="2026-07-23T00:00:00Z")
+    e = man["symbols"][0]
+    assert e["span_years"] < 3.0
+    assert e["verdict"]["meets_min_years"] is False
+    assert any(r.startswith("span<") for r in e["verdict"]["inconclusive_reasons"])
+    assert "disallowed_sessions:['OVERNIGHT']" in e["verdict"]["inconclusive_reasons"]
+
+
+def test_disallowed_session_day_cannot_hide_allowed_internal_gap(tmp_path):
+    """OVERNIGHT-only 거래일은 허용 세션 내부 결측을 메우지 않는다."""
+    db = str(tmp_path / "m.sqlite")
+    with HistoryStore(db) as store:
+        _insert(store, "SPY", [
+            datetime(2026, 7, 17, 10, 0, tzinfo=ET),
+            datetime(2026, 7, 20, 23, 0, tzinfo=ET),  # OVERNIGHT-only day
+            datetime(2026, 7, 21, 10, 0, tzinfo=ET),
+        ])
+        _ingest_log(store, "SPY")
+    man = build_manifest(
+        db, _yaml(tmp_path, ["SPY"]),
+        collection_params={}, collection_code_commit=None,
+        as_of="2026-07-21", generated_at_utc="2026-07-23T00:00:00Z")
+    e = man["symbols"][0]
+    assert e["trading_days"] == 3
+    assert e["allowed_trading_days"] == 2
+    assert e["gap"]["max_missing_trading_days"] == 1
+
+
 # ---- 16. 결정론 + content hash 재현 ----
 
 def test_manifest_deterministic_content_hash(tmp_path):

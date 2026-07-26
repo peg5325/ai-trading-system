@@ -29,6 +29,7 @@ def render_report_md(m: dict) -> str:
     s = m["summary"]
     a(f"# P0-US30 1분봉(1m) coverage/snapshot 리포트\n")
     a(f"- schema: `{m['schema']}` · interval: **1m** · requested as_of: **{m['requested_as_of']}**")
+    a(f"- expected_latest_trading_day: **{m['expected_latest_trading_day']}**")
     a(f"- allowed_sessions: {m['allowed_sessions']} · min_years: {m['min_years']}")
     a(f"- blind OOS: {m['blind_oos']['start']} ~ {m['blind_oos']['end']} "
       f"(months={m['blind_oos']['months']})")
@@ -42,22 +43,30 @@ def render_report_md(m: dict) -> str:
     a(f"- verdict: {json.dumps(s['verdict_counts'], ensure_ascii=False)}")
     a(f"- 3.0년 충족 종목: {s['meets_3y_count']}")
     a(f"- 공식 총 1m 행수(≤as_of): {s['total_rows']} · as_of 초과: {s['bars_beyond_as_of_total']}")
+    a(f"- 허용 세션 후행 결측 종목: {s['trailing_gap_symbol_count']}")
     a(f"- 세션별 행수: {json.dumps(s['session_row_totals'], ensure_ascii=False)}")
     a(f"- 범위: {s['min_earliest']} ~ {s['max_latest']}\n")
     a("## 종목별 스냅샷 (≤as_of)")
-    a("| symbol | rows | days | earliest_td | latest_td | span_y | PRE | REG | POST | "
-      "beyond | verdict | reasons |")
-    a("|--------|-----:|-----:|-------------|-----------|-------:|----:|----:|----:|-------:|"
+    a("| symbol | total_rows | allowed_rows | total_days | allowed_days | earliest_td | latest_td(all) | "
+      "latest_td(allowed) | tail_gap | span_y | PRE | REG | POST | OVERNIGHT | beyond | "
+      "verdict | reasons |")
+    a("|--------|-----------:|-------------:|-----------:|-------------:|-------------|----------------|"
+      "--------------------|---------:|-------:|----:|----:|----:|----------:|-------:|"
       "---------|---------|")
     for e in m["symbols"]:
         sess = e["sessions"]
         v = e["verdict"]
-        a(f"| {e['symbol']} | {e['row_count']} | {e['trading_days']} | "
-          f"{e['earliest_trading_day']} | {e['latest_trading_day']} | {e['span_years']} | "
+        a(f"| {e['symbol']} | {e['row_count']} | {e['allowed_row_count']} | "
+          f"{e['trading_days']} | {e['allowed_trading_days']} | "
+          f"{e['earliest_trading_day']} | {e['latest_trading_day']} | "
+          f"{e['allowed_latest_trading_day']} | {e['trailing_missing_trading_days']} | "
+          f"{e['span_years']} | "
           f"{sess.get('PRE', 0)} | {sess.get('REGULAR', 0)} | {sess.get('POST', 0)} | "
+          f"{sess.get('OVERNIGHT', 0)} | "
           f"{e['bars_beyond_as_of']} | {v['status']} | "
           f"{','.join(v['inconclusive_reasons']) or '-'} |")
-    a("\n> verdict OK = row_count>0 AND span≥min_years AND as_of 초과 0 AND 허용 세션만. "
+    a("\n> verdict OK = 허용 세션 row_count>0 AND 허용 세션 span≥min_years AND "
+      "as_of 초과 0 AND 허용 세션만 AND 허용 세션 최신일이 expected_latest_trading_day 도달. "
       "하나라도 불충족 시 INCONCLUSIVE_DATA(사유는 verdict.inconclusive_reasons).")
     a("\n## 안전 재확인")
     a("- 전략 수익률·forward return·신호 성능·blind OOS 성과: **미계산/미열람**.")
