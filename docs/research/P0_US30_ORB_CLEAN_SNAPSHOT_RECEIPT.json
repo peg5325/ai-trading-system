@@ -1,0 +1,83 @@
+{
+  "contract": {
+    "allowed_sessions": [
+      "POST",
+      "PRE",
+      "REGULAR"
+    ],
+    "as_of": "2026-07-21",
+    "collection_run_id": "p0-us30-1m-20260721-r82",
+    "interval": "1m",
+    "symbols": [
+      "AAPL",
+      "AMD",
+      "AMZN",
+      "AVGO",
+      "CRM",
+      "DIA",
+      "GOOGL",
+      "IWM",
+      "META",
+      "MSFT",
+      "MU",
+      "NFLX",
+      "NVDA",
+      "PLTR",
+      "QQQ",
+      "SMH",
+      "SOXL",
+      "SOXS",
+      "SPY",
+      "SQQQ",
+      "TQQQ",
+      "TSLA",
+      "VST",
+      "XLE",
+      "XLF",
+      "XLI",
+      "XLK",
+      "XLU",
+      "XLV",
+      "XLY"
+    ]
+  },
+  "generated_at_utc": "2026-07-26T09:25:00Z",
+  "provenance_verification": {
+    "collection_run_id": "p0-us30-1m-20260721-r82",
+    "declared_completed_through": "2026-07-21",
+    "interval": "1m",
+    "provenance_status": "VERIFIED",
+    "source": "toss_backfill",
+    "verified_completed_through": "2026-07-21",
+    "verified_symbol_count": 30
+  },
+  "raw_content_sha256": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+  "schema": "orb-clean-session-snapshot/receipt/v1",
+  "snapshot": {
+    "bars_beyond_as_of": 0,
+    "basename": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+    "content_sha256": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+    "disallowed_sessions": [],
+    "distinct_symbols": 30,
+    "earliest_trading_day": "2021-12-01",
+    "file_sha256": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+    "integrity_check": "ok",
+    "latest_trading_day": "2026-07-21",
+    "quick_check": "ok",
+    "row_count": 22534553,
+    "sessions": {
+      "POST": 3541915,
+      "PRE": 6164815,
+      "REGULAR": 12827823
+    },
+    "size_bytes": 7285862400
+  },
+  "source": {
+    "basename": "market_history.sqlite",
+    "commit": "bd9fc14",
+    "file_sha256_after": "4c213dd6864e740245f12d665fd2a99e2d8fd9afb6aa77bafaa405005ca16200",
+    "file_sha256_before": "4c213dd6864e740245f12d665fd2a99e2d8fd9afb6aa77bafaa405005ca16200",
+    "unchanged": true
+  },
+  "status": "COMPLETE"
+}
