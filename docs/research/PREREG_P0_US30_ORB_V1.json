@@ -323,7 +323,8 @@
       "max_consecutive_losses",
       "reentry_cooldown",
       "block_all_entries_in_eod_window"
-    ]
+    ],
+    "eod_flatten_minutes_before_close_owner": "ExitConfig (prereg-fixed at 10, not inherited from code default)"
   },
   "costs": {
     "round_trip_pct_points": {

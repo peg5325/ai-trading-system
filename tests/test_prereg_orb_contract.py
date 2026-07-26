@@ -362,6 +362,9 @@ def test_risk_limits_match_live_risk_config(contract):
     assert p["max_symbol_effective_pct"] == cfg.max_symbol_effective_pct
     assert p["max_symbol_notional_pct"] == cfg.max_symbol_notional_pct
     assert contract["risk"]["eod_flatten_minutes_before_close"] == 10
+    # 코드 기본값을 따라다니면 코드 변경만으로 연구 계약이 바뀐다(R18)
+    assert "prereg-fixed" in contract["risk"]["eod_flatten_minutes_before_close_owner"]
+    assert "ExitConfig" in contract["risk"]["eod_flatten_minutes_before_close_owner"]
     assert contract["risk"]["scale_in_max"] == 0
 
 
@@ -602,3 +605,56 @@ def test_mapping_checklist_covers_new_normative_sections(doc):
     block = doc.split("## 15.")[1] if "## 15." in doc else doc
     for sec in ("§3.5", "§8.0", "§10.3", "§10.4", "§11.0", "§11.1"):
         assert sec in block, f"{sec} 매핑 행 누락"
+
+# --------------------------------------------------------------------------
+# (f) 동결 후 썩을 수 있는 서술을 **기계 사실**로 바꾼다 (freeze 위험 R-시리즈)
+#     "NFLX 가 마지막 상장" 같은 문장은 사람이 확인한 주장일 뿐이다. 매니페스트에서
+#     직접 계산해 대조하면 그 문장이 참인 동안에만 테스트가 통과한다.
+# --------------------------------------------------------------------------
+def test_development_start_is_the_last_symbol_to_become_available(contract):
+    """§3.1 의 경계 근거(30종목 공통 가용 시작)를 manifest 에서 직접 재계산한다 (R6)."""
+    man = _json(MANIFEST)
+    firsts = {s["symbol"]: s["allowed_earliest_trading_day"] for s in man["symbols"]}
+    assert len(firsts) == 30
+    latest_symbol = max(firsts, key=lambda k: firsts[k])
+    assert firsts[latest_symbol] == contract["windows"]["development_data_start"], (
+        f"development 시작이 최후 가용 종목({latest_symbol})의 첫 거래일과 다르다")
+    # 그 날짜 이전에는 30종목이 동시에 존재하지 않는다
+    assert sum(1 for v in firsts.values()
+               if v > contract["windows"]["development_data_start"]) == 0
+
+
+def test_row_count_and_sessions_match_tracked_receipt(contract, doc):
+    """§2 의 행수·세션 서술이 receipt 와 어긋나면 실패한다 (R1/R4)."""
+    rec = _json(SNAPSHOT_RECEIPT)
+    assert f"{rec['snapshot']['row_count']:,}" in doc
+    assert rec["snapshot"]["disallowed_sessions"] == []
+    assert rec["snapshot"]["bars_beyond_as_of"] == 0
+    assert "OVERNIGHT` 0행" in doc or "OVERNIGHT 0행" in doc
+
+
+def test_calendar_validity_matches_the_artifact_exactly(contract):
+    """§3.1 의 캘린더 유효 구간을 **동등성**으로 고정한다 (R7 — 포함 관계로는 확장 시 거짓이 된다)."""
+    from src.history.exchange_calendar import CALENDAR_END, CALENDAR_START
+    w = contract["windows"]
+    assert w["calendar_valid_start"] == CALENDAR_START.isoformat()
+    assert w["calendar_valid_end"] == CALENDAR_END.isoformat()
+
+
+def test_leverage_factors_match_the_code(contract):
+    """§7 의 레버리지 3배 서술을 코드에서 확인한다 (R11)."""
+    from src.universe.screener import leverage_for
+    for sym in contract["universe"]["leveraged_inverse"]:
+        assert leverage_for(sym) == 3, sym
+    for sym in contract["universe"]["market_etf"] + contract["universe"]["sector_etf"]:
+        assert leverage_for(sym) == 1, sym
+
+
+def test_session_end_bar_count_is_derived_not_copied(doc):
+    """§8.7 의 '닫힌 5m 77개' 는 다른 문서에서 베낀 수치였다 (R2).
+
+    390분 정규장에서 마지막 버킷이 닫히지 않으므로 390//5 - 1 = 77 — 유도 근거를 문서에
+    남겨 두면, 그 수치가 바뀌어도 어디서 왔는지 추적할 수 있다.
+    """
+    assert (390 // 5) - 1 == 77
+    assert "390 ÷ 5 − 1" in doc or "390//5" in doc or "390 분" in doc
