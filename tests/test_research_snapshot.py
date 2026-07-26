@@ -1,11 +1,13 @@
 """ORB clean-session immutable research snapshot 계약 테스트 (#84)."""
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 
 import pytest
 
+from scripts.history_research_snapshot import _write_receipt_atomic
 from src.history.ingest_provenance import BACKFILL_SOURCE
 from src.history.research_snapshot import (
     ResearchSnapshotError,
@@ -77,7 +79,7 @@ def _create(source: str, output: str):
         source_db=source, output_db=output, symbols=SYMBOLS,
         as_of=AS_OF, allowed_sessions=ALLOWED,
         collection_run_id=RUN_ID, generated_at_utc="2026-07-26T08:00:00Z",
-        source_commit="abc123", raw_content_sha256="raw-hash",
+        source_commit="abc123", raw_content_sha256="a" * 64,
     )
 
 
@@ -138,6 +140,22 @@ def test_snapshot_refuses_overwrite_same_source_and_stale_partial(tmp_path):
         _create(source, other)
 
 
+@pytest.mark.parametrize("raw_hash", [None, "", "raw-hash", "A" * 64])
+def test_snapshot_requires_canonical_raw_sha256(tmp_path, raw_hash):
+    source = _source_db(tmp_path)
+    output = str(tmp_path / "clean.sqlite")
+    with pytest.raises(ResearchSnapshotError, match="raw_content_sha256"):
+        create_clean_snapshot(
+            source_db=source, output_db=output, symbols=SYMBOLS,
+            as_of=AS_OF, allowed_sessions=ALLOWED,
+            collection_run_id=RUN_ID,
+            generated_at_utc="2026-07-26T08:00:00Z",
+            source_commit="abc123", raw_content_sha256=raw_hash,
+        )
+    assert not os.path.exists(output)
+    assert not os.path.exists(output + ".partial")
+
+
 def test_snapshot_rebuild_is_byte_deterministic(tmp_path):
     source = _source_db(tmp_path)
     first = _create(source, str(tmp_path / "first.sqlite"))
@@ -158,6 +176,28 @@ def test_missing_collection_provenance_fails_closed(tmp_path):
 
     output = str(tmp_path / "clean.sqlite")
     with pytest.raises(Exception, match="MISSING_SYMBOLS"):
+        _create(source, output)
+    assert not os.path.exists(output)
+    assert not os.path.exists(output + ".partial")
+
+
+def test_same_run_extra_symbol_conflicting_cutoff_fails_before_filter(tmp_path):
+    source = _source_db(tmp_path)
+    with HistoryStore(source) as store:
+        stats = ImportStats(source=BACKFILL_SOURCE)
+        store.write_ingest_log(
+            RUN_ID, source=BACKFILL_SOURCE, stats=stats,
+            rows_seen=1, earliest="2026-07-20T14:30:00+00:00",
+            latest="2026-07-20T14:30:00+00:00",
+            note=("reason=max_pages; sessions_allowed=POST,PRE,REGULAR; "
+                  "completed_through=2026-07-20; cursor_persisted=false"),
+            symbol="EXTRA", interval="1m",
+        )
+        store.commit()
+        store._con.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+
+    output = str(tmp_path / "clean.sqlite")
+    with pytest.raises(ResearchSnapshotError, match="CONFLICTING_CUTOFF"):
         _create(source, output)
     assert not os.path.exists(output)
     assert not os.path.exists(output + ".partial")
@@ -225,3 +265,25 @@ def test_source_change_during_snapshot_discards_partial(tmp_path, monkeypatch):
         _create(source, output)
     assert not os.path.exists(output)
     assert not os.path.exists(output + ".partial")
+
+
+def test_receipt_write_is_atomic_and_refuses_existing_evidence(tmp_path):
+    receipt = tmp_path / "receipt.json"
+    payload = {"status": "COMPLETE", "value": 84}
+    _write_receipt_atomic(str(receipt), payload)
+    assert json.loads(receipt.read_text(encoding="utf-8")) == payload
+    assert not (tmp_path / "receipt.json.partial").exists()
+
+    with pytest.raises(FileExistsError, match="overwrite"):
+        _write_receipt_atomic(str(receipt), {"status": "REPLACED"})
+    assert json.loads(receipt.read_text(encoding="utf-8")) == payload
+
+
+def test_receipt_write_refuses_stale_partial(tmp_path):
+    receipt = tmp_path / "receipt.json"
+    partial = tmp_path / "receipt.json.partial"
+    partial.write_text("stale", encoding="utf-8")
+    with pytest.raises(FileExistsError, match="stale partial"):
+        _write_receipt_atomic(str(receipt), {"status": "COMPLETE"})
+    assert partial.read_text(encoding="utf-8") == "stale"
+    assert not receipt.exists()

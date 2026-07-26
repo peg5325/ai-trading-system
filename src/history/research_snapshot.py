@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,7 @@ _BACKFILL_CURSOR_FIELDS = (
     "symbol", "interval", "oldest_ts_utc", "next_before", "exhausted",
     "updated_at",
 )
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class ResearchSnapshotError(RuntimeError):
@@ -180,7 +182,7 @@ def create_clean_snapshot(
     *, source_db: str, output_db: str, symbols: list[str], as_of: str,
     allowed_sessions: list[str], collection_run_id: str,
     generated_at_utc: str, source_commit: str | None,
-    raw_content_sha256: str | None,
+    raw_content_sha256: str,
 ) -> SnapshotResult:
     """Canonical DB에서 ORB 연구 입력 derivative를 생성하고 fail-closed 검증한다."""
     if not symbols or len(symbols) != len(set(symbols)):
@@ -190,6 +192,11 @@ def create_clean_snapshot(
         raise ResearchSnapshotError("allowed_sessions는 PRE/REGULAR/POST의 비공백 부분집합이어야 한다")
     if not collection_run_id.strip():
         raise ResearchSnapshotError("collection_run_id는 비공백이어야 한다")
+    if not isinstance(raw_content_sha256, str) or not _SHA256_RE.fullmatch(
+        raw_content_sha256
+    ):
+        raise ResearchSnapshotError(
+            "raw_content_sha256는 64자리 소문자 16진 SHA-256이어야 한다")
 
     source, output, partial = _assert_safe_paths(source_db, output_db)
     os.makedirs(os.path.dirname(output), exist_ok=True)
@@ -205,11 +212,30 @@ def create_clean_snapshot(
         "source_basename": os.path.basename(source),
         "source_commit": source_commit or "",
         "source_file_sha256": source_sha_before,
-        "raw_content_sha256": raw_content_sha256 or "",
+        "raw_content_sha256": raw_content_sha256,
     }
     stage = "initialize"
 
     try:
+        # collection run은 target universe 밖의 동일-run 로그까지 하나의 provenance
+        # identity다. 필터된 derivative에 로그를 복사하기 전에 source 전체 run을
+        # 검증해야 extra-symbol conflicting cutoff가 조용히 사라지지 않는다.
+        stage = "source_provenance"
+        source_con = sqlite3.connect(source_uri, uri=True)
+        source_con.row_factory = sqlite3.Row
+        try:
+            provenance = verify_collection_provenance(
+                source_con, run_id=collection_run_id, interval=INTERVAL,
+                source=BACKFILL_SOURCE, symbols=symbols,
+                declared_completed_through=as_of, as_of=as_of,
+            )
+        finally:
+            source_con.close()
+        if provenance["provenance_status"] != "VERIFIED":
+            raise ResearchSnapshotError(
+                "source collection provenance 미검증: "
+                f"{provenance['provenance_status']}")
+
         stage = "copy_filtered"
         con = sqlite3.connect(partial, uri=True)
         con.row_factory = sqlite3.Row
@@ -235,16 +261,16 @@ def create_clean_snapshot(
                 raise ResearchSnapshotError(
                     f"비허용 세션 존재: {inventory['disallowed_sessions']}")
 
-            stage = "provenance"
-            provenance = verify_collection_provenance(
+            stage = "snapshot_provenance"
+            snapshot_provenance = verify_collection_provenance(
                 con, run_id=collection_run_id, interval=INTERVAL,
                 source=BACKFILL_SOURCE, symbols=symbols,
                 declared_completed_through=as_of, as_of=as_of,
             )
-            if provenance["provenance_status"] != "VERIFIED":
+            if snapshot_provenance["provenance_status"] != "VERIFIED":
                 raise ResearchSnapshotError(
-                    "collection provenance 미검증: "
-                    f"{provenance['provenance_status']}")
+                    "snapshot collection provenance 미검증: "
+                    f"{snapshot_provenance['provenance_status']}")
 
             stage = "sqlite_integrity"
             integrity = con.execute("PRAGMA integrity_check").fetchone()[0]

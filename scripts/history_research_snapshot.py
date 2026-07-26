@@ -13,6 +13,46 @@ from src.history.daily_manifest import read_p0_universe  # noqa: E402
 from src.history.research_snapshot import create_clean_snapshot  # noqa: E402
 
 
+def _assert_receipt_paths_available(path: str) -> tuple[str, str]:
+    target = os.path.abspath(path)
+    partial = target + ".partial"
+    if os.path.exists(target):
+        raise FileExistsError(
+            f"receipt overwrite 거부: {os.path.basename(target)}")
+    if os.path.exists(partial):
+        raise FileExistsError(
+            f"receipt stale partial 존재: {os.path.basename(partial)}")
+    return target, partial
+
+
+def _write_receipt_atomic(path: str, payload: dict) -> None:
+    """Receipt를 부분 파일 노출이나 기존 증거 덮어쓰기 없이 영속화한다."""
+    target, partial = _assert_receipt_paths_available(path)
+    parent = os.path.dirname(target)
+    os.makedirs(parent, exist_ok=True)
+    data = json.dumps(
+        payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    try:
+        with open(partial, "x", encoding="utf-8") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        # 사전 검사 뒤 다른 writer가 final을 만든 경우에도 덮어쓰지 않는다.
+        if os.path.exists(target):
+            raise FileExistsError(
+                f"receipt concurrent overwrite 거부: {os.path.basename(target)}")
+        os.replace(partial, target)
+        dir_fd = os.open(parent, os.O_RDONLY)
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    except Exception:
+        if os.path.exists(partial):
+            os.remove(partial)
+        raise
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="canonical DB를 변경하지 않고 ORB clean-session derivative 생성")
@@ -22,22 +62,21 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--as-of", required=True)
     ap.add_argument("--collection-run-id", required=True)
     ap.add_argument("--sessions", default="PRE,REGULAR,POST")
-    ap.add_argument("--raw-manifest", default=None)
+    ap.add_argument("--raw-manifest", required=True)
     ap.add_argument("--generated-at", default=None)
     ap.add_argument("--source-commit", default=None)
     ap.add_argument("--receipt", required=True)
     args = ap.parse_args(argv)
 
+    _assert_receipt_paths_available(args.receipt)
     universe = read_p0_universe(args.yaml)
     if not universe["valid"]:
         ap.error(f"invalid universe: {universe['errors']}")
     if args.as_of != universe["as_of"]:
         ap.error(f"--as-of {args.as_of} != universe.as_of {universe['as_of']}")
     sessions = [s.strip().upper() for s in args.sessions.split(",") if s.strip()]
-    raw_hash = None
-    if args.raw_manifest:
-        with open(args.raw_manifest, encoding="utf-8") as fh:
-            raw_hash = json.load(fh).get("raw_content_sha256")
+    with open(args.raw_manifest, encoding="utf-8") as fh:
+        raw_hash = json.load(fh).get("raw_content_sha256")
     generated = args.generated_at or datetime.now(timezone.utc).isoformat()
     result = create_clean_snapshot(
         source_db=args.source_db, output_db=args.output_db,
@@ -46,10 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         generated_at_utc=generated, source_commit=args.source_commit,
         raw_content_sha256=raw_hash,
     )
-    os.makedirs(os.path.dirname(os.path.abspath(args.receipt)), exist_ok=True)
-    with open(args.receipt, "w", encoding="utf-8") as fh:
-        json.dump(result.receipt, fh, ensure_ascii=False, indent=2, sort_keys=True)
-        fh.write("\n")
+    _write_receipt_atomic(args.receipt, result.receipt)
     print(json.dumps(result.receipt, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 

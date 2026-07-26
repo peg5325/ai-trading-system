@@ -132,6 +132,6 @@ replica SHA가 다른 것은 정상이다. 판정은 backup snapshot==replica, i
 
 ## 테스트
 
-- tail repair·snapshot·raw manifest/replica targeted: **54 passed**
-- 전체 pytest: **1039 passed**
+- tail repair·snapshot·raw manifest/replica targeted: **61 passed**
+- 전체 pytest: **1046 passed**
 - `git diff --check`: clean
