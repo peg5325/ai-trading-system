@@ -1,6 +1,6 @@
 {
   "schema": "prereg-orb/contract/v1",
-  "version": "1.1",
+  "version": "1.2",
   "issue": 89,
   "document": "docs/research/PREREG_P0_US30_ORB_V1.md",
   "results_examined": false,
@@ -288,14 +288,19 @@
       "REGULAR"
     ],
     "stale_bars_to_force_exit": 3,
-    "equity_base": "start_of_trading_day",
+    "equity_base": "fixed_initial_capital",
     "limits_applied_as": "cap_not_block",
     "skip_if_qty_lt": 1,
     "exit_priority": [
       "stop",
       "eod",
       "target"
-    ]
+    ],
+    "live_semantics_reference": "src/risk/risk_manager.py RC_QTY_REDUCED (reduce, not block)",
+    "entry_bar_is_scanned_for_exits": true,
+    "intrabar_touch_fill": "at_level",
+    "gap_through_target": "fill_at_bar_open",
+    "exit_priority_applies_when": "no level already through at bar open"
   },
   "costs": {
     "round_trip_pct_points": {
@@ -317,8 +322,8 @@
     "official_level": "official"
   },
   "development_gate": {
-    "D1_min_trades": 200,
-    "D2_min_trading_days_with_trade": 150,
+    "D1_min_trades": 536,
+    "D2_min_trading_days_with_trade": 322,
     "D3_net_expectancy_gt": 0,
     "D4_profit_factor_gte": 1.2,
     "D5_abs_mdd_lte": 0.1,
@@ -327,12 +332,12 @@
     "D7_stress_cumulative_pnl_gte": 0,
     "D8_parameter_cliff": "no_sign_flip",
     "D9_data_defects": "see_defect_policy",
-    "D10_independent_review": "approve_required_before_run",
     "on_failure": {
       "open_blind_oos": false,
       "modify_rules": false,
       "verdict": "NO_SELECTION"
-    }
+    },
+    "rate_consistency_note": "D1/D2 = OOS O4/O3 rates scaled by 670/125"
   },
   "parameter_cliff_neighborhood": {
     "is_search": false,
@@ -364,12 +369,16 @@
         ]
       }
     ],
-    "cliff_if_opposite_sign_variants_gte": 2
+    "cliff_if_opposite_sign_variants_gte": 2,
+    "non_primary_permanently_ineligible": {
+      "scope_snapshot": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+      "scope_oos_window": "2026-01-21..2026-07-21",
+      "successor_must_use_data_after": "2026-07-21"
+    }
   },
   "oos_gate": {
     "O1_net_expectancy_gt": 0,
     "O2_profit_factor_gte": 1.2,
-    "O3_min_trading_days": 60,
     "O4_min_trades": 100,
     "O5_min_positive_months": 4,
     "O5_total_months": 6,
@@ -388,7 +397,8 @@
         "parameter_cliff_neighborhood",
         "sensitivity"
       ],
-      "rerun_on_bad_result": false
+      "rerun_on_bad_result": false,
+      "publish_all_parameterizations": true
     },
     "O5_month_boundaries": [
       {
@@ -421,7 +431,8 @@
         "start": "2026-06-21",
         "end": "2026-07-21"
       }
-    ]
+    ],
+    "O3_min_trading_days_with_trade": 60
   },
   "defect_policy": {
     "counted_as_defect": [
@@ -436,7 +447,20 @@
       "stale_exit",
       "eod_fallback"
     ],
-    "escalate_to_defect_if_share_gt": 0.05
+    "escalate_to_defect_if_share_gt": 0.05,
+    "escalation_ratio": {
+      "numerator": [
+        "incomplete_opening_range",
+        "no_previous_regular_close",
+        "insufficient_rvol_lookback",
+        "opening_range_not_closed",
+        "stale_exit",
+        "eod_fallback"
+      ],
+      "numerator_excludes_strategy_filters": true,
+      "denominator": "universe_symbols x trading_days in the evaluated window",
+      "threshold": 0.05
+    }
   },
   "verdict_definitions": {
     "SELECT_ONE": "all development_gate and all oos_gate satisfied by primary",
@@ -481,9 +505,34 @@
     "concentration_share": "unit net PnL / total net PnL; auto-fail if total <= 0"
   },
   "revision": {
-    "version": "1.1",
+    "version": "1.2",
     "results_examined_at_revision": false,
-    "corrections": 8,
+    "corrections": 19,
     "audit": "docs section 14.3"
+  },
+  "account_model": {
+    "initial_capital": 100000.0,
+    "currency": "USD",
+    "sizing_base": "fixed_initial_capital",
+    "sizing_base_uses_running_equity": false,
+    "equity_curve": "cumulative realized PnL, reporting and MDD only",
+    "folds_share_one_continuous_curve": true,
+    "oos_curve_restarts_at_initial_capital": true
+  },
+  "preconditions_not_result_criteria": {
+    "P1_independent_implementation_review": "approve required before development run",
+    "P2_loader_wiring": "research_load only; AST boundary test must pass",
+    "P3_snapshot_identity": "all four hashes match",
+    "unmet_verdict": "NOT_RUN",
+    "rationale": "process gate must not masquerade as a scientific NO_SELECTION"
+  },
+  "blind_enforcement": {
+    "loader": "src.history.oos_guard.research_load",
+    "track": "intraday",
+    "development_purpose": "performance",
+    "direct_load_candles_forbidden": true,
+    "ast_boundary_test": "tests/test_oos_guard_wiring.py",
+    "unlock_verifier_required_before_oos": "#78",
+    "bypass_is_invalidation_grade": true
   }
 }

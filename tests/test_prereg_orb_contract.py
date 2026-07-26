@@ -70,12 +70,129 @@ def test_hashes_appear_identically_in_document_and_contract(contract, doc):
 
 
 def test_thresholds_appear_in_document(contract, doc):
-    """임계값이 문서와 contract 에서 갈리면 어느 쪽이 사전등록인지 모호해진다."""
-    assert str(contract["candidate"]["rvol"]["threshold"]) in doc            # 1.5
-    assert "0.30%" in doc and contract["candidate"]["gap"]["threshold_abs"] == 0.0030
-    assert str(contract["risk"]["target_r_multiple"]) in doc                 # 2.0
-    assert str(contract["portfolio"]["max_positions"]) in doc                # 2
-    assert str(contract["signal"]["max_entry_minutes_before_close"]) in doc  # 90
+    """임계값이 문서와 contract 에서 갈리면 어느 쪽이 사전등록인지 모호해진다.
+
+    **부분문자열 포함 검사는 쓰지 않는다** — `str(1.0) in doc` 은 "1.0%" 나 "2023" 같은 무관한
+    텍스트로도 참이 되어 거짓 확신을 준다(독립 리뷰 지적). 정확한 문구로 대조한다.
+    """
+    assert "RVOL ≥ 1.5" in doc and contract["candidate"]["rvol"]["threshold"] == 1.5
+    assert "|gap| ≥ 0.30%" in doc and contract["candidate"]["gap"]["threshold_abs"] == 0.0030
+    assert "entry + 2.0 × 1R" in doc and contract["risk"]["target_r_multiple"] == 2.0
+    assert "| 동시 보유 최대 종목 수 | **2** |" in doc
+    assert contract["portfolio"]["max_positions"] == 2
+    assert "- 90분" in doc and contract["signal"]["max_entry_minutes_before_close"] == 90
+
+
+# --------------------------------------------------------------------------
+# (a2) 사전등록 고유 값 전량 고정
+#      독립 리뷰 mutation 스윕에서 19개 값이 **테스트 없이 통과**했다. 원인은 명확했다:
+#      외부 tracked artifact 와 대조되는 값(계획·RiskConfig·receipt)만 보호되고, 이 문서에서만
+#      정해지는 값은 하나도 보호되지 않았다. 아래가 그 구멍을 덮는다.
+# --------------------------------------------------------------------------
+def test_leakage_invariant_is_pinned(contract):
+    """가장 중요한 불변식 — development 는 OOS 봉을 쓸 수 없다.
+
+    이 값이 조용히 true 로 뒤집혀도 어떤 테스트도 실패하지 않았다(리뷰 지적 중 최악).
+    """
+    f = contract["folds"]
+    assert f["development_may_use_oos_bars"] is False
+    assert f["oos_warmup_may_use_pre_oos_bars"] is True
+    b = contract["blind_enforcement"]
+    assert b["loader"] == "src.history.oos_guard.research_load"
+    assert b["direct_load_candles_forbidden"] is True
+    assert b["bypass_is_invalidation_grade"] is True
+    assert b["unlock_verifier_required_before_oos"] == "#78"
+
+
+def test_development_gate_values_are_pinned(contract):
+    g = contract["development_gate"]
+    assert g["D1_min_trades"] == 536
+    assert g["D2_min_trading_days_with_trade"] == 322
+    assert g["D3_net_expectancy_gt"] == 0
+    assert g["D4_profit_factor_gte"] == 1.20
+    assert g["D5_abs_mdd_lte"] == 0.10
+    assert g["D6_min_positive_folds"] == 7 and g["D6_total_folds"] == 10
+    assert g["D7_stress_cumulative_pnl_gte"] == 0
+    assert g["D8_parameter_cliff"] == "no_sign_flip"
+
+
+def test_development_sample_gates_are_rate_consistent_with_oos(contract):
+    """dev 가 OOS 보다 느슨하면, dev 를 통과한 전략이 OOS 표본 수에서 자동 탈락한다."""
+    g, o, w = contract["development_gate"], contract["oos_gate"], contract["windows"]
+    scale = w["development_eval_trading_days"] / w["blind_oos_trading_days"]
+    assert g["D1_min_trades"] >= o["O4_min_trades"] * scale
+    assert g["D2_min_trading_days_with_trade"] >= o["O3_min_trading_days_with_trade"] * scale
+
+
+def test_candidate_and_signal_values_are_pinned(contract):
+    c, s, r = contract["candidate"], contract["signal"], contract["risk"]
+    assert c["rvol"]["lookback_trading_days"] == 20
+    assert c["rvol"]["min_valid_lookback_days"] == 15
+    assert c["uses_premarket"] is False
+    assert sorted(c["exclusion_reasons"]) == sorted([
+        "incomplete_opening_range", "no_previous_regular_close",
+        "insufficient_rvol_lookback", "opening_range_not_closed"])
+    assert s["buffer"] == 0.0 and s["touch_fill"] is False
+    assert s["extra_confirmation_bars"] == 0
+    assert s["max_entry_minutes_before_close"] == 90
+    assert r["stale_bars_to_force_exit"] == 3
+    assert r["risk_budget_pct_of_equity"] == 0.01
+    assert r["one_r"] == "entry - OR_low" and r["stop"] == "OR_low"
+    assert contract["spec"]["decision_bar_minutes"] == 5
+    assert contract["spec"]["primary"]["opening_range_minutes"] == 15
+    assert contract["spec"]["sensitivity"]["opening_range_minutes"] == 5
+
+
+def test_account_model_is_pinned(contract, doc):
+    a = contract["account_model"]
+    assert a["initial_capital"] == 100000.0
+    assert a["currency"] == "USD"
+    assert a["sizing_base"] == "fixed_initial_capital"
+    assert a["sizing_base_uses_running_equity"] is False
+    assert a["oos_curve_restarts_at_initial_capital"] is True
+    assert "100,000 USD" in doc
+
+
+def test_parameter_cliff_neighborhood_is_pinned(contract):
+    n = contract["parameter_cliff_neighborhood"]
+    assert n["cliff_if_opposite_sign_variants_gte"] == 2
+    axes = {v["axis"]: v for v in n["variants"]}
+    assert set(axes) == {"rvol_threshold", "gap_threshold_abs", "target_r_multiple"}
+    assert axes["rvol_threshold"]["neighbors"] == [1.3, 1.7]
+    assert axes["gap_threshold_abs"]["neighbors"] == [0.0020, 0.0040]
+    assert axes["target_r_multiple"]["neighbors"] == [1.5, 2.5]
+    assert sum(len(v["neighbors"]) for v in n["variants"]) == 6
+    lock = n["non_primary_permanently_ineligible"]      # 후속 연구 cherry-pick 차단
+    assert lock["scope_oos_window"] == "2026-01-21..2026-07-21"
+    assert lock["successor_must_use_data_after"] == "2026-07-21"
+
+
+def test_defect_escalation_ratio_is_pinned(contract):
+    e = contract["defect_policy"]["escalation_ratio"]
+    assert e["threshold"] == 0.05
+    assert e["numerator_excludes_strategy_filters"] is True
+    # 분자는 **데이터 사유 4종 + 운영 2종** 뿐이다. gap/RVOL 임계 미달(전략이 의도한 필터링)이
+    # 들어가면 비율이 구조적으로 70~80% 가 되어 결함 게이트가 항상 발동한다.
+    assert sorted(e["numerator"]) == sorted([
+        "incomplete_opening_range", "no_previous_regular_close",
+        "insufficient_rvol_lookback", "opening_range_not_closed",
+        "stale_exit", "eod_fallback"])
+    assert not [x for x in e["numerator"] if "threshold" in x or "below_" in x]
+    assert "trading_days" in e["denominator"]
+
+
+def test_cost_official_level_and_rank_keys_are_pinned(contract):
+    assert contract["costs"]["official_level"] == "official"
+    keys = contract["portfolio"]["rank_keys"]
+    assert [k["key"] for k in keys] == ["rvol", "abs_gap", "symbol"]
+    assert [k["order"] for k in keys] == ["desc", "desc", "asc"]
+    assert contract["portfolio"]["composite_score"] is None
+
+
+def test_process_preconditions_are_separate_from_result_criteria(contract):
+    p = contract["preconditions_not_result_criteria"]
+    assert p["unmet_verdict"] == "NOT_RUN"
+    assert "D10_independent_review" not in contract["development_gate"]
 
 
 def test_cost_levels_match_contract_and_document(contract, doc):
@@ -212,7 +329,7 @@ def test_oos_gate_is_not_weaker_than_the_tracked_plan(contract):
     g = contract["oos_gate"]
     assert "OOS profit factor >= 1.20" in plan and g["O2_profit_factor_gte"] == 1.20
     assert "OOS 거래일 >= 60, 거래 >= 100" in plan
-    assert g["O3_min_trading_days"] == 60 and g["O4_min_trades"] == 100
+    assert g["O3_min_trading_days_with_trade"] == 60 and g["O4_min_trades"] == 100
     assert "6개월 중 >= 4개월 양수" in plan and g["O5_min_positive_months"] == 4
     assert "OOS MDD 절대값 <= 10%" in plan and g["O6_abs_mdd_lte"] == 0.10
     assert "stress 비용 0.68%p에서 누적 손익 >= 0" in plan and g["O7_stress_cumulative_pnl_gte"] == 0
@@ -274,7 +391,7 @@ def test_sizing_caps_instead_of_blocking(contract, doc):
     r = contract["risk"]
     assert r["limits_applied_as"] == "cap_not_block"
     assert r["skip_if_qty_lt"] == 1
-    assert r["equity_base"] == "start_of_trading_day"
+    assert r["equity_base"] == "fixed_initial_capital"
     assert "min(" in r["sizing"]
     assert contract["portfolio"]["insufficient_capacity"].startswith("cap_quantity")
     assert "축소" in doc and "차단이 아니라" in doc
@@ -353,26 +470,49 @@ _RESULT_PATTERNS = re.compile(
     r"(RESULT|OOS_RESULT|WALKFORWARD|WALK_FORWARD|LEADERBOARD|UNLOCK|EXPECTANCY)", re.I)
 
 
+_ORB_NAME = re.compile(r"(orb|opening[_-]?range)", re.I)
+
+
 def test_no_orb_result_artifacts_exist_yet():
-    """ORB 성과·OOS·unlock 산출물이 하나라도 있으면 사전등록의 전제가 깨진다."""
+    """ORB 성과·OOS·unlock 산출물이 하나라도 있으면 사전등록의 전제가 깨진다.
+
+    최상위 `docs/research/` 만 보던 것을 **재귀 + 다중 디렉터리 + `opening_range` 별칭**까지
+    넓혔다(독립 리뷰 지적: `reports/` 나 하위 폴더의 결과가 보이지 않았다).
+    """
     hits = []
-    for name in sorted(os.listdir(RESEARCH)):
-        if not _RESULT_PATTERNS.search(name):
+    for base in ("docs", "reports", "analysis", "data"):
+        root = os.path.join(REPO, base)
+        if not os.path.isdir(root):
             continue
-        if "ORB" in name.upper() or "P0_US30_ORB" in name.upper():
-            hits.append(name)
+        for dirpath, _dirs, files in os.walk(root):
+            for name in files:
+                if _RESULT_PATTERNS.search(name) and _ORB_NAME.search(name):
+                    # 1/6 스냅샷·복제 receipt 는 데이터 provenance 이지 성과가 아니다
+                    if "CLEAN" in name.upper() and "RECEIPT" in name.upper():
+                        continue
+                    hits.append(os.path.relpath(os.path.join(dirpath, name), REPO))
     assert hits == [], f"ORB 결과 산출물이 이미 존재한다: {hits}"
 
 
 def test_no_orb_strategy_implementation_exists_yet():
-    """3/6 은 문서만 만든다 — 구현이 있으면 단계 경계가 깨진 것이다."""
+    """3/6 은 문서만 만든다 — 구현이 있으면 단계 경계가 깨진 것이다.
+
+    파일명이 'orb' 를 포함하는 경우만 보던 것을 `opening_range` 별칭과 `scripts/` 까지 넓혔다.
+    이 테스트는 **트립와이어**이지 증명이 아니다(§13 에 그 한계를 명시).
+    """
     found = []
-    for base in ("src", "analysis"):
+    for base in ("src", "analysis", "scripts"):
         root = os.path.join(REPO, base)
+        if not os.path.isdir(root):
+            continue
         for dirpath, _dirs, files in os.walk(root):
             for fn in files:
-                if fn.endswith(".py") and "orb" in fn.lower():
-                    found.append(os.path.relpath(os.path.join(dirpath, fn), REPO))
+                if not fn.endswith(".py") or not _ORB_NAME.search(fn):
+                    continue
+                rel = os.path.relpath(os.path.join(dirpath, fn), REPO)
+                if rel == os.path.join("src", "bars", "resample.py"):
+                    continue        # #76 의 opening_range 파생기(전략 구현 아님)
+                found.append(rel)
     assert found == [], f"ORB 구현 파일이 이미 존재한다: {found}"
 
 
