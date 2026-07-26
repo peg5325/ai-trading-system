@@ -1,0 +1,63 @@
+{
+  "created_utc": "20260726T030228Z",
+  "reason": "ok",
+  "replica": {
+    "basename": "market_history.p0-us30-1m-20260721-r82.replica.20260726T030228Z.sqlite",
+    "distinct_symbols": 34,
+    "integrity": "ok",
+    "intervals": {
+      "1d": {
+        "max_ts": "2026-07-21T04:00:00+00:00",
+        "min_ts": "2016-03-18T04:00:00+00:00",
+        "rows": 76690,
+        "symbols": 30
+      },
+      "1m": {
+        "max_ts": "2026-07-21T23:59:00+00:00",
+        "min_ts": "2021-12-01T09:01:00+00:00",
+        "rows": 22835336,
+        "symbols": 34
+      }
+    },
+    "replica_sha256": "28cc3525e176642736eed20d90fd4215c82311c3204c02648522c867c8e60e82",
+    "sha256_match": true,
+    "size_bytes": 12203712512,
+    "snapshot_sha256": "28cc3525e176642736eed20d90fd4215c82311c3204c02648522c867c8e60e82",
+    "total_rows": 22912026
+  },
+  "restore_smoke": {
+    "integrity": "ok",
+    "reason": "ok",
+    "restored_sha256": "28cc3525e176642736eed20d90fd4215c82311c3204c02648522c867c8e60e82",
+    "semantic_match": true,
+    "sha256_match": true,
+    "status": "ok"
+  },
+  "schema": "history-external-replica/receipt/v1",
+  "source": {
+    "basename": "market_history.sqlite",
+    "distinct_symbols": 34,
+    "integrity": "ok",
+    "intervals": {
+      "1d": {
+        "max_ts": "2026-07-21T04:00:00+00:00",
+        "min_ts": "2016-03-18T04:00:00+00:00",
+        "rows": 76690,
+        "symbols": 30
+      },
+      "1m": {
+        "max_ts": "2026-07-21T23:59:00+00:00",
+        "min_ts": "2021-12-01T09:01:00+00:00",
+        "rows": 22835336,
+        "symbols": 34
+      }
+    },
+    "sha256": "7220f22c8e48eca288ca6dbbf1714350f585b173a9fe7eb132824ef210d8df3c",
+    "size_bytes": 12203712512,
+    "total_rows": 22912026
+  },
+  "source_commit": "e8e1c8c2c042a5227567ae6a88856fa91aba3d3e",
+  "status": "success",
+  "target_id": "icloud-documents",
+  "target_kind": "cloud_sync"
+}

@@ -1,0 +1,16 @@
+{
+  "archive_basename": "raw_snapshot.p0-us30-1m-20260721-r82.20260726T030228Z.tar",
+  "archive_sha256": "dfcd0f632156417f8edc40a4607744cfb54a2cf8ad2c6b8fd3ebafbbd6856b35",
+  "archive_size_bytes": 796951040,
+  "created_utc": "20260726T030228Z",
+  "restore_content_match": true,
+  "restored_content_file_count": 154181,
+  "restored_raw_content_sha256": "ad26b2d1b9493af965ebd9824a2772ed1ef527716ec3db9be18609a40bea46d1",
+  "root_basename_excluded_from_match": true,
+  "schema": "raw-external-replica/receipt/v1",
+  "source_content_file_count": 154181,
+  "source_raw_content_sha256": "ad26b2d1b9493af965ebd9824a2772ed1ef527716ec3db9be18609a40bea46d1",
+  "status": "success",
+  "target_id": "icloud-documents",
+  "target_kind": "cloud_sync"
+}
