@@ -1,6 +1,6 @@
 {
   "schema": "prereg-orb/contract/v1",
-  "version": "1.9",
+  "version": "1.10",
   "issue": 89,
   "document": "docs/research/PREREG_P0_US30_ORB_V1.md",
   "results_examined": false,
@@ -602,10 +602,10 @@
     "rounding": "no intermediate rounding; display 2dp"
   },
   "revision": {
-    "version": "1.9",
+    "version": "1.10",
     "results_examined_at_revision": false,
-    "corrections": 82,
-    "audit": "docs section 14.10"
+    "corrections": 83,
+    "audit": "docs section 14.6.1"
   },
   "account_model": {
     "initial_capital": 100000.0,
@@ -695,5 +695,11 @@
     "what": "resampler parity check read this snapshot via research_load(purpose='coverage')",
     "scope": "8 trading days x 8 symbols, all before blind OOS",
     "performance_computed": false
+  },
+  "freeze_backstop": {
+    "document_sha256_pinned_in": "tests/test_prereg_orb_contract.py",
+    "json_sha256_pinned_in": "tests/test_prereg_orb_contract.py",
+    "normalization": "markdown: whitespace only; json: sort_keys canonical",
+    "changing_after_merge_requires": "ERRATUM entry alongside the constant update"
   }
 }

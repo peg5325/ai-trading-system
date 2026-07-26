@@ -12,6 +12,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -913,3 +914,89 @@ def test_evidence_chain_obligation_is_pinned(contract, doc):
     assert sp["report_must_cite_unlock_artifact"] is True
     assert sp["unlock_artifact_must_be_git_tracked"] is True
     assert "판정으로 인정하지 않는다" in doc
+
+
+# --------------------------------------------------------------------------
+# (h) **동결 백스톱** — 열거로는 이 문제를 끝낼 수 없다.
+#     적대적 리뷰가 112종 변조 중 66종이 여전히 살아남음을 보였고, 패턴은 명확했다:
+#     "리뷰어가 지목한 조항은 고정됐고 그 옆 조항은 아니다." 조항을 66개 더 적으면
+#     같은 순환이 세 번째로 반복된다. 그래서 **내용 해시**로 종류 자체를 닫는다.
+#
+#     동결 후 이 상수를 바꾸려면 ERRATUM 을 함께 남겨야 한다 — 그 마찰이 동결 문서에
+#     있어야 할 마찰이다. 병합 전에는 문서를 고칠 때마다 아래 명령으로 갱신한다:
+#       python -c "from tests.test_prereg_orb_contract import print_hashes; print_hashes()"
+# --------------------------------------------------------------------------
+PREREG_MD_SHA256 = "9a24580f60e1c84e98393f9d31a5ebe8e913ac9445181adfaa8c1f3d5414cf92"
+PREREG_JSON_SHA256 = "adb2e246a9ed94c7b1fce1fd3dc12105b7ab49534bdd08dba543e62ab17bfad6"
+
+
+def _normalized_md(text: str) -> str:
+    """공백만 정규화한다 — 의미 있는 문자는 하나도 바꾸지 않는다."""
+    lines = [re.sub(r"[ \t]+", " ", ln).rstrip() for ln in text.replace("\r\n", "\n").split("\n")]
+    return "\n".join(lines).strip() + "\n"
+
+
+def _md_hash() -> str:
+    return hashlib.sha256(_normalized_md(_read(PREREG_MD)).encode("utf-8")).hexdigest()
+
+
+def _json_hash() -> str:
+    canon = json.dumps(_json(PREREG_JSON), sort_keys=True, ensure_ascii=False,
+                       separators=(",", ":"))
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+def print_hashes() -> None:                       # 갱신 편의용
+    print("PREREG_MD_SHA256 =", _md_hash())
+    print("PREREG_JSON_SHA256 =", _json_hash())
+
+
+def test_prereg_document_content_hash_is_pinned():
+    """정본 문서의 **모든 규범 문장**을 한 번에 고정한다.
+
+    개별 조항 단언은 실패 메시지가 좋아서 유지하되, 이 해시가 백스톱이다 —
+    "리뷰어가 그 조항을 생각했는가?" 를 "어떤 변경이든 잡힌다" 로 바꾼다.
+    """
+    assert _md_hash() == PREREG_MD_SHA256, (
+        "사전등록 정본이 변경됐다. 의도한 변경이면 아래 값으로 상수를 갱신하고 "
+        "§14 개정 이력(병합 후에는 ERRATUM)에 기록할 것:\n"
+        f"  PREREG_MD_SHA256 = \"{_md_hash()}\"")
+
+
+def test_prereg_contract_json_hash_is_pinned():
+    """계약 JSON 전체를 고정한다(선택된 43개 키가 아니라 **전부**)."""
+    assert _json_hash() == PREREG_JSON_SHA256, (
+        "계약 JSON 이 변경됐다. 의도한 변경이면 아래 값으로 상수를 갱신할 것:\n"
+        f"  PREREG_JSON_SHA256 = \"{_json_hash()}\"")
+
+
+# 해시가 백스톱이라도, 아래 몇 개는 **좋은 실패 메시지**를 위해 명시 단언으로 남긴다.
+def test_named_high_value_invariants_have_explicit_messages(contract, doc):
+    """적대적 리뷰가 개별 확인한 다섯 + 정의 계열 — 실패 시 무엇이 깨졌는지 바로 보이게."""
+    # MD18: look-ahead 불변식이 **정본**에 살아 있는가(§14.1.1 상 문서가 JSON 을 이긴다)
+    assert "development 평가는 **2026-01-21 이후 봉을 어떤 형태로도 사용하지 않는다**" in doc
+    # V2: 자본을 승인하는 판정
+    assert contract["verdict_definitions"]["SELECT_ONE"] == \
+        "all development_gate and all oos_gate satisfied by primary"
+    # A4: v1.2 에서 죽인 게이트(M1)가 되살아나지 않게
+    assert contract["evaluation_definitions"]["trading_days_counted"] == \
+        "ET trading days with >= 1 trade"
+    # R2: 금지는 못 지우더라도 모순되는 허용을 **추가**할 수 있었다
+    assert set(contract["revision_policy"]["allowed_before_results"]) == {
+        "typo", "ambiguity", "internal_inconsistency"}
+    assert "underperformance" not in contract["revision_policy"]["invalidation_reasons"]
+    # MD30: 동일봉 충돌의 보수성
+    assert "**stop > EOD > target** 순으로 우선한다(불리한 쪽 우선)" in doc
+    # A1/A2: 통계 정의를 유리한 쪽으로 바꾸는 경로
+    assert contract["evaluation_definitions"]["net_expectancy"].startswith("arithmetic mean")
+    assert "sum(positive net PnL)" in contract["evaluation_definitions"]["profit_factor"]
+    # C1/C2: 정의를 바꿔 임계를 무력화하는 경로
+    assert contract["candidate"]["uses_premarket"] is False
+    assert "median" in contract["candidate"]["rvol"]["definition"]
+    assert "previous trading day last REGULAR" in contract["candidate"]["gap"]["definition"]
+    # MD21/MD23: 공식 비용과 "전부 충족"
+    assert "공식 판정은 **0.34%p** 결과로만 한다" in doc
+    assert "**아래를 전부 충족해야만 blind OOS 를 연다.**" in doc
+    # MD19/MD22: H1 수정을 떠받치는 산문
+    assert "**직접 import·호출 금지**" in doc
+    assert "**이 4개 hash 중 하나라도 실행 시점에 불일치하면 분석을 실행하지 않는다**" in doc
