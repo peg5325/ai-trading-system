@@ -176,7 +176,8 @@ def test_defect_escalation_ratio_is_pinned(contract):
     assert sorted(e["numerator"]) == sorted([
         "incomplete_opening_range", "no_previous_regular_close",
         "insufficient_rvol_lookback", "opening_range_not_closed",
-        "stale_exit", "eod_fallback"])
+        "stale_exit", "eod_fallback", "unclosable"])
+    assert e["unit"] == "symbol_day_deduplicated"      # 중복 계상은 비율을 2배까지 흔든다
     assert not [x for x in e["numerator"] if "threshold" in x or "below_" in x]
     assert "trading_days" in e["denominator"]
 
@@ -677,3 +678,34 @@ def test_session_end_bar_count_is_derived_not_copied(doc):
     """
     assert (390 // 5) - 1 == 77
     assert "390 ÷ 5 − 1" in doc or "390//5" in doc or "390 분" in doc
+
+
+def test_v15_discretion_closures_are_pinned(contract, doc):
+    """v1.5 에서 없앤 재량 — 되돌리면 깨져야 한다(독립 구현가능성 리뷰)."""
+    r, sp = contract["risk"], contract["spec"]
+    # #1 같은 봉 2종목이 각각 30% 를 잡아 합 60% 로 50% 한도를 넘던 구멍
+    assert r["current_effective_exposure_includes_same_bar_accepted"] is True
+    assert "이번 결정봉에서 이미 채택된 후보" in doc
+    assert sp["decision_bar_min_bars"] == 1                       # #2
+    f = r["eod_fallback"]                                          # #3
+    assert "last existing REGULAR decision bar" in f["price"]
+    assert "unclosable" in f["if_none"]
+    dl = contract["data_load"]                                     # #4
+    assert "per ET trading day" in dl["extent"]
+    assert "regular_close_minute" in dl["decision_bars_bounded_by"]
+    assert contract["account_model"]["curve_includes_initial_capital_at_t0"] is True   # #10
+    assert contract["defect_policy"]["computed_on"] == "primary"   # #9
+    assert contract["parameter_cliff_neighborhood"][
+        "zero_trade_variant_counts_as_opposite_sign"] is False     # #8
+    assert contract["candidate"]["rvol"]["median_even_sample"] == "midpoint average"   # #16
+    assert set(contract["portfolio"]["skipped_reason_vocabulary"]) == {   # #15
+        "one_r_not_positive", "qty_lt_1", "family_cap", "slot_cap",
+        "portfolio_exposure_cap", "signal_expired"}
+    assert contract["portfolio"]["skipped_reasons_are_not_defects"] is True
+
+
+def test_coverage_measurement_scope_is_honest(contract):
+    """§5.5 실측치가 무엇을 재지 않았는지 문서가 밝히는지 (#5)."""
+    c = contract["candidate"]["opening_range_completeness_coverage_check"]
+    assert c["measures_only"] == "incomplete_opening_range"
+    assert c["lookback_validity_unmeasured"] is True

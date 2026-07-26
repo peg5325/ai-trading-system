@@ -1,6 +1,6 @@
 {
   "schema": "prereg-orb/contract/v1",
-  "version": "1.4",
+  "version": "1.5",
   "issue": 89,
   "document": "docs/research/PREREG_P0_US30_ORB_V1.md",
   "results_examined": false,
@@ -187,7 +187,8 @@
       "authority": "diagnostic_only"
     },
     "sensitivity_may_rescue_primary": false,
-    "decision_bar_minutes": 5
+    "decision_bar_minutes": 5,
+    "decision_bar_min_bars": 1
   },
   "candidate": {
     "gap": {
@@ -200,7 +201,8 @@
       "lookback_trading_days": 20,
       "min_valid_lookback_days": 15,
       "threshold": 1.5,
-      "prior_days_require_full_window": true
+      "prior_days_require_full_window": true,
+      "median_even_sample": "midpoint average"
     },
     "extra_price_or_liquidity_filter": null,
     "uses_premarket": false,
@@ -215,7 +217,9 @@
       "sampled_symbol_days": 120,
       "complete_pct": 97.5,
       "excluded_pct": 2.5,
-      "scope": "development window only, coverage purpose, bar counts only"
+      "scope": "development window only, coverage purpose, bar counts only",
+      "measures_only": "incomplete_opening_range",
+      "lookback_validity_unmeasured": true
     }
   },
   "signal": {
@@ -273,7 +277,16 @@
       "exits",
       "entries"
     ],
-    "gate_population": "full_portfolio_including_leveraged"
+    "gate_population": "full_portfolio_including_leveraged",
+    "skipped_reason_vocabulary": [
+      "one_r_not_positive",
+      "qty_lt_1",
+      "family_cap",
+      "slot_cap",
+      "portfolio_exposure_cap",
+      "signal_expired"
+    ],
+    "skipped_reasons_are_not_defects": true
   },
   "risk": {
     "one_r": "entry - OR_low",
@@ -324,7 +337,13 @@
       "reentry_cooldown",
       "block_all_entries_in_eod_window"
     ],
-    "eod_flatten_minutes_before_close_owner": "ExitConfig (prereg-fixed at 10, not inherited from code default)"
+    "eod_flatten_minutes_before_close_owner": "ExitConfig (prereg-fixed at 10, not inherited from code default)",
+    "current_effective_exposure_includes_same_bar_accepted": true,
+    "eod_fallback": {
+      "price": "close of the last existing REGULAR decision bar starting before regular_close_minute(d)",
+      "if_none": "exclude trade as unclosable and count in defect numerator",
+      "not_lookahead_because": "EOD exit is mandatory, not chosen from future data"
+    }
   },
   "costs": {
     "round_trip_pct_points": {
@@ -399,7 +418,8 @@
       "scope_snapshot": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
       "scope_oos_window": "2026-01-21..2026-07-21",
       "successor_must_use_data_after": "2026-07-21"
-    }
+    },
+    "zero_trade_variant_counts_as_opposite_sign": false
   },
   "oos_gate": {
     "O1_net_expectancy_gt": 0,
@@ -482,13 +502,16 @@
         "insufficient_rvol_lookback",
         "opening_range_not_closed",
         "stale_exit",
-        "eod_fallback"
+        "eod_fallback",
+        "unclosable"
       ],
       "numerator_excludes_strategy_filters": true,
       "denominator": "universe_symbols x trading_days in the evaluated window",
-      "threshold": 0.05
+      "threshold": 0.05,
+      "unit": "symbol_day_deduplicated"
     },
-    "high_stale_or_eod_fallback_may_indicate_issue": "#44"
+    "high_stale_or_eod_fallback_may_indicate_issue": "#44",
+    "computed_on": "primary"
   },
   "verdict_definitions": {
     "SELECT_ONE": "all development_gate and all oos_gate satisfied by primary",
@@ -532,13 +555,14 @@
     "daily_equity_curve": "cash + holdings marked at regular close each trading day (flat at close)",
     "mdd": "max((peak - trough)/peak) on the daily equity curve, denominator is the running peak, at official cost",
     "trading_days_counted": "ET trading days with >= 1 trade",
-    "concentration_share": "unit net PnL / total net PnL at official cost; auto-fail if total <= 0"
+    "concentration_share": "unit net PnL / total net PnL at official cost; auto-fail if total <= 0",
+    "rounding": "no intermediate rounding; display 2dp"
   },
   "revision": {
-    "version": "1.4",
+    "version": "1.5",
     "results_examined_at_revision": false,
-    "corrections": 40,
-    "audit": "docs sections 14.3/14.4/14.5/14.7"
+    "corrections": 59,
+    "audit": "docs section 14.8"
   },
   "account_model": {
     "initial_capital": 100000.0,
@@ -547,14 +571,21 @@
     "sizing_base_uses_running_equity": false,
     "equity_curve": "cumulative realized PnL, reporting and MDD only",
     "folds_share_one_continuous_curve": true,
-    "oos_curve_restarts_at_initial_capital": true
+    "oos_curve_restarts_at_initial_capital": true,
+    "curve_includes_initial_capital_at_t0": true
   },
   "preconditions_not_result_criteria": {
     "P1_independent_implementation_review": "approve required before development run",
     "P2_loader_wiring": "research_load only; AST boundary test must pass",
     "P3_snapshot_identity": "all four hashes match",
     "unmet_verdict": "NOT_RUN",
-    "rationale": "process gate must not masquerade as a scientific NO_SELECTION"
+    "rationale": "process gate must not masquerade as a scientific NO_SELECTION",
+    "hash_check_tools": {
+      "snapshot_file_and_content": "src/history/research_snapshot.py",
+      "manifest_data": "src/history/intraday_manifest.py",
+      "raw_content": "src/history/raw_snapshot.py",
+      "raw_artifact_absent": "NOT_RUN"
+    }
   },
   "blind_enforcement": {
     "loader": "src.history.oos_guard.research_load",
@@ -589,5 +620,14 @@
     "max_single_symbol_profit_share": 0.25,
     "max_single_day_profit_share": 0.2,
     "major_data_defects": 0
+  },
+  "data_load": {
+    "extent": "per symbol, per ET trading day (PRE+REGULAR+POST of that date)",
+    "reason": "frontier is a function of loaded data (#76 §3.2); unpinned extent lets tomorrow's bars close today's bucket",
+    "decision_bars_bounded_by": "ts_exchange < regular_close_minute(d)"
+  },
+  "implementation_note": {
+    "backtest_engine_reuse": "not mandated; src/backtest/engine.py has ET-hardcoded sessions (#88)",
+    "requirement": "standalone simulator, or resolve #88 first"
   }
 }
