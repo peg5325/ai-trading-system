@@ -41,13 +41,18 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-from src.engines.indicator_engine import IndicatorEngine, candles_to_frame, resample
+from src.engines.indicator_engine import (IndicatorEngine, candles_to_frame,
+                                          frame_to_candles as _frame_to_candles,
+                                          resample)
 from src.models import ET, Candle, classify_session
 from src.universe.screener import Candidate, ScreenerConfig, SymbolData, UniverseScreener, leverage_for
 
 # live(paper_loop)와 동일한 결정 타임프레임.
 DECISION_RULE = "5min"
 DECISION_BAR_MINUTES = 5
+# 결정봉 interval 라벨. 라이브는 "5m" 를 쓰는데 이 모듈만 rule 문자열("5min")을 라벨로 써서
+# 두 경로의 Candle 이 달랐다 — canonical 라벨로 통일한다(이슈 #76 parity).
+DECISION_INTERVAL = "5m"
 
 # 컴포넌트 이름(스크리너 score_components 키와 동일).
 COMPONENT_NAMES = ("trend", "momentum", "volume", "vwap_position", "volatility")
@@ -138,24 +143,7 @@ def build_decision_bars(candles_1m: list[Candle], symbol: str) -> list[Candle]:
     if not candles_1m:
         return []
     df5 = resample(candles_to_frame(candles_1m), DECISION_RULE, drop_partial=True)
-    return _frame_to_candles(df5, symbol)
-
-
-def _frame_to_candles(df: pd.DataFrame, symbol: str) -> list[Candle]:
-    """resample 결과 프레임 → Candle 리스트(live paper_loop.frame_to_candles 와 동일 규약)."""
-    out: list[Candle] = []
-    if df is None or df.empty:
-        return out
-    for ts, row in df.iterrows():
-        et = ts.tz_convert(ET)
-        out.append(Candle(
-            symbol=symbol, interval=DECISION_RULE, ts_utc=ts.to_pydatetime(),
-            ts_exchange=et.to_pydatetime(),
-            session=row["session"],          # _add_meta 가 항상 채운다
-            open=float(row["open"]), high=float(row["high"]), low=float(row["low"]),
-            close=float(row["close"]), volume=float(row["volume"]),
-            currency=row.get("currency") or "USD", adjusted=True))
-    return out
+    return _frame_to_candles(df5, symbol, interval=DECISION_INTERVAL)
 
 
 def compute_forward_returns(bars: list[Candle], idx: int,

@@ -23,7 +23,9 @@
 
 ## 4. 다른 모듈과의 관계
 
-`src/engines/indicator_engine`(`candles_to_frame`, `resample`) 을 import.
+`src/engines/indicator_engine`(`candles_to_frame`, `resample`, `frame_to_candles`) 을 import.
+리샘플·변환은 연구/라이브와 **동일한 canonical core** 를 쓴다(이슈 #76,
+`docs/research/RESAMPLER_PARITY_CONTRACT.md`).
 `src/pnl/journal_pnl`(`:87`)과 `src/live/paper_loop.frame_to_candles`(`:103`)는 **함수 안에서 lazy import** 한다.
 `paper_loop` 를 최상위에서 import 하면 `src.pipeline.models` 가 전이적으로 딸려 들어와
 `system.py:5` 의 *"TradingPipeline 과 완전히 분리(파이프라인 미import)"* 불변식이 깨진다.
