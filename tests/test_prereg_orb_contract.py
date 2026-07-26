@@ -113,7 +113,7 @@ def test_development_gate_values_are_pinned(contract):
     assert g["D5_abs_mdd_lte"] == 0.10
     assert g["D6_min_positive_folds"] == 7 and g["D6_total_folds"] == 10
     assert g["D7_stress_cumulative_pnl_gte"] == 0
-    assert g["D8_parameter_cliff"] == "no_sign_flip"
+    assert g["D8_parameter_cliff"] == "opposite_sign_variants_lte_1"
 
 
 def test_development_sample_gates_are_rate_consistent_with_oos(contract):
@@ -407,8 +407,11 @@ def test_sizing_caps_instead_of_blocking(contract, doc):
     assert "min(" in r["sizing"]
     assert contract["portfolio"]["insufficient_capacity"].startswith("cap_quantity")
     assert "축소" in doc and "차단이 아니라" in doc
-    # 산술 근거가 문서에 남아 있어야 한다(왜 차단이 불가능한지)
-    assert "5%" in doc
+    # 산술 근거가 문서에 남아 있어야 한다(왜 차단이 불가능한지).
+    # `"5%" in doc` 은 §11.2 의 무관한 "5%" 로도 참이 되는 **거짓 가드**였다(리뷰 지적) —
+    # 이 근거 문단 고유의 문자열로 앵커한다.
+    assert "1% / 20% = 5%" in doc
+    assert contract["portfolio"]["insufficient_capacity"] == "cap_quantity_then_skip_only_if_qty_lt_1"
 
 
 def test_exit_priority_is_conservative_and_total(contract, doc):
@@ -540,3 +543,62 @@ def test_prereg_declares_what_it_did_not_do(doc):
     for phrase in ("성과 계산", "forward return", "blind OOS"):
         assert phrase in doc
     assert "§16" in doc or "이 문서가 하지 않은 것" in doc
+
+def test_v14_discretion_closures_are_pinned(contract, doc):
+    """v1.4 에서 없앤 재량들 — 되돌리면 깨져야 한다(독립 아키텍처 리뷰)."""
+    r, p, sg = contract["risk"], contract["portfolio"], contract["signal"]
+    assert r["exit_evaluation_timeframe_minutes"] == 5           # B1: +2R/-1R 을 가르는 값
+    assert r["eod_must_use_exchange_calendar"] is True
+    assert r["do_not_reuse_in_eod_flatten_window"] is True       # B8: 19:50 2차 EOD 방지
+    assert set(r["risk_config_items_disabled"]) == {             # B5: 경로 의존 필터 비활성
+        "daily_loss_limit_pct", "max_drawdown_pct_entry_block",
+        "max_consecutive_losses", "reentry_cooldown", "block_all_entries_in_eod_window"}
+    assert p["same_bar_fill_order"] == ["exits", "entries"]      # B6
+    assert p["gate_population"] == "full_portfolio_including_leveraged"   # B3
+    assert contract["candidate"]["rvol"]["prior_days_require_full_window"] is True  # B12a
+    assert sg["max_entry_boundary_inclusive"] is True            # B12b
+    assert sg["missing_next_scheduled_bar"] == "discard_signal"  # B12c
+    assert contract["development_gate"]["D6_zero_trade_fold_counts_as_not_positive"] is True  # B11
+    assert contract["md_is_authoritative_on_conflict"] is True   # B14
+    assert "5분 결정봉" in doc
+
+
+def test_cliff_criterion_is_internally_consistent(contract):
+    """D8/O10 문안과 §10.1 판정 기준이 모순되면 어느 쪽이 게이트인지 알 수 없다(B4)."""
+    n = contract["parameter_cliff_neighborhood"]
+    assert n["cliff_if_opposite_sign_variants_gte"] == 2
+    for key in ("D8_parameter_cliff",):
+        assert contract["development_gate"][key] == "opposite_sign_variants_lte_1"
+    assert contract["oos_gate"]["O10_parameter_cliff"] == "opposite_sign_variants_lte_1"
+
+
+def test_verdict_set_is_complete(contract, doc):
+    """NOT_RUN·INCONCLUSIVE_DATA 가 최종 상태표에 없으면 결과 작성자가 즉석에서 정한다(A2/B7)."""
+    v = contract["verdict_definitions"]
+    for state in ("SELECT_ONE", "EXTEND_PAPER", "NO_SELECTION", "NOT_RUN", "INCONCLUSIVE_DATA"):
+        assert state in v, state
+        assert state in doc, state
+    assert v["pick_least_bad"] is False
+
+
+def test_stage5_unlock_fields_are_designated(contract, doc):
+    """5/6 unlock 은 hash 하나를 지정받아야 한다 — 4개 중 무엇인지 문서가 정해야 한다."""
+    u = contract["unlock_artifact_reference"]
+    assert u["track"] == "intraday"
+    assert u["snapshot_hash_field_uses"] == "snapshot_content_sha256"
+    assert u["snapshot_hash_value"] == contract["data_identity"]["snapshot_content_sha256"]
+    assert "review_status" in doc and "implementation_commit" in doc
+
+
+def test_audit_statement_matches_what_was_actually_run(doc):
+    """§13 은 §5.5 의 coverage 측정을 포함해야 한다 — 아니면 문서가 스스로를 반증한다(A3)."""
+    assert "research_load" in doc and "coverage" in doc
+    assert "봉 개수만" in doc or "개수만 센" in doc
+    assert "캘린더 계산과 tracked manifest 조회**뿐이며" not in doc
+
+
+def test_mapping_checklist_covers_new_normative_sections(doc):
+    """§15 체크리스트가 v1.1~v1.4 신설 절을 빠뜨리면 구현 강제 장치가 새 조항을 놓친다(B13)."""
+    block = doc.split("## 15.")[1] if "## 15." in doc else doc
+    for sec in ("§3.5", "§8.0", "§10.3", "§10.4", "§11.0", "§11.1"):
+        assert sec in block, f"{sec} 매핑 행 누락"

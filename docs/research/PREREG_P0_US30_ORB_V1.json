@@ -1,6 +1,6 @@
 {
   "schema": "prereg-orb/contract/v1",
-  "version": "1.3",
+  "version": "1.4",
   "issue": 89,
   "document": "docs/research/PREREG_P0_US30_ORB_V1.md",
   "results_examined": false,
@@ -199,7 +199,8 @@
       "definition": "cumulative REGULAR volume 09:30..opening_range_end / median of same-clock cumulative volume over prior 20 trading days",
       "lookback_trading_days": 20,
       "min_valid_lookback_days": 15,
-      "threshold": 1.5
+      "threshold": 1.5,
+      "prior_days_require_full_window": true
     },
     "extra_price_or_liquidity_filter": null,
     "uses_premarket": false,
@@ -239,7 +240,9 @@
     "reentry_same_day": false,
     "max_entry_cutoff_applies_to": "fill_bar_start",
     "capacity_skipped_signal_requeued": false,
-    "trading_day_basis": "ET"
+    "trading_day_basis": "ET",
+    "max_entry_boundary_inclusive": true,
+    "missing_next_scheduled_bar": "discard_signal"
   },
   "portfolio": {
     "rank_keys": [
@@ -265,7 +268,12 @@
     "max_positions_per_exposure_family": 1,
     "insufficient_capacity": "cap_quantity_then_skip_only_if_qty_lt_1",
     "family_cap_includes_pending_same_bar_picks": true,
-    "slot_allocation_is_arrival_time_priority": true
+    "slot_allocation_is_arrival_time_priority": true,
+    "same_bar_fill_order": [
+      "exits",
+      "entries"
+    ],
+    "gate_population": "full_portfolio_including_leveraged"
   },
   "risk": {
     "one_r": "entry - OR_low",
@@ -303,7 +311,19 @@
     "intrabar_touch_fill": "at_level",
     "gap_through_target": "fill_at_bar_open",
     "exit_priority_applies_when": "no level already through at bar open",
-    "current_effective_exposure_basis": "entry_fill_cost"
+    "current_effective_exposure_basis": "entry_fill_cost",
+    "exit_evaluation_timeframe_minutes": 5,
+    "eod_must_use_exchange_calendar": true,
+    "do_not_reuse_in_eod_flatten_window": true,
+    "resting_orders_not_implemented_live": true,
+    "paper_comparison_requires_resting_orders": true,
+    "risk_config_items_disabled": [
+      "daily_loss_limit_pct",
+      "max_drawdown_pct_entry_block",
+      "max_consecutive_losses",
+      "reentry_cooldown",
+      "block_all_entries_in_eod_window"
+    ]
   },
   "costs": {
     "round_trip_pct_points": {
@@ -333,14 +353,15 @@
     "D6_min_positive_folds": 7,
     "D6_total_folds": 10,
     "D7_stress_cumulative_pnl_gte": 0,
-    "D8_parameter_cliff": "no_sign_flip",
+    "D8_parameter_cliff": "opposite_sign_variants_lte_1",
     "D9_data_defects": "see_defect_policy",
     "on_failure": {
       "open_blind_oos": false,
       "modify_rules": false,
       "verdict": "NO_SELECTION"
     },
-    "rate_consistency_note": "D1/D2 = OOS O4/O3 rates scaled by 670/125"
+    "rate_consistency_note": "D1/D2 = OOS O4/O3 rates scaled by 670/125",
+    "D6_zero_trade_fold_counts_as_not_positive": true
   },
   "parameter_cliff_neighborhood": {
     "is_search": false,
@@ -390,7 +411,7 @@
     "O8_max_single_symbol_profit_share": 0.25,
     "O8_symbol_means_family_aggregated": true,
     "O9_max_single_day_profit_share": 0.2,
-    "O10_parameter_cliff": "no_sign_flip",
+    "O10_parameter_cliff": "opposite_sign_variants_lte_1",
     "O11_major_data_defects": 0,
     "single_pass": {
       "load_once": true,
@@ -401,7 +422,9 @@
         "sensitivity"
       ],
       "rerun_on_bad_result": false,
-      "publish_all_parameterizations": true
+      "publish_all_parameterizations": true,
+      "variants_are_independent_simulations": true,
+      "rerun_allowed_only_if": "no artifact written and no interim result viewed"
     },
     "O5_month_boundaries": [
       {
@@ -463,13 +486,16 @@
       "numerator_excludes_strategy_filters": true,
       "denominator": "universe_symbols x trading_days in the evaluated window",
       "threshold": 0.05
-    }
+    },
+    "high_stale_or_eod_fallback_may_indicate_issue": "#44"
   },
   "verdict_definitions": {
     "SELECT_ONE": "all development_gate and all oos_gate satisfied by primary",
     "EXTEND_PAPER": "oos_gate satisfied but paper sample/stability insufficient (stage 6 only)",
     "NO_SELECTION": "any development_gate or oos_gate item unmet",
-    "pick_least_bad": false
+    "pick_least_bad": false,
+    "NOT_RUN": "process preconditions P1-P3 unmet; not a verdict about the strategy",
+    "INCONCLUSIVE_DATA": "data insufficiency or major defect makes judgement impossible"
   },
   "revision_policy": {
     "allowed_before_results": [
@@ -508,10 +534,10 @@
     "concentration_share": "unit net PnL / total net PnL at official cost; auto-fail if total <= 0"
   },
   "revision": {
-    "version": "1.3",
+    "version": "1.4",
     "results_examined_at_revision": false,
-    "corrections": 23,
-    "audit": "docs sections 14.3/14.4/14.5"
+    "corrections": 40,
+    "audit": "docs sections 14.3/14.4/14.5/14.7"
   },
   "account_model": {
     "initial_capital": 100000.0,
@@ -537,5 +563,14 @@
     "ast_boundary_test": "tests/test_oos_guard_wiring.py",
     "unlock_verifier_required_before_oos": "#78",
     "bypass_is_invalidation_grade": true
+  },
+  "md_is_authoritative_on_conflict": true,
+  "unlock_artifact_reference": {
+    "track": "intraday",
+    "snapshot_hash_field_uses": "snapshot_content_sha256",
+    "snapshot_hash_value": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+    "prereg_merge_commit": "recorded by stage 5 unlock artifact (unknown at authoring time)",
+    "implementation_commit": "recorded by stage 5 unlock artifact",
+    "review_status_source": "P1 independent implementation review APPROVE"
   }
 }
