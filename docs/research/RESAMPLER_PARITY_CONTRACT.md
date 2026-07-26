@@ -204,7 +204,13 @@ python scripts/resampler_parity_check.py \
 - **KR 실데이터 parity 미실측**: 이 스냅샷은 US-30 전용이라 KR 은 synthetic 테스트로만 검증했다.
 - DataFrame 어댑터는 **단일 symbol 프레임** 전용이다(인덱스가 ts 뿐). 복수 symbol 은 Candle API.
 - NaN OHLCV 는 정상 데이터에 없다. tie-break 는 NaN 을 최소값으로 보아 결측 아닌 행을
-  결정론적으로 선호하도록 **양쪽 경로 모두** 맞춰 뒀다(순서 무관).
+  결정론적으로 선호하도록 **양쪽 경로 모두** 맞춰 뒀다(순서 무관, synthetic 검증).
+- `adjusted` 상속은 **실데이터로 검증되지 않았다** — 스냅샷이 전부 `adjusted=True` 라
+  변이가 없다. synthetic 테스트(`test_adapter_inherits_adjusted_false`)로만 고정돼 있다.
+- 거래량 합: 옛 경로(pandas/numpy pairwise)와 새 core(순차 `sum`)는 **비정수 거래량**에서
+  1 ULP 차이가 날 수 있다. 실거래량은 정수 주식수라 실데이터 14,536봉·29,322봉 대조에서
+  모두 정확히 일치했다. 경로 간 parity 는 같은 core 를 쓰므로 이 뉘앙스와 무관하다
+  (`test_float_volume_sums_differ_only_within_ulp`).
 - `src/backtest/engine.py` 는 여전히 ET 고정 `classify_session`/`et_dates` 를 쓴다(같은 결함
   분류, 이 PR 범위 밖). ORB stage 4~5 가 그 경로를 쓰므로 **후속 이슈 #88** 로 분리했다.
 - `candidate_stream.extract` 의 US 전용 게이트는 유지한다 — 봉 생성은 market-aware 가 됐지만
