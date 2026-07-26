@@ -464,6 +464,14 @@ def test_opening_range_completeness_evidence_is_recorded(contract, doc):
     assert str(c["complete_pct"]) in doc
 
 
+def test_document_avoids_rot_prone_references(doc):
+    """동결 문서에 **줄번호 참조·테스트 개수**를 넣지 않는다(A2 에서 세 번 어긋난 실패 유형)."""
+    import re as _re
+    assert not _re.findall(r"\.py[`:]*:\d+", doc), "소스 줄번호 참조는 코드가 자라면 썩는다"
+    assert not _re.findall(r"\d+\s*(?:개\s*)?(?:tests?|테스트)\b", doc), "테스트 개수는 썩는다"
+    assert "freeze 위험 분류" in doc
+
+
 def test_referenced_paths_exist(contract, doc):
     for rel in ("docs/research/DATA_CONTRACT_4STRATEGY_V1.md",
                 "docs/research/RESAMPLER_PARITY_CONTRACT.md",
