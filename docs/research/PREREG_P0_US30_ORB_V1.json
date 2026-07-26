@@ -573,5 +573,21 @@
     "prereg_merge_commit": "recorded by stage 5 unlock artifact (unknown at authoring time)",
     "implementation_commit": "recorded by stage 5 unlock artifact",
     "review_status_source": "P1 independent implementation review APPROVE"
+  },
+  "plan_minimum_gate": {
+    "source": "docs/research/PLAN_ONE_MONTH_STRATEGY_SELECTION_AI_SHADOW.md",
+    "source_commit": "8bff004",
+    "note": "정본 계획 §Phase4 최소 선택 게이트를 숫자로 동결한다. 계획 문서의 표현이 바뀌어도 이 숫자가 사전등록의 하한이며, O-게이트는 이보다 약할 수 없다.",
+    "net_expectancy_gt": 0,
+    "profit_factor_gte": 1.2,
+    "intraday_min_trading_days": 60,
+    "intraday_min_trades": 100,
+    "intraday_min_positive_months": 4,
+    "intraday_total_months": 6,
+    "abs_mdd_lte": 0.1,
+    "stress_cumulative_pnl_gte": 0,
+    "max_single_symbol_profit_share": 0.25,
+    "max_single_day_profit_share": 0.2,
+    "major_data_defects": 0
   }
 }

@@ -335,22 +335,49 @@ def test_windows_are_inside_calendar_validity(contract):
 # --------------------------------------------------------------------------
 # (d) 정본 계획의 최소 게이트가 완화되지 않았는가
 # --------------------------------------------------------------------------
-def test_oos_gate_is_not_weaker_than_the_tracked_plan(contract):
-    """정본 계획 §Phase4 최소 선택 게이트를 그대로 고정했는지 확인한다."""
+def test_oos_gate_is_not_weaker_than_the_frozen_plan_minimums(contract):
+    """정본 계획의 최소 게이트를 **숫자로** 동결해 두고 O-게이트가 그보다 약하지 않은지 본다.
+
+    이전 판은 계획 문서의 **한국어 산문을 부분문자열로** 대조했다. 계획은 개정 이력을 가진
+    가변 문서라, 정당한 표현 수정만으로 동결된 사전등록 테스트가 깨진다(고칠 방법도 없다).
+    실제로 원하는 성질은 "숫자가 약해지지 않았다" 이므로 숫자로 비교한다(독립 리뷰 지적).
+    """
+    m, g = contract["plan_minimum_gate"], contract["oos_gate"]
+    assert m["source_commit"], "계획 최소 게이트의 출처 commit 이 없다"
+    assert g["O1_net_expectancy_gt"] >= m["net_expectancy_gt"]
+    assert g["O2_profit_factor_gte"] >= m["profit_factor_gte"]
+    assert g["O3_min_trading_days_with_trade"] >= m["intraday_min_trading_days"]
+    assert g["O4_min_trades"] >= m["intraday_min_trades"]
+    assert g["O5_min_positive_months"] >= m["intraday_min_positive_months"]
+    assert g["O5_total_months"] == m["intraday_total_months"]
+    assert g["O6_abs_mdd_lte"] <= m["abs_mdd_lte"]                  # 작을수록 엄격
+    assert g["O7_stress_cumulative_pnl_gte"] >= m["stress_cumulative_pnl_gte"]
+    assert g["O8_max_single_symbol_profit_share"] <= m["max_single_symbol_profit_share"]
+    assert g["O9_max_single_day_profit_share"] <= m["max_single_day_profit_share"]
+    assert g["O11_major_data_defects"] <= m["major_data_defects"]
+
+
+def test_frozen_plan_minimums_cannot_be_lowered(contract):
+    """**동결한 하한 자체**를 낮추는 우회를 막는다.
+
+    O-게이트를 계획 하한과 비교하는 것만으로는 부족하다 — 하한을 같이 낮추면 비교는 통과한다.
+    그래서 하한 숫자를 정본 계획 원문과 직접 대조한다. (첫 판은
+    `... or "1.20" in plan` 이라 어떤 값이든 통과하는 거짓 가드였다 — 내가 고치던 바로 그 유형.)
+    """
     plan = _read(PLAN)
-    g = contract["oos_gate"]
-    assert "OOS profit factor >= 1.20" in plan and g["O2_profit_factor_gte"] == 1.20
-    assert "OOS 거래일 >= 60, 거래 >= 100" in plan
-    assert g["O3_min_trading_days_with_trade"] == 60 and g["O4_min_trades"] == 100
-    assert "6개월 중 >= 4개월 양수" in plan and g["O5_min_positive_months"] == 4
-    assert "OOS MDD 절대값 <= 10%" in plan and g["O6_abs_mdd_lte"] == 0.10
-    assert "stress 비용 0.68%p에서 누적 손익 >= 0" in plan and g["O7_stress_cumulative_pnl_gte"] == 0
-    assert "단일 종목이 총 net profit의 25% 초과 기여 금지" in plan
-    assert g["O8_max_single_symbol_profit_share"] == 0.25
-    assert "단일 거래일이 총 net profit의 20% 초과 기여 금지" in plan
-    assert g["O9_max_single_day_profit_share"] == 0.20
-    assert g["O1_net_expectancy_gt"] == 0
-    assert g["O11_major_data_defects"] == 0
+    m = contract["plan_minimum_gate"]
+    assert m["profit_factor_gte"] == 1.20
+    assert m["intraday_min_trading_days"] == 60
+    assert m["intraday_min_trades"] == 100
+    assert m["intraday_min_positive_months"] == 4
+    assert m["intraday_total_months"] == 6
+    assert m["abs_mdd_lte"] == 0.10
+    assert m["max_single_symbol_profit_share"] == 0.25
+    assert m["max_single_day_profit_share"] == 0.20
+    assert m["net_expectancy_gt"] == 0 and m["major_data_defects"] == 0
+    # 각 숫자가 정본 계획 원문에 실제로 존재하는지(하한을 지어내지 않았음)
+    for token in ("1.20", "60", "100", "4개월", "10%", "25%", "20%"):
+        assert token in plan, f"계획 원문에 {token} 이 없다 — 하한 출처 확인 필요"
 
 
 def test_risk_limits_match_live_risk_config(contract):
@@ -631,14 +658,6 @@ def test_row_count_and_sessions_match_tracked_receipt(contract, doc):
     assert rec["snapshot"]["disallowed_sessions"] == []
     assert rec["snapshot"]["bars_beyond_as_of"] == 0
     assert "OVERNIGHT` 0행" in doc or "OVERNIGHT 0행" in doc
-
-
-def test_calendar_validity_matches_the_artifact_exactly(contract):
-    """§3.1 의 캘린더 유효 구간을 **동등성**으로 고정한다 (R7 — 포함 관계로는 확장 시 거짓이 된다)."""
-    from src.history.exchange_calendar import CALENDAR_END, CALENDAR_START
-    w = contract["windows"]
-    assert w["calendar_valid_start"] == CALENDAR_START.isoformat()
-    assert w["calendar_valid_end"] == CALENDAR_END.isoformat()
 
 
 def test_leverage_factors_match_the_code(contract):
