@@ -175,6 +175,30 @@ def test_development_data_days_raise_when_trading_day_count_tampered(raw_contrac
         w.development_data_days(raw_contract)
 
 
+# --------------------------------------------------------------------------
+# M4(lane4) — `warmup_trading_days` 하드코딩 생존 방지(`block_trading_days` 형제 테스트 F4 와
+# 같은 유형: 실제 계약값이 20 이므로 하드코딩해도 대부분의 기존 테스트는 통과한다).
+# --------------------------------------------------------------------------
+def test_development_eval_days_raise_when_warmup_trading_days_source_value_tampered(
+        raw_contract):
+    """`development_eval_days` 의 `n = int(w["warmup_trading_days"])` 를 20 으로 하드코딩해도
+    실제 계약값이 20 이므로 이 read 를 거치지 않는 기존 테스트는 통과한다.
+    `warmup_trading_days` 자체를 바꾼 fixture 로 실제로 계약을 다시 읽는지 확인한다 —
+    올바른 코드는 분할 지점이 바뀌어 `development_eval_trading_days`/`development_eval_start`
+    (둘 다 변경하지 않음)와 충돌해 예외를 낸다. 하드코딩이면 분할 지점이 그대로라 통과해
+    변조가 조용히 생존한다."""
+    raw_contract["windows"]["warmup_trading_days"] = 21
+    with pytest.raises(ContractIntegrityError):
+        w.development_eval_days(raw_contract)
+
+
+def test_warmup_days_raise_when_warmup_trading_days_source_value_tampered(raw_contract):
+    """`warmup_days`(`development_data_days(contract)[:n]`)는 다른 계약값과 대조하지 않으므로
+    출력 길이로 직접 확인한다 — 하드코딩(20)이면 탬퍼된 값(21)과 무관하게 20 이 나온다."""
+    raw_contract["windows"]["warmup_trading_days"] = 21
+    assert len(w.warmup_days(raw_contract)) == 21
+
+
 def test_development_eval_days_raise_when_eval_start_tampered(raw_contract):
     raw_contract["windows"]["development_eval_start"] = "2023-05-19"
     with pytest.raises(ContractIntegrityError):
@@ -210,3 +234,27 @@ def test_minute_of_day_hand_calculated():
     assert w.minute_of_day(_bar(0, 0)) == 0
     assert w.minute_of_day(_bar(13, 0)) == 13 * 60
     assert w.minute_of_day(_bar(23, 59)) == 23 * 60 + 59
+
+
+# --------------------------------------------------------------------------
+# previous_trading_day — M2(lane4) §5.1 "직전 거래일은 exchange_calendar.trading_days 기준"
+# --------------------------------------------------------------------------
+def test_previous_trading_day_simple_weekday():
+    assert w.previous_trading_day(date(2024, 3, 5)) == date(2024, 3, 4)   # 화 -> 월
+
+
+def test_previous_trading_day_skips_weekend():
+    assert w.previous_trading_day(date(2024, 3, 4)) == date(2024, 3, 1)   # 월 -> 금(주말 건너뜀)
+
+
+def test_previous_trading_day_skips_holiday_and_weekend():
+    """2024-01-15(MLK Day, 휴장) 뒤 첫 거래일(01-16, 화)의 직전 거래일은 01-12(금) 이어야
+    한다(01-13/14 주말 + 01-15 휴장을 함께 건너뛴다)."""
+    assert w.previous_trading_day(date(2024, 1, 16)) == date(2024, 1, 12)
+
+
+def test_previous_trading_day_skips_early_close_day_is_still_a_trading_day():
+    """조기폐장일은 휴장이 아니라 정상 거래일이다 — 건너뛰지 않는다.
+    2024-07-05(금) 의 직전 거래일은 2024-07-03(수, 조기폐장) 이다(07-04 목요일 독립기념일
+    휴장만 건너뛴다)."""
+    assert w.previous_trading_day(date(2024, 7, 5)) == date(2024, 7, 3)

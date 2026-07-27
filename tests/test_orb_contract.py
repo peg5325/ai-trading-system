@@ -342,6 +342,36 @@ def test_universe_raises_when_exposure_families_missing():
         c.universe(mutated)
 
 
+def test_universe_reflects_tampered_contract_for_all_role_fields():
+    """C6(lane4) — 기존 provenance 테스트(`test_universe_reflects_tampered_contract_symbol_list`)
+    는 `large_cap` 한 필드만 탬퍼했다. 네 역할군 필드(`market_etf`/`sector_etf`/`large_cap`/
+    `leveraged_inverse`) 전부가 실제로 계약에서 오는지 확인한다(하드코딩이면 일부만 바뀔
+    것이다)."""
+    with open(os.path.join(REPO, c.PREREG_JSON_PATH), encoding="utf-8") as f:
+        mutated = json.load(f)
+    mutated["universe"]["market_etf"].append("ZM1")
+    mutated["universe"]["sector_etf"].append("ZS1")
+    mutated["universe"]["large_cap"].append("ZL1")
+    mutated["universe"]["leveraged_inverse"].append("ZI1")
+    u = c.universe(mutated)
+    assert "ZM1" in u.market_etf
+    assert "ZS1" in u.sector_etf
+    assert "ZL1" in u.large_cap
+    assert "ZI1" in u.leveraged_inverse
+    assert {"ZM1", "ZS1", "ZL1", "ZI1"} <= set(u.all_symbols)
+
+
+def test_universe_all_symbols_is_sorted_ascii_ascending(contract):
+    """C8(lane4 U1) — §7 tie-break(symbol 오름차순, ASCII)가 `all_symbols` 이 정렬돼 있다는
+    전제에 걸린다. `all_symbols` 의 `sorted()` 를 지우면 역할군 raw 연결 순서(시장 ETF→섹터
+    ETF→대형주→레버리지) 그대로 나온다 — 그 순서 자체가 이미 알파벳순이 아니므로(SPY 가
+    QQQ 보다 먼저 나온다) 이 비교는 회귀 감지력이 있다(항진명제 아님)."""
+    u = c.universe(contract)
+    assert list(u.all_symbols) == sorted(u.all_symbols)
+    raw_concat = u.market_etf + u.sector_etf + u.large_cap + u.leveraged_inverse
+    assert list(raw_concat) != sorted(raw_concat)
+
+
 # --------------------------------------------------------------------------
 # (g) C3 — `load_contract(verify=False)` 는 src/·scripts/·analysis/ 밖에서 금지(tests/ 는 허용)
 # --------------------------------------------------------------------------
@@ -396,6 +426,65 @@ def test_verify_false_forbidden_rule_actually_detects_it(tmp_path):
 
 
 # --------------------------------------------------------------------------
+# (k) C9(lane4) — `DecisionBarSpec`/`RvolLookbackSpec` 를 `contract.py` 밖에서 직접 생성하는
+#     것을 금지한다. `verify=False` 금지와 같은 idiom(§(g))의 AST 테스트. `contract.py` 자신과
+#     `tests/` 안(픽스처 구성)은 허용한다.
+# --------------------------------------------------------------------------
+_SPEC_CLASS_NAMES = ("DecisionBarSpec", "RvolLookbackSpec")
+_CONTRACT_MODULE_REL = os.path.join("src", "research", "orb", "contract.py")
+
+
+def test_decision_bar_spec_and_rvol_lookback_not_constructed_outside_contract_module():
+    """`DecisionBarSpec(...)`/`RvolLookbackSpec(...)` 를 `src/`·`scripts/`·`analysis/` 에서
+    직접 생성하면 계약 재입력 방지가 우회된다 — 4-B 가 계약을 거치지 않고 리터럴로 스펙을
+    직접 만드는 실수를 정적으로 차단한다."""
+    offenders: list[str] = []
+    for base in ("src", "scripts", "analysis"):
+        root = os.path.join(REPO, base)
+        if not os.path.isdir(root):
+            continue
+        for dirpath, _dirs, files in os.walk(root):
+            for name in sorted(files):
+                if not name.endswith(".py"):
+                    continue
+                path = os.path.join(dirpath, name)
+                rel = os.path.relpath(path, REPO)
+                if rel == _CONTRACT_MODULE_REL:
+                    continue   # 정의처 자신은 허용
+                with open(path, encoding="utf-8") as f:
+                    tree = ast.parse(f.read(), filename=path)
+                for node in ast.walk(tree):
+                    if not isinstance(node, ast.Call):
+                        continue
+                    func = node.func
+                    call_name = None
+                    if isinstance(func, ast.Name):
+                        call_name = func.id
+                    elif isinstance(func, ast.Attribute):
+                        call_name = func.attr
+                    if call_name in _SPEC_CLASS_NAMES:
+                        offenders.append(f"{rel}:{node.lineno}: {call_name} 직접 생성")
+    assert offenders == [], offenders
+
+
+def test_decision_bar_spec_construction_rule_actually_detects_it(tmp_path):
+    """거짓 가드 방지 — 위 스캐너가 실제로 직접 생성을 탐지하는지 별도 fixture 로 증명."""
+    offending_src = (
+        "from src.research.orb.contract import DecisionBarSpec\n"
+        "DecisionBarSpec(minutes=5, min_bars=1)\n"
+    )
+    tmp_file = tmp_path / "offender.py"
+    tmp_file.write_text(offending_src, encoding="utf-8")
+    tree = ast.parse(offending_src, filename=str(tmp_file))
+    hits = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name) and node.func.id == "DecisionBarSpec"
+    ]
+    assert len(hits) == 1
+
+
+# --------------------------------------------------------------------------
 # (h) F4(lane3 Medium) — 계약 값 연동(provenance): 값만 보고 출처를 안 보던 구멍.
 #     실제 계약값에서 primary_spec() 이 나온 값을 확인하는 것만으로는, 그 함수가 값을
 #     하드코딩해도(우연히 계약값과 같으면) 통과한다. 계약값을 바꿔 접근자 출력이 따라
@@ -424,6 +513,21 @@ def test_sensitivity_spec_reflects_tampered_contract_opening_range_minutes():
     assert s.opening_range_minutes == 7
 
 
+def test_primary_and_sensitivity_spec_reflect_tampered_authority_field():
+    """C7(lane4 C5/C5b) — `test_primary_spec_reflects_tampered_contract_values_for_all_numeric_fields`
+    는 이름 그대로 **숫자** 필드만 탬퍼한다. `authority` 는 문자열 필드라 그 테스트가
+    구조적으로 비켜간다 — §4 권한(GO/NO-GO 를 가진 유일한 spec)과 §10.4 영구 실격이 걸린
+    필드인데도 하드코딩 여부가 검증되지 않고 있었다."""
+    with open(os.path.join(REPO, c.PREREG_JSON_PATH), encoding="utf-8") as f:
+        mutated = json.load(f)
+    mutated["spec"]["primary"]["authority"] = "diagnostic_only"
+    mutated["spec"]["sensitivity"]["authority"] = "decides_go_nogo"
+    p = c.primary_spec(mutated)
+    s = c.sensitivity_spec(mutated)
+    assert p.authority == "diagnostic_only"
+    assert s.authority == "decides_go_nogo"
+
+
 # --------------------------------------------------------------------------
 # (i) F5(lane3 Medium) — 변조 fixture 비대칭: "이웃 정확히 6개" 게이트가 개수 자체가
 #     줄어든 fixture 로는 검증되지 않고 있었다(기존은 unknown axis 추가/전체 삭제만 테스트).
@@ -439,9 +543,16 @@ def test_neighbor_specs_raise_when_neighbor_count_reduced():
 
 
 # --------------------------------------------------------------------------
-# (j) F6(lane3 Medium) — `_normalized_md` 의 "정본과 바이트 단위로 동일" 주장을 CRLF 를
-#     포함한 입력으로 실제 검증한다. 정본 문서엔 CRLF 가 없어 `.replace("\r\n","\n")` 제거가
-#     이전엔 생존했다.
+# (j) F6(lane3 Medium) — `_normalized_md` 의 **두 독립 구현**(이 모듈 / `test_prereg_orb_contract.py`)
+#     이 CRLF 를 포함한 입력에서도 동치인지 실제로 검증한다.
+#
+#     ⚠ C11(lane4 정직성 수정) — 예전 comment 는 "`.replace("\r\n","\n")` 제거를 막는다"고
+#     적었으나 그 목적은 **달성 불가**다: 뒤따르는 `rstrip()` 이 어차피 각 줄 끝의 `\r` 을
+#     흡수하므로 `.replace()` 를 지워도(줄 단위로 분리하는 `split("\n")` 이 `\r\n` 을
+#     "…\r" + "" 로 쪼개고, 그 `\r` 이 `rstrip()` 에 흡수됨) 최종 출력은 동일하다(lane3 가
+#     development 창 전수 97,656건 + 무작위 20만건으로 등가 증명). 이 테스트가 실제로 죽이는
+#     것은 `rstrip()` 제거(그건 감지력이 있다) 뿐이다. 닫지 못한 것을 닫았다고 적어 두는
+#     것이 더 위험하므로, 여기서는 "무엇을 막는가"가 아니라 "무엇을 확인하는가"만 적는다.
 # --------------------------------------------------------------------------
 def test_normalized_md_matches_the_frozen_test_normalizer_with_crlf_input():
     import tests.test_prereg_orb_contract as prereg_test_module

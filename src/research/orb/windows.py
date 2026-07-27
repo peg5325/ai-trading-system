@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
 from src.history import exchange_calendar as cal
@@ -148,6 +148,25 @@ def regular_close_minute_checked(d: date) -> int:
     if minute is None:
         raise ValueError(f"{d.isoformat()} 는 거래일이 아니다 — 정규장 마감이 정의되지 않는다")
     return minute
+
+
+def previous_trading_day(d: date) -> date:
+    """`d` 직전 거래일(캘린더 재계산) — 사전등록 §5.1 "직전 거래일은
+    `exchange_calendar.trading_days` 기준 직전 거래일"의 유일한 구현(v1.2, M2 — 독립 리뷰
+    지적).
+
+    이게 없으면 `gap_for_day` 는 "봉이 `prev_day` 라고 주장하는 그 날의 것인가"만 막고
+    "`prev_day` 자체가 캘린더상 진짜 직전 거래일인가"는 아무도 보지 않는다 — 10 거래일 전
+    날짜를 `prev_day` 로 넘겨도 통과한다. `gap_for_day` 가 이 함수로 대조한다.
+
+    `d` 자신이 거래일인지는 검사하지 않는다(호출자가 이미 아는 "오늘" 날짜를 넘긴다는
+    전제). 캘린더 artifact 커버 구간(`cal.CALENDAR_START`) 밖으로 벗어나면 `cal.is_trading_day`
+    가 그대로 `CalendarRangeError` 를 던진다(fail-closed — 무한 루프 대신 즉시 실패).
+    """
+    prev = d - timedelta(days=1)
+    while not cal.is_trading_day(prev):
+        prev -= timedelta(days=1)
+    return prev
 
 
 def minute_of_day(candle: Candle) -> int:

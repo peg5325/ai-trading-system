@@ -32,7 +32,13 @@ from src.research.orb.loading import (
 
 ET = ZoneInfo("America/New_York")
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-ORB_SRC_GLOB = os.path.join(REPO, "src", "research", "orb", "*.py")
+# H1-b(lane4 최우선) — 예전엔 `src/research/orb/*.py`(비재귀)라 하위 패키지가 스캔에서
+# 통째로 빠졌다(team-lead 재현: `src/research/orb/sim/runner.py` 에 `purpose="coverage"`
+# + `track="swing"` + `load_candles` 직접 import 를 동시에 넣어도 아래 세 스캔은 전부
+# 침묵했다 — `tests/test_oos_guard_wiring.py` 의 저장소 전역 `os.walk` 만 `load_candles`
+# 위반 하나를 잡았다). `purpose`/`track`/`unlock` 규칙에는 재귀 백스톱이 아예 없었다.
+# 4-B 가 바로 이 트리에 코드를 추가할 예정이므로 `src/research/**` 전체를 재귀로 덮는다.
+ORB_SRC_GLOB = os.path.join(REPO, "src", "research", "**", "*.py")
 
 # §6.2 primary/sensitivity 공용 결정봉 스펙(5분·min_bars=1) — 계약값과 동일(§contract.py 로
 # 별도 검증). 여기서는 리터럴로 고정해 loading.py 테스트를 contract.py 로딩에 결합하지 않는다.
@@ -270,6 +276,60 @@ def test_decision_bars_ignores_candles_outside_the_target_day(tmp_path):
     assert len(bars) == 77
 
 
+def test_decision_bars_ignores_candles_from_a_previous_day_mixed_in(tmp_path):
+    """C1(lane4, team-lead 재현) — 위 D1 테스트는 **다음 날** 오염만 본다. 날짜 필터가
+    `ts_exchange.date() == d` 에서 `<= d` 로 물러나면(과거 날 유입), 다음 날 케이스는 여전히
+    막히지만 **과거 날** 봉이 새어 들어와 78→156 으로 부풀어 오른다(team-lead 재현 수치)."""
+    d = date(2024, 3, 4)
+    prev_d = date(2024, 3, 1)   # 직전 거래일(금)
+    db = str(tmp_path / "m.sqlite")
+    with HistoryStore(db) as store:
+        _write_minutes(store, "AAPL", datetime(prev_d.year, prev_d.month, prev_d.day, 9, 30,
+                                              tzinfo=ET),
+                       datetime(prev_d.year, prev_d.month, prev_d.day, 15, 59, tzinfo=ET))
+        _write_minutes(store, "AAPL", datetime(d.year, d.month, d.day, 9, 30, tzinfo=ET),
+                       datetime(d.year, d.month, d.day, 15, 59, tzinfo=ET))
+        _write_minutes(store, "AAPL", datetime(d.year, d.month, d.day, 16, 0, tzinfo=ET),
+                       datetime(d.year, d.month, d.day, 16, 0, tzinfo=ET))   # POST(닫힘 증거)
+        store.commit()
+
+    from src.history.oos_guard import TRACK_INTRADAY, research_load
+    two_days = tuple(research_load(
+        db, "AAPL", "1m",
+        start=datetime(prev_d.year, prev_d.month, prev_d.day, tzinfo=ET),
+        end=datetime(d.year, d.month, d.day, 16, 1, tzinfo=ET),
+        purpose="performance", track=TRACK_INTRADAY, market="US",
+    ))
+    bars = decision_bars(two_days, d, spec=DEFAULT_SPEC)
+    assert all(b.ts_exchange.date() == d for b in bars)
+    assert len(bars) == 78     # `<= d` 로 물러나면 prev_d 78개가 더해져 156 이 된다
+
+
+def test_decision_bars_date_filter_uses_ts_exchange_not_ts_utc(tmp_path):
+    """C2(lane4 L15, team-lead 재현) — 날짜 필터가 `ts_exchange.date()` 대신 `ts_utc.date()`
+    를 쓰면 ET 대신 UTC 날짜로 그룹핑된다. 겨울(EST, UTC-5) POST 봉을 19:30 ET 에 놓으면 그
+    ts_utc 는 다음날 00:30 UTC 라 `ts_utc.date() == d` 필터에서는 **탈락**하지만 실제로는
+    `d` 그 날의 정당한 닫힘 증거다 — 탈락하면 마지막 REGULAR 버킷(15:55~16:00)이 닫히지
+    않아 78→77 로 준다."""
+    d = date(2024, 1, 8)   # 월요일, 겨울(EST, UTC-5) — ET/UTC 날짜가 저녁에 갈라진다
+    db = str(tmp_path / "m.sqlite")
+    with HistoryStore(db) as store:
+        _write_minutes(store, "AAPL", datetime(d.year, d.month, d.day, 9, 30, tzinfo=ET),
+                       datetime(d.year, d.month, d.day, 15, 59, tzinfo=ET))
+        post_evidence = _bar("AAPL", datetime(d.year, d.month, d.day, 19, 30, tzinfo=ET),
+                             o=1, h=1, low=1, c=1, v=1)
+        assert post_evidence.ts_utc.date() != d      # 자정 UTC 를 넘어갔다는 전제 확인
+        stats = ImportStats(source="toss_backfill")
+        store.upsert_candles([post_evidence], source="toss_backfill", run_id="r", stats=stats)
+        store.commit()
+
+    day_candles = load_symbol_day(db, "AAPL", d)
+    bars = decision_bars(day_candles, d, spec=DEFAULT_SPEC)
+    minutes = {b.ts_exchange.hour * 60 + b.ts_exchange.minute for b in bars}
+    assert 15 * 60 + 55 in minutes    # 19:30 ET 증거로 마지막 버킷이 닫혀야 한다
+    assert len(bars) == 78            # ts_utc 로 그룹핑되면 이 증거를 잃어 77 이 된다
+
+
 # --------------------------------------------------------------------------
 # decision_bars — 조기폐장일
 # --------------------------------------------------------------------------
@@ -302,6 +362,50 @@ def test_expected_decision_minutes_normal_and_early_close_counts():
     assert early[0] == 9 * 60 + 30 and early[-1] == 12 * 60 + 55
 
 
+def test_decision_bars_uses_spec_minutes_not_hardcoded_5(tmp_path):
+    """C3(lane4) — 이 파일의 모든 기존 fixture 가 `DEFAULT_SPEC`(minutes=5) 만 써서
+    `decision_bars` 가 `spec.minutes` 를 5 로 하드코딩해도 잡지 못했다. 15분 스펙으로 호출해
+    그리드 간격이 실제로 15분인지 확인한다(하드코딩이면 여전히 5분 그리드가 나온다)."""
+    d = date(2024, 3, 4)
+    db = str(tmp_path / "m.sqlite")
+    with HistoryStore(db) as store:
+        _write_minutes(store, "AAPL", datetime(d.year, d.month, d.day, 9, 30, tzinfo=ET),
+                       datetime(d.year, d.month, d.day, 15, 59, tzinfo=ET))
+        _write_minutes(store, "AAPL", datetime(d.year, d.month, d.day, 16, 0, tzinfo=ET),
+                       datetime(d.year, d.month, d.day, 16, 0, tzinfo=ET))
+        store.commit()
+    day_candles = load_symbol_day(db, "AAPL", d)
+    spec15 = DecisionBarSpec(minutes=15, min_bars=1)
+    bars = decision_bars(day_candles, d, spec=spec15)
+    minutes = sorted(b.ts_exchange.hour * 60 + b.ts_exchange.minute for b in bars)
+    assert len(bars) == 26                  # 390 / 15 = 26(하드코딩 5 면 78 이 나온다)
+    assert minutes[1] - minutes[0] == 15    # 그리드 간격 15분(하드코딩 5 면 5)
+
+
+def test_expected_decision_minutes_uses_spec_minutes_not_hardcoded_5():
+    """C4(lane4) — 위와 같은 하드코딩 위험이 `expected_decision_minutes` 에도 있다."""
+    spec15 = DecisionBarSpec(minutes=15, min_bars=1)
+    normal = expected_decision_minutes(date(2024, 3, 4), spec=spec15)
+    assert len(normal) == 26                # (960-570)/15 = 26(하드코딩 5 면 78)
+    assert normal[1] - normal[0] == 15
+
+
+def test_expected_decision_minutes_open_minute_is_not_hardcoded_570(monkeypatch):
+    """C5/C11(lane4 N07/N08) — `test_market_is_explicitly_us_and_session_window_is_market_aware`
+    의 마지막 단언(`exp[0] == open_min`)은 **항진명제**였다(하드코딩 570 이어도 실제 값이
+    570 이므로 항상 참). `regular_session_window` 를 실제로 몽키패치해 다른 개장분을
+    흘려보내고 `expected_decision_minutes` 가 그 값을 실제로 쓰는지 확인한다(하드코딩이면
+    이 몽키패치와 무관하게 570 이 나와 실패한다)."""
+    import src.research.orb.loading as loading_mod
+
+    def fake_window(market: str) -> tuple[int, int]:
+        return (600, 960)   # 개장을 570 대신 600 으로
+
+    monkeypatch.setattr(loading_mod, "regular_session_window", fake_window)
+    normal = expected_decision_minutes(date(2024, 3, 4), spec=DEFAULT_SPEC)
+    assert normal[0] == 600
+
+
 def test_regular_1m_filters_by_session(tmp_path):
     d = date(2024, 3, 4)
     db = str(tmp_path / "m.sqlite")
@@ -322,8 +426,15 @@ def test_regular_1m_filters_by_session(tmp_path):
 # B6 — market="US" 명시 / 개장분이 market-aware 로 유도됨(하드코딩 570 아님)
 # --------------------------------------------------------------------------
 def test_market_is_explicitly_us_and_session_window_is_market_aware():
-    """§loading.py 가 개장분을 570 으로 하드코딩하지 않고 market-aware
-    `regular_session_window("US")` 로 유도하는지 확인한다(독립 리뷰 L2/L4/N07/N08)."""
+    """`regular_session_window("US")` 가 실제로 (570,960) 을 주고 KR 과 다른지 확인한다.
+
+    ⚠ C11(lane4 정직성 수정) — 예전 docstring 은 "570 하드코딩을 구별한다(독립 리뷰
+    L2/L4/N07/N08)"고 주장했으나, 마지막 단언(`exp[0] == open_min`)은 **항진명제**다
+    (하드코딩이어도 그 상수가 실제로 570 이므로 이 비교는 늘 참이다 — 두 변수가 같은 상수를
+    가리킬 뿐 어느 쪽도 실제로 유도되었는지는 증명하지 못한다). "하드코딩이 아님"의 실제
+    증명은 `test_expected_decision_minutes_open_minute_is_not_hardcoded_570`(regular_session_window
+    를 몽키패치해 다른 값으로 실제로 갈라지는지 확인)가 한다.
+    """
     open_min, close_min = regular_session_window("US")
     assert (open_min, close_min) == (570, 960)
     # KR 과 다른 값이어야 진짜로 market 인자가 쓰이고 있다는 증거가 된다(상수 우연 일치 배제).
@@ -351,21 +462,61 @@ def test_load_symbol_day_passes_market_us_explicitly():
 
 
 # --------------------------------------------------------------------------
-# B1 — blind OOS 배선 회귀(실 스냅샷 경계 + unlock 부재/track=intraday AST 고정)
+# B1 — blind OOS 배선 회귀(잠금 단언은 hermetic·무조건 실행 / 데이터 존재는 합성 fixture /
+# 실 스냅샷 판은 참고용 + CI 강제 스위치) — H1-c(lane4 최우선)
 # --------------------------------------------------------------------------
+def test_blind_oos_lock_fires_before_any_file_access(tmp_path):
+    """H1-c(lane4 최우선, team-lead 재현) — `OOSLockError` 는 파일을 열기 **전에** 발동한다.
+
+    `research_load` 는 `assert_window_unlocked` 를 `load_candles`(실제 파일 접근) 보다 먼저
+    호출한다(`src/history/oos_guard.py` 참조). 즉 잠금은 **날짜만으로** 판정되며 스냅샷
+    파일의 존재 여부와 무관하다. 이전 판은 이 단언이 `test_blind_oos_boundary_on_real_snapshot`
+    안에서만, 그것도 실 스냅샷(6.8GB, gitignored)에 `skipif` 로 걸려 있어 CI·새 클론·다른
+    머신·파일명 변경이면 조용히 사라졌다 — `OOSLockError` 를 실제로 단언하는 자리가 저장소
+    전체에서 그 테스트 하나뿐이었다. 존재하지 않는 경로로도 무조건 실행되게 해 그 취약점을
+    없앤다.
+    """
+    nonexistent_db = str(tmp_path / "does_not_exist.sqlite")
+    with pytest.raises(OOSLockError):
+        load_symbol_day(nonexistent_db, "AAPL", date(2026, 1, 21))    # blind OOS 첫 날
+    with pytest.raises(OOSLockError):
+        load_symbol_day(nonexistent_db, "AAPL", date(2026, 7, 21))    # blind OOS 마지막 날
+    with pytest.raises(OOSLockError):
+        load_symbol_day(nonexistent_db, "AAPL", date(2026, 4, 15))    # OOS 한가운데
+
+
+def test_development_last_day_loads_from_synthetic_snapshot(tmp_path):
+    """H1-c — development 마지막 날(2026-01-20)은 잠기지 않는다는 것을 실 스냅샷 없이도
+    hermetic 하게 확인한다(이 파일의 `HistoryStore`/`_write_minutes` idiom 으로 30봉 합성)."""
+    d = date(2026, 1, 20)
+    db = str(tmp_path / "synthetic.sqlite")
+    with HistoryStore(db) as store:
+        _write_minutes(store, "AAPL", datetime(d.year, d.month, d.day, 9, 30, tzinfo=ET),
+                       datetime(d.year, d.month, d.day, 9, 59, tzinfo=ET))   # 30봉
+        store.commit()
+    got = load_symbol_day(db, "AAPL", d)
+    assert len(got) == 30
+
+
+_ORB_REQUIRE_SNAPSHOT = os.environ.get("ORB_REQUIRE_SNAPSHOT") == "1"
+_real_snapshot_missing = not os.path.exists(REAL_SNAPSHOT_PATH)
+if _real_snapshot_missing and _ORB_REQUIRE_SNAPSHOT:
+    raise AssertionError(
+        f"ORB_REQUIRE_SNAPSHOT=1 인데 실 P0-US30 스냅샷이 없다: {REAL_SNAPSHOT_PATH}")
+
+
 @pytest.mark.skipif(
-    not os.path.exists(REAL_SNAPSHOT_PATH),
+    _real_snapshot_missing,
     reason=(
         "실 P0-US30 스냅샷 부재 — 이 워크트리는 data/research_snapshots/ 를 다른 체크아웃과 "
-        f"공유하지 않는다({REAL_SNAPSHOT_PATH})."
+        f"공유하지 않는다({REAL_SNAPSHOT_PATH}). CI 에서 강제하려면 "
+        "ORB_REQUIRE_SNAPSHOT=1(저장소 관례, tests/test_s001_parity.py 의 "
+        "H2B_REQUIRE_PARITY=1 과 같은 패턴)."
     ),
 )
 def test_blind_oos_boundary_on_real_snapshot():
-    """B1(독립 리뷰 H1) — development 마지막 날은 로드되고, blind OOS 첫/마지막 날은 잠긴다.
-
-    이전 판은 어떤 테스트도 OOS 구간을 실제로 로드해 보지 않아, 임의 `OOSUnlock` 주입이나
-    `track="swing"` 같은 변조가 79 테스트를 전부 통과할 수 있었다.
-    """
+    """B1(독립 리뷰 H1, 참고용 — 1차 방어선은 위 hermetic 판). 실 스냅샷에서도
+    development 마지막 날은 로드되고, blind OOS 첫/마지막 날은 잠긴다."""
     got = load_symbol_day(REAL_SNAPSHOT_PATH, "AAPL", date(2026, 1, 20))   # development 마지막 날
     assert len(got) > 0
     with pytest.raises(OOSLockError):
@@ -374,19 +525,60 @@ def test_blind_oos_boundary_on_real_snapshot():
         load_symbol_day(REAL_SNAPSHOT_PATH, "AAPL", date(2026, 7, 21))    # blind OOS 마지막 날
 
 
+def _research_load_call_names(tree: ast.AST) -> set[str]:
+    """이 파일에서 `research_load` 를 가리킬 수 있는 **bare-name** 후보 집합.
+
+    `from src.history.oos_guard import research_load as rl` 처럼 별칭(alias) import 되면
+    호출부는 `rl(...)` 로 보이므로, 원래 이름(`research_load`)만 보고서는 그 호출을 놓친다
+    (H1-a, team-lead 재현). `ast.Attribute` 형태(`mod.research_load(...)`)는 별칭과 무관하게
+    `.attr` 이 항상 `research_load` 이므로 별도 처리한다(아래 offender 판정에서 직접 비교).
+    """
+    names = {"research_load"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name == "research_load":
+                    names.add(alias.asname or alias.name)
+    return names
+
+
 def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
-    """AST: `src/research/orb/**` 의 `research_load` 호출은 `unlock` 인자를 절대 넘기지 않고,
+    """AST: `src/research/**` 의 `research_load` 호출은 `unlock` 인자를 절대 넘기지 않고,
     `track` 은 반드시 `TRACK_INTRADAY` 상수여야 한다(임의 `OOSUnlock` 주입·`track="swing"`
-    변조를 정적으로 차단, 독립 리뷰 H1)."""
+    변조를 정적으로 차단, 독립 리뷰 H1).
+
+    H1-a(lane4 최우선, team-lead 재현) — 예전 판은 `kw.arg == "unlock"` 만 봐서 `**_EXTRA`
+    (kwargs 언패킹, `kw.arg is None`) 로 넘긴 `unlock` 을 놓쳤고(실증: AST/배선 테스트 21개
+    전부 통과 + blind OOS 실제 개봉 879/949봉), `ast.Name` 함수 호출만 봐서
+    `mod.research_load(...)`(`ast.Attribute`)와 별칭 import 도 놓쳤다. 세 가지를 모두 잡는다:
+      1. `**kwargs` 언패킹(`kw.arg is None`) 이 하나라도 있으면 즉시 offender(그 안에 무엇이
+         들었는지 정적으로 알 수 없으므로 — unlock/track 은닉 가능성 자체를 차단).
+      2. `ast.Attribute` 호출(`.attr == "research_load"`)도 `ast.Name` 과 동일하게 검사한다.
+      3. 별칭 import(`import ... as rl`)로 가리키는 이름도 `research_load` 와 동일 취급한다.
+    """
     offenders: list[str] = []
-    for path in sorted(glob.glob(ORB_SRC_GLOB)):
+    for path in sorted(glob.glob(ORB_SRC_GLOB, recursive=True)):
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=path)
+        aliases = _research_load_call_names(tree)
+        rel = os.path.relpath(path, REPO)
         for node in ast.walk(tree):
-            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-                   and node.func.id == "research_load"):
+            if not isinstance(node, ast.Call):
                 continue
-            rel = os.path.relpath(path, REPO)
+            func = node.func
+            if isinstance(func, ast.Name):
+                if func.id not in aliases:
+                    continue
+            elif isinstance(func, ast.Attribute):
+                if func.attr != "research_load":
+                    continue
+            else:
+                continue
+
+            if any(kw.arg is None for kw in node.keywords):
+                offenders.append(
+                    f"{rel}:{node.lineno}: **kwargs 언패킹으로 unlock/track 이 은닉될 수 있음")
+                continue
             kw_names = {kw.arg for kw in node.keywords}
             if "unlock" in kw_names:
                 offenders.append(f"{rel}:{node.lineno}: unlock 인자 존재")
@@ -402,12 +594,54 @@ def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
     assert offenders == [], offenders
 
 
+def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attribute_and_alias(
+        tmp_path):
+    """거짓 가드 방지 — 위 스캐너가 실제로 **kwargs**·`ast.Attribute` 호출·별칭 import 를
+    탐지하는지 별도 fixture 로 증명한다(H1-a 가 재발하면 이 테스트가 먼저 죽는다)."""
+    offending_src = (
+        "from src.history.oos_guard import research_load as rl\n"
+        "from src.history.oos_guard import research_load\n"
+        "import src.history.oos_guard as og\n"
+        "_EXTRA = {'unlock': object(), 'track': 'swing'}\n"
+        "rl('db', 'AAPL', '1m', purpose='performance', track=TRACK_INTRADAY, **_EXTRA)\n"
+        "og.research_load('db', 'AAPL', '1m', purpose='performance', track='swing')\n"
+    )
+    tmp_file = tmp_path / "offender.py"
+    tmp_file.write_text(offending_src, encoding="utf-8")
+    tree = ast.parse(offending_src, filename=str(tmp_file))
+    aliases = _research_load_call_names(tree)
+    assert "rl" in aliases and "research_load" in aliases
+
+    offenders: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name):
+            if func.id not in aliases:
+                continue
+        elif isinstance(func, ast.Attribute):
+            if func.attr != "research_load":
+                continue
+        else:
+            continue
+        if any(kw.arg is None for kw in node.keywords):
+            offenders.append("kwargs")
+            continue
+        offenders.append("other")
+    # ast.walk 의 순회 순서에 의존하지 않는다 — rl(**_EXTRA) 는 kwargs 로, og.research_load(...)
+    # 는 그 외(track 불일치)로 정확히 하나씩 잡혀야 한다.
+    assert offenders.count("kwargs") == 1
+    assert offenders.count("other") == 1
+    assert len(offenders) == 2
+
+
 # --------------------------------------------------------------------------
 # 게이트 배선 — purpose="coverage" 문자열/직접 load_candles 참조 금지 (소스/AST 스캔)
 # --------------------------------------------------------------------------
 def test_no_coverage_purpose_string_anywhere_in_orb_package():
     offenders = []
-    for path in sorted(glob.glob(ORB_SRC_GLOB)):
+    for path in sorted(glob.glob(ORB_SRC_GLOB, recursive=True)):
         with open(path, encoding="utf-8") as f:
             src = f.read()
         if "coverage" in src and ('"coverage"' in src or "'coverage'" in src):
@@ -417,7 +651,7 @@ def test_no_coverage_purpose_string_anywhere_in_orb_package():
 
 def test_no_direct_load_candles_reference_in_orb_package():
     offenders: dict[str, list[str]] = {}
-    for path in sorted(glob.glob(ORB_SRC_GLOB)):
+    for path in sorted(glob.glob(ORB_SRC_GLOB, recursive=True)):
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=path)
         refs = []

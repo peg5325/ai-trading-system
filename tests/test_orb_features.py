@@ -69,7 +69,7 @@ def test_data_exclusion_reasons_are_exactly_four():
 def test_opening_range_hand_calculated_high_low():
     d = date(2024, 3, 4)
     bars = _minute_bars("AAPL", d, 9, 30, 16)   # 09:30..09:45(닫힘 증거)
-    orr, reasons = opening_range_for_spec(tuple(bars), minutes=15)
+    orr, reasons = opening_range_for_spec(tuple(bars), minutes=15, day=d)
     assert reasons == ()
     window = bars[:15]
     assert orr == OpeningRange(high=max(b.high for b in window), low=min(b.low for b in window))
@@ -79,7 +79,7 @@ def test_opening_range_14_of_15_minutes_is_incomplete():
     d = date(2024, 3, 4)
     bars = _minute_bars("AAPL", d, 9, 30, 16)
     missing_one = bars[:14] + bars[15:16]       # 09:44 분 결측, 09:45 로 종료 증거는 있음
-    orr, reasons = opening_range_for_spec(tuple(missing_one), minutes=15)
+    orr, reasons = opening_range_for_spec(tuple(missing_one), minutes=15, day=d)
     assert orr is None
     assert reasons == ("incomplete_opening_range",)
 
@@ -89,12 +89,13 @@ def test_opening_range_not_closed_is_a_distinct_reason_from_incomplete():
     d = date(2024, 3, 4)
     complete_but_unclosed = _minute_bars("AAPL", d, 9, 30, 15)   # 09:30..09:44, 그 이상 없음
     orr_unclosed, reasons_unclosed = opening_range_for_spec(
-        tuple(complete_but_unclosed), minutes=15)
+        tuple(complete_but_unclosed), minutes=15, day=d)
     assert orr_unclosed is None
     assert reasons_unclosed == ("opening_range_not_closed",)
 
     incomplete = complete_but_unclosed[:14]     # 14개만(닫힘 증거도 없음)
-    orr_incomplete, reasons_incomplete = opening_range_for_spec(tuple(incomplete), minutes=15)
+    orr_incomplete, reasons_incomplete = opening_range_for_spec(
+        tuple(incomplete), minutes=15, day=d)
     assert orr_incomplete is None
     assert reasons_incomplete == ("incomplete_opening_range",)
 
@@ -104,7 +105,7 @@ def test_opening_range_not_closed_is_a_distinct_reason_from_incomplete():
 def test_opening_range_sensitivity_5_minutes():
     d = date(2024, 3, 4)
     bars = _minute_bars("AAPL", d, 9, 30, 6)    # 09:30..09:35(닫힘 증거)
-    orr, reasons = opening_range_for_spec(tuple(bars), minutes=5)
+    orr, reasons = opening_range_for_spec(tuple(bars), minutes=5, day=d)
     assert reasons == ()
     window = bars[:5]
     assert orr == OpeningRange(high=max(b.high for b in window), low=min(b.low for b in window))
@@ -117,7 +118,21 @@ def test_opening_range_for_spec_raises_on_multi_day_input():
     d2 = date(2024, 3, 5)
     two_days = tuple(_minute_bars("AAPL", d1, 9, 30, 16) + _minute_bars("AAPL", d2, 9, 30, 16))
     with pytest.raises(ValueError):
-        opening_range_for_spec(two_days, minutes=15)
+        opening_range_for_spec(two_days, minutes=15, day=d1)
+
+
+def test_opening_range_for_spec_raises_rather_than_silently_returning_wrong_day_or():
+    """H2(lane4 최우선, team-lead 재현) — 2024-03-04(16봉 완전) + 2024-03-05(14봉 불완전, 닫힘
+    증거도 없음)를 섞어 day=d2 로 호출하면, 예전엔 `opening_range()` 가 만드는 OR 이 1개(d1
+    것)뿐이라 개수 기반 가드(`len(...) > 1`)가 침묵하고 '가장 이른 날'의 OR 을 조용히
+    돌려줬다(반환 사유는 빈 튜플). 이제는 day 로 검증하므로(v1.2) 무조건 예외다."""
+    d1 = date(2024, 3, 4)
+    d2 = date(2024, 3, 5)
+    complete_d1 = _minute_bars("AAPL", d1, 9, 30, 16)     # 09:30..09:45(닫힘 증거) — 완전
+    incomplete_d2 = _minute_bars("AAPL", d2, 9, 30, 14)   # 09:30..09:43 — 14/15(불완전)
+    mixed = tuple(complete_d1 + incomplete_d2)
+    with pytest.raises(ValueError):
+        opening_range_for_spec(mixed, minutes=15, day=d2)   # 호출자가 원한 건 d2 의 OR
 
 
 # --------------------------------------------------------------------------
@@ -129,7 +144,7 @@ def test_gap_hand_calculated_normal_day():
     today_bars = _minute_bars("AAPL", d, 9, 30, 1, base=150.0)   # today_open = 150
     prev_bars = _minute_bars("AAPL", prev_d, 9, 30, 390, base=100.0)   # 전 정규장
     prev_close = prev_bars[-1].close
-    gap, reasons = gap_for_day(today_regular_1m=tuple(today_bars), prev_day=prev_d,
+    gap, reasons = gap_for_day(today_regular_1m=tuple(today_bars), day=d, prev_day=prev_d,
                               prev_day_regular_1m=tuple(prev_bars))
     assert reasons == ()
     expected = (today_bars[0].open - prev_close) / prev_close
@@ -137,9 +152,13 @@ def test_gap_hand_calculated_normal_day():
 
 
 def test_gap_early_close_previous_day_excludes_extended_bars_after_1300():
-    """조기폐장일 직전 거래일에서 13:00 이후 연장봉을 prev_close 로 쓰지 않는다(부등호 검증)."""
-    d = date(2024, 3, 4)
-    prev_ec = date(2024, 7, 3)   # 캘린더 조기폐장일(13:00 ET)
+    """조기폐장일 직전 거래일에서 13:00 이후 연장봉을 prev_close 로 쓰지 않는다(부등호 검증).
+
+    `d` 는 2024-07-05(금) — `prev_ec`(2024-07-03, 조기폐장일)가 그 날의 캘린더상 진짜 직전
+    거래일이어야 한다(M2, v1.2): 07-04(목)는 독립기념일 휴장이라 건너뛴다.
+    """
+    d = date(2024, 7, 5)
+    prev_ec = date(2024, 7, 3)   # 캘린더 조기폐장일(13:00 ET) — d 의 진짜 직전 거래일
     today_bars = _minute_bars("AAPL", d, 9, 30, 1, base=150.0)
 
     legit_bars = _minute_bars("AAPL", prev_ec, 9, 30, 210, base=50.0)   # 09:30..12:59(390행 아님, 210분)
@@ -152,7 +171,7 @@ def test_gap_early_close_previous_day_excludes_extended_bars_after_1300():
     ]
     all_prev = tuple(legit_bars + extended)
 
-    gap, reasons = gap_for_day(today_regular_1m=tuple(today_bars), prev_day=prev_ec,
+    gap, reasons = gap_for_day(today_regular_1m=tuple(today_bars), day=d, prev_day=prev_ec,
                               prev_day_regular_1m=all_prev)
     assert reasons == ()
     expected = (today_bars[0].open - legit_close) / legit_close
@@ -166,7 +185,7 @@ def test_gap_no_previous_regular_bar_is_undefined():
     d = date(2024, 3, 4)
     prev_d = date(2024, 3, 1)
     today_bars = _minute_bars("AAPL", d, 9, 30, 1)
-    gap, reasons = gap_for_day(today_regular_1m=tuple(today_bars), prev_day=prev_d,
+    gap, reasons = gap_for_day(today_regular_1m=tuple(today_bars), day=d, prev_day=prev_d,
                               prev_day_regular_1m=())
     assert gap is None
     assert reasons == ("no_previous_regular_close",)
@@ -179,8 +198,8 @@ def test_gap_missing_todays_open_bar_maps_to_incomplete_opening_range():
     prev_d = date(2024, 3, 1)
     today_bars_missing_open = _minute_bars("AAPL", d, 9, 31, 1, base=150.0)   # 09:31 부터 시작
     prev_bars = _minute_bars("AAPL", prev_d, 9, 30, 390, base=100.0)
-    gap, reasons = gap_for_day(today_regular_1m=tuple(today_bars_missing_open), prev_day=prev_d,
-                              prev_day_regular_1m=tuple(prev_bars))
+    gap, reasons = gap_for_day(today_regular_1m=tuple(today_bars_missing_open), day=d,
+                              prev_day=prev_d, prev_day_regular_1m=tuple(prev_bars))
     assert gap is None
     assert reasons == ("incomplete_opening_range",)
 
@@ -197,7 +216,7 @@ def test_gap_for_day_raises_when_prev_bars_are_not_from_prev_day():
     today_bars = _minute_bars("AAPL", d, 9, 30, 1, base=150.0)
     stale_bars = _minute_bars("AAPL", stale_day, 9, 30, 390, base=100.0)
     with pytest.raises(ValueError):
-        gap_for_day(today_regular_1m=tuple(today_bars), prev_day=prev_d,
+        gap_for_day(today_regular_1m=tuple(today_bars), day=d, prev_day=prev_d,
                     prev_day_regular_1m=tuple(stale_bars))
 
 
@@ -206,10 +225,36 @@ def test_gap_for_day_allows_empty_prev_bars_without_date_check_false_positive():
     d = date(2024, 3, 4)
     prev_d = date(2024, 3, 1)
     today_bars = _minute_bars("AAPL", d, 9, 30, 1)
-    gap, reasons = gap_for_day(today_regular_1m=tuple(today_bars), prev_day=prev_d,
+    gap, reasons = gap_for_day(today_regular_1m=tuple(today_bars), day=d, prev_day=prev_d,
                               prev_day_regular_1m=())
     assert gap is None
     assert reasons == ("no_previous_regular_close",)
+
+
+def test_gap_for_day_raises_when_today_bars_are_not_from_day():
+    """M1(lane4, BLOCKER-3 의 비대칭) — `prev_day_regular_1m` 쪽만 엄격히 검증하고
+    `today_regular_1m` 쪽은 방치하면, 완전히 다른 날 봉을 넘겨도 gap 이 산출되고 사유가
+    0 이 된다. 이제는 오늘 쪽도 날짜를 대조하고 불일치면 raise 한다."""
+    d = date(2024, 3, 4)
+    prev_d = date(2024, 3, 1)
+    wrong_day = date(2024, 3, 5)
+    wrong_today_bars = _minute_bars("AAPL", wrong_day, 9, 30, 1, base=150.0)   # day=d 가 아님
+    prev_bars = _minute_bars("AAPL", prev_d, 9, 30, 390, base=100.0)
+    with pytest.raises(ValueError):
+        gap_for_day(today_regular_1m=tuple(wrong_today_bars), day=d, prev_day=prev_d,
+                    prev_day_regular_1m=tuple(prev_bars))
+
+
+def test_gap_for_day_raises_when_prev_day_is_not_the_calendar_previous_trading_day():
+    """M2(lane4) — 봉이 `prev_day` 의 것인지만 보고 `prev_day` 자체가 캘린더상 진짜 직전
+    거래일인지는 검증하지 않으면, 훨씬 이전 날짜를 `prev_day` 로 넘겨도 통과한다(§5.1 위반)."""
+    d = date(2024, 3, 4)
+    ten_trading_days_earlier = date(2024, 2, 20)   # 실제 직전 거래일(2024-03-01)이 아님
+    today_bars = _minute_bars("AAPL", d, 9, 30, 1, base=150.0)
+    prev_bars = _minute_bars("AAPL", ten_trading_days_earlier, 9, 30, 390, base=100.0)
+    with pytest.raises(ValueError):
+        gap_for_day(today_regular_1m=tuple(today_bars), day=d,
+                    prev_day=ten_trading_days_earlier, prev_day_regular_1m=tuple(prev_bars))
 
 
 # --------------------------------------------------------------------------
@@ -220,8 +265,8 @@ def test_cum_today_volume_excludes_bars_beyond_the_opening_window():
     in_window = _minute_bars("AAPL", d, 9, 30, 15, base=1.0)   # 09:30..09:44
     future_spike = _bar("AAPL", datetime(d.year, d.month, d.day, 9, 45, tzinfo=ET),
                         o=1, h=1, low=1, c=1, v=10_000_000.0)   # 창 밖 — 절대 포함되면 안 됨
-    total_without_future = cum_today_volume(tuple(in_window), minutes=15)
-    total_with_future = cum_today_volume(tuple(in_window) + (future_spike,), minutes=15)
+    total_without_future = cum_today_volume(tuple(in_window), day=d, minutes=15)
+    total_with_future = cum_today_volume(tuple(in_window) + (future_spike,), day=d, minutes=15)
     assert total_without_future == sum(b.volume for b in in_window)
     assert total_with_future == total_without_future    # 미래 거래량 미반영(동일해야 함)
 
@@ -230,8 +275,8 @@ def test_window_sum_for_lookback_requires_full_window():
     d = date(2024, 3, 4)
     full = _minute_bars("AAPL", d, 9, 30, 15, base=1.0)
     partial = full[:14]
-    assert window_sum_for_lookback(tuple(full), minutes=15) == sum(b.volume for b in full)
-    assert window_sum_for_lookback(tuple(partial), minutes=15) is None
+    assert window_sum_for_lookback(tuple(full), day=d, minutes=15) == sum(b.volume for b in full)
+    assert window_sum_for_lookback(tuple(partial), day=d, minutes=15) is None
 
 
 def test_rvol_denominator_excludes_incomplete_lookback_days_and_changes_value():
@@ -346,6 +391,17 @@ def test_rvol_raises_if_day_already_pushed():
         window.rvol(d0, 200.0)                       # 오늘이 이미 push 됨
     with pytest.raises(ValueError):
         window.rvol(d0 - timedelta(days=1), 200.0)   # 과거로도 마찬가지로 금지
+
+
+def test_rvol_causality_error_message_says_after_not_before():
+    """C10(lane4) — 형제 `push()` 오류 메시지는 "이후"(day 는 마지막 push 이후여야 한다)로
+    옳게 적혀 있는데, `rvol()` 메시지만 "이전"으로 반대로 적혀 있었다(실제 유효 조건은
+    `day > last_day` 이므로 '이후'가 맞다). 문구가 다시 뒤집히면 이 테스트가 죽는다."""
+    window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
+    d0 = date(2024, 1, 1)
+    window.push(d0, 100.0)
+    with pytest.raises(ValueError, match="이후여야 한다"):
+        window.rvol(d0, 200.0)
 
 
 def test_compute_symbol_day_features_raises_when_rvol_window_minutes_mismatched():
@@ -506,6 +562,32 @@ def test_compute_symbol_day_features_propagates_gap_reasons_when_todays_open_mis
     assert "incomplete_opening_range" in feats.excluded_reasons
 
 
+def test_compute_symbol_day_features_incomplete_opening_range_reason_appears_exactly_once():
+    """M3(lane3·4 수렴, team-lead 재현) — `_add_reason` 의 dedup(`if reason not in reasons`)이
+    유일한 방어인데 테스트가 없었다. 당일 09:30 봉이 결측이면 OR 경로(`opening_range_for_spec`)
+    와 gap 경로(`gap_for_day`)가 **둘 다** `incomplete_opening_range` 를 낸다 — 도달 불가능한
+    방어 코드가 아니다: development 데이터 창에 이런 종목-일이 513개 있다(VST 2023-05-11,
+    XLF 2023-05-15, XLY 2023-05-10 …). dedup 이 사라지면 `excluded_reasons` 에 같은 사유가
+    두 번 들어가 §11.2 [A] 5% 게이트의 결함률이 과대계상된다."""
+    d = date(2024, 3, 4)
+    prev_d = date(2024, 3, 1)
+    today_missing_open = tuple(_minute_bars("AAPL", d, 9, 31, 389, base=100.0))   # 09:30 결측
+    prev_full_day = tuple(_minute_bars("AAPL", prev_d, 9, 30, 390, base=90.0))
+    window = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
+    for k in range(15):
+        window.push(date(2024, 1, 1) + timedelta(days=k), 5000.0 + k * 100)
+
+    feats = compute_symbol_day_features(
+        symbol="AAPL", day=d,
+        today_day_candles=today_missing_open, today_regular_1m=today_missing_open,
+        prev_day=prev_d, prev_day_regular_1m=prev_full_day,
+        opening_range_minutes=15, rvol_window=window,
+    )
+    assert feats.opening_range is None      # OR 경로도 incomplete_opening_range
+    assert feats.gap is None                # gap 경로도 incomplete_opening_range
+    assert feats.excluded_reasons.count("incomplete_opening_range") == 1
+
+
 def test_symbol_day_features_is_frozen():
     feats = SymbolDayFeatures(symbol="AAPL", day=date(2024, 1, 1), opening_range=None,
                               gap=None, rvol=None, excluded_reasons=())
@@ -516,10 +598,22 @@ def test_symbol_day_features_is_frozen():
 def test_regular_window_volume_helper_matches_cum_today_and_lookback():
     d = date(2024, 3, 4)
     bars = _minute_bars("AAPL", d, 9, 30, 15, base=1.0)
-    total, observed = regular_window_volume(tuple(bars), minutes=15)
+    total, observed = regular_window_volume(tuple(bars), day=d, minutes=15)
     assert observed == 15
     assert total == sum(b.volume for b in bars)
-    assert total == cum_today_volume(tuple(bars), minutes=15)
+    assert total == cum_today_volume(tuple(bars), day=d, minutes=15)
+
+
+def test_regular_window_volume_raises_when_bars_are_not_from_day():
+    """M1(lane4) — `cum_today_volume`/`window_sum_for_lookback` 은 이 저장소에서 항상
+    `today_regular_1m` 으로만 불린다(과거일 원본 봉은 `RvolWindow` 이력에 합산된 형태로만
+    보관되고 여기로 다시 들어오지 않는다). 검증 없이 다른 날 봉이 섞이면 거래량이 조용히
+    산출되는 대신 예외를 낸다."""
+    d = date(2024, 3, 4)
+    wrong_day = date(2024, 3, 5)
+    bars = _minute_bars("AAPL", wrong_day, 9, 30, 15, base=1.0)
+    with pytest.raises(ValueError):
+        regular_window_volume(tuple(bars), day=d, minutes=15)
 
 
 # --------------------------------------------------------------------------
@@ -531,7 +625,7 @@ def test_regular_window_volume_raises_on_duplicate_minute_of_day():
     dup_open = _bar("AAPL", datetime(d.year, d.month, d.day, 9, 30, tzinfo=ET),
                     o=999, h=999, low=999, c=999, v=999_999.0)   # 09:30 중복(다른 값)
     with pytest.raises(ValueError):
-        regular_window_volume(tuple(bars) + (dup_open,), minutes=15)
+        regular_window_volume(tuple(bars) + (dup_open,), day=d, minutes=15)
 
 
 def test_gap_for_day_raises_on_duplicate_prev_close_candidate():
@@ -542,7 +636,7 @@ def test_gap_for_day_raises_on_duplicate_prev_close_candidate():
     dup_last = _bar("AAPL", datetime(prev_d.year, prev_d.month, prev_d.day, 15, 59, tzinfo=ET),
                     o=1, h=1, low=1, c=1, v=1)   # 마지막 분(15:59) 중복(다른 값)
     with pytest.raises(ValueError):
-        gap_for_day(today_regular_1m=tuple(today_bars), prev_day=prev_d,
+        gap_for_day(today_regular_1m=tuple(today_bars), day=d, prev_day=prev_d,
                    prev_day_regular_1m=tuple(prev_bars) + (dup_last,))
 
 
@@ -554,7 +648,7 @@ def test_gap_for_day_raises_on_duplicate_todays_open_candidate():
                     o=999, h=999, low=999, c=999, v=1)
     prev_bars = _minute_bars("AAPL", prev_d, 9, 30, 390, base=100.0)
     with pytest.raises(ValueError):
-        gap_for_day(today_regular_1m=tuple(today_bars) + (dup_open,), prev_day=prev_d,
+        gap_for_day(today_regular_1m=tuple(today_bars) + (dup_open,), day=d, prev_day=prev_d,
                    prev_day_regular_1m=tuple(prev_bars))
 
 
@@ -568,9 +662,10 @@ def test_regular_window_volume_excludes_bars_before_the_opening_window():
     in_window = _minute_bars("AAPL", d, 9, 30, 15, base=1.0)   # 09:30..09:44
     pre_bar = _bar("AAPL", datetime(d.year, d.month, d.day, 9, 0, tzinfo=ET),
                   o=1, h=1, low=1, c=1, v=99_999_999.0)   # 창 앞(09:00, mod=540<585) — 배제돼야 함
-    total_without_pre, observed_without_pre = regular_window_volume(tuple(in_window), minutes=15)
+    total_without_pre, observed_without_pre = regular_window_volume(
+        tuple(in_window), day=d, minutes=15)
     total_with_pre, observed_with_pre = regular_window_volume(
-        tuple(in_window) + (pre_bar,), minutes=15)
+        tuple(in_window) + (pre_bar,), day=d, minutes=15)
     assert total_with_pre == total_without_pre
     assert observed_with_pre == observed_without_pre
 
@@ -596,10 +691,10 @@ def test_opening_range_gap_and_volume_are_invariant_to_input_order():
     bars = _minute_bars("AAPL", d, 9, 30, 16)
     prev_bars = _minute_bars("AAPL", prev_d, 9, 30, 390, base=90.0)
 
-    orr0, or_reasons0 = opening_range_for_spec(tuple(bars), minutes=15)
-    gap0, gap_reasons0 = gap_for_day(today_regular_1m=tuple(bars), prev_day=prev_d,
+    orr0, or_reasons0 = opening_range_for_spec(tuple(bars), minutes=15, day=d)
+    gap0, gap_reasons0 = gap_for_day(today_regular_1m=tuple(bars), day=d, prev_day=prev_d,
                                     prev_day_regular_1m=tuple(prev_bars))
-    vol0 = cum_today_volume(tuple(bars), minutes=15)
+    vol0 = cum_today_volume(tuple(bars), day=d, minutes=15)
 
     rnd = random.Random(20260727)
     for _ in range(50):
@@ -608,14 +703,14 @@ def test_opening_range_gap_and_volume_are_invariant_to_input_order():
         shuffled_prev = list(prev_bars)
         rnd.shuffle(shuffled_prev)
 
-        orr, or_reasons = opening_range_for_spec(tuple(shuffled_bars), minutes=15)
+        orr, or_reasons = opening_range_for_spec(tuple(shuffled_bars), minutes=15, day=d)
         assert (orr, or_reasons) == (orr0, or_reasons0)
 
-        gap, gap_reasons = gap_for_day(today_regular_1m=tuple(shuffled_bars), prev_day=prev_d,
-                                       prev_day_regular_1m=tuple(shuffled_prev))
+        gap, gap_reasons = gap_for_day(today_regular_1m=tuple(shuffled_bars), day=d,
+                                       prev_day=prev_d, prev_day_regular_1m=tuple(shuffled_prev))
         assert (gap, gap_reasons) == (gap0, gap_reasons0)
 
-        vol = cum_today_volume(tuple(shuffled_bars), minutes=15)
+        vol = cum_today_volume(tuple(shuffled_bars), day=d, minutes=15)
         assert vol == vol0
 
 
@@ -625,6 +720,6 @@ def test_opening_range_sensitivity_4_of_5_is_incomplete():
     d = date(2024, 3, 4)
     bars = _minute_bars("AAPL", d, 9, 30, 6)   # 09:30..09:35(닫힘 증거 포함, 6개)
     missing_one = bars[:4] + bars[5:6]         # 09:34 결측, 09:35 로 종료 증거는 있음
-    orr, reasons = opening_range_for_spec(tuple(missing_one), minutes=5)
+    orr, reasons = opening_range_for_spec(tuple(missing_one), minutes=5, day=d)
     assert orr is None
     assert reasons == ("incomplete_opening_range",)
