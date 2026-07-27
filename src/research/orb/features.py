@@ -19,6 +19,7 @@ from src.research.orb.windows import (
     minute_of_day,
     previous_trading_day,
     regular_close_minute_checked,
+    require_trading_day,
 )
 
 # 사전등록 §11.2 [A] — 정확히 이 4개, 다른 사유를 추가하지 않는다.
@@ -63,6 +64,21 @@ class SymbolDayFeatures:
     rvol: float | None
     excluded_reasons: tuple[str, ...]   # DATA_EXCLUSION_REASONS 부분집합, 정렬된 결정론적 순서
 
+    @property
+    def is_eligible(self) -> bool:
+        """§5.5 데이터 사유로 배제되지 않았는가(`excluded_reasons == ()`) — 계약을 타입에
+        올린다(v1.3, R4-3 — lane 1·2·3 전원 수렴). 4-B 가 `gap`/`rvol`/`opening_range` 를
+        후보 판정에 쓰기 전 반드시 거쳐야 하는 단일 지점이며, 리뷰에서 "이 필드를 쓰기 전에
+        무엇을 확인했나"가 grep 한 번으로 드러난다.
+
+        ⚠ **이름 주의**: 이 프로퍼티는 **§5.5 데이터 배제 여부만** 본다. **§5 의 gap·RVOL
+        임계 충족(진짜 후보 자격)과는 다르다** — |gap| >= 0.30%, RVOL >= 1.5 같은 임계
+        비교는 4-B 의 몫이다. `is_eligible=True` 여도 그 임계를 만족하지 못해 후보가
+        아닐 수 있다. 4-B 가 혼동하면 필터를 하나 건너뛴다: 이 프로퍼티는 "이 필드들을
+        신뢰해도 되는가"에 대한 답이지 "이 종목-일이 후보인가"에 대한 답이 아니다.
+        """
+        return self.excluded_reasons == ()
+
 
 # --------------------------------------------------------------------------
 # opening range (§6.1)
@@ -101,8 +117,11 @@ def opening_range_for_spec(day_candles: tuple[Candle, ...], *,
     if len(closed_complete) > 1:
         raise ValueError(
             f"opening_range_for_spec: 같은 날짜 안에 둘 이상의 opening range 가 나왔다"
-            f"({len(closed_complete)}개) — 호출자가 여러 종목을 섞어 넘겼을 수 있다(방어적"
-            " 이중화 — day 검증을 이미 통과한 뒤라 정상적으로는 도달하지 않는다).")
+            f"({len(closed_complete)}개) — 호출자가 여러 종목을 섞어 넘겼을 수 있다. "
+            "(v1.3, R4-6 정정 — 예전엔 이 경로가 'day 검증을 이미 통과한 뒤라 정상적으로는 "
+            "도달하지 않는다'고 적었으나 틀렸다: 같은 날짜의 두 종목을 섞으면 실제로 "
+            "발동한다 — day 검증은 날짜만 보고 symbol 은 보지 않는다. "
+            "`test_opening_range_for_spec_raises_when_two_symbols_share_the_same_day` 참고.)")
     if closed_complete:
         c = closed_complete[0]
         return OpeningRange(high=c.high, low=c.low), ()
@@ -265,6 +284,14 @@ class RvolWindow:
     `compute_symbol_day_features` 가 이를 `opening_range_minutes` 와 대조한다.
 
     `push` 는 **시간 순서대로만** 호출된다 — 역순·중복 호출은 예외(결정론 보호).
+
+    **거래일 연속성도 강제한다(v1.3, R4-1 — lane 2 C12 후속, 권고안 A)**: 예전엔 이 클래스가
+    세는 것이 "직전 20 **거래일**"이 아니라 "직전 20 **push 호출**"이었다 — 호출자가 데이터
+    없는 종목-일에서 `continue` 하면 lookback 이 캘린더로는 조용히 20 거래일보다 더 뒤로
+    뻗었다(실증: 20 push 가 39 거래일을 덮은 사례). `push(day, ...)` 는 이제 `day` 자신이
+    거래일인지(`require_trading_day`, R4-2)와, 직전 push 와 거래일 연속인지
+    (`previous_trading_day(day) == 마지막 push 일`)를 함께 검사한다 — 데이터 없는 날도
+    반드시 `push(day, None)` 으로 기록해야 한다.
     """
 
     def __init__(self, lookback_days: int, min_valid_days: int, minutes: int):
@@ -286,10 +313,18 @@ class RvolWindow:
         return self._minutes
 
     def push(self, day: date, window_sum: float | None) -> None:
+        require_trading_day(day)   # R4-2 — 휴장일은 push 대상이 아니다(연속성 검사보다 먼저)
         if self._last_day is not None and day <= self._last_day:
             raise ValueError(
                 f"RvolWindow.push 는 시간 순서대로만 호출된다: {day} 는 직전 {self._last_day} "
                 "이후여야 한다(역순/중복 호출 금지 — 결정론 보호).")
+        if self._last_day is not None and previous_trading_day(day) != self._last_day:
+            raise ValueError(
+                f"RvolWindow.push({day}) 는 거래일 연속이어야 한다(R4-1): 직전 push 는 "
+                f"{self._last_day} 인데 {day} 의 캘린더상 직전 거래일은 "
+                f"{previous_trading_day(day)} 다 — 데이터 없는 종목-일도 "
+                "push(day, None) 으로 반드시 기록해야 한다(건너뛰면 lookback 이 거래일 "
+                "기준보다 더 뒤로 뻗는다).")
         self._history.append(window_sum)
         if len(self._history) > self._lookback_days:
             self._history = self._history[-self._lookback_days:]
@@ -341,33 +376,43 @@ def compute_symbol_day_features(*, symbol: str, day: date,
       반영) — primary(15분)·sensitivity(5분) 창을 뒤바꿔 넘기는 실수를 구조적으로 막는다.
     - 사유는 폐쇄 어휘(`DATA_EXCLUSION_REASONS`) 부분집합을 **정렬**해 담는다(결정론).
 
-    ⚠ **호출 규율(v1.2, C12 — lane4 지적)**: 이 함수는 **평가 창의 매 거래일마다** 호출해야
-    한다 — 데이터가 없는 종목-일도 포함해서다(그 경우 `today_day_candles`/`today_regular_1m`
-    이 빈 튜플이면 되고, `rvol_window.push(day, None)` 으로 결측이 기록된다). `RvolWindow` 가
-    세는 것은 "직전 20 **거래일**"이 아니라 "직전 20 **push 호출**"이다 — 호출자가 데이터
-    없는 날을 건너뛰고 이 함수를 부르지 않으면, `lookback_days=20` 이 캘린더로는 조용히 20
-    거래일보다 더 뒤로 뻗는다(실증: 20 push 가 38 캘린더일을 덮은 사례가 있었다). 이 계약은
-    이 함수의 시그니처만으로는 강제되지 않으므로, 4-B 는 반드시 평가 창의 모든 거래일을
-    빠짐없이 순회하며 호출해야 한다.
+    ⚠ **호출 규율(v1.3, R4-1/R4-2 — lane 2·3 지적, C12 후속)**: 이 함수는 **평가 창의 매
+    거래일마다** 호출해야 한다 — 데이터가 없는 종목-일도 포함해서다(그 경우
+    `today_day_candles`/`today_regular_1m` 이 빈 튜플이면 되고, `rvol_window.push(day, None)`
+    으로 결측이 기록된다). 이 계약은 **이제 구조적으로 부분 강제된다**: `RvolWindow.push` 가
+    (a) `day` 자체가 거래일인지(`require_trading_day`), (b) 직전 push 와 거래일 연속인지
+    (`previous_trading_day(day) == 직전 push 일`)를 검사하므로, 4-B 가 데이터 없는 종목-일을
+    건너뛰고 이 함수를 부르지 않으면 다음 호출에서 곧바로 `ValueError` 로 실패한다(예전엔
+    20 push 가 캘린더로 20 거래일보다 더 뒤까지 조용히 뻗었다). 이 함수 자신도 `day` 가
+    거래일인지 시작 시점에 독립적으로 검사한다(방어적 이중화 — `push` 에 도달하기 전에
+    먼저 실패한다, `require_trading_day` 가 "휴장일 push 는 다음 push 에서야 뒤늦게
+    터진다"는 함정을 `previous_trading_day` 만으로는 못 막는다고 스스로 문서화한다).
 
-    ⚠ **`excluded_reasons` 는 각 필드를 개별적으로 null 화하지 않는다(v1.2, C12)**.
-    `opening_range`/`gap`/`rvol` 은 §6.1/§5.1/§5.2 각자의 조건으로 독립적으로 계산되며, 서로
-    다른 사유가 그중 하나만 배제해도 나머지 필드는 **값을 낸다**. 특히 §5.5 로 종목-일 전체가
-    배제된 뒤에도(예: opening range 창의 일부 분만 결측) `gap`/`rvol` 이 숫자로 나올 수
-    있다 — 예를 들어 09:30~09:44 중 09:44 한 분만 결측이면 OR 은 `incomplete_opening_range`
-    로 배제되지만, `gap`(09:30 봉만 있으면 됨)과 `rvol`(그 분자 `cum_today_volume` 이 창의
-    **존재하는 분만으로** 합산하고 완전성을 요구하지 않음, `window_sum_for_lookback` 의 분모
-    쪽과 달리)은 **완전성을 요구하지 않아** 그대로 값을 낸다(실측: 14/15분 창에서
-    rvol=0.933 — 분자가 14분 합이라 실제보다 작다). **호출자(4-B)가 후보 판정에 이 값들을
-    쓰려면 반드시 `excluded_reasons == ()` 를 먼저 확인해야 한다(AND) — 사유별로 골라 쓰면
-    (예: `incomplete_opening_range` 만 보고 넘어가면서 `rvol` 은 그대로 쓰면) 과소평가된
-    RVOL 이 조용히 후보 판정에 들어간다.** (판단 근거: 이 함수는 4-A 의 피처 계산 계층이고
-    §5.5 의 배제 여부 자체는 4-B 의 후보 판정 로직이 담당한다 — 여기서 필드를 사유별로
-    선별적으로 null 화하면 그 판단을 4-A 가 대신 내리는 셈이 되고, 4개 배제 사유 중 특정
-    필드와 무관한 사유(예: `no_previous_regular_close` 가 `rvol` 을 null 화)까지 함께
-    묶으면 과잉 무효화가 된다. 그래서 구조적 null 화 대신 **이 docstring 의 AND 요구를
-    호출자 계약으로 명시**하는 쪽을 선택했다 — team-lead 보고 대상, 이견 있으면 재조정).
+    ⚠ **`excluded_reasons`/`is_eligible` 는 각 필드를 개별적으로 null 화하지 않는다(v1.2, C12
+    / v1.3, R4-3)**. `opening_range`/`gap`/`rvol` 은 §6.1/§5.1/§5.2 각자의 조건으로 독립적으로
+    계산되며, 서로 다른 사유가 그중 하나만 배제해도 나머지 필드는 **값을 낸다**. 특히 §5.5 로
+    종목-일 전체가 배제된 뒤에도(예: opening range 창의 일부 분만 결측) `gap`/`rvol` 이
+    숫자로 나올 수 있다 — 예를 들어 09:30~09:44 중 09:44 한 분만 결측이면 OR 은
+    `incomplete_opening_range` 로 배제되지만, `gap`(09:30 봉만 있으면 됨)과 `rvol`(그 분자
+    `cum_today_volume` 이 창의 **존재하는 분만으로** 합산하고 완전성을 요구하지 않음,
+    `window_sum_for_lookback` 의 분모 쪽과 달리)은 **완전성을 요구하지 않아** 그대로 값을
+    낸다(실측: 14/15분 창에서 rvol=0.933 — 분자가 14분 합이라 실제보다 작다). **호출자(4-B)
+    가 후보 판정에 이 값들을 쓰려면 반드시 `SymbolDayFeatures.is_eligible`(=
+    `excluded_reasons == ()`) 를 먼저 확인해야 한다(AND) — 사유별로 골라 쓰면(예:
+    `incomplete_opening_range` 만 보고 넘어가면서 `rvol` 은 그대로 쓰면) 과소평가된 RVOL 이
+    조용히 후보 판정에 들어간다.** (판단 근거: 이 함수는 4-A 의 피처 계산 계층이고 §5.5 의
+    배제 여부 자체는 4-B 의 후보 판정 로직이 담당한다 — 여기서 필드를 사유별로 선별적으로
+    null 화하면 그 판단을 4-A 가 대신 내리는 셈이 되고, 4개 배제 사유 중 특정 필드와 무관한
+    사유(예: `no_previous_regular_close` 가 `rvol` 을 null 화)까지 함께 묶으면 과잉
+    무효화가 된다. 그래서 구조적 null 화 대신 **이 docstring 의 AND 요구를 `is_eligible`
+    프로퍼티로 명시**하는 쪽을 선택했다 — 3-lane 독립 리뷰가 이 논거를 실측 확인 후 지지했다:
+    OR 이 불완전하면 `opening_range` 가 반드시 `None` 이고, OR 없이는 돌파·stop 이 정의되지
+    않아 부분창 rvol 이 단독으로 후보를 만들 수 없다).
+
+    ⚠ **`is_eligible` 이름 주의**: §5.5 데이터 배제 여부만 본다. §5 의 gap·RVOL 임계 충족
+    (진짜 후보 자격)과는 다르다 — 그 비교는 4-B 의 몫이다.
     """
+    require_trading_day(day)   # R4-2 — 휴장일은 조립 대상이 아니다(push 보다 먼저 실패)
     if rvol_window.minutes != opening_range_minutes:
         raise ValueError(
             f"compute_symbol_day_features: rvol_window.minutes({rvol_window.minutes}) != "

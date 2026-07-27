@@ -11,8 +11,8 @@ v1.1(수정 라운드 1, 독립 리뷰 2-lane 반영): `decision_bars`/`expected
 from __future__ import annotations
 
 import ast
-import glob
 import os
+import re
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -32,13 +32,60 @@ from src.research.orb.loading import (
 
 ET = ZoneInfo("America/New_York")
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-# H1-b(lane4 최우선) — 예전엔 `src/research/orb/*.py`(비재귀)라 하위 패키지가 스캔에서
-# 통째로 빠졌다(team-lead 재현: `src/research/orb/sim/runner.py` 에 `purpose="coverage"`
-# + `track="swing"` + `load_candles` 직접 import 를 동시에 넣어도 아래 세 스캔은 전부
-# 침묵했다 — `tests/test_oos_guard_wiring.py` 의 저장소 전역 `os.walk` 만 `load_candles`
-# 위반 하나를 잡았다). `purpose`/`track`/`unlock` 규칙에는 재귀 백스톱이 아예 없었다.
-# 4-B 가 바로 이 트리에 코드를 추가할 예정이므로 `src/research/**` 전체를 재귀로 덮는다.
-ORB_SRC_GLOB = os.path.join(REPO, "src", "research", "**", "*.py")
+# H1-b(lane4 최우선, 라운드 3) — 예전엔 `src/research/orb/*.py`(비재귀)라 하위 패키지가
+# 스캔에서 통째로 빠졌다(team-lead 재현: `src/research/orb/sim/runner.py` 에
+# `purpose="coverage"` + `track="swing"` + `load_candles` 직접 import 를 동시에 넣어도
+# 세 스캔은 전부 침묵했다). 재귀화했었다.
+#
+# R4-8(lane4 최우선, 라운드 4 — team-lead 재현) — 재귀화는 옳았지만 범위가 `src/research/**`
+# 로만 한정돼 있었다. 이 저장소의 결과 산출 스크립트는 역사적으로 `analysis/` 에 있다
+# (선례: `analysis/screener_ranking_h4.py`). team-lead 재현: `analysis/orb_walkforward_
+# runner.py` 에 `research_load(..., unlock=<날조>)` 를 배치하니 154개 테스트가 전부 통과하며
+# blind OOS 가 실제로 열렸다(2026-01-21 879봉 / 2026-04-15 952봉 / 2026-07-21 949봉).
+# `tests/test_oos_guard_wiring.py` 의 `SCAN_DIRS` 는 `("src","scripts","analysis")` 를
+# 덮지만 `load_candles` 만 본다 — `purpose`/`track`/`unlock` 세 규칙에는 그 범위 밖
+# 백스톱이 없었다. 이 세 스캔의 범위를 그 `SCAN_DIRS` 와 맞춘다(재귀 유지).
+ORB_SCAN_DIRS = ("src", "scripts", "analysis")   # tests/test_oos_guard_wiring.py 의 SCAN_DIRS 와 동일
+
+
+def _orb_scan_py_files():
+    """ORB 3종 스캔(unlock/track AST · coverage 문자열 · load_candles 참조) 대상 파일 전부.
+
+    `tests/test_oos_guard_wiring.py:_py_files` 와 동일한 idiom(os.walk, 재귀) — 새 최상위
+    파이썬 디렉터리가 생기면 `ORB_SCAN_DIRS` 에도(그리고 그 파일의 `SCAN_DIRS` 에도) 추가해야
+    검사가 미친다.
+    """
+    for base in ORB_SCAN_DIRS:
+        root = os.path.join(REPO, base)
+        if not os.path.isdir(root):
+            continue
+        for dirpath, _dirs, files in os.walk(root):
+            for name in sorted(files):
+                if name.endswith(".py"):
+                    yield os.path.join(dirpath, name)
+
+
+# R4-8 — ORB_SCAN_DIRS 를 src/scripts/analysis 전체로 넓히면, 이 저장소에 이미 있던 정당한
+# coverage-only/parity 스크립트(§5.5 커버리지 측정·리샘플러 동치 검증·게이트 자신)까지 스캔
+# 대상이 된다. `tests/test_oos_guard_wiring.py` 의 `ALLOWED` 관례를 그대로 따른다 — 새 예외가
+# 필요해지면 이 목록에 명시적으로 추가해야 하며, 조용히 스캔에서 빠지는 파일이 없게 한다.
+_ALLOWED_COVERAGE_STRING = {
+    os.path.join("src", "history", "oos_guard.py"),           # purpose="coverage" 의 정의처
+    os.path.join("scripts", "history_eval_slices.py"),        # 검증된 coverage-only 스크립트
+    os.path.join("scripts", "resampler_parity_check.py"),     # 검증된 coverage-only 스크립트
+    os.path.join("scripts", "prereg_orb_coverage_probe.py"),  # §5.5 봉 개수만 세는 ORB coverage probe
+}
+_ALLOWED_LOAD_CANDLES_REF = {
+    os.path.join("src", "history", "loader.py"),
+    os.path.join("src", "history", "__init__.py"),
+    os.path.join("src", "history", "oos_guard.py"),
+}   # tests/test_oos_guard_wiring.py 의 ALLOWED 와 동일(정의처·재노출·게이트 자신)
+_ALLOWED_TRACK_UNSPECIFIED = {
+    # `research_load(..., purpose="coverage", market=...)` 처럼 `track=` 을 아예 생략하고
+    # 함수 기본값(`TRACK_INTRADAY`)에 기댄다 — 값 자체는 안전하지만 명시적이지 않다. ORB
+    # 패키지 자신의 코딩 규율(항상 명시)과는 다른, 이미 검토된 pre-ORB 스크립트.
+    os.path.join("scripts", "history_eval_slices.py"),
+}
 
 # §6.2 primary/sensitivity 공용 결정봉 스펙(5분·min_bars=1) — 계약값과 동일(§contract.py 로
 # 별도 검증). 여기서는 리터럴로 고정해 loading.py 테스트를 contract.py 로딩에 결합하지 않는다.
@@ -542,62 +589,82 @@ def _research_load_call_names(tree: ast.AST) -> set[str]:
     return names
 
 
-def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
-    """AST: `src/research/**` 의 `research_load` 호출은 `unlock` 인자를 절대 넘기지 않고,
-    `track` 은 반드시 `TRACK_INTRADAY` 상수여야 한다(임의 `OOSUnlock` 주입·`track="swing"`
-    변조를 정적으로 차단, 독립 리뷰 H1).
+def _research_load_offenders_in_tree(tree: ast.AST, rel: str) -> list[str]:
+    """AST: `rel` 파일의 `research_load` 호출 중 unlock/track 규칙 위반 offender 목록.
 
-    H1-a(lane4 최우선, team-lead 재현) — 예전 판은 `kw.arg == "unlock"` 만 봐서 `**_EXTRA`
-    (kwargs 언패킹, `kw.arg is None`) 로 넘긴 `unlock` 을 놓쳤고(실증: AST/배선 테스트 21개
-    전부 통과 + blind OOS 실제 개봉 879/949봉), `ast.Name` 함수 호출만 봐서
+    R4-5(lane1 §6-B, team-lead 재현) — 실제 스캔(`test_research_load_calls_never_pass_unlock_
+    and_use_intraday_track`)과 거짓 가드 방지 fixture(아래
+    `test_research_load_offender_detection_rule_actually_catches_...`)가 **이 함수 하나를
+    같이 부른다.** 예전엔 증명 fixture 가 이 판정 로직을 별도로 복제해 갖고 있어서, 실제
+    스캐너에서 `kw.arg is None` 분기만 지워도(소스가 깨끗하므로) 증명 테스트는 자기
+    사본으로 독립적으로 계속 통과했다 — H1-a 가 바로 이 스캐너의 결함이었으므로, 스캐너
+    자체가 약해지는 회귀를 증명 fixture 가 놓치면 값이 없다.
+
+    H1-a(team-lead 재현) — 예전 판은 `kw.arg == "unlock"` 만 봐서 `**_EXTRA`(kwargs 언패킹,
+    `kw.arg is None`) 로 넘긴 `unlock` 을 놓쳤고, `ast.Name` 함수 호출만 봐서
     `mod.research_load(...)`(`ast.Attribute`)와 별칭 import 도 놓쳤다. 세 가지를 모두 잡는다:
-      1. `**kwargs` 언패킹(`kw.arg is None`) 이 하나라도 있으면 즉시 offender(그 안에 무엇이
-         들었는지 정적으로 알 수 없으므로 — unlock/track 은닉 가능성 자체를 차단).
+      1. `**kwargs` 언패킹(`kw.arg is None`) 이 하나라도 있으면 즉시 offender.
       2. `ast.Attribute` 호출(`.attr == "research_load"`)도 `ast.Name` 과 동일하게 검사한다.
       3. 별칭 import(`import ... as rl`)로 가리키는 이름도 `research_load` 와 동일 취급한다.
     """
     offenders: list[str] = []
-    for path in sorted(glob.glob(ORB_SRC_GLOB, recursive=True)):
+    aliases = _research_load_call_names(tree)
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name):
+            if func.id not in aliases:
+                continue
+        elif isinstance(func, ast.Attribute):
+            if func.attr != "research_load":
+                continue
+        else:
+            continue
+
+        if any(kw.arg is None for kw in node.keywords):
+            offenders.append(
+                f"{rel}:{node.lineno}: **kwargs 언패킹으로 unlock/track 이 은닉될 수 있음")
+            continue
+        kw_names = {kw.arg for kw in node.keywords}
+        if "unlock" in kw_names:
+            offenders.append(f"{rel}:{node.lineno}: unlock 인자 존재")
+            continue
+        track_kw = next((kw for kw in node.keywords if kw.arg == "track"), None)
+        is_intraday_const = (
+            track_kw is not None
+            and isinstance(track_kw.value, ast.Name)
+            and track_kw.value.id == "TRACK_INTRADAY"
+        )
+        if not is_intraday_const:
+            offenders.append(f"{rel}:{node.lineno}: track 이 TRACK_INTRADAY 상수가 아님")
+    return offenders
+
+
+def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
+    """AST: `src/`·`scripts/`·`analysis/`(R4-8 — `tests/test_oos_guard_wiring.py` 의
+    `SCAN_DIRS` 와 동일 범위) 전역의 `research_load` 호출은 `unlock` 인자를 절대 넘기지 않고,
+    `track` 은 반드시 `TRACK_INTRADAY` 상수여야 한다(임의 `OOSUnlock` 주입·`track="swing"`
+    변조를 정적으로 차단, 독립 리뷰 H1). 판정 로직은 `_research_load_offenders_in_tree`
+    (R4-5 — 아래 증명 fixture 와 공유). `_ALLOWED_TRACK_UNSPECIFIED` 는 이미 검토된 pre-ORB
+    스크립트(track 생략, 기본값 신뢰) 예외다."""
+    offenders: list[str] = []
+    for path in sorted(_orb_scan_py_files()):
+        rel = os.path.relpath(path, REPO)
+        if rel in _ALLOWED_TRACK_UNSPECIFIED:
+            continue
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=path)
-        aliases = _research_load_call_names(tree)
-        rel = os.path.relpath(path, REPO)
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            func = node.func
-            if isinstance(func, ast.Name):
-                if func.id not in aliases:
-                    continue
-            elif isinstance(func, ast.Attribute):
-                if func.attr != "research_load":
-                    continue
-            else:
-                continue
-
-            if any(kw.arg is None for kw in node.keywords):
-                offenders.append(
-                    f"{rel}:{node.lineno}: **kwargs 언패킹으로 unlock/track 이 은닉될 수 있음")
-                continue
-            kw_names = {kw.arg for kw in node.keywords}
-            if "unlock" in kw_names:
-                offenders.append(f"{rel}:{node.lineno}: unlock 인자 존재")
-                continue
-            track_kw = next((kw for kw in node.keywords if kw.arg == "track"), None)
-            is_intraday_const = (
-                track_kw is not None
-                and isinstance(track_kw.value, ast.Name)
-                and track_kw.value.id == "TRACK_INTRADAY"
-            )
-            if not is_intraday_const:
-                offenders.append(f"{rel}:{node.lineno}: track 이 TRACK_INTRADAY 상수가 아님")
+        offenders.extend(_research_load_offenders_in_tree(tree, rel))
     assert offenders == [], offenders
 
 
 def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attribute_and_alias(
         tmp_path):
-    """거짓 가드 방지 — 위 스캐너가 실제로 **kwargs**·`ast.Attribute` 호출·별칭 import 를
-    탐지하는지 별도 fixture 로 증명한다(H1-a 가 재발하면 이 테스트가 먼저 죽는다)."""
+    """거짓 가드 방지 — 실제 스캔이 쓰는 것과 **같은 함수**(`_research_load_offenders_in_tree`,
+    R4-5)로 **kwargs**·`ast.Attribute` 호출·별칭 import 를 탐지하는지 증명한다. 이전 판은
+    판정 로직을 복제한 사본으로 검증해, 실제 스캐너가 약해져도(예: `kw.arg is None` 분기
+    제거) 이 증명 테스트가 독립적으로 계속 통과해 회귀를 놓쳤다(lane1 §6-B)."""
     offending_src = (
         "from src.history.oos_guard import research_load as rl\n"
         "from src.history.oos_guard import research_load\n"
@@ -612,46 +679,96 @@ def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attri
     aliases = _research_load_call_names(tree)
     assert "rl" in aliases and "research_load" in aliases
 
-    offenders: list[str] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Call):
-            continue
-        func = node.func
-        if isinstance(func, ast.Name):
-            if func.id not in aliases:
-                continue
-        elif isinstance(func, ast.Attribute):
-            if func.attr != "research_load":
-                continue
-        else:
-            continue
-        if any(kw.arg is None for kw in node.keywords):
-            offenders.append("kwargs")
-            continue
-        offenders.append("other")
-    # ast.walk 의 순회 순서에 의존하지 않는다 — rl(**_EXTRA) 는 kwargs 로, og.research_load(...)
-    # 는 그 외(track 불일치)로 정확히 하나씩 잡혀야 한다.
-    assert offenders.count("kwargs") == 1
-    assert offenders.count("other") == 1
+    offenders = _research_load_offenders_in_tree(tree, "offender.py")
+    kwargs_hits = [o for o in offenders if "kwargs" in o]
+    other_hits = [o for o in offenders if "kwargs" not in o]
+    # rl(**_EXTRA) 는 kwargs 은닉으로, og.research_load(...) 는 그 외(track 불일치)로
+    # 정확히 하나씩 잡혀야 한다(ast.walk 순회 순서에 의존하지 않는다).
+    assert len(kwargs_hits) == 1
+    assert len(other_hits) == 1
     assert len(offenders) == 2
+
+
+def test_orb_scan_catches_a_violation_placed_under_the_real_analysis_directory():
+    """R4-8(lane4 최우선, team-lead 재현) — 4-B 의 ORB 러너가 `analysis/` 에 놓일 수 있다
+    (선례: `analysis/screener_ranking_h4.py` 가 H4 결과 산출본이었다). team-lead 재현:
+    `analysis/orb_walkforward_runner.py` 에 `research_load(..., unlock=<날조>)` 를 배치하니
+    154개 테스트가 전부 통과하며 blind OOS 가 실제로 열렸다.
+
+    합성 fixture(위 테스트)와 별개로, **실제 `analysis/` 디렉터리**에 임시 위반 파일을 만들어
+    `_orb_scan_py_files`(스캔 대상 목록)와 `_research_load_offenders_in_tree`(판정) 가
+    end-to-end 로 실제로 잡는지 확인한다 — 끝나면 파일을 지운다(저장소에 남기지 않는다,
+    실패해도 `finally` 로 정리한다)."""
+    analysis_dir = os.path.join(REPO, "analysis")
+    assert os.path.isdir(analysis_dir), "analysis/ 디렉터리가 없다 — 전제가 깨졌다"
+    probe_path = os.path.join(analysis_dir, "_r4_8_scan_probe_scratch.py")
+    assert not os.path.exists(probe_path), "이전 실행의 잔여 스크래치 파일이 남아 있다"
+    probe_src = (
+        "from src.history.oos_guard import TRACK_INTRADAY, research_load\n"
+        "\n"
+        "\n"
+        "def bad_call(db_path, symbol):\n"
+        "    _EXTRA = {'unlock': object()}\n"
+        "    return research_load(db_path, symbol, '1m', purpose='performance',\n"
+        "                          track=TRACK_INTRADAY, **_EXTRA)\n"
+    )
+    try:
+        with open(probe_path, "w", encoding="utf-8") as f:
+            f.write(probe_src)
+
+        scanned = {os.path.relpath(p, REPO) for p in _orb_scan_py_files()}
+        rel = os.path.relpath(probe_path, REPO)
+        assert rel in scanned, "analysis/ 하위 파일이 스캔 대상 목록에 없다(R4-8 회귀)"
+
+        with open(probe_path, encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=probe_path)
+        offenders = _research_load_offenders_in_tree(tree, rel)
+        assert offenders != [], "analysis/ 하위 unlock 위반이 잡히지 않았다(R4-8 회귀)"
+    finally:
+        if os.path.exists(probe_path):
+            os.remove(probe_path)
+    assert not os.path.exists(probe_path)
 
 
 # --------------------------------------------------------------------------
 # 게이트 배선 — purpose="coverage" 문자열/직접 load_candles 참조 금지 (소스/AST 스캔)
+# R4-8 — 스캔 범위는 `_orb_scan_py_files`(src/scripts/analysis, 재귀) 로 이미 확장돼 있다.
 # --------------------------------------------------------------------------
+_PURPOSE_COVERAGE_RE = re.compile(r"""purpose\s*=\s*["']coverage["']""")
+
+
 def test_no_coverage_purpose_string_anywhere_in_orb_package():
+    """`_ALLOWED_COVERAGE_STRING` 은 이미 검토된 pre-ORB coverage-only 스크립트 예외다(게이트
+    자신의 정의처 포함) — 이 문자열 스캔은 AST 가 아니라 순수 텍스트 대조이므로 docstring
+    안의 언급도 잡는다.
+
+    R4-8 — 스캔 범위를 `src/`·`scripts/`·`analysis/` 전체로 넓히면서 패턴을
+    `purpose="coverage"`(공백 허용) 로 좁혔다. 예전엔 `"coverage" in src` 만 봐서(문자열
+    "coverage" 가 quote 안에 있기만 하면 잡음), ORB 와 무관하게 "coverage" 를 변수/딕셔너리
+    키로 쓰는 기존 스크립트(`scripts/h2b_backfill_analysis.py`·`scripts/h3_regime_analysis.py`
+    ·`src/runtime/isolation/manifest.py` — 데이터/세션 커버리지 통계, `research_load` 의
+    `purpose` 인자와 무관)까지 오탐했다. 실제 위협(`purpose="coverage"` 키워드 인자)만
+    정확히 잡는다."""
     offenders = []
-    for path in sorted(glob.glob(ORB_SRC_GLOB, recursive=True)):
+    for path in sorted(_orb_scan_py_files()):
+        rel = os.path.relpath(path, REPO)
+        if rel in _ALLOWED_COVERAGE_STRING:
+            continue
         with open(path, encoding="utf-8") as f:
             src = f.read()
-        if "coverage" in src and ('"coverage"' in src or "'coverage'" in src):
-            offenders.append(path)
+        if _PURPOSE_COVERAGE_RE.search(src):
+            offenders.append(rel)
     assert offenders == [], f"purpose=\"coverage\" 로 읽힐 수 있는 문자열 발견: {offenders}"
 
 
 def test_no_direct_load_candles_reference_in_orb_package():
+    """`_ALLOWED_LOAD_CANDLES_REF` 는 `tests/test_oos_guard_wiring.py` 의 `ALLOWED` 와 동일
+    (정의처·재노출·게이트 자신)."""
     offenders: dict[str, list[str]] = {}
-    for path in sorted(glob.glob(ORB_SRC_GLOB, recursive=True)):
+    for path in sorted(_orb_scan_py_files()):
+        rel = os.path.relpath(path, REPO)
+        if rel in _ALLOWED_LOAD_CANDLES_REF:
+            continue
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=path)
         refs = []
@@ -664,5 +781,5 @@ def test_no_direct_load_candles_reference_in_orb_package():
             elif isinstance(node, ast.Name) and node.id == "load_candles":
                 refs.append(f"L{node.lineno}: name")
         if refs:
-            offenders[path] = refs
+            offenders[rel] = refs
     assert offenders == {}, f"load_candles 직접 참조 발견: {offenders}"

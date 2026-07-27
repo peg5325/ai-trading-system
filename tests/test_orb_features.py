@@ -17,6 +17,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from src.history import exchange_calendar as cal
 from src.models import MARKET_US, Candle
 from src.research.orb.features import (
     DATA_EXCLUSION_REASONS,
@@ -32,6 +33,28 @@ from src.research.orb.features import (
 )
 
 ET = ZoneInfo("America/New_York")
+
+
+# --------------------------------------------------------------------------
+# R4-1(lane2 C12) — RvolWindow.push 가 이제 거래일 연속(및 R4-2 거래일 자체)을 강제하므로,
+# 임의 달력일 시퀀스(date(2024,1,1)+timedelta(days=k), 주말·공휴일 포함)로는 더 이상 fixture
+# 를 구성할 수 없다. 실제 거래일만 돌려주는 헬퍼 두 개로 대체한다.
+# --------------------------------------------------------------------------
+def _trading_days_from(start: date, n: int) -> tuple[date, ...]:
+    """`start`(포함, 거래일이어야 함)부터 연속 거래일 n개."""
+    end = start + timedelta(days=n * 3 + 20)   # 넉넉한 여유(주말·공휴일 감안)
+    days = tuple(cal.trading_days(start, end))
+    assert days and days[0] == start, f"{start} 는 거래일이 아니다"
+    return days[:n]
+
+
+def _trading_days_ending(end: date, n: int) -> tuple[date, ...]:
+    """`end`(포함, 거래일이어야 함)로 끝나는 연속 거래일 n개 — RvolWindow 사전 seed 가
+    `day` 바로 앞 거래일에서 끊기지 않게 한다(R4-1)."""
+    start = end - timedelta(days=n * 3 + 20)
+    days = tuple(cal.trading_days(start, end))
+    assert days and days[-1] == end, f"{end} 는 거래일이 아니다"
+    return days[-n:]
 
 
 def _bar(symbol: str, moment_et: datetime, *, o: float, h: float, low: float, c: float,
@@ -133,6 +156,20 @@ def test_opening_range_for_spec_raises_rather_than_silently_returning_wrong_day_
     mixed = tuple(complete_d1 + incomplete_d2)
     with pytest.raises(ValueError):
         opening_range_for_spec(mixed, minutes=15, day=d2)   # 호출자가 원한 건 d2 의 OR
+
+
+def test_opening_range_for_spec_raises_when_two_symbols_share_the_same_day():
+    """R4-6(lane3 q-1, team-lead 재현) — `len(closed_complete) > 1` 가드의 옛 주석이 "day 검증을
+    이미 통과한 뒤라 정상적으로는 도달하지 않는다"고 적었으나 틀렸다: `day` 검증은 **날짜만**
+    보고 symbol 은 보지 않으므로, 같은 날짜의 **두 종목**을 섞으면 실제로 발동한다
+    (`opening_range()` 는 (symbol, 거래일) 로 그룹핑하므로 종목이 다르면 그룹도 다르다).
+    가드 자신의 에러 메시지("여러 종목을 섞어 넘겼을 수 있다")가 가리키는 바로 그 경로다."""
+    d = date(2024, 3, 4)
+    aapl_bars = _minute_bars("AAPL", d, 9, 30, 16)
+    msft_bars = _minute_bars("MSFT", d, 9, 30, 16)
+    mixed = tuple(aapl_bars + msft_bars)
+    with pytest.raises(ValueError):
+        opening_range_for_spec(mixed, minutes=15, day=d)
 
 
 # --------------------------------------------------------------------------
@@ -258,6 +295,53 @@ def test_gap_for_day_raises_when_prev_day_is_not_the_calendar_previous_trading_d
 
 
 # --------------------------------------------------------------------------
+# R4-4(lane1 §6-A, team-lead 재현) — 570 하드코딩 방어를 형제 두 곳에 전파
+# --------------------------------------------------------------------------
+def test_gap_for_day_today_open_minute_is_not_hardcoded_570(monkeypatch):
+    """C5 는 `loading.py` 의 570 하드코딩만 고쳤다. 형제 두 곳(`gap_for_day` 의 today_open,
+    `regular_window_volume` 의 RVOL 창)은 `regular_session_window("US")` 를 하드코딩(570)
+    으로 되돌려도 기존 테스트가 전부 통과했다(team-lead 실측: 151 passed — 생존).
+    `regular_session_window` 를 실제로 몽키패치해 `gap_for_day` 가 그 값을 실제로 쓰는지
+    확인한다(하드코딩이면 이 몽키패치와 무관하게 570 을 봐서 today_open 을 못 찾는다)."""
+    import src.research.orb.features as features_mod
+
+    def fake_window(market: str) -> tuple[int, int]:
+        return (600, 960)   # 개장을 570 대신 600 으로
+
+    monkeypatch.setattr(features_mod, "regular_session_window", fake_window)
+    d = date(2024, 3, 4)
+    prev_d = date(2024, 3, 1)
+    today_open_at_600 = _bar("AAPL", datetime(d.year, d.month, d.day, 10, 0, tzinfo=ET),
+                             o=777.0, h=777.0, low=777.0, c=777.0, v=1)   # minute-of-day=600
+    prev_bars = _minute_bars("AAPL", prev_d, 9, 30, 390, base=100.0)
+    gap, reasons = gap_for_day(today_regular_1m=(today_open_at_600,), day=d, prev_day=prev_d,
+                              prev_day_regular_1m=tuple(prev_bars))
+    assert reasons == ()      # 하드코딩(570)이면 이 600분 봉을 today_open 으로 못 찾아 배제된다
+    prev_close = prev_bars[-1].close
+    assert gap == pytest.approx((777.0 - prev_close) / prev_close)
+
+
+def test_regular_window_volume_open_minute_is_not_hardcoded_570(monkeypatch):
+    """R4-4 — `regular_window_volume`(RVOL 창)의 형제 하드코딩도 propagate 한다(위 테스트와
+    같은 회귀 유형)."""
+    import src.research.orb.features as features_mod
+
+    def fake_window(market: str) -> tuple[int, int]:
+        return (600, 960)
+
+    monkeypatch.setattr(features_mod, "regular_session_window", fake_window)
+    d = date(2024, 3, 4)
+    in_window_at_600 = [
+        _bar("AAPL", datetime(d.year, d.month, d.day, 10, m, tzinfo=ET),
+            o=1, h=1, low=1, c=1, v=100.0 + m)
+        for m in range(15)
+    ]   # 10:00..10:14 = minute-of-day 600..614(몽키패치된 개장 기준 창)
+    total, observed = regular_window_volume(tuple(in_window_at_600), day=d, minutes=15)
+    assert observed == 15    # 하드코딩(570)이면 570~584 창을 봐서 0 이 나온다
+    assert total == sum(b.volume for b in in_window_at_600)
+
+
+# --------------------------------------------------------------------------
 # RVOL — 분자(미래 배제) / 분모(불완전 배제) / median / insufficient
 # --------------------------------------------------------------------------
 def test_cum_today_volume_excludes_bars_beyond_the_opening_window():
@@ -281,13 +365,14 @@ def test_window_sum_for_lookback_requires_full_window():
 
 def test_rvol_denominator_excludes_incomplete_lookback_days_and_changes_value():
     """불완전한 과거일을 분모에 포함하면(v.s. 제외) RVOL 값이 실제로 달라져야 한다."""
+    days = _trading_days_from(date(2024, 1, 2), 16)   # R4-1 — 연속 거래일 16개(14+1+query)
     window = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
     complete_sums = [1000.0 + k * 10 for k in range(14)]
     for k, s in enumerate(complete_sums):
-        window.push(date(2024, 1, 1) + timedelta(days=k), s)
+        window.push(days[k], s)
     # 15번째 날은 창이 불완전 — None 으로 push(제외).
-    window.push(date(2024, 1, 15), None)
-    query_day = date(2024, 1, 16)
+    window.push(days[14], None)
+    query_day = days[15]
     excluded_rvol = window.rvol(query_day, today_sum=2000.0)
     assert excluded_rvol is None       # 유효일 14 < 15 → insufficient
 
@@ -295,24 +380,24 @@ def test_rvol_denominator_excludes_incomplete_lookback_days_and_changes_value():
     # 15 로 채워져 RVOL 이 산출된다 — 이 값이 올바른 처리(None)와 달라야 한다(회귀 감지력).
     window_wrong = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
     for k, s in enumerate(complete_sums):
-        window_wrong.push(date(2024, 1, 1) + timedelta(days=k), s)
-    window_wrong.push(date(2024, 1, 15), 50.0)     # 불완전한 날의 부분합을 그대로 넣은 오류 시나리오
+        window_wrong.push(days[k], s)
+    window_wrong.push(days[14], 50.0)     # 불완전한 날의 부분합을 그대로 넣은 오류 시나리오
     wrong_rvol = window_wrong.rvol(query_day, today_sum=2000.0)
     assert wrong_rvol is not None
     assert wrong_rvol != excluded_rvol
 
 
 def test_rvol_insufficient_at_14_valid_days_computed_at_15():
-    base_day = date(2024, 1, 1)
+    days = _trading_days_from(date(2024, 1, 2), 16)
     win14 = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
     for k in range(14):
-        win14.push(base_day + timedelta(days=k), 100.0 + k)
-    assert win14.rvol(base_day + timedelta(days=14), 200.0) is None
+        win14.push(days[k], 100.0 + k)
+    assert win14.rvol(days[14], 200.0) is None
 
     win15 = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
     for k in range(15):
-        win15.push(base_day + timedelta(days=k), 100.0 + k)
-    result = win15.rvol(base_day + timedelta(days=15), 200.0)
+        win15.push(days[k], 100.0 + k)
+    result = win15.rvol(days[15], 200.0)
     assert result is not None
     vals = sorted(100.0 + k for k in range(15))
     median = vals[7]                      # n=15(홀수) → 가운데 값
@@ -322,20 +407,22 @@ def test_rvol_insufficient_at_14_valid_days_computed_at_15():
 def test_rvol_median_of_even_sample_is_midpoint_average():
     vals = [10.0, 20.0, 5.0, 15.0, 12.0, 8.0, 30.0, 25.0, 1.0, 2.0, 3.0, 4.0, 6.0, 7.0, 9.0, 11.0]
     assert len(vals) == 16                # 짝수 표본
+    days = _trading_days_from(date(2024, 2, 1), 17)
     window = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
     for k, v in enumerate(vals):
-        window.push(date(2024, 2, 1) + timedelta(days=k), v)
-    result = window.rvol(date(2024, 2, 1) + timedelta(days=len(vals)), 100.0)
+        window.push(days[k], v)
+    result = window.rvol(days[len(vals)], 100.0)
     s = sorted(vals)
     expected_median = (s[7] + s[8]) / 2.0     # 가운데 두 값의 산술평균
     assert result == pytest.approx(100.0 / expected_median)
 
 
 def test_rvol_zero_median_is_undefined():
+    days = _trading_days_from(date(2024, 3, 1), 16)
     window = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
     for k in range(15):
-        window.push(date(2024, 3, 1) + timedelta(days=k), 0.0)
-    assert window.rvol(date(2024, 3, 1) + timedelta(days=15), 100.0) is None
+        window.push(days[k], 0.0)
+    assert window.rvol(days[15], 100.0) is None
 
 
 def test_rvol_window_push_rejects_out_of_order_and_duplicate_days():
@@ -345,6 +432,67 @@ def test_rvol_window_push_rejects_out_of_order_and_duplicate_days():
         window.push(date(2024, 1, 10), 200.0)     # 중복
     with pytest.raises(ValueError):
         window.push(date(2024, 1, 9), 50.0)       # 역순
+
+
+# --------------------------------------------------------------------------
+# R4-1(lane2 C12 후속, 권고안 A) — RvolWindow.push 가 거래일 연속성을 강제한다
+# --------------------------------------------------------------------------
+def test_rvol_window_push_rejects_a_gap_that_skips_a_trading_day():
+    """R4-1 — 4-B 가 데이터 없는 종목-일에서 `continue` 하면(=그 날 push 를 건너뛰면) lookback
+    이 조용히 캘린더 20 → 39 거래일로 늘어나던 구멍을 닫는다. 거래일 하나를 건너뛰고 push
+    하면 즉시 예외."""
+    days = _trading_days_from(date(2024, 1, 2), 3)   # days[0], days[1], days[2] 연속 거래일
+    window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
+    window.push(days[0], 100.0)
+    with pytest.raises(ValueError):
+        window.push(days[2], 200.0)   # days[1] 을 건너뛰었다 — 연속이 아님
+
+
+def test_rvol_window_push_allows_consecutive_trading_days_including_across_a_weekend():
+    """R4-1 정상 경로 확인(lane2 프로토타입) — warm-up→평가·fold 경계·dev→OOS 는 전부 연속
+    거래일이므로 주말을 건너뛰는 정상 진행은 막히면 안 된다."""
+    days = _trading_days_from(date(2024, 1, 2), 6)   # 화수목금 + 주말 건너뛴 다음 월요일 포함
+    window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
+    for d in days[:-1]:
+        window.push(d, 100.0)
+    result = window.rvol(days[-1], 150.0)
+    assert result == pytest.approx(1.5)   # 이전 값이 전부 100 이므로 median=100, 150/100=1.5
+
+
+# --------------------------------------------------------------------------
+# R4-2(lane3 q-3) — 비거래일(휴장일)을 day 로 넘기면 거부한다
+# --------------------------------------------------------------------------
+def test_rvol_window_push_rejects_a_holiday_even_as_the_first_push():
+    """R4-2 — 휴장일은 연속성 검사(R4-1)가 적용되기도 전(첫 push)에 그 자체로 거부돼야 한다."""
+    window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
+    with pytest.raises(ValueError):
+        window.push(date(2024, 7, 4), 100.0)   # 독립기념일, 휴장 — 첫 push 인데도 거부
+
+
+def test_rvol_window_push_rejects_holiday_immediately_not_only_on_the_next_push():
+    """R4-2 — `previous_trading_day` 기반 연속성 검사(R4-1)만으로는 휴장일 자체를 못 잡는다:
+    `previous_trading_day(휴장일)` 이 마지막 push 와 우연히 일치할 수 있어서다(휴장일 다음
+    날 push 할 때가 돼서야 뒤늦게 어긋난 메시지로 터진다). `is_trading_day(day)` 를 독립적으로
+    검사해 위반 시점에 바로 잡는다."""
+    window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
+    window.push(date(2024, 7, 3), 100.0)   # 수요일, 조기폐장이지만 정상 거래일
+    with pytest.raises(ValueError):
+        # 목요일 7/4 는 독립기념일 휴장 — previous_trading_day(7/4) == 7/3(직전 push 일)이라
+        # R4-1 의 연속성 검사만으로는 통과했을 자리다.
+        window.push(date(2024, 7, 4), 200.0)
+
+
+def test_compute_symbol_day_features_raises_when_day_is_not_a_trading_day():
+    """R4-2 — `compute_symbol_day_features` 도 `day` 자체가 거래일인지 독립적으로 검사한다
+    (휴장일을 예외 없이 통과시켜 그 날을 RvolWindow 에 유령 push 하던 구멍)."""
+    window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
+    with pytest.raises(ValueError):
+        compute_symbol_day_features(
+            symbol="AAPL", day=date(2024, 7, 4),   # 독립기념일, 휴장
+            today_day_candles=(), today_regular_1m=(),
+            prev_day=None, prev_day_regular_1m=(),
+            opening_range_minutes=15, rvol_window=window,
+        )
 
 
 def test_rvol_window_constructor_rejects_non_positive_params():
@@ -357,11 +505,12 @@ def test_rvol_window_constructor_rejects_non_positive_params():
 
 
 def test_rvol_window_trims_history_beyond_lookback():
+    days = _trading_days_from(date(2024, 1, 2), 11)
     window = RvolWindow(lookback_days=5, min_valid_days=3, minutes=15)
     for k in range(10):
-        window.push(date(2024, 1, 1) + timedelta(days=k), 100.0 + k)
+        window.push(days[k], 100.0 + k)
     # 내부 이력은 최근 5개만 유지돼야(공개 API 로는 rvol 결과가 최근 창만 반영하는지로 확인).
-    result = window.rvol(date(2024, 1, 1) + timedelta(days=10), 1000.0)
+    result = window.rvol(days[10], 1000.0)
     recent_five = [100.0 + k for k in range(5, 10)]
     median = sorted(recent_five)[2]
     assert result == pytest.approx(1000.0 / median)
@@ -385,7 +534,7 @@ def test_rvol_raises_if_day_already_pushed():
     예외도 사유 기록도 없이 조용히 다른(부풀려진) RVOL 을 낸다(독립 리뷰 실증: 1.5500→1.4588).
     """
     window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
-    d0 = date(2024, 1, 1)
+    d0 = date(2024, 1, 2)   # 실제 거래일(R4-2 — 1/1 은 신정 휴장이라 더 이상 쓸 수 없다)
     window.push(d0, 100.0)
     with pytest.raises(ValueError):
         window.rvol(d0, 200.0)                       # 오늘이 이미 push 됨
@@ -398,7 +547,7 @@ def test_rvol_causality_error_message_says_after_not_before():
     옳게 적혀 있는데, `rvol()` 메시지만 "이전"으로 반대로 적혀 있었다(실제 유효 조건은
     `day > last_day` 이므로 '이후'가 맞다). 문구가 다시 뒤집히면 이 테스트가 죽는다."""
     window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
-    d0 = date(2024, 1, 1)
+    d0 = date(2024, 1, 2)   # 실제 거래일(R4-2 — 1/1 은 신정 휴장이라 더 이상 쓸 수 없다)
     window.push(d0, 100.0)
     with pytest.raises(ValueError, match="이후여야 한다"):
         window.rvol(d0, 200.0)
@@ -461,8 +610,9 @@ def test_compute_symbol_day_features_hand_calculated_all_present():
     prev_full_day = tuple(_minute_bars("AAPL", prev_d, 9, 30, 390, base=90.0))
 
     window = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
-    for k in range(15):
-        window.push(date(2024, 1, 1) + timedelta(days=k), 5000.0 + k * 100)
+    seed_days = _trading_days_ending(prev_d, 15)   # R4-1 — day 바로 앞 거래일에서 끊기지 않게
+    for k, sd in enumerate(seed_days):
+        window.push(sd, 5000.0 + k * 100)
 
     feats = compute_symbol_day_features(
         symbol="AAPL", day=d,
@@ -520,8 +670,9 @@ def test_compute_symbol_day_features_propagates_gap_reasons_when_prev_day_presen
     prev_d = date(2024, 3, 1)
     today_full_day = tuple(_minute_bars("AAPL", d, 9, 30, 390, base=100.0))   # OR 완전
     window = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
-    for k in range(15):
-        window.push(date(2024, 1, 1) + timedelta(days=k), 5000.0 + k * 100)
+    seed_days = _trading_days_ending(prev_d, 15)   # R4-1 — day 바로 앞 거래일에서 끊기지 않게
+    for k, sd in enumerate(seed_days):
+        window.push(sd, 5000.0 + k * 100)
 
     feats = compute_symbol_day_features(
         symbol="AAPL", day=d,
@@ -547,8 +698,9 @@ def test_compute_symbol_day_features_propagates_gap_reasons_when_todays_open_mis
     today_regular_missing_open = tuple(_minute_bars("AAPL", d, 9, 31, 389, base=100.0))  # gap 용
     prev_full_day = tuple(_minute_bars("AAPL", prev_d, 9, 30, 390, base=90.0))
     window = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
-    for k in range(15):
-        window.push(date(2024, 1, 1) + timedelta(days=k), 5000.0 + k * 100)
+    seed_days = _trading_days_ending(prev_d, 15)   # R4-1 — day 바로 앞 거래일에서 끊기지 않게
+    for k, sd in enumerate(seed_days):
+        window.push(sd, 5000.0 + k * 100)
 
     feats = compute_symbol_day_features(
         symbol="AAPL", day=d,
@@ -574,8 +726,9 @@ def test_compute_symbol_day_features_incomplete_opening_range_reason_appears_exa
     today_missing_open = tuple(_minute_bars("AAPL", d, 9, 31, 389, base=100.0))   # 09:30 결측
     prev_full_day = tuple(_minute_bars("AAPL", prev_d, 9, 30, 390, base=90.0))
     window = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
-    for k in range(15):
-        window.push(date(2024, 1, 1) + timedelta(days=k), 5000.0 + k * 100)
+    seed_days = _trading_days_ending(prev_d, 15)   # R4-1 — day 바로 앞 거래일에서 끊기지 않게
+    for k, sd in enumerate(seed_days):
+        window.push(sd, 5000.0 + k * 100)
 
     feats = compute_symbol_day_features(
         symbol="AAPL", day=d,
@@ -593,6 +746,32 @@ def test_symbol_day_features_is_frozen():
                               gap=None, rvol=None, excluded_reasons=())
     with pytest.raises(dataclasses.FrozenInstanceError):
         feats.symbol = "MSFT"     # frozen dataclass → 변경 불가
+
+
+# --------------------------------------------------------------------------
+# R4-3(lane 1·2·3 전원 수렴) — `is_eligible` 이 excluded_reasons == () 를 타입에 올린다
+# --------------------------------------------------------------------------
+def test_is_eligible_true_when_excluded_reasons_empty():
+    feats = SymbolDayFeatures(symbol="AAPL", day=date(2024, 3, 4), opening_range=None,
+                              gap=None, rvol=None, excluded_reasons=())
+    assert feats.is_eligible is True
+
+
+def test_is_eligible_false_when_any_excluded_reason_present():
+    feats = SymbolDayFeatures(symbol="AAPL", day=date(2024, 3, 4), opening_range=None,
+                              gap=None, rvol=None,
+                              excluded_reasons=("insufficient_rvol_lookback",))
+    assert feats.is_eligible is False
+
+
+def test_is_eligible_is_not_the_same_as_meeting_the_candidate_thresholds():
+    """R4-3 이름 주의 — `is_eligible=True` 는 §5.5 데이터 배제가 없다는 뜻일 뿐, §5 의
+    gap/RVOL 임계(|gap|>=0.30%, RVOL>=1.5)를 만족한다는 뜻이 아니다. 이 값들 자체는 4-A
+    범위 밖(4-B 의 후보 판정)이므로, 여기서는 그 구분이 코드 계약(docstring)으로만
+    존재함을 실증한다 — gap 이 임계 미만이어도 excluded_reasons 는 비어 있을 수 있다."""
+    feats = SymbolDayFeatures(symbol="AAPL", day=date(2024, 3, 4), opening_range=None,
+                              gap=0.0001, rvol=0.2, excluded_reasons=())   # 임계 미달값들
+    assert feats.is_eligible is True   # 데이터 사유는 없다 — 그러나 후보 자격과는 별개
 
 
 def test_regular_window_volume_helper_matches_cum_today_and_lookback():

@@ -169,6 +169,21 @@ def previous_trading_day(d: date) -> date:
     return prev
 
 
+def require_trading_day(d: date) -> None:
+    """`d` 가 거래일이 아니면 raise(fail-closed, v1.3 — R4-2, lane3 q-3 지적).
+
+    `previous_trading_day` 만으로는 이게 안 닫힌다: 그 함수는 `d` **자신**이 거래일인지는
+    보지 않고 그 직전만 계산하므로, 휴장일을 그대로 push/조립 대상으로 넘겨도 `previous_
+    trading_day(휴장일)` 계산 자체는 정상 성립해 그 시점엔 통과한다 — 연속성 위반은
+    **다음** push 에서야(휴장일이 잘못 `_last_day` 가 된 뒤) 뒤늦게 터진다. `RvolWindow.push`
+    ·`compute_symbol_day_features` 양쪽에서 이 헬퍼로 `d` 자체를 독립적으로 검사해, 위반
+    시점에 바로 잡는다.
+    """
+    if not cal.is_trading_day(d):
+        raise ValueError(
+            f"{d.isoformat()} 는 거래일이 아니다(휴장일) — push/조립 대상이 아니다(fail-closed).")
+
+
 def minute_of_day(candle: Candle) -> int:
     """`ts_exchange` 의 minute-of-day(0~1439) — 단일 계산 지점(v1.1, 독립 리뷰 D3 반영).
 

@@ -280,3 +280,36 @@ def test_missing_individual_hash_field_raises_contract_integrity_error(tmp_path)
             contract={"data_identity": {"snapshot_file_sha256": "a" * 64}},  # 나머지 3개 없음
             snapshot_path=str(tmp_path / "x"),
             raw_root=str(tmp_path / "y"), manifest_path=str(tmp_path / "z"))
+
+
+# --------------------------------------------------------------------------
+# R4-9(lane4 I7, Low) — snapshot content 검증은 스냅샷을 읽기 전용으로 연다
+# --------------------------------------------------------------------------
+def test_snapshot_content_check_opens_the_database_read_only(monkeypatch, tmp_path):
+    """`mode=ro` → `rw` 변조가 라운드 2·3 연속 생존했다 — 검증 대상 아티팩트를 읽기 전용으로
+    연다는 성질에 테스트가 없었다. 운영 환경의 검증 대상은 7.3GB canonical 스냅샷이며, 이를
+    쓰기 가능하게 여는 것은 사전등록 절대규칙("스냅샷 파일 수정 금지")과 직결된다.
+
+    `sqlite3.connect` 를 몽키패치해 `identity.py` 가 실제로 넘기는 URI 를 가로챈다 — 소스
+    문자열을 정적으로 대조하는 것보다 강하다(그 코드 경로가 실제로 실행돼야 통과한다)."""
+    snap_path = tmp_path / "snap.sqlite"
+    file_sha, content_sha = _make_snapshot_db(str(snap_path))
+
+    captured_uris: list[str] = []
+    real_connect = sqlite3.connect
+
+    def spying_connect(database, *args, **kwargs):
+        if isinstance(database, str) and database.startswith("file:"):
+            captured_uris.append(database)
+        return real_connect(database, *args, **kwargs)
+
+    monkeypatch.setattr(sqlite3, "connect", spying_connect)
+
+    fake = _fake_contract(snapshot_file_sha=file_sha, snapshot_content_sha=content_sha,
+                          manifest_sha="whatever", raw_sha="whatever")
+    ident.verify_snapshot_identity(
+        contract=fake, snapshot_path=str(snap_path),
+        raw_root=str(tmp_path / "raw_missing"), manifest_path=str(tmp_path / "m.json"))
+
+    assert captured_uris, "snapshot content 검증이 URI 스타일 sqlite3.connect 를 쓰지 않았다"
+    assert all("mode=ro" in uri for uri in captured_uris), captured_uris
