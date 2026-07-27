@@ -1,0 +1,705 @@
+{
+  "schema": "prereg-orb/contract/v1",
+  "version": "1.10",
+  "issue": 89,
+  "document": "docs/research/PREREG_P0_US30_ORB_V1.md",
+  "results_examined": false,
+  "prerequisites": {
+    "clean_snapshot_merge_commit": "e2e1c27",
+    "resampler_parity_merge_commit": "8bff004"
+  },
+  "data_identity": {
+    "snapshot_basename": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+    "snapshot_file_sha256": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+    "snapshot_content_sha256": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+    "manifest_data_sha256": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+    "raw_content_sha256": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+    "collection_run_id": "p0-us30-1m-20260721-r82",
+    "as_of": "2026-07-21",
+    "source_interval": "1m",
+    "allowed_sessions": [
+      "PRE",
+      "REGULAR",
+      "POST"
+    ],
+    "hash_mismatch_policy": "fail_closed"
+  },
+  "universe": {
+    "market_etf": [
+      "SPY",
+      "QQQ",
+      "IWM",
+      "DIA"
+    ],
+    "sector_etf": [
+      "XLK",
+      "XLF",
+      "XLE",
+      "XLV",
+      "XLI",
+      "XLY",
+      "XLU",
+      "SMH"
+    ],
+    "large_cap": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "AMD",
+      "AVGO",
+      "AMZN",
+      "META",
+      "GOOGL",
+      "TSLA",
+      "MU",
+      "NFLX",
+      "CRM",
+      "PLTR",
+      "VST"
+    ],
+    "leveraged_inverse": [
+      "TQQQ",
+      "SQQQ",
+      "SOXL",
+      "SOXS"
+    ],
+    "exposure_families": {
+      "QQQ_FAMILY": [
+        "QQQ",
+        "TQQQ",
+        "SQQQ"
+      ],
+      "SOX_FAMILY": [
+        "SMH",
+        "SOXL",
+        "SOXS"
+      ]
+    },
+    "generalization": "fixed 30-symbol high-liquidity sample as of 2026-07-21; not point-in-time; no catalyst/news data"
+  },
+  "windows": {
+    "development_data_start": "2023-04-20",
+    "development_data_end": "2026-01-20",
+    "development_data_trading_days": 690,
+    "warmup_trading_days": 20,
+    "development_eval_start": "2023-05-18",
+    "development_eval_end": "2026-01-20",
+    "development_eval_trading_days": 670,
+    "blind_oos_start": "2026-01-21",
+    "blind_oos_end": "2026-07-21",
+    "blind_oos_trading_days": 125,
+    "boundary_inclusive": true,
+    "calendar_valid_start": "2023-01-01",
+    "calendar_valid_end": "2026-12-31"
+  },
+  "folds": {
+    "block_trading_days": 63,
+    "anchor": "end",
+    "remainder_absorbed_by": "earliest_fold",
+    "train_trading_days": 0,
+    "train_rationale": "no parameter is estimated from data; folds measure time stability only",
+    "embargo_trading_days_between_folds": 0,
+    "oos_warmup_may_use_pre_oos_bars": true,
+    "development_may_use_oos_bars": false,
+    "boundaries": [
+      {
+        "fold": "F01",
+        "start": "2023-05-18",
+        "end": "2023-10-13",
+        "trading_days": 103
+      },
+      {
+        "fold": "F02",
+        "start": "2023-10-16",
+        "end": "2024-01-16",
+        "trading_days": 63
+      },
+      {
+        "fold": "F03",
+        "start": "2024-01-17",
+        "end": "2024-04-16",
+        "trading_days": 63
+      },
+      {
+        "fold": "F04",
+        "start": "2024-04-17",
+        "end": "2024-07-17",
+        "trading_days": 63
+      },
+      {
+        "fold": "F05",
+        "start": "2024-07-18",
+        "end": "2024-10-15",
+        "trading_days": 63
+      },
+      {
+        "fold": "F06",
+        "start": "2024-10-16",
+        "end": "2025-01-16",
+        "trading_days": 63
+      },
+      {
+        "fold": "F07",
+        "start": "2025-01-17",
+        "end": "2025-04-17",
+        "trading_days": 63
+      },
+      {
+        "fold": "F08",
+        "start": "2025-04-21",
+        "end": "2025-07-21",
+        "trading_days": 63
+      },
+      {
+        "fold": "F09",
+        "start": "2025-07-22",
+        "end": "2025-10-17",
+        "trading_days": 63
+      },
+      {
+        "fold": "F10",
+        "start": "2025-10-20",
+        "end": "2026-01-20",
+        "trading_days": 63
+      }
+    ],
+    "development_early_close_days": [
+      "2023-07-03",
+      "2023-11-24",
+      "2024-07-03",
+      "2024-11-29",
+      "2024-12-24",
+      "2025-07-03",
+      "2025-11-28",
+      "2025-12-24"
+    ],
+    "blind_oos_early_close_days": []
+  },
+  "spec": {
+    "primary": {
+      "opening_range_minutes": 15,
+      "window_et": "09:30:00-09:44:59",
+      "authority": "decides_go_nogo"
+    },
+    "sensitivity": {
+      "opening_range_minutes": 5,
+      "window_et": "09:30:00-09:34:59",
+      "authority": "diagnostic_only"
+    },
+    "sensitivity_may_rescue_primary": false,
+    "decision_bar_minutes": 5,
+    "decision_bar_min_bars": 1
+  },
+  "candidate": {
+    "gap": {
+      "definition": "(first REGULAR 09:30 1m open - previous trading day last REGULAR 1m close at or before regular_close_minute(that day)) / previous close",
+      "threshold_abs": 0.003,
+      "dividend_unadjusted_noise_acknowledged": true
+    },
+    "rvol": {
+      "definition": "cumulative REGULAR volume 09:30..opening_range_end / median of same-clock cumulative volume over prior 20 trading days",
+      "lookback_trading_days": 20,
+      "min_valid_lookback_days": 15,
+      "threshold": 1.5,
+      "prior_days_require_full_window": true,
+      "median_even_sample": "midpoint average"
+    },
+    "extra_price_or_liquidity_filter": null,
+    "uses_premarket": false,
+    "exclusion_reasons": [
+      "incomplete_opening_range",
+      "no_previous_regular_close",
+      "insufficient_rvol_lookback",
+      "opening_range_not_closed"
+    ],
+    "excluded_symbol_days_are_recorded": true,
+    "opening_range_completeness_coverage_check": {
+      "sampled_symbol_days": 120,
+      "complete_pct": 97.5,
+      "excluded_pct": 2.5,
+      "scope": "development window only, coverage purpose, bar counts only",
+      "measures_only": [
+        "incomplete_opening_range",
+        "post_bar_presence"
+      ],
+      "lookback_validity_unmeasured": true,
+      "reproduction_script": "scripts/prereg_orb_coverage_probe.py",
+      "receipt": "docs/research/PREREG_P0_US30_ORB_COVERAGE_PROBE.json",
+      "eod_fallback_exposure_without_post_pct": 0.0,
+      "eod_fallback_exposure_is_sample_estimate": true,
+      "eod_fallback_rule_of_three_upper_bound_pct": 2.5
+    }
+  },
+  "signal": {
+    "breakout": "completed 5m decision bar close strictly greater than OR_high",
+    "buffer": 0.0,
+    "touch_fill": false,
+    "extra_confirmation_bars": 0,
+    "direction": "long_only",
+    "naked_short_individual_stocks": false,
+    "downside_exposure_via": [
+      "SQQQ",
+      "SOXS"
+    ],
+    "or_low_used_for": "stop_only",
+    "fill": "open_of_next_completed_decision_bar",
+    "signal_bar_fill": false,
+    "gap_through_entry": "fill_at_next_bar_open_no_price_improvement",
+    "chase_cap": null,
+    "max_entry_minutes_before_close": 90,
+    "expired_signal": "discarded",
+    "max_trades_per_symbol_per_day": 1,
+    "reentry_same_day": false,
+    "max_entry_cutoff_applies_to": "fill_bar_start",
+    "capacity_skipped_signal_requeued": false,
+    "trading_day_basis": "ET",
+    "max_entry_boundary_inclusive": true,
+    "missing_next_scheduled_bar": "discard_signal"
+  },
+  "portfolio": {
+    "rank_keys": [
+      {
+        "key": "rvol",
+        "order": "desc"
+      },
+      {
+        "key": "abs_gap",
+        "order": "desc"
+      },
+      {
+        "key": "symbol",
+        "order": "asc"
+      }
+    ],
+    "composite_score": null,
+    "order_invariant": true,
+    "max_positions": 2,
+    "max_portfolio_effective_pct": 0.5,
+    "max_symbol_effective_pct": 0.3,
+    "max_symbol_notional_pct": 0.2,
+    "max_positions_per_exposure_family": 1,
+    "insufficient_capacity": "cap_quantity_then_skip_only_if_qty_lt_1",
+    "family_cap_includes_pending_same_bar_picks": true,
+    "slot_allocation_is_arrival_time_priority": true,
+    "same_bar_fill_order": [
+      "exits",
+      "entries"
+    ],
+    "gate_population": "full_portfolio_including_leveraged",
+    "skipped_reason_vocabulary": [
+      "one_r_not_positive",
+      "qty_lt_1",
+      "family_cap",
+      "slot_cap",
+      "signal_expired"
+    ],
+    "skipped_reasons_are_not_defects": true,
+    "binding_cap_recorded_separately": true
+  },
+  "risk": {
+    "one_r": "entry - OR_low",
+    "reject_if_one_r_not_positive": true,
+    "stop": "OR_low",
+    "target": "entry + 2.0R",
+    "target_r_multiple": 2.0,
+    "risk_budget_pct_of_equity": 0.01,
+    "sizing": "floor(min(risk_budget/one_r, notional_cap_qty, effective_cap_qty, portfolio_cap_qty))",
+    "partial_take_profit": false,
+    "trailing_stop": false,
+    "averaging_down": false,
+    "scale_in_max": 0,
+    "same_bar_stop_and_target": "stop_first_conservative",
+    "gap_through_stop": "fill_at_bar_open",
+    "time_stop": null,
+    "eod_flatten_minutes_before_close": 10,
+    "eod_decision_then_next_bar_open": true,
+    "overnight": false,
+    "session_end_bucket_policy": "post_inclusive_load",
+    "tradable_sessions": [
+      "REGULAR"
+    ],
+    "stale_bars_to_force_exit": 3,
+    "equity_base": "fixed_initial_capital",
+    "limits_applied_as": "cap_not_block",
+    "skip_if_qty_lt": 1,
+    "exit_priority": [
+      "stop",
+      "eod",
+      "target"
+    ],
+    "live_semantics_reference": "src/risk/risk_manager.py RC_QTY_REDUCED (reduce, not block)",
+    "entry_bar_is_scanned_for_exits": true,
+    "intrabar_touch_fill": "at_level",
+    "gap_through_target": "fill_at_bar_open",
+    "exit_priority_applies_when": "no level already through at bar open",
+    "current_effective_exposure_basis": "entry_fill_cost",
+    "exit_evaluation_timeframe_minutes": 5,
+    "eod_must_use_exchange_calendar": true,
+    "do_not_reuse_in_eod_flatten_window": true,
+    "resting_orders_not_implemented_live": true,
+    "paper_comparison_requires_resting_orders": true,
+    "risk_config_items_disabled": [
+      "daily_loss_limit_pct",
+      "max_drawdown_pct_entry_block",
+      "max_consecutive_losses",
+      "reentry_cooldown",
+      "block_all_entries_in_eod_window"
+    ],
+    "eod_flatten_minutes_before_close_owner": "ExitConfig (prereg-fixed at 10, not inherited from code default)",
+    "current_effective_exposure_includes_same_bar_accepted": true,
+    "eod_fallback": {
+      "price": "close of the last existing REGULAR decision bar starting before regular_close_minute(d)",
+      "if_none": "exclude trade as unclosable and count in defect numerator",
+      "not_lookahead_because": "EOD exit is mandatory, not chosen from future data"
+    }
+  },
+  "costs": {
+    "round_trip_pct_points": {
+      "low": 0.14,
+      "official": 0.34,
+      "stress": 0.68
+    },
+    "allocation": {
+      "entry": 0.5,
+      "exit": 0.5
+    },
+    "basis": "notional",
+    "includes": [
+      "commission",
+      "slippage",
+      "spread"
+    ],
+    "additional_fee_on_top": false,
+    "official_level": "official"
+  },
+  "development_gate": {
+    "D1_min_trades": 536,
+    "D2_min_trading_days_with_trade": 322,
+    "D3_net_expectancy_gt": 0,
+    "D4_profit_factor_gte": 1.2,
+    "D5_abs_mdd_lte": 0.1,
+    "D6_min_positive_folds": 7,
+    "D6_total_folds": 10,
+    "D7_stress_cumulative_pnl_gte": 0,
+    "D8_parameter_cliff": "opposite_sign_variants_lte_1",
+    "D9_data_defects": "see_defect_policy",
+    "on_failure": {
+      "open_blind_oos": false,
+      "modify_rules": false,
+      "verdict": "NO_SELECTION"
+    },
+    "rate_consistency_note": "D1/D2 = OOS O4/O3 rates scaled by 670/125",
+    "D6_zero_trade_fold_counts_as_not_positive": true
+  },
+  "parameter_cliff_neighborhood": {
+    "is_search": false,
+    "can_change_primary": false,
+    "one_axis_only": true,
+    "variants": [
+      {
+        "axis": "rvol_threshold",
+        "primary": 1.5,
+        "neighbors": [
+          1.3,
+          1.7
+        ]
+      },
+      {
+        "axis": "gap_threshold_abs",
+        "primary": 0.003,
+        "neighbors": [
+          0.002,
+          0.004
+        ]
+      },
+      {
+        "axis": "target_r_multiple",
+        "primary": 2.0,
+        "neighbors": [
+          1.5,
+          2.5
+        ]
+      }
+    ],
+    "cliff_if_opposite_sign_variants_gte": 2,
+    "non_primary_permanently_ineligible": {
+      "scope_snapshot": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+      "scope_oos_window": "2026-01-21..2026-07-21",
+      "successor_must_use_data_after": "2026-07-21",
+      "scope": "any ORB parameterization on this snapshot",
+      "successor_must_use_post_as_of_for": [
+        "development",
+        "oos"
+      ]
+    },
+    "zero_trade_variant_counts_as_opposite_sign": false
+  },
+  "oos_gate": {
+    "O1_net_expectancy_gt": 0,
+    "O2_profit_factor_gte": 1.2,
+    "O4_min_trades": 100,
+    "O5_min_positive_months": 4,
+    "O5_total_months": 6,
+    "O6_abs_mdd_lte": 0.1,
+    "O7_stress_cumulative_pnl_gte": 0,
+    "O8_max_single_symbol_profit_share": 0.25,
+    "O8_symbol_means_family_aggregated": true,
+    "O9_max_single_day_profit_share": 0.2,
+    "O10_parameter_cliff": "opposite_sign_variants_lte_1",
+    "O11_major_data_defects": 0,
+    "single_pass": {
+      "load_once": true,
+      "compute_once": true,
+      "same_pass_includes": [
+        "primary",
+        "parameter_cliff_neighborhood",
+        "sensitivity"
+      ],
+      "rerun_on_bad_result": false,
+      "publish_all_parameterizations": true,
+      "variants_are_independent_simulations": true,
+      "rerun_allowed_only_if": "no artifact written and no interim result viewed",
+      "report_must_cite_unlock_artifact": true,
+      "unlock_artifact_must_be_git_tracked": true
+    },
+    "O5_month_boundaries": [
+      {
+        "month": "M1",
+        "start": "2026-01-21",
+        "end": "2026-02-20"
+      },
+      {
+        "month": "M2",
+        "start": "2026-02-21",
+        "end": "2026-03-20"
+      },
+      {
+        "month": "M3",
+        "start": "2026-03-21",
+        "end": "2026-04-20"
+      },
+      {
+        "month": "M4",
+        "start": "2026-04-21",
+        "end": "2026-05-20"
+      },
+      {
+        "month": "M5",
+        "start": "2026-05-21",
+        "end": "2026-06-20"
+      },
+      {
+        "month": "M6",
+        "start": "2026-06-21",
+        "end": "2026-07-21"
+      }
+    ],
+    "O3_min_trading_days_with_trade": 60
+  },
+  "defect_policy": {
+    "counted_as_defect": [
+      "ohlc_invariant_violation",
+      "duplicate_ts_value_conflict",
+      "unexplained_1m_price_jump_gt_50pct",
+      "session_label_violation",
+      "snapshot_hash_mismatch"
+    ],
+    "normal_handling_not_defect": [
+      "candidate_exclusion",
+      "stale_exit",
+      "eod_fallback"
+    ],
+    "escalate_to_defect_if_share_gt": 0.05,
+    "escalation_ratio": {
+      "numerator": [
+        "incomplete_opening_range",
+        "no_previous_regular_close",
+        "insufficient_rvol_lookback",
+        "opening_range_not_closed"
+      ],
+      "numerator_excludes_strategy_filters": true,
+      "denominator": "universe_symbols x trading_days in the evaluated window",
+      "threshold": 0.05,
+      "unit": "symbol_day_deduplicated",
+      "excludes_operational_reasons": true,
+      "audit_note": "[A] numerator shrank while its 5% threshold held; the removed items moved to [B], which became 3.75x stricter (1,005 symbol-days -> 268 trades)"
+    },
+    "high_stale_or_eod_fallback_may_indicate_issue": "#44",
+    "computed_on": "primary",
+    "operational_failure_ratio": {
+      "numerator": [
+        "stale_exit",
+        "eod_fallback",
+        "unclosable"
+      ],
+      "denominator": "all_entered_trades_including_unclosable",
+      "threshold": 0.2,
+      "on_exceed": "INCONCLUSIVE_DATA",
+      "reason": "symbol-day denominator dilutes: all trades failing EOD would read only 6.7%"
+    },
+    "duplicate_ts_conflict_baseline": {
+      "manifest_conflict_total": 28,
+      "manifest_by_symbol": {
+        "SPY": 3,
+        "QQQ": 7,
+        "NVDA": 5,
+        "VST": 1,
+        "SOXL": 12
+      },
+      "snapshot_report_conflict_candles": 1,
+      "adjudication": "not a contract violation — first-write-wins resolved deterministically and preserved evidence",
+      "defect_is": "new conflicts beyond this baseline",
+      "operative_baseline": "manifest_conflict_total"
+    }
+  },
+  "verdict_definitions": {
+    "SELECT_ONE": "all development_gate and all oos_gate satisfied by primary",
+    "EXTEND_PAPER": "oos_gate satisfied but paper sample/stability insufficient (stage 6 only)",
+    "NO_SELECTION": "any development_gate or oos_gate item unmet",
+    "pick_least_bad": false,
+    "NOT_RUN": "process preconditions P1-P3 unmet; not a verdict about the strategy",
+    "INCONCLUSIVE_DATA": "data insufficiency or major defect makes judgement impossible"
+  },
+  "revision_policy": {
+    "allowed_before_results": [
+      "typo",
+      "ambiguity",
+      "internal_inconsistency"
+    ],
+    "forbidden_after_results": [
+      "thresholds",
+      "windows",
+      "filters",
+      "entry",
+      "exit",
+      "costs",
+      "tie_break",
+      "evaluation_stats",
+      "gates"
+    ],
+    "post_merge_corrections": "append_only_erratum",
+    "invalidation_reasons": [
+      "data_contract_violation",
+      "look_ahead_defect",
+      "fill_or_cost_contract_violation",
+      "calendar_or_session_defect"
+    ],
+    "invalidation_not_allowed_for": "poor_performance",
+    "invalidation_preserves_existing_results": true,
+    "post_result_invalidation_requires": [
+      "confirmation by an independent reviewer who has not seen the results",
+      "fresh post-as_of OOS window unless data corruption is proven"
+    ]
+  },
+  "evaluation_definitions": {
+    "net_pnl": "realized PnL at fill prices minus costs (USD)",
+    "net_expectancy": "arithmetic mean net PnL per trade (per-1R also reported)",
+    "profit_factor": "sum(positive net PnL) / abs(sum(negative net PnL)); infinite if no losing trade",
+    "daily_equity_curve": "cash + holdings marked at regular close each trading day (flat at close)",
+    "mdd": "max((peak - trough)/peak) on the daily equity curve, denominator is the running peak, at official cost",
+    "trading_days_counted": "ET trading days with >= 1 trade",
+    "concentration_share": "unit net PnL / total net PnL at official cost; auto-fail if total <= 0",
+    "rounding": "no intermediate rounding; display 2dp"
+  },
+  "revision": {
+    "version": "1.10",
+    "results_examined_at_revision": false,
+    "corrections": 83,
+    "audit": "docs section 14.6.1"
+  },
+  "account_model": {
+    "initial_capital": 100000.0,
+    "currency": "USD",
+    "sizing_base": "fixed_initial_capital",
+    "sizing_base_uses_running_equity": false,
+    "equity_curve": "cumulative realized PnL, reporting and MDD only",
+    "folds_share_one_continuous_curve": true,
+    "oos_curve_restarts_at_initial_capital": true,
+    "curve_includes_initial_capital_at_t0": true
+  },
+  "preconditions_not_result_criteria": {
+    "P1_independent_implementation_review": "approve required before development run",
+    "P2_loader_wiring": "research_load only; AST boundary test must pass",
+    "P3_snapshot_identity": "all four hashes match",
+    "unmet_verdict": "NOT_RUN",
+    "rationale": "process gate must not masquerade as a scientific NO_SELECTION",
+    "hash_check_tools": {
+      "snapshot_file_and_content": "src/history/research_snapshot.py",
+      "manifest_data": "src/history/intraday_manifest.py",
+      "raw_content": "src/history/raw_snapshot.py",
+      "raw_artifact_absent": "NOT_RUN"
+    }
+  },
+  "blind_enforcement": {
+    "loader": "src.history.oos_guard.research_load",
+    "track": "intraday",
+    "development_purpose": "performance",
+    "direct_load_candles_forbidden": true,
+    "ast_boundary_test": "tests/test_oos_guard_wiring.py",
+    "unlock_verifier_required_before_oos": "#78",
+    "bypass_is_invalidation_grade": true,
+    "coverage_purpose_forbidden_in_performance_code": true,
+    "coverage_bypasses_the_gate": true,
+    "ast_scan_dirs": [
+      "src",
+      "scripts",
+      "analysis"
+    ],
+    "ast_scan_does_not_cover": [
+      "tests",
+      "spikes"
+    ]
+  },
+  "md_is_authoritative_on_conflict": true,
+  "unlock_artifact_reference": {
+    "track": "intraday",
+    "snapshot_hash_field_uses": "snapshot_content_sha256",
+    "snapshot_hash_value": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+    "prereg_merge_commit": "recorded by stage 5 unlock artifact (unknown at authoring time)",
+    "implementation_commit": "recorded by stage 5 unlock artifact",
+    "review_status_source": "P1 independent implementation review APPROVE"
+  },
+  "plan_minimum_gate": {
+    "source": "docs/research/PLAN_ONE_MONTH_STRATEGY_SELECTION_AI_SHADOW.md",
+    "source_commit": "8bff004",
+    "note": "정본 계획 §Phase4 최소 선택 게이트를 숫자로 동결한다. 계획 문서의 표현이 바뀌어도 이 숫자가 사전등록의 하한이며, O-게이트는 이보다 약할 수 없다.",
+    "net_expectancy_gt": 0,
+    "profit_factor_gte": 1.2,
+    "intraday_min_trading_days": 60,
+    "intraday_min_trades": 100,
+    "intraday_min_positive_months": 4,
+    "intraday_total_months": 6,
+    "abs_mdd_lte": 0.1,
+    "stress_cumulative_pnl_gte": 0,
+    "max_single_symbol_profit_share": 0.25,
+    "max_single_day_profit_share": 0.2,
+    "major_data_defects": 0
+  },
+  "data_load": {
+    "extent": "per symbol, per ET trading day (PRE+REGULAR+POST of that date)",
+    "reason": "frontier is a function of loaded data (#76 §3.2); unpinned extent lets tomorrow's bars close today's bucket",
+    "decision_bars_bounded_by": "ts_exchange < regular_close_minute(d)"
+  },
+  "implementation_note": {
+    "backtest_engine_reuse": "not mandated; src/backtest/engine.py has ET-hardcoded sessions (#88)",
+    "requirement": "standalone simulator, or resolve #88 first"
+  },
+  "threshold_provenance": {
+    "gap_0_003": "round convention value; no measurement",
+    "rvol_1_5": "round convention value; no measurement",
+    "target_2_0R": "round convention value; no measurement",
+    "unchanged_since_first_commit": true
+  },
+  "prior_access_disclosure": {
+    "issue": 76,
+    "what": "resampler parity check read this snapshot via research_load(purpose='coverage')",
+    "scope": "8 trading days x 8 symbols, all before blind OOS",
+    "performance_computed": false
+  },
+  "freeze_backstop": {
+    "document_sha256_pinned_in": "tests/test_prereg_orb_contract.py",
+    "json_sha256_pinned_in": "tests/test_prereg_orb_contract.py",
+    "normalization": "markdown: whitespace only; json: sort_keys canonical",
+    "changing_after_merge_requires": "ERRATUM entry alongside the constant update"
+  }
+}
