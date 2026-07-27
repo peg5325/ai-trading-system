@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import ast
 import os
-import re
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -70,16 +69,27 @@ def _orb_scan_py_files():
 # 대상이 된다. `tests/test_oos_guard_wiring.py` 의 `ALLOWED` 관례를 그대로 따른다 — 새 예외가
 # 필요해지면 이 목록에 명시적으로 추가해야 하며, 조용히 스캔에서 빠지는 파일이 없게 한다.
 _ALLOWED_COVERAGE_STRING = {
-    os.path.join("src", "history", "oos_guard.py"),           # purpose="coverage" 의 정의처
     os.path.join("scripts", "history_eval_slices.py"),        # 검증된 coverage-only 스크립트
     os.path.join("scripts", "resampler_parity_check.py"),     # 검증된 coverage-only 스크립트
     os.path.join("scripts", "prereg_orb_coverage_probe.py"),  # §5.5 봉 개수만 세는 ORB coverage probe
 }
+# R5-4/R5-5 후속(같은 원칙 적용) — `src/history/oos_guard.py` 는 예전 소스-텍스트 정규식
+# 스캔 시절엔 이 목록에 있었다(그 파일 docstring/주석이 `purpose='coverage'` 를 언급해서).
+# 이제 검사가 AST 의 실제 `research_load(...)` 호출 노드만 보므로, 그 파일 자체는
+# `research_load` 를 호출하지 않아(게이트 **정의처**일 뿐) 이 목록에 있을 필요가 없다 —
+# 실측: 빼도 통과한다. R5-5 와 같은 이유로 제거했다(불필요한 면제는 잠재 구멍).
 _ALLOWED_LOAD_CANDLES_REF = {
-    os.path.join("src", "history", "loader.py"),
-    os.path.join("src", "history", "__init__.py"),
-    os.path.join("src", "history", "oos_guard.py"),
-}   # tests/test_oos_guard_wiring.py 의 ALLOWED 와 동일(정의처·재노출·게이트 자신)
+    os.path.join("src", "history", "__init__.py"),   # `from ...loader import load_candles` 재노출
+    os.path.join("src", "history", "oos_guard.py"),  # 게이트 자신이 `load_candles` 를 import·호출
+}
+# R5-5(lane4, team-lead 재현) — `tests/test_oos_guard_wiring.py` 의 `ALLOWED` 에는
+# `src/history/loader.py`(정의처)도 들어 있지만, 여기서는 **의도적으로 뺐다**: 그 파일
+# 안에는 `load_candles` 에 대한 `ImportFrom`/`Attribute`/`Name` 참조가 **전혀 없다**
+# (`def load_candles(...):` 는 `ast.FunctionDef` 이지 이 스캐너가 보는 세 노드 타입이
+# 아니다) — 실측: 제거해도 이 파일의 테스트가 그대로 통과한다. 불필요한 면제는 잠재
+# 구멍이다(나중에 그 파일이 `x = load_candles` 를 추가해도 조용히 통과했을 자리) — 두
+# 목록(이 파일 vs `test_oos_guard_wiring.py`)이 갈라진 이유가 이것이다. 저 파일의
+# `ALLOWED` 는 4-A 범위 밖이라 건드리지 않는다.
 _ALLOWED_TRACK_UNSPECIFIED = {
     # `research_load(..., purpose="coverage", market=...)` 처럼 `track=` 을 아예 생략하고
     # 함수 기본값(`TRACK_INTRADAY`)에 기댄다 — 값 자체는 안전하지만 명시적이지 않다. ORB
@@ -589,8 +599,10 @@ def _research_load_call_names(tree: ast.AST) -> set[str]:
     return names
 
 
-def _research_load_offenders_in_tree(tree: ast.AST, rel: str) -> list[str]:
-    """AST: `rel` 파일의 `research_load` 호출 중 unlock/track 규칙 위반 offender 목록.
+def _research_load_offenders_in_tree(tree: ast.AST, rel: str, *,
+                                     allow_coverage_purpose: bool = False,
+                                     allow_track_unspecified: bool = False) -> list[str]:
+    """AST: `rel` 파일의 `research_load` 호출 중 unlock/track/purpose 규칙 위반 offender 목록.
 
     R4-5(lane1 §6-B, team-lead 재현) — 실제 스캔(`test_research_load_calls_never_pass_unlock_
     and_use_intraday_track`)과 거짓 가드 방지 fixture(아래
@@ -606,6 +618,28 @@ def _research_load_offenders_in_tree(tree: ast.AST, rel: str) -> list[str]:
       1. `**kwargs` 언패킹(`kw.arg is None`) 이 하나라도 있으면 즉시 offender.
       2. `ast.Attribute` 호출(`.attr == "research_load"`)도 `ast.Name` 과 동일하게 검사한다.
       3. 별칭 import(`import ... as rl`)로 가리키는 이름도 `research_load` 와 동일 취급한다.
+
+    R5-4(lane4 최우선, team-lead 재현) — `purpose` 검사를 이 함수 안으로 옮겼다. 예전엔
+    별도 소스-텍스트 정규식(`purpose\\s*=\\s*["']coverage["']`)으로 했는데, 그 방식은
+    (a) `purpose=_P`(변수 경유), (b) `purpose="cov" "erage"`(인접 문자열 리터럴 결합 — 파이썬
+    파서가 컴파일 시점에 이미 하나의 `ast.Constant("coverage")` 로 합치므로 AST 로 보면 원천
+    차단되지만, 소스 텍스트 정규식은 따옴표가 갈라져 있어 못 잡는다) 로 전부 우회됐다
+    (team-lead 재현: 둘 다 28 passed — 우회). `research_load` 호출 노드는 이 함수가 이미
+    전부 방문하므로, `purpose` 도 **여기서** 검사하면 세 우회(정규식 회피·변수·문자열 결합)가
+    한 번에 닫힌다. 부수 효과(S3): 예전엔 coverage 스캔에 자기탐지(거짓 가드 방지) fixture 가
+    없었는데, 이제 unlock/track 과 같은 함수를 타므로 아래 증명 fixture 가 그대로 덮는다.
+
+    규칙(team-lead 질의에 대한 답, 보고서 참고): `purpose` 가 **생략**되면 함수 기본값
+    (`"performance"`)에 암묵적으로 의존하는 것이므로 안전하다 — offender 로 잡지 않는다.
+    `purpose` 가 **명시**되면 반드시 **리터럴 문자열**이어야 하고, 그 값은 `"performance"`
+    이거나(항상 허용) `allow_coverage_purpose=True` 인 파일에 한해 `"coverage"` 다. 그 외
+    (비-리터럴 값·다른 문자열)는 전부 offender — allowlist 파일이라도 비-리터럴은 봐주지
+    않는다(무엇이 될지 정적으로 알 수 없으므로).
+
+    `track` 생략은 원래도 offender 였다(`is_intraday_const` 가 `track_kw is None` 이면 항상
+    `False`) — `allow_track_unspecified=True` 인 파일만 예외로 둔다. 예전엔 이 예외를
+    "파일 전체를 스캔에서 건너뛰기"로 구현해서, 그 파일의 `purpose`/`unlock` 검사까지 함께
+    사라지는 전체-파일 사각지대가 됐다 — 이제는 **track 검사 하나만** 면제한다.
     """
     offenders: list[str] = []
     aliases = _research_load_call_names(tree)
@@ -624,38 +658,61 @@ def _research_load_offenders_in_tree(tree: ast.AST, rel: str) -> list[str]:
 
         if any(kw.arg is None for kw in node.keywords):
             offenders.append(
-                f"{rel}:{node.lineno}: **kwargs 언패킹으로 unlock/track 이 은닉될 수 있음")
+                f"{rel}:{node.lineno}: **kwargs 언패킹으로 unlock/track/purpose 가 은닉될 "
+                "수 있음")
             continue
         kw_names = {kw.arg for kw in node.keywords}
         if "unlock" in kw_names:
             offenders.append(f"{rel}:{node.lineno}: unlock 인자 존재")
             continue
+
         track_kw = next((kw for kw in node.keywords if kw.arg == "track"), None)
-        is_intraday_const = (
-            track_kw is not None
-            and isinstance(track_kw.value, ast.Name)
-            and track_kw.value.id == "TRACK_INTRADAY"
-        )
-        if not is_intraday_const:
-            offenders.append(f"{rel}:{node.lineno}: track 이 TRACK_INTRADAY 상수가 아님")
+        if track_kw is None:
+            if not allow_track_unspecified:
+                offenders.append(
+                    f"{rel}:{node.lineno}: track 인자가 생략됨(기본값에 암묵적으로 의존)")
+        else:
+            is_intraday_const = (
+                isinstance(track_kw.value, ast.Name) and track_kw.value.id == "TRACK_INTRADAY")
+            if not is_intraday_const:
+                offenders.append(f"{rel}:{node.lineno}: track 이 TRACK_INTRADAY 상수가 아님")
+
+        purpose_kw = next((kw for kw in node.keywords if kw.arg == "purpose"), None)
+        if purpose_kw is not None:
+            value = purpose_kw.value
+            is_literal_str = isinstance(value, ast.Constant) and isinstance(value.value, str)
+            literal = value.value if is_literal_str else None
+            allowed_values = {"performance"} | ({"coverage"} if allow_coverage_purpose else set())
+            if not (is_literal_str and literal in allowed_values):
+                offenders.append(
+                    f"{rel}:{node.lineno}: purpose 가 허용된 리터럴 문자열이 아님"
+                    f"(허용: {sorted(allowed_values)}) — 변수 경유·문자열 결합·비허용 값 우회 차단")
     return offenders
 
 
 def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
     """AST: `src/`·`scripts/`·`analysis/`(R4-8 — `tests/test_oos_guard_wiring.py` 의
     `SCAN_DIRS` 와 동일 범위) 전역의 `research_load` 호출은 `unlock` 인자를 절대 넘기지 않고,
-    `track` 은 반드시 `TRACK_INTRADAY` 상수여야 한다(임의 `OOSUnlock` 주입·`track="swing"`
-    변조를 정적으로 차단, 독립 리뷰 H1). 판정 로직은 `_research_load_offenders_in_tree`
-    (R4-5 — 아래 증명 fixture 와 공유). `_ALLOWED_TRACK_UNSPECIFIED` 는 이미 검토된 pre-ORB
-    스크립트(track 생략, 기본값 신뢰) 예외다."""
+    `track` 은 반드시 `TRACK_INTRADAY` 상수여야 하며(임의 `OOSUnlock` 주입·`track="swing"`
+    변조를 정적으로 차단, 독립 리뷰 H1), `purpose` 는 리터럴 `"performance"`(또는 allowlist
+    파일에 한해 `"coverage"`)여야 한다(R5-4). 판정 로직은 `_research_load_offenders_in_tree`
+    (R4-5/R5-4 — 아래 증명 fixture 와 공유).
+
+    R5-4 — `_ALLOWED_TRACK_UNSPECIFIED`/`_ALLOWED_COVERAGE_STRING` 은 이제 **파일 전체를
+    건너뛰지 않고** 해당 검사 하나만 완화한다(`allow_track_unspecified`/`allow_coverage_
+    purpose` 를 개별 전달) — 예전엔 track 예외 파일을 통째로 스캔에서 빼서 그 파일의
+    unlock/purpose 검사까지 함께 사라지는 전체-파일 사각지대였다.
+    """
     offenders: list[str] = []
     for path in sorted(_orb_scan_py_files()):
         rel = os.path.relpath(path, REPO)
-        if rel in _ALLOWED_TRACK_UNSPECIFIED:
-            continue
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=path)
-        offenders.extend(_research_load_offenders_in_tree(tree, rel))
+        offenders.extend(_research_load_offenders_in_tree(
+            tree, rel,
+            allow_coverage_purpose=rel in _ALLOWED_COVERAGE_STRING,
+            allow_track_unspecified=rel in _ALLOWED_TRACK_UNSPECIFIED,
+        ))
     assert offenders == [], offenders
 
 
@@ -687,6 +744,36 @@ def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attri
     assert len(kwargs_hits) == 1
     assert len(other_hits) == 1
     assert len(offenders) == 2
+
+
+def test_research_load_offender_detection_rule_actually_catches_purpose_bypasses(tmp_path):
+    """거짓 가드 방지(R5-4, S3 해소, team-lead 재현) — `purpose` 검사가 실제 스캔과 같은 함수를
+    타는지, 그리고 team-lead 가 재현한 두 우회(변수 경유·인접 문자열 리터럴 결합)를 실제로
+    잡는지 증명한다. 예전 정규식 판은 둘 다 "28 passed"(우회)였다."""
+    offending_src = (
+        "from src.history.oos_guard import TRACK_INTRADAY, research_load\n"
+        "_P = 'coverage'\n"
+        "research_load('db', 'AAPL', '1m', purpose=_P, track=TRACK_INTRADAY)\n"
+        "research_load('db', 'AAPL', '1m', purpose='cov' 'erage', track=TRACK_INTRADAY)\n"
+        "research_load('db', 'AAPL', '1m', purpose='performance', track=TRACK_INTRADAY)\n"
+    )
+    tmp_file = tmp_path / "offender_purpose.py"
+    tmp_file.write_text(offending_src, encoding="utf-8")
+    tree = ast.parse(offending_src, filename=str(tmp_file))
+
+    # allowlist 밖(allow_coverage_purpose=False) — 변수 경유·문자열 결합 둘 다 offender.
+    offenders = _research_load_offenders_in_tree(tree, "offender_purpose.py")
+    purpose_hits = [o for o in offenders if "purpose" in o]
+    assert len(purpose_hits) == 2, purpose_hits   # _P 변수 1건 + 'cov''erage' 결합 1건
+    assert len(offenders) == 2                    # 3번째(purpose='performance')는 정상
+
+    # allowlist 안이어도 변수 경유는 여전히 offender(리터럴이 아니라서 "coverage" 인지
+    # 확인할 수 없다) — 결합은 파서가 이미 "coverage" 로 합쳤으므로 허용된다.
+    offenders_allowed = _research_load_offenders_in_tree(
+        tree, "offender_purpose.py", allow_coverage_purpose=True)
+    purpose_hits_allowed = [o for o in offenders_allowed if "purpose" in o]
+    assert len(purpose_hits_allowed) == 1, purpose_hits_allowed   # _P 변수만 남는다
+    assert len(offenders_allowed) == 1
 
 
 def test_orb_scan_catches_a_violation_placed_under_the_real_analysis_directory():
@@ -730,37 +817,30 @@ def test_orb_scan_catches_a_violation_placed_under_the_real_analysis_directory()
     assert not os.path.exists(probe_path)
 
 
+def test_orb_scan_dirs_covers_all_of_src_not_only_the_research_subpackage():
+    """R5-7(lane4 S2, team-lead 재현) — `ORB_SCAN_DIRS` 를 `("src",)` 로 줄이면 기존 테스트가
+    죽지만(S1 KILLED), `("src/research",)` 처럼 `src` 의 **부분집합**으로 좁혀도 기존 테스트가
+    전부 통과했다(S2 생존) — "세 디렉터리를 덮는다"는 단언이 `src` 하위 **비-research** 경로
+    까지는 실제로 고정하지 못하고 있었다. `src/history/oos_guard.py`(research 밖) 가 실제로
+    스캔 목록에 있는지 직접 확인해 그 subset 축소가 죽게 한다."""
+    scanned = {os.path.relpath(p, REPO) for p in _orb_scan_py_files()}
+    assert os.path.join("src", "history", "oos_guard.py") in scanned
+    assert os.path.join("src", "research", "orb", "loading.py") in scanned
+    assert os.path.join("scripts", "prereg_orb_coverage_probe.py") in scanned
+
+
 # --------------------------------------------------------------------------
-# 게이트 배선 — purpose="coverage" 문자열/직접 load_candles 참조 금지 (소스/AST 스캔)
+# 게이트 배선 — 직접 load_candles 참조 금지 (AST 스캔)
 # R4-8 — 스캔 범위는 `_orb_scan_py_files`(src/scripts/analysis, 재귀) 로 이미 확장돼 있다.
+#
+# R5-4(lane4 최우선, team-lead 재현) — `purpose="coverage"` 문자열 검사는 예전엔 여기 별도
+# 소스-텍스트 정규식 테스트로 있었다. 그 방식은 `purpose=_P`(변수 경유)·`purpose="cov"
+# "erage"`(인접 문자열 리터럴 결합 — 파서가 컴파일 시점에 이미 하나의 상수로 합치므로 AST
+# 로는 잡히지만 정규식은 따옴표가 갈라져 있어 못 잡는다) 로 전부 우회됐다(team-lead 재현:
+# 둘 다 28 passed). `research_load` 호출 노드는 `_research_load_offenders_in_tree` 가 이미
+# 전부 방문하므로, 그 함수 안으로 옮겼다(위 `test_research_load_calls_never_pass_unlock_and_
+# use_intraday_track` 참고) — 별도 텍스트 스캔 테스트는 이제 없다.
 # --------------------------------------------------------------------------
-_PURPOSE_COVERAGE_RE = re.compile(r"""purpose\s*=\s*["']coverage["']""")
-
-
-def test_no_coverage_purpose_string_anywhere_in_orb_package():
-    """`_ALLOWED_COVERAGE_STRING` 은 이미 검토된 pre-ORB coverage-only 스크립트 예외다(게이트
-    자신의 정의처 포함) — 이 문자열 스캔은 AST 가 아니라 순수 텍스트 대조이므로 docstring
-    안의 언급도 잡는다.
-
-    R4-8 — 스캔 범위를 `src/`·`scripts/`·`analysis/` 전체로 넓히면서 패턴을
-    `purpose="coverage"`(공백 허용) 로 좁혔다. 예전엔 `"coverage" in src` 만 봐서(문자열
-    "coverage" 가 quote 안에 있기만 하면 잡음), ORB 와 무관하게 "coverage" 를 변수/딕셔너리
-    키로 쓰는 기존 스크립트(`scripts/h2b_backfill_analysis.py`·`scripts/h3_regime_analysis.py`
-    ·`src/runtime/isolation/manifest.py` — 데이터/세션 커버리지 통계, `research_load` 의
-    `purpose` 인자와 무관)까지 오탐했다. 실제 위협(`purpose="coverage"` 키워드 인자)만
-    정확히 잡는다."""
-    offenders = []
-    for path in sorted(_orb_scan_py_files()):
-        rel = os.path.relpath(path, REPO)
-        if rel in _ALLOWED_COVERAGE_STRING:
-            continue
-        with open(path, encoding="utf-8") as f:
-            src = f.read()
-        if _PURPOSE_COVERAGE_RE.search(src):
-            offenders.append(rel)
-    assert offenders == [], f"purpose=\"coverage\" 로 읽힐 수 있는 문자열 발견: {offenders}"
-
-
 def test_no_direct_load_candles_reference_in_orb_package():
     """`_ALLOWED_LOAD_CANDLES_REF` 는 `tests/test_oos_guard_wiring.py` 의 `ALLOWED` 와 동일
     (정의처·재노출·게이트 자신)."""

@@ -314,6 +314,14 @@ class RvolWindow:
 
     def push(self, day: date, window_sum: float | None) -> None:
         require_trading_day(day)   # R4-2 — 휴장일은 push 대상이 아니다(연속성 검사보다 먼저)
+        # v1.4(R5-1, lane3 지적) — 아래 순서 검사(day<=last_day)는 이제 논리적으로 그 다음
+        # 연속성 검사(R4-1)의 부분집합이다: day<=last_day 면 previous_trading_day(day) < day
+        # <= last_day 이므로 항상 last_day 와 달라 연속성 검사도 함께 발동한다. 이 검사를
+        # 통째로 지워도 동작에는 문제가 없다(연속성 검사가 같은 입력을 전부 잡는다) — 다만
+        # 나중에 연속성 검사가 완화되면(예: 결측일 허용) 이 검사가 유일한 방어선이 된다.
+        # 테스트가 이 검사의 메시지를 `match=` 로 직접 겨냥해야 그 흡수 관계가 깨져도(예:
+        # 연속성 검사만 남기고 이 검사를 지워도) 잡힌다 — `test_rvol_window_push_rejects_
+        # out_of_order_and_duplicate_days` 참고.
         if self._last_day is not None and day <= self._last_day:
             raise ValueError(
                 f"RvolWindow.push 는 시간 순서대로만 호출된다: {day} 는 직전 {self._last_day} "

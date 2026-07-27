@@ -83,13 +83,14 @@ def test_load_contract_raises_when_md_hash_constant_is_wrong(monkeypatch):
     mutation: 상수를 실제 값과 다른 문자열로 되돌려(패치) 테스트가 이를 잡는지 확인한다.
     """
     monkeypatch.setattr(c, "PREREG_MD_SHA256", "0" * 64)
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="사전등록 문서 hash 불일치"):
         c.load_contract(verify=True)
 
 
 def test_load_contract_raises_when_json_hash_constant_is_wrong(monkeypatch):
+    """R5-3 — `load_contract` 는 md/json 2 raise 지점을 가진다(`match=` 로 어느 쪽인지 고정)."""
     monkeypatch.setattr(c, "PREREG_JSON_SHA256", "0" * 64)
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="사전등록 계약 JSON hash 불일치"):
         c.load_contract(verify=True)
 
 
@@ -108,13 +109,13 @@ def test_load_contract_default_call_with_no_args_is_fail_closed(monkeypatch):
     True` → `False` 로 기본값을 뒤집는 변조가 살아남았다. 여기서는 인자 없이 호출한다.
     """
     monkeypatch.setattr(c, "PREREG_MD_SHA256", "0" * 64)
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="사전등록 문서 hash 불일치"):
         c.load_contract()   # 인자 없음 — verify 기본값 사용
 
 
 def test_load_contract_default_call_catches_json_hash_mismatch_too(monkeypatch):
     monkeypatch.setattr(c, "PREREG_JSON_SHA256", "0" * 64)
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="사전등록 계약 JSON hash 불일치"):
         c.load_contract()
 
 
@@ -226,7 +227,7 @@ def test_neighbor_specs_raise_when_contract_has_no_neighbor_definition(contract)
     """
     mutated = dict(contract)
     mutated.pop("parameter_cliff_neighborhood")
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="parameter_cliff_neighborhood"):
         c.neighbor_specs(mutated)
 
 
@@ -240,7 +241,7 @@ def test_neighbor_specs_raise_on_unknown_axis():
         mutated = json.load(f)
     mutated["parameter_cliff_neighborhood"]["variants"].append(
         {"axis": "unknown_axis", "neighbors": [1, 2]})
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="알 수 없는 파라미터 절벽 축"):
         c.neighbor_specs(mutated)
 
 
@@ -248,12 +249,12 @@ def test_accessors_raise_when_required_value_missing(contract):
     """접근자가 계약에 없는 값을 만들어내지 않는다 — 필수 키가 없으면 예외."""
     mutated = dict(contract)
     mutated.pop("risk")
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="risk.target_r_multiple"):
         c.primary_spec(mutated)
 
 
 def test_require_helper_reports_missing_path():
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="누락 지점 'c'"):
         c._require({"a": {"b": 1}}, "a", "c")
     assert c._require({"a": {"b": 1}}, "a", "b") == 1
 
@@ -283,7 +284,7 @@ def test_decision_bar_spec_raises_when_keys_missing():
     with open(os.path.join(REPO, c.PREREG_JSON_PATH), encoding="utf-8") as f:
         mutated = json.load(f)
     del mutated["spec"]["decision_bar_minutes"]
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="decision_bar_minutes"):
         c.decision_bar_spec(mutated)
 
 
@@ -305,7 +306,7 @@ def test_rvol_lookback_raises_when_keys_missing():
     with open(os.path.join(REPO, c.PREREG_JSON_PATH), encoding="utf-8") as f:
         mutated = json.load(f)
     del mutated["candidate"]["rvol"]["min_valid_lookback_days"]
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="min_valid_lookback_days"):
         c.rvol_lookback(mutated)
 
 
@@ -338,7 +339,7 @@ def test_universe_raises_when_exposure_families_missing():
     with open(os.path.join(REPO, c.PREREG_JSON_PATH), encoding="utf-8") as f:
         mutated = json.load(f)
     del mutated["universe"]["exposure_families"]
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="exposure_families"):
         c.universe(mutated)
 
 
@@ -538,7 +539,7 @@ def test_neighbor_specs_raise_when_neighbor_count_reduced():
     # 한 축(rvol_threshold)의 이웃을 2개에서 1개로 줄인다 → 전체 이웃 수 6 -> 5.
     mutated["parameter_cliff_neighborhood"]["variants"][0]["neighbors"] = \
         mutated["parameter_cliff_neighborhood"]["variants"][0]["neighbors"][:1]
-    with pytest.raises(c.ContractIntegrityError):
+    with pytest.raises(c.ContractIntegrityError, match="정확히 6개"):
         c.neighbor_specs(mutated)
 
 

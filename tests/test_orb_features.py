@@ -140,7 +140,7 @@ def test_opening_range_for_spec_raises_on_multi_day_input():
     d1 = date(2024, 3, 4)
     d2 = date(2024, 3, 5)
     two_days = tuple(_minute_bars("AAPL", d1, 9, 30, 16) + _minute_bars("AAPL", d2, 9, 30, 16))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="day_candles 에 day="):
         opening_range_for_spec(two_days, minutes=15, day=d1)
 
 
@@ -154,7 +154,7 @@ def test_opening_range_for_spec_raises_rather_than_silently_returning_wrong_day_
     complete_d1 = _minute_bars("AAPL", d1, 9, 30, 16)     # 09:30..09:45(닫힘 증거) — 완전
     incomplete_d2 = _minute_bars("AAPL", d2, 9, 30, 14)   # 09:30..09:43 — 14/15(불완전)
     mixed = tuple(complete_d1 + incomplete_d2)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="day_candles 에 day="):
         opening_range_for_spec(mixed, minutes=15, day=d2)   # 호출자가 원한 건 d2 의 OR
 
 
@@ -168,7 +168,22 @@ def test_opening_range_for_spec_raises_when_two_symbols_share_the_same_day():
     aapl_bars = _minute_bars("AAPL", d, 9, 30, 16)
     msft_bars = _minute_bars("MSFT", d, 9, 30, 16)
     mixed = tuple(aapl_bars + msft_bars)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="둘 이상의 opening range 가 나왔다"):
+        opening_range_for_spec(mixed, minutes=15, day=d)
+
+
+def test_opening_range_for_spec_raises_when_two_symbols_share_the_same_day_and_neither_closes():
+    """R5-6(lane4 F30, team-lead 재현, 라운드 2 부터 생존) — R4-6 은 첫째 분기
+    (`len(closed_complete) > 1`)만 닫았다. 둘째 분기(`len(complete_regardless_of_closed) > 1`)
+    는 같은 기법으로도 여전히 살아 있었다: 같은 날 두 종목을 섞되 **둘 다 닫힘 증거가 없으면**
+    (분은 15개로 꽉 찼지만 그 이후 봉이 없어 `closed_only=True` 로는 아무것도 안 나옴)
+    `closed_complete` 가 0(>1 아님)이라 첫째 분기는 침묵하고, `closed_only=False` 재시도에서
+    둘 다 살아나 둘째 분기가 발동한다."""
+    d = date(2024, 3, 4)
+    aapl_bars = _minute_bars("AAPL", d, 9, 30, 15)   # 09:30..09:44, 그 이상 없음(닫힘 증거 없음)
+    msft_bars = _minute_bars("MSFT", d, 9, 30, 15)   # 마찬가지
+    mixed = tuple(aapl_bars + msft_bars)
+    with pytest.raises(ValueError, match="둘 이상의 opening range 후보가 나왔다"):
         opening_range_for_spec(mixed, minutes=15, day=d)
 
 
@@ -252,7 +267,7 @@ def test_gap_for_day_raises_when_prev_bars_are_not_from_prev_day():
     stale_day = date(2024, 2, 20)   # prev_d 가 아닌 훨씬 이전 날짜
     today_bars = _minute_bars("AAPL", d, 9, 30, 1, base=150.0)
     stale_bars = _minute_bars("AAPL", stale_day, 9, 30, 390, base=100.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="prev_day_regular_1m 에 prev_day="):
         gap_for_day(today_regular_1m=tuple(today_bars), day=d, prev_day=prev_d,
                     prev_day_regular_1m=tuple(stale_bars))
 
@@ -277,7 +292,7 @@ def test_gap_for_day_raises_when_today_bars_are_not_from_day():
     wrong_day = date(2024, 3, 5)
     wrong_today_bars = _minute_bars("AAPL", wrong_day, 9, 30, 1, base=150.0)   # day=d 가 아님
     prev_bars = _minute_bars("AAPL", prev_d, 9, 30, 390, base=100.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="today_regular_1m 에 day="):
         gap_for_day(today_regular_1m=tuple(wrong_today_bars), day=d, prev_day=prev_d,
                     prev_day_regular_1m=tuple(prev_bars))
 
@@ -289,7 +304,7 @@ def test_gap_for_day_raises_when_prev_day_is_not_the_calendar_previous_trading_d
     ten_trading_days_earlier = date(2024, 2, 20)   # 실제 직전 거래일(2024-03-01)이 아님
     today_bars = _minute_bars("AAPL", d, 9, 30, 1, base=150.0)
     prev_bars = _minute_bars("AAPL", ten_trading_days_earlier, 9, 30, 390, base=100.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="캘린더상 직전 거래일이 아니다"):
         gap_for_day(today_regular_1m=tuple(today_bars), day=d,
                     prev_day=ten_trading_days_earlier, prev_day_regular_1m=tuple(prev_bars))
 
@@ -426,12 +441,17 @@ def test_rvol_zero_median_is_undefined():
 
 
 def test_rvol_window_push_rejects_out_of_order_and_duplicate_days():
+    """R5-1(lane3, team-lead 재현) — 이 두 입력(중복/역순)은 순서 검사(day<=last_day)와
+    연속성 검사(R4-1, previous_trading_day(day)!=last_day) 가 **함께** 발동한다: day<=last
+    이면 previous_trading_day(day) < day <= last 이므로 항상 last 와 다르다. `match=` 없이는
+    순서 검사를 통째로 지워도(연속성 검사가 흡수해) 이 테스트가 계속 통과한다(team-lead
+    재현: 165개 전부 통과). 순서 검사의 메시지를 직접 겨냥해 그 흡수 관계가 깨지면 죽게 한다."""
     window = RvolWindow(lookback_days=20, min_valid_days=15, minutes=15)
     window.push(date(2024, 1, 10), 100.0)
-    with pytest.raises(ValueError):
-        window.push(date(2024, 1, 10), 200.0)     # 중복
-    with pytest.raises(ValueError):
-        window.push(date(2024, 1, 9), 50.0)       # 역순
+    with pytest.raises(ValueError, match="시간 순서대로만 호출된다"):
+        window.push(date(2024, 1, 10), 200.0)     # 중복 — 순서 검사를 겨냥
+    with pytest.raises(ValueError, match="시간 순서대로만 호출된다"):
+        window.push(date(2024, 1, 9), 50.0)       # 역순 — 순서 검사를 겨냥
 
 
 # --------------------------------------------------------------------------
@@ -440,11 +460,12 @@ def test_rvol_window_push_rejects_out_of_order_and_duplicate_days():
 def test_rvol_window_push_rejects_a_gap_that_skips_a_trading_day():
     """R4-1 — 4-B 가 데이터 없는 종목-일에서 `continue` 하면(=그 날 push 를 건너뛰면) lookback
     이 조용히 캘린더 20 → 39 거래일로 늘어나던 구멍을 닫는다. 거래일 하나를 건너뛰고 push
-    하면 즉시 예외."""
+    하면 즉시 예외(R5-3 — `match=` 로 연속성 검사를 겨냥한다: day > last 이므로 순서 검사는
+    이 입력에서 발동하지 않는다 — 위 테스트와 반대로 여기는 이미 모호하지 않다)."""
     days = _trading_days_from(date(2024, 1, 2), 3)   # days[0], days[1], days[2] 연속 거래일
     window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
     window.push(days[0], 100.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="거래일 연속이어야 한다"):
         window.push(days[2], 200.0)   # days[1] 을 건너뛰었다 — 연속이 아님
 
 
@@ -465,7 +486,7 @@ def test_rvol_window_push_allows_consecutive_trading_days_including_across_a_wee
 def test_rvol_window_push_rejects_a_holiday_even_as_the_first_push():
     """R4-2 — 휴장일은 연속성 검사(R4-1)가 적용되기도 전(첫 push)에 그 자체로 거부돼야 한다."""
     window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="거래일이 아니다"):
         window.push(date(2024, 7, 4), 100.0)   # 독립기념일, 휴장 — 첫 push 인데도 거부
 
 
@@ -476,31 +497,68 @@ def test_rvol_window_push_rejects_holiday_immediately_not_only_on_the_next_push(
     검사해 위반 시점에 바로 잡는다."""
     window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
     window.push(date(2024, 7, 3), 100.0)   # 수요일, 조기폐장이지만 정상 거래일
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="거래일이 아니다"):
         # 목요일 7/4 는 독립기념일 휴장 — previous_trading_day(7/4) == 7/3(직전 push 일)이라
         # R4-1 의 연속성 검사만으로는 통과했을 자리다.
         window.push(date(2024, 7, 4), 200.0)
 
 
+class _RvolWindowPushSpy:
+    """R5-2(lane3, team-lead 재현) — `RvolWindow` 를 감싸 `push` 가 **실제로 호출됐는지**만
+    기록한다. `compute_symbol_day_features` 자신의 `require_trading_day(day)` 검사(조립
+    진입 시점)와 조립 끝의 `rvol_window.push(day, …)` 내부에서 벌어지는 같은 검사는 **같은
+    함수를 호출하므로 예외 메시지가 완전히 동일**하다 — `match=` 로는 "조기 실패"와 "push
+    내부까지 가서 뒤늦게 실패"를 구분할 수 없다. push 가 실제로 불렸는지 자체를 관측해야
+    한다."""
+
+    def __init__(self, inner: RvolWindow):
+        self._inner = inner
+        self.push_call_count = 0
+
+    @property
+    def minutes(self) -> int:
+        return self._inner.minutes
+
+    def rvol(self, day: date, today_sum: float) -> float | None:
+        return self._inner.rvol(day, today_sum)
+
+    def push(self, day: date, window_sum: float | None) -> None:
+        self.push_call_count += 1
+        self._inner.push(day, window_sum)
+
+
 def test_compute_symbol_day_features_raises_when_day_is_not_a_trading_day():
     """R4-2 — `compute_symbol_day_features` 도 `day` 자체가 거래일인지 독립적으로 검사한다
-    (휴장일을 예외 없이 통과시켜 그 날을 RvolWindow 에 유령 push 하던 구멍)."""
-    window = RvolWindow(lookback_days=20, min_valid_days=1, minutes=15)
-    with pytest.raises(ValueError):
+    (휴장일을 예외 없이 통과시켜 그 날을 RvolWindow 에 유령 push 하던 구멍).
+
+    R5-2(lane3, team-lead 재현) — `compute_symbol_day_features:415` 의 `require_trading_day
+    (day)` 를 지워도 165개 전부 통과했다: 조립 끝의 `rvol_window.push(day, …)` 가 첫 줄에서
+    같은 검사를 하기 때문이다. docstring 이 "조기 실패"를 설계 의도로 적었는데 그 "조기"가
+    테스트로 고정돼 있지 않았다 — 관측 결과(`ValueError`)는 같지만 OR·gap·RVOL 을 다 계산한
+    뒤 터지느냐, 진입 즉시 터지느냐의 차이는 남는다. `push` 가 **호출되지 않은 채** 예외가
+    나는지(spy) 로 조기 실패를 직접 고정한다.
+    """
+    spy = _RvolWindowPushSpy(RvolWindow(lookback_days=20, min_valid_days=1, minutes=15))
+    with pytest.raises(ValueError, match="거래일이 아니다"):
         compute_symbol_day_features(
             symbol="AAPL", day=date(2024, 7, 4),   # 독립기념일, 휴장
             today_day_candles=(), today_regular_1m=(),
             prev_day=None, prev_day_regular_1m=(),
-            opening_range_minutes=15, rvol_window=window,
+            opening_range_minutes=15, rvol_window=spy,
         )
+    assert spy.push_call_count == 0, (
+        "compute_symbol_day_features 자신의 require_trading_day 검사가 없어져(또는 뒤로 밀려)"
+        " push 내부까지 도달한 뒤에야 실패했다 — 조기 실패가 아니다(R5-2 회귀).")
 
 
 def test_rvol_window_constructor_rejects_non_positive_params():
-    with pytest.raises(ValueError):
+    """R5-3 — 생성자는 3개 인자를 각각 검사하므로(3 raise 지점) `match=` 로 어느 인자가
+    걸렸는지 고정한다. 각 호출은 나머지 두 인자가 유효해 셋 중 하나만 걸릴 수 있다."""
+    with pytest.raises(ValueError, match="lookback_days"):
         RvolWindow(lookback_days=0, min_valid_days=15, minutes=15)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="min_valid_days"):
         RvolWindow(lookback_days=20, min_valid_days=0, minutes=15)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="minutes 는 1 이상"):
         RvolWindow(lookback_days=20, min_valid_days=15, minutes=0)
 
 
@@ -563,7 +621,7 @@ def test_compute_symbol_day_features_raises_when_rvol_window_minutes_mismatched(
     today_full_day = tuple(_minute_bars("AAPL", d, 9, 30, 390, base=100.0))
     prev_full_day = tuple(_minute_bars("AAPL", prev_d, 9, 30, 390, base=90.0))
     sensitivity_window = RvolWindow(lookback_days=20, min_valid_days=15, minutes=5)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="primary/sensitivity 창이 뒤바뀐"):
         compute_symbol_day_features(
             symbol="AAPL", day=d,
             today_day_candles=today_full_day, today_regular_1m=today_full_day,
@@ -595,8 +653,9 @@ def test_compute_symbol_day_features_pushes_today_automatically_enabling_next_da
     # d2 호출 시점엔 d1 이 이미 자동으로 push 돼 있어야(유효일 1개) rvol 이 계산된다.
     assert feats2.rvol is not None
 
-    # 오늘(d2) 을 compute_symbol_day_features 가 이미 push 했으므로, 다시 push 하면 예외.
-    with pytest.raises(ValueError):
+    # 오늘(d2) 을 compute_symbol_day_features 가 이미 push 했으므로, 다시 push 하면 예외
+    # (R5-3 — day==last_day 이므로 순서 검사를 겨냥한다).
+    with pytest.raises(ValueError, match="시간 순서대로만 호출된다"):
         window.push(d2, 999.0)
 
 
@@ -791,7 +850,7 @@ def test_regular_window_volume_raises_when_bars_are_not_from_day():
     d = date(2024, 3, 4)
     wrong_day = date(2024, 3, 5)
     bars = _minute_bars("AAPL", wrong_day, 9, 30, 15, base=1.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="day_regular_1m 에 day="):
         regular_window_volume(tuple(bars), day=d, minutes=15)
 
 
@@ -803,7 +862,7 @@ def test_regular_window_volume_raises_on_duplicate_minute_of_day():
     bars = _minute_bars("AAPL", d, 9, 30, 15, base=1.0)
     dup_open = _bar("AAPL", datetime(d.year, d.month, d.day, 9, 30, tzinfo=ET),
                     o=999, h=999, low=999, c=999, v=999_999.0)   # 09:30 중복(다른 값)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="minute-of-day=570"):
         regular_window_volume(tuple(bars) + (dup_open,), day=d, minutes=15)
 
 
@@ -813,8 +872,8 @@ def test_gap_for_day_raises_on_duplicate_prev_close_candidate():
     today_bars = _minute_bars("AAPL", d, 9, 30, 1, base=150.0)
     prev_bars = _minute_bars("AAPL", prev_d, 9, 30, 390, base=100.0)
     dup_last = _bar("AAPL", datetime(prev_d.year, prev_d.month, prev_d.day, 15, 59, tzinfo=ET),
-                    o=1, h=1, low=1, c=1, v=1)   # 마지막 분(15:59) 중복(다른 값)
-    with pytest.raises(ValueError):
+                    o=1, h=1, low=1, c=1, v=1)   # 마지막 분(15:59) 중복(다른 값) = minute-of-day 959
+    with pytest.raises(ValueError, match="minute-of-day=959"):
         gap_for_day(today_regular_1m=tuple(today_bars), day=d, prev_day=prev_d,
                    prev_day_regular_1m=tuple(prev_bars) + (dup_last,))
 
@@ -824,9 +883,9 @@ def test_gap_for_day_raises_on_duplicate_todays_open_candidate():
     prev_d = date(2024, 3, 1)
     today_bars = _minute_bars("AAPL", d, 9, 30, 1, base=150.0)
     dup_open = _bar("AAPL", datetime(d.year, d.month, d.day, 9, 30, tzinfo=ET),
-                    o=999, h=999, low=999, c=999, v=1)
+                    o=999, h=999, low=999, c=999, v=1)   # minute-of-day 570
     prev_bars = _minute_bars("AAPL", prev_d, 9, 30, 390, base=100.0)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="minute-of-day=570"):
         gap_for_day(today_regular_1m=tuple(today_bars) + (dup_open,), day=d, prev_day=prev_d,
                    prev_day_regular_1m=tuple(prev_bars))
 

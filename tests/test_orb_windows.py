@@ -143,20 +143,22 @@ def test_regular_close_minute_checked_raises_on_non_trading_day():
 # 계약 fold 경계를 변조한 fixture → ContractIntegrityError (mutation 가드 증명)
 # --------------------------------------------------------------------------
 def test_folds_raise_when_boundary_trading_days_tampered(raw_contract):
+    """R5-3 — `folds()` 는 6개 이상의 raise 지점을 가진다(개수·블록없음·시작·끝·거래일수·합산).
+    `match=` 로 어느 지점인지 고정한다."""
     raw_contract["folds"]["boundaries"][1]["trading_days"] = 999
-    with pytest.raises(ContractIntegrityError):
+    with pytest.raises(ContractIntegrityError, match="거래일수 재계산 불일치"):
         w.folds(raw_contract)
 
 
 def test_folds_raise_when_boundary_end_date_tampered(raw_contract):
     raw_contract["folds"]["boundaries"][0]["end"] = "2023-10-14"   # 하루 밀림
-    with pytest.raises(ContractIntegrityError):
+    with pytest.raises(ContractIntegrityError, match="끝 재계산 불일치"):
         w.folds(raw_contract)
 
 
 def test_folds_raise_when_a_boundary_row_is_dropped(raw_contract):
     raw_contract["folds"]["boundaries"].pop()   # F10 삭제 → 개수 불일치
-    with pytest.raises(ContractIntegrityError):
+    with pytest.raises(ContractIntegrityError, match="fold 개수 재계산 불일치"):
         w.folds(raw_contract)
 
 
@@ -164,9 +166,11 @@ def test_folds_raise_when_block_trading_days_source_value_tampered(raw_contract)
     """F4(lane3 Medium) — `windows.py` 의 `blk = int(f["block_trading_days"])` 를 63 으로
     하드코딩해도(실제 계약값과 같으므로) 기존 boundary-row 변조 테스트들은 이 특정 read 를
     거치지 않아 통과했다. `block_trading_days` 자체를 바꾼 fixture 로 `folds()` 가 실제로
-    계약을 다시 읽는지(하드코딩이 아닌지) 확인한다."""
+    계약을 다시 읽는지(하드코딩이 아닌지) 확인한다. (block_trading_days=999 는 rebuilt 블록을
+    1개로 무너뜨려 "fold 개수 재계산 불일치"와 동일한 지점을 겨냥한다 — 위 드롭 테스트와
+    같은 지점이지만 다른 변조 경로다.)"""
     raw_contract["folds"]["block_trading_days"] = 999
-    with pytest.raises(ContractIntegrityError):
+    with pytest.raises(ContractIntegrityError, match="fold 개수 재계산 불일치"):
         w.folds(raw_contract)
 
 
@@ -189,7 +193,7 @@ def test_development_eval_days_raise_when_warmup_trading_days_source_value_tampe
     (둘 다 변경하지 않음)와 충돌해 예외를 낸다. 하드코딩이면 분할 지점이 그대로라 통과해
     변조가 조용히 생존한다."""
     raw_contract["windows"]["warmup_trading_days"] = 21
-    with pytest.raises(ContractIntegrityError):
+    with pytest.raises(ContractIntegrityError, match="development_eval_trading_days 재계산 불일치"):
         w.development_eval_days(raw_contract)
 
 
@@ -202,7 +206,7 @@ def test_warmup_days_raise_when_warmup_trading_days_source_value_tampered(raw_co
 
 def test_development_eval_days_raise_when_eval_start_tampered(raw_contract):
     raw_contract["windows"]["development_eval_start"] = "2023-05-19"
-    with pytest.raises(ContractIntegrityError):
+    with pytest.raises(ContractIntegrityError, match="development_eval_start 재계산 불일치"):
         w.development_eval_days(raw_contract)
 
 
@@ -210,7 +214,7 @@ def test_development_eval_days_raise_when_eval_end_tampered(raw_contract):
     """F5(lane3 Medium) — 시작 경계 변조 테스트는 있었는데 끝 경계 변조가 없어
     `development_eval_days` 의 끝 경계 대조를 제거해도 통과했다(비대칭 커버리지)."""
     raw_contract["windows"]["development_eval_end"] = "2026-01-19"
-    with pytest.raises(ContractIntegrityError):
+    with pytest.raises(ContractIntegrityError, match="development_eval_end 재계산 불일치"):
         w.development_eval_days(raw_contract)
 
 

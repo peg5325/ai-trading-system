@@ -268,14 +268,16 @@ def test_real_contract_wiring_smoke(contract, tmp_path):
 # (이전 판은 `contract["data_identity"]` 를 직접 접근해 누락 시 평범한 KeyError 를 냈다).
 # --------------------------------------------------------------------------
 def test_missing_data_identity_key_raises_contract_integrity_error(tmp_path):
-    with pytest.raises(ContractIntegrityError):
+    """R5-3 — `verify_snapshot_identity` 는 `_require` 를 5번(최상위 + 4개 해시 필드) 호출하므로
+    `match=` 로 어느 키가 걸렸는지 고정한다."""
+    with pytest.raises(ContractIntegrityError, match="누락 지점 'data_identity'"):
         ident.verify_snapshot_identity(
             contract={}, snapshot_path=str(tmp_path / "x"),
             raw_root=str(tmp_path / "y"), manifest_path=str(tmp_path / "z"))
 
 
 def test_missing_individual_hash_field_raises_contract_integrity_error(tmp_path):
-    with pytest.raises(ContractIntegrityError):
+    with pytest.raises(ContractIntegrityError, match="snapshot_content_sha256"):
         ident.verify_snapshot_identity(
             contract={"data_identity": {"snapshot_file_sha256": "a" * 64}},  # 나머지 3개 없음
             snapshot_path=str(tmp_path / "x"),
