@@ -636,13 +636,61 @@ def _research_load_offenders_in_tree(tree: ast.AST, rel: str, *,
     (비-리터럴 값·다른 문자열)는 전부 offender — allowlist 파일이라도 비-리터럴은 봐주지
     않는다(무엇이 될지 정적으로 알 수 없으므로).
 
+    R6-4(a) — 위 "생략은 안전하다"는 전제는 **이 파일 밖의 다른 테스트에 실제로 의존한다**:
+    `tests/test_oos_guard.py::test_performance_default_purpose_is_failclosed` 가 `purpose` 를
+    아예 넘기지 않고 `research_load` 를 호출해 `OOSLockError` 가 발동함을 실행 시점에
+    단언하므로, "기본값 자체가 fail-closed 다"는 전제가 동적으로 고정돼 있다. 그 테스트가
+    지워지면 이 전제도 조용히 사라진다 — 결합을 여기 명시해 둔다.
+
+    R6-4(b) — `track` 생략은 offender 인데 `purpose` 생략은 아닌 것이 **비대칭**으로 보일 수
+    있다(둘 다 기본값이 있으니 논리만으로는 안 갈린다). 실제 구분은 요건의 **성격**이 다르다는
+    데 있다: `purpose` 는 두 값(`"performance"`/`"coverage"`) 중 하나가 **무조건 더 엄격한
+    쪽**이라 생략 시 더 엄격한 쪽으로 떨어지는 것이 항상 안전하다(안전성 요건). 반면 `track` 은
+    "더 안전한 값"이 없다 — **로드하는 데이터와 일치해야 하는** 값이고(intraday 창을 swing 트랙
+    취급하면 그 자체로 틀린 데이터가 된다), 기본값과 실제 트랙이 우연히 같을 뿐 다른 트랙을
+    다루는 코드에서는 그 기본값이 조용히 틀린 답을 준다(정확성 요건). 이 비대칭을 명시해 두는
+    이유: "purpose 생략이 안전하니 track 생략도 봐주자"로 다음 사람이 잘못 확장하지 않도록.
+
     `track` 생략은 원래도 offender 였다(`is_intraday_const` 가 `track_kw is None` 이면 항상
     `False`) — `allow_track_unspecified=True` 인 파일만 예외로 둔다. 예전엔 이 예외를
     "파일 전체를 스캔에서 건너뛰기"로 구현해서, 그 파일의 `purpose`/`unlock` 검사까지 함께
     사라지는 전체-파일 사각지대가 됐다 — 이제는 **track 검사 하나만** 면제한다.
+
+    R6-1(team-lead 재현, 적대적 lane 이 R5-4 이관 직후 우회 7종을 시도해 5종은 잡히고 2종이
+    생존) — `functools.partial(research_load, purpose="coverage", track=TRACK_INTRADAY)` 가
+    생존했다: 그 시점의 `ast.Call` 은 `functools.partial` 이고, `research_load` 자신은 그
+    호출의 `func` 가 아니라 **인자**로 등장하므로 위 unlock/track/purpose 검사(전부 "이 Call 이
+    research_load 호출일 때"를 전제한다)가 발동하지 않는다. `fn = research_load`(대입 후
+    재호출)·`_helper(research_load)`(다른 함수에 전달)도 같은 구멍이다 — 값 자체가 새어나가는
+    순간을 별도로 잡아야 한다.
+
+    규칙: `research_load`(및 위 별칭)를 가리키는 `ast.Name`/`ast.Attribute` 노드는 **어떤
+    `ast.Call` 의 `func` 위치**에만 나타날 수 있다. 그 외 위치(다른 호출의 인자·대입 우변·
+    기본값 등)는 전부 offender 다. **allowlist 파일도 예외 없다** — allowlist 는 `purpose`/
+    `track` 인자 검사의 면제이지, 함수 자체를 값으로 빼돌려도 된다는 뜻이 아니다.
+
+    `getattr(_g, "research_" + "load")` 같은 **동적 조회**는 이 규칙으로도 원리적으로 잡을 수
+    없다(R6-2) — 문자열 결합으로 만든 이름은 애초에 AST 상의 Name/Attribute 참조가 아니다.
+    이건 결함이 아니라 정적 분석의 한계다(`tests/test_oos_guard_wiring.py` 의 `getattr` 관련
+    "알려진 한계" 문서화와 동일 성격) — 아래 스캔 테스트 docstring 에 명시하고 코드로 닫지
+    않는다.
     """
     offenders: list[str] = []
     aliases = _research_load_call_names(tree)
+
+    # R6-1 — research_load(및 별칭)가 어떤 Call 의 func 위치에도 있지 않은 채 등장하면(즉
+    # 값 자체가 새어나가면) offender. 먼저 이 트리의 모든 Call 이 자신의 func 로 쓰는 노드의
+    # id 집합을 모아 두고, 그다음 이름/속성 참조 전체를 그 집합과 대조한다.
+    call_func_ids = {id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
+    for node in ast.walk(tree):
+        is_bare_name_ref = isinstance(node, ast.Name) and node.id in aliases
+        is_attr_ref = isinstance(node, ast.Attribute) and node.attr == "research_load"
+        if (is_bare_name_ref or is_attr_ref) and id(node) not in call_func_ids:
+            offenders.append(
+                f"{rel}:{node.lineno}: research_load 가 호출 위치가 아닌 곳에서 값으로 "
+                "참조됨(대입·다른 함수의 인자·functools.partial 등으로 새어나가면 이후의 실제 "
+                "호출이 unlock/track/purpose 검사망을 벗어난다)")
+
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
@@ -702,6 +750,21 @@ def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
     건너뛰지 않고** 해당 검사 하나만 완화한다(`allow_track_unspecified`/`allow_coverage_
     purpose` 를 개별 전달) — 예전엔 track 예외 파일을 통째로 스캔에서 빼서 그 파일의
     unlock/purpose 검사까지 함께 사라지는 전체-파일 사각지대였다.
+
+    R6-1 — `research_load`(및 별칭)가 어떤 `ast.Call` 의 `func` 위치도 아닌 곳(대입 우변·다른
+    함수의 인자·`functools.partial` 등)에서 값으로 참조되는 것도 offender 다. allowlist 파일도
+    예외 없다.
+
+    알려진 한계(R6-2, 코드로 닫지 않는다 — 정적 분석 자체의 한계이지 이 스캐너의 결함이
+    아니다): `getattr(mod, "research_" + "load")` 같은 **동적 조회**는 이름 자체가 런타임에
+    문자열 연산으로 조립되므로 AST 상에는 애초에 `research_load` 를 가리키는 Name/Attribute
+    노드가 존재하지 않는다 — 원리적으로 정적 검사가 못 잡는다(`tests/test_oos_guard_wiring.py`
+    가 `load_candles` 에 대해 이미 같은 한계를 문서화해 둔 선례와 동일 성격, §13 "트립와이어이지
+    증명이 아니다"). ORB 패키지 **자신**의 로더 경로는 `test_blind_oos_lock_fires_before_any_
+    file_access`(위, 동적 잠금 단언)가 실제 `OOSLockError` 발동을 실행 시점에 확인하므로 그
+    경로는 덮인다 — 하지만 그 동적 테스트는 ORB 패키지의 로더 자신만 검증하고, `analysis/`·
+    `scripts/` 하위에 새로 놓이는 코드가 `getattr` 로 게이트를 우회하면 이 스캔도 그 동적
+    테스트도 잡지 못한다. 이 한계는 열려 있다.
     """
     offenders: list[str] = []
     for path in sorted(_orb_scan_py_files()):
@@ -721,7 +784,14 @@ def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attri
     """거짓 가드 방지 — 실제 스캔이 쓰는 것과 **같은 함수**(`_research_load_offenders_in_tree`,
     R4-5)로 **kwargs**·`ast.Attribute` 호출·별칭 import 를 탐지하는지 증명한다. 이전 판은
     판정 로직을 복제한 사본으로 검증해, 실제 스캐너가 약해져도(예: `kw.arg is None` 분기
-    제거) 이 증명 테스트가 독립적으로 계속 통과해 회귀를 놓쳤다(lane1 §6-B)."""
+    제거) 이 증명 테스트가 독립적으로 계속 통과해 회귀를 놓쳤다(lane1 §6-B).
+
+    R6-3(P6·P7, 적대적 lane 지적, team-lead 재현) — 이전 판은 `unlock` 을 **항상 `_EXTRA`
+    딕셔너리(`**kwargs` 언패킹) 안에 숨겨서만** 시험했고, `track` 생략(비-allowlist 파일)은
+    한 번도 시험하지 않았다. 그 결과 §3.5 에서 가장 중요한 한 줄인 "명시적 `unlock=` 키워드"
+    분기(kwargs 분기와 별개, `if "unlock" in kw_names`)와 "track 생략" 분기를 각각
+    무력화해도 이 증명 테스트가 계속 통과했다(적대적 lane 실측: 170 passed). 아래 두 줄을
+    추가해 그 두 분기 자신을 직접 겨냥한다."""
     offending_src = (
         "from src.history.oos_guard import research_load as rl\n"
         "from src.history.oos_guard import research_load\n"
@@ -729,6 +799,9 @@ def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attri
         "_EXTRA = {'unlock': object(), 'track': 'swing'}\n"
         "rl('db', 'AAPL', '1m', purpose='performance', track=TRACK_INTRADAY, **_EXTRA)\n"
         "og.research_load('db', 'AAPL', '1m', purpose='performance', track='swing')\n"
+        "research_load('db', 'AAPL', '1m', purpose='performance', track=TRACK_INTRADAY,"
+        " unlock=U)\n"
+        "research_load('db', 'AAPL', '1m', purpose='performance')\n"
     )
     tmp_file = tmp_path / "offender.py"
     tmp_file.write_text(offending_src, encoding="utf-8")
@@ -738,12 +811,17 @@ def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attri
 
     offenders = _research_load_offenders_in_tree(tree, "offender.py")
     kwargs_hits = [o for o in offenders if "kwargs" in o]
-    other_hits = [o for o in offenders if "kwargs" not in o]
-    # rl(**_EXTRA) 는 kwargs 은닉으로, og.research_load(...) 는 그 외(track 불일치)로
-    # 정확히 하나씩 잡혀야 한다(ast.walk 순회 순서에 의존하지 않는다).
+    unlock_hits = [o for o in offenders if "unlock 인자 존재" in o]
+    track_mismatch_hits = [o for o in offenders if "TRACK_INTRADAY 상수가 아님" in o]
+    track_omitted_hits = [o for o in offenders if "track 인자가 생략됨" in o]
+    # rl(**_EXTRA) 는 kwargs 은닉, og.research_load(...) 는 track 불일치, 세 번째 호출은
+    # unlock 을 딕셔너리 경유 없이 직접 명시, 네 번째는 track 자체를 생략(비-allowlist 파일)
+    # — 각각 정확히 하나씩, 서로 다른 분기로 잡혀야 한다(ast.walk 순회 순서에 의존하지 않는다).
     assert len(kwargs_hits) == 1
-    assert len(other_hits) == 1
-    assert len(offenders) == 2
+    assert len(unlock_hits) == 1
+    assert len(track_mismatch_hits) == 1
+    assert len(track_omitted_hits) == 1
+    assert len(offenders) == 4
 
 
 def test_research_load_offender_detection_rule_actually_catches_purpose_bypasses(tmp_path):
@@ -774,6 +852,80 @@ def test_research_load_offender_detection_rule_actually_catches_purpose_bypasses
     purpose_hits_allowed = [o for o in offenders_allowed if "purpose" in o]
     assert len(purpose_hits_allowed) == 1, purpose_hits_allowed   # _P 변수만 남는다
     assert len(offenders_allowed) == 1
+
+
+def test_research_load_offender_detection_rule_actually_catches_value_leaks(tmp_path):
+    """거짓 가드 방지(R6-1, team-lead 재현) — 적대적 lane 이 R5-4 직후 시도한 7종 우회 중
+    `functools.partial(research_load, ...)`·`fn = research_load`(재바인딩)·다른 함수에 인자로
+    전달, 이 세 형태가 실제로 잡히는지 증명한다(원래는 인자 검사(unlock/track/purpose)가 전제로
+    삼는 "이 Call 이 research_load 호출"이라는 조건 자체를 피해가는 경로였다). 정상 호출은
+    여전히 offender 가 아니어야 한다(거짓 양성 방지)."""
+    offending_src = (
+        "import functools\n"
+        "from src.history.oos_guard import TRACK_INTRADAY, research_load\n"
+        "\n"
+        "_leaked_partial = functools.partial(research_load, purpose='coverage',\n"
+        "                                     track=TRACK_INTRADAY)\n"
+        "\n"
+        "_rebound = research_load\n"
+        "\n"
+        "\n"
+        "def _accepts_loader(loader_fn):\n"
+        "    return loader_fn\n"
+        "\n"
+        "\n"
+        "_accepts_loader(research_load)\n"
+        "\n"
+        "research_load('db', 'AAPL', '1m', purpose='performance', track=TRACK_INTRADAY)\n"
+    )
+    tmp_file = tmp_path / "offender_value_leak.py"
+    tmp_file.write_text(offending_src, encoding="utf-8")
+    tree = ast.parse(offending_src, filename=str(tmp_file))
+
+    offenders = _research_load_offenders_in_tree(tree, "offender_value_leak.py")
+    leak_hits = [o for o in offenders if "값으로" in o]
+    # partial 인자 1건 + 재바인딩 우변 1건 + _accepts_loader 인자 1건 = 3건. 마지막 줄의
+    # 정상 호출은 func 위치이므로 여기 포함되지 않고, unlock/track/purpose 규정도 지켰으므로
+    # 다른 경로로도 offender 가 아니다.
+    assert len(leak_hits) == 3, leak_hits
+    assert len(offenders) == 3
+
+
+def test_orb_scan_catches_a_research_load_value_leak_under_the_real_analysis_directory():
+    """R6-1 end-to-end(team-lead 요청, R4-8 과 동일 방식) — 합성 fixture 와 별개로, 실제
+    `analysis/` 디렉터리에 `functools.partial(research_load, ...)` 우회를 심어
+    `_orb_scan_py_files`(스캔 대상 목록)와 `_research_load_offenders_in_tree`(판정)가 end-to-end
+    로 실제로 잡는지 확인한다 — 끝나면 파일을 지운다(디렉터리 자체는 지우지 않는다, 기존
+    `score_analysis.py`·`screener_ranking_h4.py` 를 건드리면 다른 테스트가 collection error 를
+    낸다 — team-lead 가 겪은 그대로다. 실패해도 `finally` 로 정리한다)."""
+    analysis_dir = os.path.join(REPO, "analysis")
+    assert os.path.isdir(analysis_dir), "analysis/ 디렉터리가 없다 — 전제가 깨졌다"
+    probe_path = os.path.join(analysis_dir, "_r6_1_scan_probe_scratch.py")
+    assert not os.path.exists(probe_path), "이전 실행의 잔여 스크래치 파일이 남아 있다"
+    probe_src = (
+        "import functools\n"
+        "\n"
+        "from src.history.oos_guard import TRACK_INTRADAY, research_load\n"
+        "\n"
+        "_bypass = functools.partial(research_load, purpose='coverage',\n"
+        "                             track=TRACK_INTRADAY)\n"
+    )
+    try:
+        with open(probe_path, "w", encoding="utf-8") as f:
+            f.write(probe_src)
+
+        scanned = {os.path.relpath(p, REPO) for p in _orb_scan_py_files()}
+        rel = os.path.relpath(probe_path, REPO)
+        assert rel in scanned, "analysis/ 하위 파일이 스캔 대상 목록에 없다"
+
+        with open(probe_path, encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=probe_path)
+        offenders = _research_load_offenders_in_tree(tree, rel)
+        assert offenders != [], "functools.partial 값 유출이 잡히지 않았다(R6-1 회귀)"
+    finally:
+        if os.path.exists(probe_path):
+            os.remove(probe_path)
+    assert not os.path.exists(probe_path)
 
 
 def test_orb_scan_catches_a_violation_placed_under_the_real_analysis_directory():
