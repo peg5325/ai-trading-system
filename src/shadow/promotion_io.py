@@ -28,6 +28,7 @@ class SessionInputs:
     manual_flatten_count: int
     regime: str | None
     started_at: str | None
+    config_hash: str | None = None
 
 
 def session_regime(journal) -> str | None:
@@ -57,8 +58,11 @@ def analyze_session(journal, candle_store, *, manifest=None, session_id: str,
     completion = COMPLETION_UNKNOWN
     manual = 0
     started_at = None
+    config_hash = None
     if manifest is not None:
-        market = getattr(getattr(manifest, "identity", None), "market", None)
+        identity = getattr(manifest, "identity", None)
+        market = getattr(identity, "market", None)
+        config_hash = getattr(identity, "config_hash", None)
         completion = manifest.completion_status or COMPLETION_UNKNOWN
         manual = manifest.manual_flatten_count
         started_at = manifest.created_at
@@ -69,7 +73,7 @@ def analyze_session(journal, candle_store, *, manifest=None, session_id: str,
     inputs = SessionInputs(
         session_id=session_id, market=market, completion_status=completion,
         manual_flatten_count=manual, regime=session_regime(journal),
-        started_at=started_at)
+        started_at=started_at, config_hash=config_hash)
     return inputs, aggregates
 
 
