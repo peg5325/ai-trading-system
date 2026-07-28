@@ -291,6 +291,37 @@ def test_mixed_universe_per_symbol_eod(tmp_path):
     assert kinds.get("QQQ") == EOD_FLATTEN and "005930" not in kinds
 
 
+def test_eod_timing_uses_each_symbols_latest_1m_without_cross_market_forcing(tmp_path):
+    """#44 보완: 대표 KR 시계가 US 보유 종목의 EOD 창을 대신 결정하면 안 된다."""
+    cfg = LoopConfig(universe=("005930", "QQQ"),
+                     exit_config=ExitConfig(enable_all_symbols_eod_flatten=True))
+    lp = PaperTradingLoop(FakeMarketDataProvider({}), CandleStore(tmp_path / "m.sqlite"),
+                          None, InMemoryPositionStore(), cfg, sleep=lambda s: None)
+    lp.account.apply_fill(FillEvent("005930", BUY, 10.0, 100.0))
+    lp.account.apply_fill(FillEvent("QQQ", BUY, 10.0, 100.0))
+
+    kr_closed = kr_candle(15, 15)
+    us_closed = us_candle(10, 55)
+    kr_latest_1m = Candle.from_moment(
+        "005930", "1m", datetime(2026, 7, 8, 15, 24, tzinfo=KST),
+        101.0, 101.0, 101.0, 101.0, 1.0, "KRW", True)
+    us_latest_1m = Candle.from_moment(
+        "QQQ", "1m", datetime(2026, 7, 8, 11, 0, tzinfo=ET),
+        99.0, 99.0, 99.0, 99.0, 1.0, "USD", True)
+
+    kinds = {
+        intent.symbol: intent.kind
+        for intent in lp._exit_intents(
+            {"005930": [kr_closed], "QQQ": [us_closed]},
+            kr_closed,
+            timing_candles_1m={"005930": kr_latest_1m, "QQQ": us_latest_1m},
+        )
+    }
+
+    assert kinds.get("005930") == EOD_FLATTEN
+    assert "QQQ" not in kinds
+
+
 def test_time_exit_bars_fires_in_paper_loop(tmp_path):
     """time_exit_bars 가 paper 경로에서 타임스탬프 유도 5분봉 인덱스로 실제 발동하는지.
     EOD 창과 무관하도록 US REGULAR 중간 시간대(11:00 ET~) 사용."""

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from src.exits.generator import ExitConfig
 from src.live.models import (
     FakeMarketDataProvider,
     LoopConfig,
@@ -21,7 +22,7 @@ from src.live.models import (
     ST_STOPPED,
 )
 from src.live.paper_loop import PaperTradingLoop
-from src.models import ET, Candle
+from src.models import ET, KST, Candle
 from src.order.models import InMemoryPositionStore
 from src.pipeline.models import PipelineResult, SymbolOutcome
 from src.storage.candle_store import CandleStore
@@ -38,6 +39,17 @@ def make_1m(n, start_et, base=100.0, symbol="SOXL"):
         out.append(Candle.from_moment(symbol, "1m", m, prev, max(prev, c) + 0.1,
                                       min(prev, c) - 0.1, c, 1000 + i, "USD", True))
         prev = c
+    return out
+
+
+def make_kr_1m(n, start_kst, base=100.0, symbol="005930"):
+    """KR 거래소 로컬 시각부터 연속 1분봉 n개."""
+    out = []
+    for i in range(n):
+        moment = start_kst + timedelta(minutes=i)
+        price = base + i
+        out.append(Candle.from_moment(
+            symbol, "1m", moment, price, price, price, price, 1000 + i, "KRW", True))
     return out
 
 
@@ -158,6 +170,39 @@ def test_eod_flatten_generates_exit_intents(tmp_path):
     assert rep.status == ST_RAN
     exits = pipe.calls[0]["exit_intents"]
     assert exits and exits[0].kind == EOD_FLATTEN and exits[0].symbol == "SOXL"
+
+
+def test_eod_flatten_uses_position_latest_1m_when_closed_5m_is_stale(tmp_path):
+    """#44: 대표 종목은 15:20 봉이 닫혔지만 보유 종목은 15:15 봉만 닫힌 skew.
+
+    보유 종목의 최신 1분봉(15:24)은 자기 시장 EOD 창 안이므로 같은 tick 에 청산해야 한다.
+    청산 가격은 여전히 마지막 *닫힌* 5분봉 종가를 사용한다.
+    """
+    position_1m = make_kr_1m(
+        10, datetime(2026, 7, 8, 15, 15, tzinfo=KST), base=100.0, symbol="005930")
+    representative_1m = make_kr_1m(
+        6, datetime(2026, 7, 8, 15, 20, tzinfo=KST), base=200.0, symbol="402340")
+    market = FakeMarketDataProvider({
+        "005930": position_1m,
+        "402340": representative_1m,
+    })
+    pipe = RecordingPipeline()
+    cfg = LoopConfig(
+        universe=("005930", "402340"),
+        exit_config=ExitConfig(enable_all_symbols_eod_flatten=True),
+    )
+    lp = loop(tmp_path, market, pipe, cfg=cfg)
+    lp.account.apply_fill(FillEvent("005930", "BUY", 10.0, 100.0))
+
+    rep = lp.tick()
+
+    assert rep.status == ST_RAN
+    assert pipe.calls[0]["cycle_id"].endswith("062000Z")  # 15:20 KST 대표 닫힌 봉
+    exits = pipe.calls[0]["exit_intents"]
+    assert len(exits) == 1
+    assert exits[0].kind == EOD_FLATTEN
+    assert exits[0].symbol == "005930"
+    assert exits[0].price == position_1m[4].close  # 15:15 버킷의 닫힌 종가
 
 
 # ---- kill switch: system_state 에 반영, EOD flatten 은 유지 ----
