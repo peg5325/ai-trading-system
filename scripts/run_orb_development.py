@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.research.orb.development import (
     DevelopmentPaths,
     run_development,
+    tracked_manifest_path,
 )
 from src.research.orb.manifest import (
     IMPLEMENTATION_MERGE_COMMIT,
@@ -42,10 +43,6 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--snapshot-db", required=True)
     parser.add_argument("--raw-root", required=True)
-    parser.add_argument(
-        "--manifest",
-        default="docs/research/P0_US30_ORB_CLEAN_1M_MANIFEST.json",
-    )
     parser.add_argument("--producer-commit", required=True)
     parser.add_argument("--generated-at-utc", required=True)
     parser.add_argument("--review-evidence-url", required=True)
@@ -69,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
         paths=DevelopmentPaths(
             snapshot_path=os.path.abspath(args.snapshot_db),
             raw_root=os.path.abspath(args.raw_root),
-            manifest_path=os.path.abspath(args.manifest),
+            manifest_path=tracked_manifest_path(),
         ),
         producer_commit=args.producer_commit,
         generated_at_utc=args.generated_at_utc,

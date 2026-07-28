@@ -4,7 +4,6 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-import os
 import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
@@ -37,6 +36,12 @@ from src.research.orb.windows import development_eval_days, folds
 SCHEMA = "orb-development-result/v1"
 PREREG_MERGE_COMMIT = "e42dafcf4a5f803c1af9a3535a980492c93e9c96"
 IMPLEMENTATION_MERGE_COMMIT = "ddaacabfb28fca11c1f3280b89fe522a3fca76c2"
+TRACKED_SNAPSHOT_MANIFEST_PATH = (
+    "docs/research/P0_US30_ORB_CLEAN_1M_MANIFEST.json"
+)
+TRACKED_SNAPSHOT_MANIFEST_SHA256 = (
+    "0b77433c58dbc15c933d2077fbf3cf64b65d194078c8bb6c498a1a78866fc978"
+)
 LOADER_PROVENANCE = {
     "function": "src.history.oos_guard.research_load",
     "purpose": "performance",
@@ -355,6 +360,10 @@ def build_payload(
             },
             "P3": {
                 "snapshot_identity": "matched_all_four_hashes",
+                "tracked_manifest": TRACKED_SNAPSHOT_MANIFEST_PATH,
+                "tracked_manifest_file_sha256": (
+                    TRACKED_SNAPSHOT_MANIFEST_SHA256
+                ),
             },
         },
         "snapshot": _json_safe({
@@ -436,29 +445,3 @@ def build_result(
         "payload_sha256": payload_sha256(payload),
         "schema": SCHEMA,
     }
-
-
-def write_result(
-    path: str,
-    evidence: DevelopmentResultEvidence,
-    *,
-    contract: Mapping[str, object],
-    generated_at_utc: str,
-) -> None:
-    """완성본만 atomic replace. generated_at은 payload 해시 밖이다."""
-    result = build_result(
-        evidence, contract=contract, generated_at_utc=generated_at_utc)
-    text = json.dumps(
-        result,
-        ensure_ascii=False,
-        indent=2,
-        sort_keys=True,
-        allow_nan=False,
-    ) + "\n"
-    partial = f"{path}.partial"
-    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
-    with open(partial, "w", encoding="utf-8") as handle:
-        handle.write(text)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(partial, path)

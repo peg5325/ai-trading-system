@@ -62,7 +62,11 @@ def _result() -> dict:
                     "loader_boundary_status": "passed",
                     "loader_boundary_test": "test",
                 },
-                "P3": {"snapshot_identity": "matched_all_four_hashes"},
+                "P3": {
+                    "snapshot_identity": "matched_all_four_hashes",
+                    "tracked_manifest": "docs/research/manifest.json",
+                    "tracked_manifest_file_sha256": "e" * 64,
+                },
             },
             "snapshot": {
                 "basename": "snapshot.sqlite",

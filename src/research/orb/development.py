@@ -5,16 +5,20 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from src.research.orb.contract import load_contract
+from src.research.orb.contract import load_contract, repo_root
 from src.research.orb.gates import SnapshotDefectEvidence
 from src.research.orb.identity import require_identity, verify_snapshot_identity
 from src.research.orb.manifest import (
+    TRACKED_SNAPSHOT_MANIFEST_PATH,
+    TRACKED_SNAPSHOT_MANIFEST_SHA256,
     DevelopmentResultEvidence,
     PreconditionEvidence,
     SnapshotEvidence,
@@ -37,6 +41,29 @@ class DevelopmentPaths:
 class DevelopmentRun:
     result: Mapping[str, Any]
     evidence: DevelopmentResultEvidence
+
+
+def tracked_manifest_path() -> str:
+    return os.path.join(repo_root(), TRACKED_SNAPSHOT_MANIFEST_PATH)
+
+
+def _file_sha256(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _require_tracked_manifest(path: str) -> str:
+    expected = os.path.realpath(tracked_manifest_path())
+    actual = os.path.realpath(os.path.abspath(path))
+    if actual != expected:
+        raise ValueError("snapshot manifest는 저장소의 추적 정본 경로만 허용한다")
+    actual_sha = _file_sha256(actual)
+    if actual_sha != TRACKED_SNAPSHOT_MANIFEST_SHA256:
+        raise ValueError("추적 snapshot manifest 파일 SHA-256이 동결값과 다르다")
+    return actual
 
 
 def _load_manifest(path: str) -> Mapping[str, object]:
@@ -62,19 +89,20 @@ def run_development(
     """P1~P3를 envelope에 고정하고 development 8개 spec을 한 번 계산한다."""
     _validate_generated_at(generated_at_utc)
     preconditions.validate()
+    manifest_path = _require_tracked_manifest(paths.manifest_path)
     contract = load_contract()
     identity = verify_snapshot_identity(
         contract=contract,
         snapshot_path=paths.snapshot_path,
         raw_root=paths.raw_root,
-        manifest_path=paths.manifest_path,
+        manifest_path=manifest_path,
     )
     require_identity(identity)
     snapshot = SnapshotEvidence.from_identity(
         contract=contract,
         identity=identity,
     )
-    tracked_manifest = _load_manifest(paths.manifest_path)
+    tracked_manifest = _load_manifest(manifest_path)
     snapshot_defects = SnapshotDefectEvidence.from_sources(
         manifest=tracked_manifest,
         identity=identity,

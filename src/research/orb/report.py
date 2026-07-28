@@ -82,6 +82,11 @@ def render_development_report(result: Mapping[str, Any]) -> str:
             f"`{preconditions['P2']['loader_boundary_test']}`"
         ),
         f"- P3 snapshot identity: `{preconditions['P3']['snapshot_identity']}`",
+        f"- P3 tracked manifest: `{preconditions['P3']['tracked_manifest']}`",
+        (
+            "- P3 tracked manifest SHA-256: "
+            f"`{preconditions['P3']['tracked_manifest_file_sha256']}`"
+        ),
         "",
         "## 3. 입력 identity",
         "",

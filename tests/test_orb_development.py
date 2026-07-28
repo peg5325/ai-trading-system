@@ -54,21 +54,9 @@ def _matching_identity() -> IdentityResult:
 
 def test_run_development_wires_identity_feature_simulation_and_manifest(
     monkeypatch,
-    tmp_path,
 ):
     contract = load_contract()
     day = date(2024, 3, 4)
-    manifest = {
-        "data_content_sha256": (
-            contract["data_identity"]["manifest_data_sha256"]
-        ),
-        "symbols": [
-            {"symbol": symbol, "conflict": 0}
-            for symbol in sorted(universe(contract).all_symbols)
-        ],
-    }
-    manifest_path = tmp_path / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     identity = _matching_identity()
     calls = []
 
@@ -139,7 +127,7 @@ def test_run_development_wires_identity_feature_simulation_and_manifest(
         paths=DevelopmentPaths(
             snapshot_path="/snapshot.sqlite",
             raw_root="/raw",
-            manifest_path=str(manifest_path),
+            manifest_path=development_module.tracked_manifest_path(),
         ),
         producer_commit="a" * 40,
         generated_at_utc="2026-07-28T08:00:00Z",
@@ -152,6 +140,47 @@ def test_run_development_wires_identity_feature_simulation_and_manifest(
         "features",
         "simulate",
     ]
+
+
+def test_custom_manifest_with_matching_data_hash_is_rejected_before_identity(
+    monkeypatch,
+    tmp_path,
+):
+    contract = load_contract()
+    forged = {
+        "data_content_sha256": (
+            contract["data_identity"]["manifest_data_sha256"]
+        ),
+        "symbols": [
+            {"symbol": symbol, "conflict": 0}
+            for symbol in sorted(universe(contract).all_symbols)
+        ],
+    }
+    forged_path = tmp_path / "forged.json"
+    forged_path.write_text(json.dumps(forged), encoding="utf-8")
+    monkeypatch.setattr(
+        development_module,
+        "verify_snapshot_identity",
+        lambda **_kwargs: pytest.fail("identity 전에 custom path를 거부해야 한다"),
+    )
+    with pytest.raises(ValueError, match="추적 정본 경로"):
+        run_development(
+            paths=DevelopmentPaths(
+                snapshot_path="/snapshot.sqlite",
+                raw_root="/raw",
+                manifest_path=str(forged_path),
+            ),
+            producer_commit="a" * 40,
+            generated_at_utc="2026-07-28T08:00:00Z",
+            preconditions=_preconditions(),
+        )
+
+
+def test_tracked_manifest_file_hash_is_pinned():
+    path = development_module.tracked_manifest_path()
+    assert development_module._file_sha256(path) == (
+        development_module.TRACKED_SNAPSHOT_MANIFEST_SHA256
+    )
 
 
 def test_generated_time_and_review_evidence_are_fail_closed(tmp_path):
