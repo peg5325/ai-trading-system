@@ -26,7 +26,7 @@ PREREG_JSON_PATH = "docs/research/PREREG_P0_US30_ORB_V1.json"
 
 # `tests/test_prereg_orb_contract.py` 의 동결 상수와 **동일해야 한다**(그 파일이 병합 시점의
 # 정본 해시를 갖고 있다). 두 상수가 어긋나면 `test_orb_contract.py` 가 즉시 실패한다.
-PREREG_MD_SHA256 = "9a24580f60e1c84e98393f9d31a5ebe8e913ac9445181adfaa8c1f3d5414cf92"
+PREREG_MD_SHA256 = "ccce3837f24a3a0da43f511ff0eff44ee59f677c73f9fcc349754786eaad8b80"
 PREREG_JSON_SHA256 = "adb2e246a9ed94c7b1fce1fd3dc12105b7ab49534bdd08dba543e62ab17bfad6"
 
 

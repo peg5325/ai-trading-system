@@ -1169,3 +1169,77 @@ development 실행을 시작하지 않는다.
 - threshold sweep **없음**
 - blind OOS 접근 **없음**
 - 주문·broker·risk·Paper·runtime config 변경 **없음**
+
+---
+
+## 17. ERRATUM (append-only · 병합 후)
+
+> 이 절은 병합 이후에만 추가됐다. **본문(§0~§16)은 개서하지 않는다**(§14.1).
+> 각 항목은 발견 경위·내용·판정 영향·조치·"GO를 쉽게 만드는가"를 기록한다.
+
+### E1 — 기계 판독 사본의 `candidate.gap.definition` 부등호가 정본과 어긋난다
+
+| 항목 | 값 |
+| --- | --- |
+| 일자 | 2026-07-27 |
+| 발견 | 4/6 구현(이슈 #91) 독립 리뷰 lane 1이 사전등록 대비 drift를 전수 대조하던 중 |
+| 결과 열람 여부 | **미열람** (ORB 성과·forward return·blind OOS 어느 것도 계산되지 않은 시점) |
+
+**내용**
+
+`PREREG_P0_US30_ORB_V1.json`의 `candidate.gap.definition`은 직전 거래일
+마지막 REGULAR 1분봉을 `at or before regular_close_minute(that day)`로 적었다.
+`at or before`는 이하를 뜻하지만 정본 §5.1은 v1.5에서 이를 **미만**으로
+교정하고 근거까지 명시했다. 봉 시각은 시작 시각이므로 미만이어야 조기폐장일
+13:00 라벨 봉처럼 정규장 종료 후 시작하는 봉이 제외된다.
+
+같은 JSON의 형제 필드는 이미 정본과 일치한다.
+
+| 필드 | 값 | 전파 |
+| --- | --- | --- |
+| `risk.eod_fallback.price` | `starting before regular_close_minute(d)` | 됨 |
+| `data_load.decision_bars_bounded_by` | `ts_exchange < regular_close_minute(d)` | 됨 |
+| `candidate.gap.definition` | `at or before regular_close_minute(that day)` | **안 됨** |
+
+**분류**
+
+§14.4·§14.7·§14.8이 기록한 부분 전파 실패 유형이다. 한 조항을 교정하고
+같은 규칙을 쓰는 형제 조항에 전파하지 않으면 문서가 스스로 모순되고,
+구현 시점에 결과를 본 뒤 어느 쪽을 택할지 재량이 생긴다.
+
+**판정 영향 — 없음**
+
+- §14.1.1은 **마크다운 문서를 정본**으로 정했고 JSON도
+  `md_is_authoritative_on_conflict: true`로 이를 진술한다. 적용 규칙은 처음부터 **미만**이다.
+- 4/6 구현은 정본에 따라 미만으로 구현됐다.
+- gap 임계 `|gap| >= 0.30%`와 모든 게이트 수치는 바뀌지 않는다.
+- 영향 가능 범위는 development 창의 조기폐장 8일 직후 거래일 prev_close뿐이며,
+  blind OOS 구간의 조기폐장일은 0일이다(§3.4).
+
+이 정정은 계약 `revision_policy.allowed_before_results`의
+`internal_inconsistency`에 해당한다. 결과를 보고 바꿀 수 없는 threshold·window·filter·
+entry·exit·cost·tie-break·통계·gate에는 해당하지 않는다.
+
+**정본이 뜻하는 바**
+
+> `prev_close` = 직전 거래일 REGULAR 세션에서
+> `regular_close_minute(그 날)`보다 **엄격히 이전에 시작하는** 마지막 완료 1분봉의 close
+
+**조치**
+
+- 본문 §0~§16은 개서하지 않고 이 절만 append한다.
+- `PREREG_P0_US30_ORB_V1.json`은 바이트 하나도 편집하지 않는다.
+- `tests/test_prereg_orb_contract.py`와 `src/research/orb/contract.py`의
+  `PREREG_MD_SHA256`만 이 append에 맞춰 갱신한다.
+- `PREREG_JSON_SHA256`은 불변이다.
+
+**구현이 이미 정본을 따랐다는 증거**
+
+- `src/research/orb/features.py:gap_for_day`는 `<`(미만)를 사용한다.
+- `<=`로 바꾸는 mutation은 관련 회귀 테스트를 실패시킨다.
+- 이 문면 불일치로 영향받은 ORB 결과 산출물은 존재하지 않는다.
+
+**GO를 쉽게 만드는가**
+
+**아니오.** 규칙·임계·창·게이트·비용·판정 기준 어느 것도 바뀌지 않는다.
+정본과 사본의 문면 불일치를 기록하며 적용 규칙은 처음부터 정본의 미만이었다.
