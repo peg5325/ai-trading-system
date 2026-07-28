@@ -36,6 +36,7 @@ from src.research.orb.windows import development_eval_days, folds
 
 SCHEMA = "orb-development-result/v1"
 PREREG_MERGE_COMMIT = "e42dafcf4a5f803c1af9a3535a980492c93e9c96"
+IMPLEMENTATION_MERGE_COMMIT = "ddaacabfb28fca11c1f3280b89fe522a3fca76c2"
 LOADER_PROVENANCE = {
     "function": "src.history.oos_guard.research_load",
     "purpose": "performance",
@@ -94,10 +95,41 @@ class SnapshotEvidence:
 
 
 @dataclass(frozen=True)
+class PreconditionEvidence:
+    """P1~P3 중 외부 절차 증거를 결과 envelope에 고정한다."""
+
+    implementation_merge_commit: str
+    review_status: str
+    review_evidence_url: str
+    loader_boundary_status: str
+    loader_boundary_test: str
+
+    def validate(self) -> None:
+        if self.implementation_merge_commit != IMPLEMENTATION_MERGE_COMMIT:
+            raise ValueError("4-B implementation merge commit이 동결값과 다르다")
+        if self.review_status != "approved":
+            raise ValueError("P1 독립 리뷰가 approved가 아니면 development를 기록할 수 없다")
+        if not re.fullmatch(
+            r"https://github\.com/peg5325/ai-trading-system/pull/93"
+            r"(?:#issuecomment-\d+)?",
+            self.review_evidence_url,
+        ):
+            raise ValueError("P1 review evidence는 PR #93 GitHub URL이어야 한다")
+        if self.loader_boundary_status != "passed":
+            raise ValueError("P2 loader boundary가 passed가 아니면 development를 기록할 수 없다")
+        if self.loader_boundary_test != (
+            "tests/test_oos_guard_wiring.py::"
+            "test_no_direct_load_candles_outside_gate"
+        ):
+            raise ValueError("P2 loader boundary test가 동결된 AST 경계 테스트와 다르다")
+
+
+@dataclass(frozen=True)
 class DevelopmentResultEvidence:
     """4-C가 임의 중첩 dict 대신 넘겨야 하는 typed 결과 증거 묶음."""
 
     producer_commit: str
+    preconditions: PreconditionEvidence
     snapshot: SnapshotEvidence
     results_by_spec: Mapping[str, Sequence[DaySimulationResult]]
     snapshot_defects: SnapshotDefectEvidence
@@ -240,6 +272,7 @@ def build_payload(
         raise ValueError("결과 snapshot 증거가 동결 계약과 일치하지 않는다")
     if not re.fullmatch(r"[0-9a-f]{40}", evidence.producer_commit):
         raise ValueError("producer_commit은 40자리 lowercase git SHA여야 한다")
+    evidence.preconditions.validate()
 
     evaluation_folds = folds(contract)
     expected_costs = set(cost_levels(contract))
@@ -304,6 +337,26 @@ def build_payload(
             "prereg_merge_commit": PREREG_MERGE_COMMIT,
         },
         "producer_commit": evidence.producer_commit,
+        "preconditions": {
+            "P1": {
+                "review_status": evidence.preconditions.review_status,
+                "review_evidence_url": evidence.preconditions.review_evidence_url,
+                "implementation_merge_commit": (
+                    evidence.preconditions.implementation_merge_commit
+                ),
+            },
+            "P2": {
+                "loader_boundary_status": (
+                    evidence.preconditions.loader_boundary_status
+                ),
+                "loader_boundary_test": (
+                    evidence.preconditions.loader_boundary_test
+                ),
+            },
+            "P3": {
+                "snapshot_identity": "matched_all_four_hashes",
+            },
+        },
         "snapshot": _json_safe({
             "basename": evidence.snapshot.basename,
             "snapshot_file_sha256": evidence.snapshot.snapshot_file_sha256,
