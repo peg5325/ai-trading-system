@@ -257,9 +257,9 @@ def test_all_eight_specs_are_simulated_as_independent_result_streams(monkeypatch
     day = date(2024, 3, 4)
     candles = tuple(
         bar(day, minute, interval="1m")
-        for minute in range(570, 601)
+        for minute in range(570, 961)
     )
-    feature = features(day, gap=0.0, rvol=0.0)
+    feature = features(day, or_low=50, gap=.01, rvol=2.0)
     feature_pass = FeaturePass(
         days=(day,),
         symbols=("AAPL",),
@@ -268,7 +268,7 @@ def test_all_eight_specs_are_simulated_as_independent_result_streams(monkeypatch
             15: {day: {"AAPL": feature}},
         },
         day_candles_by_day={day: {"AAPL": candles}},
-        regular_1m_by_day={day: {"AAPL": candles}},
+        regular_1m_by_day={day: {"AAPL": candles[:-1]}},
         defects_by_day={day: {"AAPL": ()}},
     )
     monkeypatch.setattr(
@@ -289,6 +289,12 @@ def test_all_eight_specs_are_simulated_as_independent_result_streams(monkeypatch
     }
     assert len({id(results) for results in output.values()}) == 8
     assert all(results[0].spec_name == name for name, results in output.items())
+    primary_trade = output["primary"][0].trades[0]
+    assert primary_trade.exit
+    assert (
+        primary_trade.exit.exit_minute,
+        primary_trade.exit.exit_reason,
+    ) == (955, "eod")
 
 
 def test_raw_bar_defect_scan_stays_within_same_regular_day():
