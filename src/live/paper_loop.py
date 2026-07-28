@@ -168,10 +168,13 @@ class PaperTradingLoop:
         # 2) 1분봉 저장 + 5분봉 리샘플
         #    (저장소 예외는 runtime 이 처리: SQLite lock 재시도 / 기타 예외 흡수+카운트)
         candles_5m: dict[str, list[Candle]] = {}
+        latest_1m: dict[str, Candle] = {}
         for sym, cs in raw.items():
             if cs:
                 self.store.upsert_many(cs)
             allc = self.store.query(sym, "1m")
+            if allc:
+                latest_1m[sym] = allc[-1]
             df5 = resample(candles_to_frame(allc), "5min")
             candles_5m[sym] = frame_to_candles(df5, sym)
 
@@ -208,7 +211,8 @@ class PaperTradingLoop:
         eod = in_eod_flatten_window(newest_candle, mins_before)
         portfolio = self._portfolio(last_prices, session, eod, now_time=newest)
         # 청산 신호는 매 사이클 평가(SL/TP/Time 은 마감 창 밖에서도 발동, EOD 는 각 시장 마감 창에서).
-        exit_intents = self._exit_intents(candles_5m, newest_candle)
+        exit_intents = self._exit_intents(
+            candles_5m, newest_candle, timing_candles_1m=latest_1m)
         system_state = SystemState(kill_switch=self.kill_switch)
         market = MarketContext(session=session, is_eod_flatten_window=eod)
 
@@ -349,12 +353,18 @@ class PaperTradingLoop:
             daily_pnl_pct=self.account.last_daily_return_pct,
             kill_switch=self.kill_switch, session=session, is_eod_flatten_window=eod)
 
-    def _open_positions_view(self, candles_5m) -> list[PositionView]:
+    def _open_positions_view(
+            self,
+            candles_5m,
+            timing_candles_1m: dict[str, Candle] | None = None,
+    ) -> list[PositionView]:
         """자금관리 계좌(FIFO 롯)를 종목별 PositionView 로 집계.
         진입가는 롯 가중평균, 보유시간은 가장 오래된(FIFO) 롯 기준. account 는 재시작 시
         journal 로 복원되므로 재시작 후에도 청산 대상 포지션을 정확히 인식한다.
-        현재가/EOD 창은 **각 종목의 최신 5분봉**에서 개별 계산한다(혼합 유니버스에서 symbol별
-        market 기준으로 마감 판단 — 대표 캔들 하나로 판단하지 않음)."""
+        현재가는 각 종목의 마지막 닫힌 5분봉을 사용한다. EOD 창은 가격과 분리해 각 종목의
+        최신 1분봉 시각으로 계산한다(#44). 이로써 대표 종목의 5분봉은 닫혔지만 보유 종목의
+        같은 버킷은 아직 미완결인 skew 에서도 청산창을 놓치지 않는다. 직접 helper 를 호출하는
+        기존 경로는 1분봉 시계가 없으면 종목별 최신 5분봉으로 하위호환한다."""
         mins_before = self.cfg.exit_config.eod_flatten_minutes_before_close
         lots_by_sym: dict[str, list] = defaultdict(list)
         for lot in self.account.open_lots():
@@ -370,7 +380,16 @@ class PaperTradingLoop:
             cs = candles_5m.get(sym) or []
             sym_candle = cs[-1] if cs else None
             current_price = sym_candle.close if sym_candle is not None else entry_price
-            is_eod = in_eod_flatten_window(sym_candle, mins_before) if sym_candle is not None else False
+            timing_candle = (
+                timing_candles_1m.get(sym)
+                if timing_candles_1m is not None
+                else sym_candle
+            )
+            is_eod = (
+                in_eod_flatten_window(timing_candle, mins_before)
+                if timing_candle is not None
+                else False
+            )
             views.append(PositionView(
                 symbol=sym, quantity=qty, entry_price=entry_price,
                 current_price=current_price,
@@ -382,10 +401,16 @@ class PaperTradingLoop:
                 is_eod_window=is_eod))          # symbol별 market 마감 창
         return views
 
-    def _exit_intents(self, candles_5m, newest_candle):
+    def _exit_intents(
+            self,
+            candles_5m,
+            newest_candle,
+            timing_candles_1m: dict[str, Candle] | None = None,
+    ):
         """보유 포지션에 대한 청산 OrderIntent 생성(SL/TP/Time/EOD). AI 우회, Risk→Order 경로.
         EOD 창은 종목별로 PositionView.is_eod_window 에 담겨 있으므로 ctx 는 시간정보만 전달."""
-        views = self._open_positions_view(candles_5m)
+        views = self._open_positions_view(
+            candles_5m, timing_candles_1m=timing_candles_1m)
         if not views:
             return []
         ctx = ExitContext(is_eod_window=False, now_time=newest_candle.ts_utc,
