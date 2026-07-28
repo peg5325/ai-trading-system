@@ -1,7 +1,7 @@
 # P0-US30 ORB development walk-forward 결과
 
-> 생성: `2026-07-28T07:33:49Z`  
-> payload SHA-256: `9e30f390577491bce5ba9688b61e9338c3f2c76f7fec2a569361baa46ac0f595`  
+> 생성: `2026-07-28T07:33:49Z`
+> payload SHA-256: `9e30f390577491bce5ba9688b61e9338c3f2c76f7fec2a569361baa46ac0f595`
 > 범위: development-only. blind OOS는 열지 않았다.
 
 ## 1. 기계 판정

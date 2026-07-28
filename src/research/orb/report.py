@@ -43,8 +43,8 @@ def render_development_report(result: Mapping[str, Any]) -> str:
     lines = [
         "# P0-US30 ORB development walk-forward 결과",
         "",
-        f"> 생성: `{result['generated_at_utc']}`  ",
-        f"> payload SHA-256: `{result['payload_sha256']}`  ",
+        f"> 생성: `{result['generated_at_utc']}`",
+        f"> payload SHA-256: `{result['payload_sha256']}`",
         "> 범위: development-only. blind OOS는 열지 않았다.",
         "",
         "## 1. 기계 판정",
