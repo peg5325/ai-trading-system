@@ -17,6 +17,7 @@ import json
 import os
 import re
 from datetime import date
+from itertools import pairwise
 
 import pytest
 
@@ -311,7 +312,7 @@ def test_fold_boundaries_are_reproducible_from_the_calendar(contract, doc):
 
 def test_folds_are_contiguous_and_non_overlapping(contract):
     b = contract["folds"]["boundaries"]
-    for prev, nxt in zip(b, b[1:]):
+    for prev, nxt in pairwise(b):
         assert date.fromisoformat(prev["end"]) < date.fromisoformat(nxt["start"])
         gap = trading_days(date.fromisoformat(prev["end"]),
                            date.fromisoformat(nxt["start"]))
@@ -459,7 +460,7 @@ def test_oos_month_buckets_tile_the_window_exactly(contract):
     assert len(months) == contract["oos_gate"]["O5_total_months"] == 6
     assert months[0]["start"] == w["blind_oos_start"]
     assert months[-1]["end"] == w["blind_oos_end"]
-    for prev, nxt in zip(months, months[1:]):
+    for prev, nxt in pairwise(months):
         assert (date.fromisoformat(nxt["start"]) - date.fromisoformat(prev["end"])).days == 1
     covered = sum(len(trading_days(date.fromisoformat(m["start"]),
                                    date.fromisoformat(m["end"]))) for m in months)
@@ -527,18 +528,28 @@ def test_referenced_paths_exist(contract, doc):
 # (e) 결과 부재 감사 — "결과를 보기 전에 썼다"를 검증 가능하게
 # --------------------------------------------------------------------------
 _RESULT_PATTERNS = re.compile(
-    r"(RESULT|OOS_RESULT|WALKFORWARD|WALK_FORWARD|LEADERBOARD|UNLOCK|EXPECTANCY)", re.I)
+    r"(RESULT|OOS_RESULT|WALKFORWARD|WALK_FORWARD|LEADERBOARD|UNLOCK|EXPECTANCY)",
+    re.IGNORECASE,
+)
 
 
-_ORB_NAME = re.compile(r"(orb|opening[_-]?range)", re.I)
+_ORB_NAME = re.compile(r"(orb|opening[_-]?range)", re.IGNORECASE)
 
 
-def test_no_orb_result_artifacts_exist_yet():
-    """ORB 성과·OOS·unlock 산출물이 하나라도 있으면 사전등록의 전제가 깨진다.
+def test_only_registered_development_result_artifacts_may_exist():
+    """4-C 결과 2개만 허용하며 OOS·unlock·임의 결과 파일은 계속 차단한다.
 
     최상위 `docs/research/` 만 보던 것을 **재귀 + 다중 디렉터리 + `opening_range` 별칭**까지
     넓혔다(독립 리뷰 지적: `reports/` 나 하위 폴더의 결과가 보이지 않았다).
     """
+    allowed = {
+        os.path.join(
+            "docs", "research", "RESULT_P0_US30_ORB_DEVELOPMENT.json"
+        ),
+        os.path.join(
+            "docs", "research", "RESULT_P0_US30_ORB_DEVELOPMENT.md"
+        ),
+    }
     hits = []
     for base in ("docs", "reports", "analysis", "data"):
         root = os.path.join(REPO, base)
@@ -550,33 +561,48 @@ def test_no_orb_result_artifacts_exist_yet():
                     # 1/6 스냅샷·복제 receipt 는 데이터 provenance 이지 성과가 아니다
                     if "CLEAN" in name.upper() and "RECEIPT" in name.upper():
                         continue
-                    hits.append(os.path.relpath(os.path.join(dirpath, name), REPO))
-    assert hits == [], f"ORB 결과 산출물이 이미 존재한다: {hits}"
+                    rel = os.path.relpath(os.path.join(dirpath, name), REPO)
+                    if rel not in allowed:
+                        hits.append(rel)
+    assert hits == [], f"미등록 ORB 결과·OOS·unlock 산출물이 존재한다: {hits}"
 
 
-def test_no_orb_strategy_implementation_exists_yet():
-    """3/6 은 문서만 만든다 — 구현이 있으면 단계 경계가 깨진 것이다.
-
-    파일명이 'orb' 를 포함하는 경우만 보던 것을 `opening_range` 별칭과 `scripts/` 까지 넓혔다.
-    이 테스트는 **트립와이어**이지 증명이 아니다(§13 에 그 한계를 명시).
-    """
-    found = []
+def test_orb_strategy_implementation_is_confined_to_stage_four_boundaries():
+    """4/6 구현은 연구 leaf package와 두 공식 스크립트 밖으로 퍼질 수 없다."""
+    unexpected = []
+    required = {
+        os.path.join("src", "research", "orb", "simulator.py"),
+        os.path.join("scripts", "run_orb_development.py"),
+    }
+    found = set()
     for base in ("src", "analysis", "scripts"):
         root = os.path.join(REPO, base)
         if not os.path.isdir(root):
             continue
         for dirpath, _dirs, files in os.walk(root):
             for fn in files:
-                if not fn.endswith(".py") or not _ORB_NAME.search(fn):
+                if not fn.endswith(".py"):
                     continue
                 rel = os.path.relpath(os.path.join(dirpath, fn), REPO)
-                # 허용 목록은 **명시적**으로만 늘린다. 패턴을 느슨하게 하면 트립와이어가 죽는다.
-                if rel == os.path.join("src", "bars", "resample.py"):
-                    continue        # #76 의 opening_range 파생기(전략 구현 아님)
-                if rel == os.path.join("scripts", "prereg_orb_coverage_probe.py"):
-                    continue        # §5.5 커버리지 측정(봉 개수만 셈, 성과 계산 없음)
-                found.append(rel)
-    assert found == [], f"ORB 구현 파일이 이미 존재한다: {found}"
+                is_orb = (
+                    rel.startswith(os.path.join("src", "research", "orb") + os.sep)
+                    or _ORB_NAME.search(fn)
+                )
+                if not is_orb:
+                    continue
+                found.add(rel)
+                if rel.startswith(
+                    os.path.join("src", "research", "orb") + os.sep
+                ):
+                    continue
+                if rel in {
+                    os.path.join("scripts", "prereg_orb_coverage_probe.py"),
+                    os.path.join("scripts", "run_orb_development.py"),
+                }:
+                    continue
+                unexpected.append(rel)
+    assert required <= found, f"필수 ORB 4/6 진입점 누락: {sorted(required - found)}"
+    assert unexpected == [], f"ORB 구현이 승인 경계 밖에 존재한다: {unexpected}"
 
 
 def test_prereg_declares_what_it_did_not_do(doc):

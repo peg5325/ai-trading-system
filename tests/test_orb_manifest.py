@@ -10,8 +10,10 @@ from src.research.orb.contract import all_specs, load_contract
 from src.research.orb.gates import SnapshotDefectEvidence
 from src.research.orb.identity import IdentityCheck, IdentityResult
 from src.research.orb.manifest import (
+    IMPLEMENTATION_MERGE_COMMIT,
     PREREG_MERGE_COMMIT,
     DevelopmentResultEvidence,
+    PreconditionEvidence,
     SnapshotEvidence,
     build_result,
     payload_sha256,
@@ -52,6 +54,18 @@ def _evidence(day):
     }
     return DevelopmentResultEvidence(
         producer_commit="a" * 40,
+        preconditions=PreconditionEvidence(
+            implementation_merge_commit=IMPLEMENTATION_MERGE_COMMIT,
+            review_status="approved",
+            review_evidence_url=(
+                "https://github.com/peg5325/ai-trading-system/pull/93"
+            ),
+            loader_boundary_status="passed",
+            loader_boundary_test=(
+                "tests/test_oos_guard_wiring.py::"
+                "test_no_direct_load_candles_outside_gate"
+            ),
+        ),
         snapshot=_snapshot(),
         results_by_spec=results,
         snapshot_defects=SnapshotDefectEvidence(28, ()),
@@ -90,6 +104,37 @@ def test_payload_hash_is_deterministic_and_generated_time_is_outside(one_day_win
 
 def test_prereg_merge_commit_is_frozen_stage_three_merge():
     assert PREREG_MERGE_COMMIT == "e42dafcf4a5f803c1af9a3535a980492c93e9c96"
+
+
+def test_implementation_merge_commit_is_frozen_stage_four_b_merge():
+    assert IMPLEMENTATION_MERGE_COMMIT == (
+        "ddaacabfb28fca11c1f3280b89fe522a3fca76c2"
+    )
+
+
+def test_preconditions_are_fail_closed(one_day_window):
+    evidence = _evidence(one_day_window)
+    bad_review = replace(
+        evidence.preconditions,
+        review_status="commented",
+    )
+    with pytest.raises(ValueError, match="독립 리뷰"):
+        build_result(
+            replace(evidence, preconditions=bad_review),
+            contract=load_contract(),
+            generated_at_utc="x",
+        )
+
+    bad_loader = replace(
+        evidence.preconditions,
+        loader_boundary_status="not_run",
+    )
+    with pytest.raises(ValueError, match="loader boundary"):
+        build_result(
+            replace(evidence, preconditions=bad_loader),
+            contract=load_contract(),
+            generated_at_utc="x",
+        )
 
 
 def test_nested_result_evidence_fails_closed_and_derives_defect_verdict(one_day_window):
