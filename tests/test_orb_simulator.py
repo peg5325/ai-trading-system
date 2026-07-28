@@ -86,6 +86,31 @@ def test_eod_normal_day_and_early_close_use_exchange_calendar():
             early_result.trades[0].exit.exit_reason) == (775, "eod")
 
 
+def test_missing_eod_decision_bar_cannot_turn_fill_bar_into_normal_eod():
+    day = date(2024, 3, 4)
+    bars = [
+        bar(day, minute, c=101)
+        for minute in range(585, 950, 5)
+    ]
+    bars.append(bar(day, 955, o=110, h=111, low=109, c=110))
+
+    result = simulate_day(
+        day=day, spec=primary_spec(load_contract()),
+        decision_bars_by_symbol={"AAPL": bars},
+        features_by_symbol={"AAPL": features(day, or_low=50)},
+        contract=load_contract(),
+    )
+
+    trade = result.trades[0]
+    assert trade.exit
+    assert (
+        trade.exit.exit_minute,
+        trade.exit.exit_price,
+        trade.exit.exit_reason,
+        trade.operational_reason,
+    ) == (955, 110, "eod_fallback", "eod_fallback")
+
+
 def test_three_missing_expected_bars_force_stale_exit_at_next_open():
     day = date(2024, 3, 4)
     bars = [

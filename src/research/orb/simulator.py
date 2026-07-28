@@ -152,7 +152,6 @@ def simulate_day(
     decision_minutes = int(_require(contract, "spec", "decision_bar_minutes"))
     eod_before = int(_require(contract, "risk", "eod_flatten_minutes_before_close"))
     eod_decision_minute = close_minute - eod_before
-    eod_fill_minute = eod_decision_minute + decision_minutes
     stale_limit = int(_require(contract, "risk", "stale_bars_to_force_exit"))
 
     bars: dict[str, tuple[Candle, ...]] = {}
@@ -182,6 +181,7 @@ def simulate_day(
 
     positions: dict[str, Position] = {}
     last_seen_minute: dict[str, int] = {}
+    armed_eod_fill_minute: dict[str, int] = {}
     pending: dict[str, OrbSignal] = {}
     traded_symbols: set[str] = set()
     terminal_symbols: set[str] = {symbol for symbol, _ in excluded}
@@ -210,7 +210,10 @@ def simulate_day(
                 del positions[symbol]
                 continue
             fill = evaluate_exit(
-                position, bar, is_eod_fill=(minute == eod_fill_minute))
+                position,
+                bar,
+                is_eod_fill=(armed_eod_fill_minute.get(symbol) == minute),
+            )
             if fill is not None:
                 trades.append(close_trade(contract, position, fill))
                 del positions[symbol]
@@ -250,7 +253,13 @@ def simulate_day(
         # 3) 진입 봉도 stop/target 스캔.
         for position in accepted:
             bar = bars_now[position.symbol]
-            fill = evaluate_exit(position, bar, is_eod_fill=(minute == eod_fill_minute))
+            fill = evaluate_exit(
+                position,
+                bar,
+                is_eod_fill=(
+                    armed_eod_fill_minute.get(position.symbol) == minute
+                ),
+            )
             if fill is not None:
                 trades.append(close_trade(contract, position, fill))
                 del positions[position.symbol]
@@ -270,6 +279,16 @@ def simulate_day(
             )
             if signal is not None:
                 pending[symbol] = signal
+
+        # 정상 EOD는 창 안에서 실제 결정봉을 관측한 뒤에만 무장한다.
+        # 15:50이 없고 15:55만 있으면 15:55가 결정봉이고 다음 16:00
+        # REGULAR 봉은 없으므로, 정상 EOD가 아니라 아래 fallback 경로다.
+        for symbol in sorted(bars_now):
+            if (
+                symbol not in armed_eod_fill_minute
+                and eod_decision_minute <= minute < close_minute
+            ):
+                armed_eod_fill_minute[symbol] = minute + decision_minutes
 
     # 더 이상 실제 봉이 없으므로 남은 pending은 전부 만료.
     for signal in pending.values():
