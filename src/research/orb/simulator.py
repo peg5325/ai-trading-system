@@ -56,6 +56,7 @@ class DaySimulationResult:
     trades: tuple[TradeRecord, ...]
     skipped: tuple[SkippedEntry, ...]
     excluded: tuple[tuple[str, str], ...]
+    major_defects: tuple[tuple[str, str], ...]
     open_positions_at_close: int
     fill_order: tuple[str, str] = ("exits", "entries")
 
@@ -67,8 +68,7 @@ class FeaturePass:
     by_opening_range_minutes: Mapping[
         int, Mapping[date, Mapping[str, SymbolDayFeatures]]
     ]
-    day_candles_by_day: Mapping[date, Mapping[str, tuple[Candle, ...]]]
-    regular_1m_by_day: Mapping[date, Mapping[str, tuple[Candle, ...]]]
+    decision_bars_by_day: Mapping[date, Mapping[str, tuple[Candle, ...]]]
     defects_by_day: Mapping[date, Mapping[str, tuple[str, ...]]]
 
 
@@ -145,9 +145,13 @@ def simulate_day(
     spec: SpecParams,
     decision_bars_by_symbol: Mapping[str, Sequence[Candle]],
     features_by_symbol: Mapping[str, SymbolDayFeatures],
+    raw_defects_by_symbol: Mapping[str, Sequence[str]],
     contract: Mapping[str, object],
 ) -> DaySimulationResult:
     """한 거래일·한 variant의 독립 포트폴리오를 §7 순서로 계산한다."""
+    if set(raw_defects_by_symbol) != set(features_by_symbol):
+        raise ValueError(
+            "원시 결함 증거는 feature 종목 집합과 정확히 같아야 한다(fail-closed)")
     close_minute = regular_close_minute_checked(day)
     decision_minutes = int(_require(contract, "spec", "decision_bar_minutes"))
     eod_before = int(_require(contract, "risk", "eod_flatten_minutes_before_close"))
@@ -156,9 +160,16 @@ def simulate_day(
 
     bars: dict[str, tuple[Candle, ...]] = {}
     excluded: list[tuple[str, str]] = []
+    major_defects: list[tuple[str, str]] = []
     for symbol in sorted(features_by_symbol):
         feature = features_by_symbol[symbol]
         excluded.extend((symbol, reason) for reason in feature.excluded_reasons)
+        symbol_defects = tuple(sorted(set(raw_defects_by_symbol[symbol])))
+        if symbol_defects:
+            major_defects.extend((symbol, reason) for reason in symbol_defects)
+            excluded.extend((symbol, reason) for reason in symbol_defects)
+            bars[symbol] = ()
+            continue
         canonical = canonical_decision_bars(
             decision_bars_by_symbol.get(symbol, ()), symbol=symbol, day=day)
         if not canonical:
@@ -326,6 +337,7 @@ def simulate_day(
         trades=tuple(trades),
         skipped=tuple(skipped),
         excluded=tuple(sorted(excluded)),
+        major_defects=tuple(sorted(major_defects)),
         open_positions_at_close=0,
     )
 
@@ -344,6 +356,7 @@ def build_development_feature_pass(
     days = development_data_days(contract)
     symbols = tuple(sorted(universe(contract).all_symbols))
     lookback = rvol_lookback(contract)
+    bar_spec = decision_bar_spec(contract)
     opening_minutes = tuple(sorted({
         spec.opening_range_minutes for spec in all_specs(contract)
     }))
@@ -361,8 +374,7 @@ def build_development_feature_pass(
     features: dict[int, dict[date, dict[str, SymbolDayFeatures]]] = {
         minutes: {} for minutes in opening_minutes
     }
-    day_candles_cache: dict[date, dict[str, tuple[Candle, ...]]] = {}
-    regular_cache: dict[date, dict[str, tuple[Candle, ...]]] = {}
+    decision_cache: dict[date, dict[str, tuple[Candle, ...]]] = {}
     defects: dict[date, dict[str, tuple[str, ...]]] = {}
 
     first_prev = previous_trading_day(days[0])
@@ -371,16 +383,15 @@ def build_development_feature_pass(
         for symbol in symbols
     }
     for day in days:
-        day_candles_cache[day] = {}
-        regular_cache[day] = {}
+        decision_cache[day] = {}
         defects[day] = {}
         for minutes in opening_minutes:
             features[minutes][day] = {}
         for symbol in symbols:
             day_candles = loader(db_path, symbol, day)
             day_regular = regular_1m(day_candles)
-            day_candles_cache[day][symbol] = day_candles
-            regular_cache[day][symbol] = day_regular
+            decision_cache[day][symbol] = decision_bars(
+                day_candles, day, spec=bar_spec)
             defects[day][symbol] = detect_data_defects(day_candles)
             prev_day = previous_trading_day(day)
             for minutes in opening_minutes:
@@ -399,8 +410,7 @@ def build_development_feature_pass(
         days=days,
         symbols=symbols,
         by_opening_range_minutes=features,
-        day_candles_by_day=day_candles_cache,
-        regular_1m_by_day=regular_cache,
+        decision_bars_by_day=decision_cache,
         defects_by_day=defects,
     )
 
@@ -414,28 +424,20 @@ def simulate_all_specs(
 
     이 함수를 호출하는 실제 runner는 4-C에서만 작성·실행한다.
     """
-    bar_spec = decision_bar_spec(contract)
     eval_days = development_eval_days(contract)
     output: dict[str, tuple[DaySimulationResult, ...]] = {}
     for spec in all_specs(contract):
         per_day: list[DaySimulationResult] = []
         for day in eval_days:
-            bars_by_symbol = {
-                symbol: decision_bars(
-                    feature_pass.day_candles_by_day[day][symbol],
-                    day,
-                    spec=bar_spec,
-                )
-                for symbol in feature_pass.symbols
-            }
             per_day.append(simulate_day(
                 day=day,
                 spec=spec,
-                decision_bars_by_symbol=bars_by_symbol,
+                decision_bars_by_symbol=feature_pass.decision_bars_by_day[day],
                 features_by_symbol=(
                     feature_pass.by_opening_range_minutes[
                         spec.opening_range_minutes][day]
                 ),
+                raw_defects_by_symbol=feature_pass.defects_by_day[day],
                 contract=contract,
             ))
         output[spec.name] = tuple(per_day)

@@ -926,7 +926,7 @@ def test_evidence_chain_obligation_is_pinned(contract, doc):
 #     있어야 할 마찰이다. 병합 전에는 문서를 고칠 때마다 아래 명령으로 갱신한다:
 #       python -c "from tests.test_prereg_orb_contract import print_hashes; print_hashes()"
 # --------------------------------------------------------------------------
-PREREG_MD_SHA256 = "ccce3837f24a3a0da43f511ff0eff44ee59f677c73f9fcc349754786eaad8b80"
+PREREG_MD_SHA256 = "9a24580f60e1c84e98393f9d31a5ebe8e913ac9445181adfaa8c1f3d5414cf92"
 PREREG_JSON_SHA256 = "adb2e246a9ed94c7b1fce1fd3dc12105b7ab49534bdd08dba543e62ab17bfad6"
 
 

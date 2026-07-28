@@ -2,16 +2,20 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.research.orb.contract import load_contract
+import pytest
+
+from src.research.orb.contract import load_contract, universe
 from src.research.orb.execution import unclosable_trade
 from src.research.orb.gates import (
     DefectMetrics,
+    SnapshotDefectEvidence,
     build_defect_metrics,
     disqualified_non_primary_specs,
     evaluate_development,
     evaluate_oos,
     oos_months,
 )
+from src.research.orb.identity import IdentityCheck, IdentityResult
 from src.research.orb.portfolio import Position, SkippedEntry
 from src.research.orb.simulator import DaySimulationResult
 from src.research.orb.stats import PerformanceStats
@@ -40,6 +44,38 @@ def _defects(**overrides):
     }
     values.update(overrides)
     return DefectMetrics(**values)
+
+
+def _identity(*, status="match"):
+    contract = load_contract()
+    expected = contract["data_identity"]
+    checks = tuple(
+        IdentityCheck(name, expected[key], expected[key], status)
+        for name, key in (
+            ("snapshot_file", "snapshot_file_sha256"),
+            ("snapshot_content", "snapshot_content_sha256"),
+            ("manifest_data", "manifest_data_sha256"),
+            ("raw_content", "raw_content_sha256"),
+        )
+    )
+    return IdentityResult(
+        checks=checks,
+        ok=status == "match",
+        verdict=None if status != "not_run" else "NOT_RUN",
+    )
+
+
+def _snapshot_evidence(*, conflict=28, identity=None):
+    contract = load_contract()
+    symbols = universe(contract).all_symbols
+    return SnapshotDefectEvidence.from_sources(
+        manifest={"symbols": [
+            {"symbol": symbol, "conflict": conflict if index == 0 else 0}
+            for index, symbol in enumerate(symbols)
+        ]},
+        identity=identity or _identity(),
+        contract=contract,
+    )
 
 
 def test_all_development_boundaries_pass_and_open_only_next_stage():
@@ -162,12 +198,13 @@ def test_defect_aggregation_deduplicates_data_reasons_and_ignores_strategy_skip(
             ("AAPL", "insufficient_rvol_lookback"),
             ("MSFT", "no_regular_data"),
         ),
+        major_defects=(),
         open_positions_at_close=0,
     )
 
     defects = build_defect_metrics(
         day_results=[result], total_symbol_days=30,
-        major_defect_count=0, conflict_total=28)
+        snapshot_evidence=_snapshot_evidence())
 
     assert defects.data_excluded_symbol_days == 1
     assert defects.operational_failure_trades == 1
@@ -190,9 +227,58 @@ def test_oos_gate_is_pure_and_does_not_load_data():
         primary_official=_stats(trade_count=100, trading_days_with_trade=60),
         primary_stress=_stats(cost_level="stress", cumulative_net_pnl=0),
         neighbor_official=[_stats() for _ in range(6)],
-        positive_months=4, major_defect_count=0, contract=load_contract())
+        positive_months=4, defects=_defects(), contract=load_contract())
     assert len(items) == 11
     assert {item.name for item in items} == {f"O{i}" for i in range(1, 12)}
+
+
+def test_detected_raw_defect_and_identity_failure_cannot_be_dropped_from_d9():
+    day = date(2024, 3, 4)
+    result = DaySimulationResult(
+        day=day,
+        spec_name="primary",
+        trades=(),
+        skipped=(),
+        excluded=(("AAPL", "ohlc_invariant_violation"),),
+        major_defects=(("AAPL", "ohlc_invariant_violation"),),
+        open_positions_at_close=0,
+    )
+    defects = build_defect_metrics(
+        day_results=[result],
+        total_symbol_days=30,
+        snapshot_evidence=_snapshot_evidence(
+            identity=_identity(status="mismatch")),
+    )
+    assert defects.major_defect_count == 5
+    decision = evaluate_development(
+        primary_official=_stats(),
+        primary_stress=_stats(cost_level="stress", cumulative_net_pnl=0),
+        neighbor_official=[_stats() for _ in range(6)],
+        defects=defects,
+        contract=load_contract(),
+    )
+    assert decision.verdict == "INCONCLUSIVE_DATA"
+    assert "D9" in decision.failed
+
+
+@pytest.mark.parametrize(
+    "defects",
+    [
+        _defects(conflict_total=29),
+        _defects(operational_failure_trades=108, entered_trades=536),
+        _defects(major_defect_count=1),
+    ],
+)
+def test_o11_uses_the_complete_common_defect_policy(defects):
+    items = evaluate_oos(
+        primary_official=_stats(trade_count=100, trading_days_with_trade=60),
+        primary_stress=_stats(cost_level="stress", cumulative_net_pnl=0),
+        neighbor_official=[_stats() for _ in range(6)],
+        positive_months=4,
+        defects=defects,
+        contract=load_contract(),
+    )
+    assert not next(item for item in items if item.name == "O11").passed
 
 
 def test_oos_months_use_frozen_anchor_boundaries_and_non_primary_are_disqualified():

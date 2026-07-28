@@ -29,6 +29,10 @@ def _flat_bars(day, *, symbol="AAPL", end=955):
     return result
 
 
+def _no_raw_defects(*symbols):
+    return {symbol: () for symbol in symbols}
+
+
 def test_next_bar_fill_and_entry_bar_is_scanned_for_stop():
     day = date(2024, 3, 4)
     bars = [
@@ -39,6 +43,7 @@ def test_next_bar_fill_and_entry_bar_is_scanned_for_stop():
         day=day, spec=primary_spec(load_contract()),
         decision_bars_by_symbol={"AAPL": bars},
         features_by_symbol={"AAPL": features(day, or_low=95)},
+        raw_defects_by_symbol=_no_raw_defects("AAPL"),
         contract=load_contract())
     assert len(result.trades) == 1
     trade = result.trades[0]
@@ -57,6 +62,7 @@ def test_missing_immediate_next_bar_expires_signal_instead_of_late_fill():
             bar(day, 595, o=120, h=121, low=119, c=120),
         ]},
         features_by_symbol={"AAPL": features(day)},
+        raw_defects_by_symbol=_no_raw_defects("AAPL"),
         contract=load_contract(),
     )
     assert not result.trades
@@ -71,7 +77,8 @@ def test_eod_normal_day_and_early_close_use_exchange_calendar():
     normal_result = simulate_day(
         day=normal, spec=primary_spec(contract),
         decision_bars_by_symbol={"AAPL": _flat_bars(normal)},
-        features_by_symbol={"AAPL": features(normal)}, contract=contract)
+        features_by_symbol={"AAPL": features(normal)},
+        raw_defects_by_symbol=_no_raw_defects("AAPL"), contract=contract)
     assert normal_result.trades[0].exit
     assert (normal_result.trades[0].exit.exit_minute,
             normal_result.trades[0].exit.exit_reason) == (955, "eod")
@@ -80,7 +87,8 @@ def test_eod_normal_day_and_early_close_use_exchange_calendar():
     early_result = simulate_day(
         day=early, spec=primary_spec(contract),
         decision_bars_by_symbol={"AAPL": _flat_bars(early, end=775)},
-        features_by_symbol={"AAPL": features(early)}, contract=contract)
+        features_by_symbol={"AAPL": features(early)},
+        raw_defects_by_symbol=_no_raw_defects("AAPL"), contract=contract)
     assert early_result.trades[0].exit
     assert (early_result.trades[0].exit.exit_minute,
             early_result.trades[0].exit.exit_reason) == (775, "eod")
@@ -98,6 +106,7 @@ def test_missing_eod_decision_bar_cannot_turn_fill_bar_into_normal_eod():
         day=day, spec=primary_spec(load_contract()),
         decision_bars_by_symbol={"AAPL": bars},
         features_by_symbol={"AAPL": features(day, or_low=50)},
+        raw_defects_by_symbol=_no_raw_defects("AAPL"),
         contract=load_contract(),
     )
 
@@ -121,7 +130,8 @@ def test_three_missing_expected_bars_force_stale_exit_at_next_open():
     result = simulate_day(
         day=day, spec=primary_spec(load_contract()),
         decision_bars_by_symbol={"AAPL": bars},
-        features_by_symbol={"AAPL": features(day)}, contract=load_contract())
+        features_by_symbol={"AAPL": features(day)},
+        raw_defects_by_symbol=_no_raw_defects("AAPL"), contract=load_contract())
     trade = result.trades[0]
     assert trade.exit and (trade.exit.exit_minute, trade.exit.exit_price) == (610, 99)
     assert trade.exit.exit_reason == "stale_exit"
@@ -137,7 +147,8 @@ def test_missing_eod_fill_uses_last_post_entry_close_or_unclosable():
             bar(day, 590, o=101, h=101.5, low=100, c=101),
             bar(day, 595, o=101, h=101.5, low=100, c=100.5),
         ]},
-        features_by_symbol={"AAPL": features(day)}, contract=load_contract())
+        features_by_symbol={"AAPL": features(day)},
+        raw_defects_by_symbol=_no_raw_defects("AAPL"), contract=load_contract())
     assert fallback.trades[0].exit
     assert (fallback.trades[0].exit.exit_reason,
             fallback.trades[0].exit.exit_price) == ("eod_fallback", 100.5)
@@ -148,7 +159,8 @@ def test_missing_eod_fill_uses_last_post_entry_close_or_unclosable():
             bar(day, 585, c=101),
             bar(day, 590, o=101, h=101.5, low=100, c=101),
         ]},
-        features_by_symbol={"AAPL": features(day)}, contract=load_contract())
+        features_by_symbol={"AAPL": features(day)},
+        raw_defects_by_symbol=_no_raw_defects("AAPL"), contract=load_contract())
     assert unclosable.trades[0].exit is None
     assert unclosable.trades[0].operational_reason == "unclosable"
 
@@ -161,7 +173,9 @@ def test_identical_duplicates_and_input_shuffle_are_invariant():
     ]
     kwargs = {
         "day": day, "spec": primary_spec(load_contract()),
-        "features_by_symbol": {"AAPL": features(day)}, "contract": load_contract(),
+        "features_by_symbol": {"AAPL": features(day)},
+        "raw_defects_by_symbol": _no_raw_defects("AAPL"),
+        "contract": load_contract(),
     }
     a = simulate_day(decision_bars_by_symbol={"AAPL": bars}, **kwargs)
     b = simulate_day(decision_bars_by_symbol={"AAPL": [bars[1], bars[0], bars[0]]}, **kwargs)
@@ -178,6 +192,7 @@ def test_conflicting_duplicate_decision_bar_fails_closed():
                 bar(day, 585, c=102),
             ]},
             features_by_symbol={"AAPL": features(day)},
+            raw_defects_by_symbol=_no_raw_defects("AAPL"),
             contract=load_contract(),
         )
 
@@ -193,7 +208,8 @@ def test_no_reentry_after_entry_bar_exit():
     result = simulate_day(
         day=day, spec=primary_spec(load_contract()),
         decision_bars_by_symbol={"AAPL": bars},
-        features_by_symbol={"AAPL": features(day)}, contract=load_contract())
+        features_by_symbol={"AAPL": features(day)},
+        raw_defects_by_symbol=_no_raw_defects("AAPL"), contract=load_contract())
     assert len(result.trades) == 1
 
 
@@ -223,6 +239,7 @@ def test_same_bar_exit_releases_capacity_before_new_entry():
             "AAPL": features(day, symbol="AAPL"),
             "MSFT": features(day, symbol="MSFT"),
         },
+        raw_defects_by_symbol=_no_raw_defects("AAPL", "MSFT"),
         contract=contract,
     )
     assert [trade.position.symbol for trade in result.trades] == ["AAPL", "MSFT"]
@@ -254,7 +271,7 @@ def test_feature_pass_calls_every_declared_day_symbol_and_never_oos():
     assert max(day for _, day in calls) <= date(2026, 1, 20)
 
 
-def test_feature_pass_preserves_post_as_frontier_evidence_for_decision_bars():
+def test_feature_pass_uses_post_as_frontier_then_discards_raw_candles():
     with open(
         "docs/research/PREREG_P0_US30_ORB_V1.json", encoding="utf-8"
     ) as handle:
@@ -267,14 +284,19 @@ def test_feature_pass_preserves_post_as_frontier_evidence_for_decision_bars():
 
     def spy(_db, symbol, day):
         if day == first_day:
-            return (bar(day, 970, symbol=symbol, interval="1m"),)
+            return (
+                bar(day, 955, symbol=symbol, interval="1m"),
+                bar(day, 960, symbol=symbol, interval="1m"),
+            )
         return ()
 
     result = build_development_feature_pass(
         contract=contract, db_path="unused.sqlite", loader=spy)
 
-    assert result.regular_1m_by_day[first_day]["SPY"] == ()
-    assert result.day_candles_by_day[first_day]["SPY"][0].session == "POST"
+    cached = result.decision_bars_by_day[first_day]["SPY"]
+    assert cached[-1].ts_exchange.hour == 15
+    assert cached[-1].ts_exchange.minute == 55
+    assert not hasattr(result, "day_candles_by_day")
 
 
 def test_all_eight_specs_are_simulated_as_independent_result_streams(monkeypatch):
@@ -292,8 +314,15 @@ def test_all_eight_specs_are_simulated_as_independent_result_streams(monkeypatch
             5: {day: {"AAPL": feature}},
             15: {day: {"AAPL": feature}},
         },
-        day_candles_by_day={day: {"AAPL": candles}},
-        regular_1m_by_day={day: {"AAPL": candles[:-1]}},
+        decision_bars_by_day={
+            day: {
+                "AAPL": simulator_module.decision_bars(
+                    candles,
+                    day,
+                    spec=simulator_module.decision_bar_spec(contract),
+                )
+            }
+        },
         defects_by_day={day: {"AAPL": ()}},
     )
     monkeypatch.setattr(
@@ -321,6 +350,19 @@ def test_all_eight_specs_are_simulated_as_independent_result_streams(monkeypatch
         primary_trade.exit.exit_reason,
     ) == (955, "eod")
 
+    defective = replace(
+        feature_pass,
+        defects_by_day={
+            day: {"AAPL": ("unexplained_1m_price_jump_gt_50pct",)}
+        },
+    )
+    defective_output = simulate_all_specs(
+        contract=contract, feature_pass=defective)
+    assert all(not results[0].trades for results in defective_output.values())
+    assert defective_output["primary"][0].major_defects == (
+        ("AAPL", "unexplained_1m_price_jump_gt_50pct"),
+    )
+
 
 def test_raw_bar_defect_scan_stays_within_same_regular_day():
     day = date(2024, 3, 4)
@@ -340,6 +382,7 @@ def test_post_or_after_early_close_decision_bar_is_rejected():
                 "AAPL": [bar(day, 1190, interval="5m", c=101)]
             },
             features_by_symbol={"AAPL": features(day)},
+            raw_defects_by_symbol=_no_raw_defects("AAPL"),
             contract=load_contract(),
         )
 
@@ -358,6 +401,7 @@ def test_feature_exclusion_reasons_are_preserved_for_defect_aggregation():
                 ),
             )
         },
+        raw_defects_by_symbol=_no_raw_defects("AAPL"),
         contract=load_contract(),
     )
     assert result.excluded == (
@@ -371,3 +415,39 @@ def test_unknown_session_is_a_major_data_defect():
     day = date(2024, 3, 4)
     invalid = replace(bar(day, 585, interval="1m"), session="UNKNOWN")
     assert detect_data_defects([invalid]) == ("session_label_violation",)
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "ohlc_invariant_violation",
+        "session_label_violation",
+        "unexplained_1m_price_jump_gt_50pct",
+    ],
+)
+def test_raw_major_defect_excludes_symbol_day_and_survives_in_result(reason):
+    day = date(2024, 3, 4)
+    result = simulate_day(
+        day=day,
+        spec=primary_spec(load_contract()),
+        decision_bars_by_symbol={"AAPL": _flat_bars(day)},
+        features_by_symbol={"AAPL": features(day)},
+        raw_defects_by_symbol={"AAPL": (reason,)},
+        contract=load_contract(),
+    )
+    assert not result.trades
+    assert result.major_defects == (("AAPL", reason),)
+    assert ("AAPL", reason) in result.excluded
+
+
+def test_raw_defect_evidence_cannot_omit_a_feature_symbol():
+    day = date(2024, 3, 4)
+    with pytest.raises(ValueError, match="정확히 같아야"):
+        simulate_day(
+            day=day,
+            spec=primary_spec(load_contract()),
+            decision_bars_by_symbol={"AAPL": _flat_bars(day)},
+            features_by_symbol={"AAPL": features(day)},
+            raw_defects_by_symbol={},
+            contract=load_contract(),
+        )
