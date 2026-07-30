@@ -61,7 +61,7 @@ class BacktestConfig:
     time_exit_minutes: float | None = None  # N분 보유 후 청산(기본 off — 백테스트 동작 무변경)
     time_exit_bars: int | None = None       # N봉 보유 후 청산(기본 off)
     exit_on_trend_break: bool = True        # close < EMA20 → 청산
-    leverage_eod_flatten: bool = True       # 레버리지 ETF 는 세션(ET date) 마감 청산
+    leverage_eod_flatten: bool = True       # 레버리지 ETF 는 거래소 로컬 거래일 마감 청산
     allow_overnight_non_leverage: bool = True   # 일반주 오버나잇 허용(레버리지 차등)
     min_trades: int = 100                   # 표본 충분성 기준
     execution: ExecutionModel = field(default_factory=ExecutionModel)

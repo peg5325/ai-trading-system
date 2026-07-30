@@ -6,14 +6,33 @@
 - 지표는 인과적(causal)이므로 전체 시계열에 IndicatorEngine 을 1번 계산해도
   t 행 값은 t 시점에 확정된 값과 동일 → look-ahead 없음.
 - 판단은 t 봉 종가(확정)로, 체결은 t+1 봉 시가로 (신호 봉 종가 체결 금지).
-- 레버리지 ETF 는 세션(ET date) 마감 종가에 EOD flatten (오버나잇 금지).
+- 레버리지 ETF 는 거래소 로컬 거래일 마감 종가에 EOD flatten (오버나잇 금지).
+- 세션/거래일은 canonical Candle 의 market/session/ts_exchange 를 상속한다.
+  단일 run 에 복수 market 이 섞이면 임의 timezone 을 고르지 않고 fail-closed 한다.
 - 결정론적: 현재 시각/난수 미사용.
 """
 from __future__ import annotations
 
-from src.engines.indicator_engine import IndicatorEngine
+from datetime import datetime, timezone
+
+import pandas as pd
+
+from src.engines.indicator_engine import (
+    IndicatorEngine,
+    candles_to_frame,
+    frame_to_candles,
+)
 from src.exits.generator import ExitConfig, ExitContext, ExitSignalGenerator, PositionView
-from src.models import ET, classify_session
+from src.models import (
+    MARKET_KR,
+    MARKET_US,
+    SESSION_CLOSED,
+    SESSION_OVERNIGHT,
+    SESSION_POST,
+    SESSION_PRE,
+    SESSION_REGULAR,
+    exchange_tz,
+)
 from src.pnl.fifo import FifoMatcher
 from src.pnl.models import FillEvent
 from src.portfolio.performance import performance_summary
@@ -27,6 +46,76 @@ from src.backtest.models import (
     BacktestReport,
     Trade,
 )
+
+_SESSIONS_BY_MARKET = {
+    MARKET_US: frozenset({
+        SESSION_PRE, SESSION_REGULAR, SESSION_POST, SESSION_OVERNIGHT,
+    }),
+    MARKET_KR: frozenset({
+        SESSION_PRE, SESSION_REGULAR, SESSION_POST, SESSION_CLOSED,
+    }),
+}
+
+
+def _validate_backtest_candles(canonical, symbol: str) -> str:
+    """단일 symbol·market 계약과 canonical timestamp/session 불변식을 검증한다."""
+    markets = {c.market for c in canonical}
+    unsupported = sorted(markets - _SESSIONS_BY_MARKET.keys())
+    if unsupported:
+        raise ValueError(
+            f"BacktestEngine 이 지원하지 않는 market: {unsupported}; "
+            f"허용={sorted(_SESSIONS_BY_MARKET)}")
+    if len(markets) != 1:
+        raise ValueError(
+            "BacktestEngine.run 은 단일 market 시계열만 허용한다; "
+            f"입력 markets={sorted(markets)}")
+    market = next(iter(markets))
+
+    allowed_sessions = _SESSIONS_BY_MARKET[market]
+    for candle in canonical:
+        if candle.symbol != symbol:
+            raise ValueError(
+                "BacktestEngine.run 은 단일 symbol 시계열만 허용한다; "
+                f"요청={symbol!r}, 입력={candle.symbol!r}")
+        if candle.session not in allowed_sessions:
+            raise ValueError(
+                f"{market} market 에 허용되지 않는 session={candle.session!r}; "
+                f"허용={sorted(allowed_sessions)}")
+        if candle.ts_utc.tzinfo is None or candle.ts_exchange.tzinfo is None:
+            raise ValueError("backtest candle timestamp 는 timezone-aware 여야 한다")
+        if candle.ts_utc.astimezone(timezone.utc) != \
+                candle.ts_exchange.astimezone(timezone.utc):
+            raise ValueError(
+                "candle ts_utc 와 ts_exchange 가 같은 순간을 가리켜야 한다")
+    return market
+
+
+def _prepare_backtest_input(
+        candles, symbol: str,
+) -> tuple[pd.DataFrame, list[datetime], list[str]]:
+    """입력 OHLCV와 canonical market clock을 같은 정렬·dedup 결과로 준비한다.
+
+    `BacktestEngine.run` 은 단일 symbol·단일 market 시계열 API다. 혼합 market을
+    대표 timezone 하나로 해석하면 EOD/일손실/cooldown 경계가 조용히 틀리므로 거부한다.
+    DataFrame 하위호환 경로도 먼저 Candle 로 정규화한 뒤 같은 검증을 적용한다.
+    """
+    if isinstance(candles, pd.DataFrame):
+        canonical = frame_to_candles(candles, symbol)
+    elif isinstance(candles, list):
+        canonical = candles
+    else:
+        canonical = list(candles)
+    if not canonical:
+        return candles_to_frame([]), [], []
+
+    market = _validate_backtest_candles(canonical, symbol)
+    source = candles_to_frame(canonical)
+    # OHLCV와 metadata 모두 candles_to_frame이 선택한 동일 dedup 행에서 읽는다.
+    aligned_times = [
+        ts.astimezone(exchange_tz(market)) for ts in source["ts_exchange"]
+    ]
+    aligned_sessions = source["session"].tolist()
+    return source, aligned_times, aligned_sessions
 
 
 def _exit_config_from_backtest(cfg) -> ExitConfig:
@@ -72,21 +161,22 @@ class BacktestEngine:
         exe = cfg.execution
         gen = ExitSignalGenerator(_exit_config_from_backtest(cfg))   # live/paper 와 동일 엔진
 
-        ind = IndicatorEngine().compute(candles)   # live 와 동일 모듈
+        source, local_times, sessions = _prepare_backtest_input(candles, symbol)
+        ind = IndicatorEngine().compute(source)   # live 와 동일 모듈
         n = len(ind)
         if n == 0:
             return self._report(symbol, None, None, [], [], 0, cfg)
+        if not ind.index.equals(source.index):
+            raise ValueError("indicator 결과와 canonical market clock 정렬에 실패했다")
 
         idx = list(ind.index)
-        ts_et = [t.tz_convert(ET) for t in idx]
-        sessions = [classify_session(t) for t in ts_et]
-        et_dates = [t.date() for t in ts_et]
+        trading_dates = [t.date() for t in local_times]
         opens = ind["open"].tolist()
         closes = ind["close"].tolist()
         ema20 = ind["ema20"].tolist()
 
         def is_session_end(i: int) -> bool:
-            return i == n - 1 or et_dates[i + 1] != et_dates[i]
+            return i == n - 1 or trading_dates[i + 1] != trading_dates[i]
 
         st = {"cash": cfg.initial_capital, "pos": None, "consec": 0,
               "last_exit_time": None, "last_exit_reason": None}   # 재진입 쿨다운(Paper 와 동일 정책)
@@ -136,7 +226,7 @@ class BacktestEngine:
             #    paper(_maybe_reset_session 이 _apply_fills 보다 선행)와 순서를 일치시켜, 새 세션
             #    첫 봉 시가에 체결되는 오버나잇 청산의 쿨다운은 보존한다(Paper/Backtest 동일 정책).
             if (cfg.risk.reentry_cooldown.reset_on_new_session and i > 0
-                    and et_dates[i] != et_dates[i - 1]):
+                    and trading_dates[i] != trading_dates[i - 1]):
                 st["last_exit_time"] = None
                 st["last_exit_reason"] = None
 
@@ -153,8 +243,8 @@ class BacktestEngine:
             if st["pos"]:
                 bars_in_pos += 1
             equity = st["cash"] + (st["pos"]["qty"] * c if st["pos"] else 0.0)
-            if et_dates[i] != cur_date:
-                cur_date = et_dates[i]
+            if trading_dates[i] != cur_date:
+                cur_date = trading_dates[i]
                 day_start_equity = equity          # 쿨다운 세션 리셋은 위 0) 에서 처리(순서 일치)
             equity_curve.append(equity)
             peak = max(peak, equity)
@@ -162,7 +252,7 @@ class BacktestEngine:
             daily_pnl_pct = ((equity - day_start_equity) / day_start_equity
                              if day_start_equity else 0.0)
 
-            # 3) EOD flatten: 세션(ET date) 마감 종가에 청산 (공유 generator 의 eod_applies).
+            # 3) EOD flatten: 거래소 로컬 거래일 마감 종가에 청산 (공유 generator 의 eod_applies).
             #    레버리지 ETF(>1x) 또는 전종목 옵션(=not allow_overnight_non_leverage) 대상.
             #    실행 타이밍은 마감봉 종가(같은 봉) — 백테스트 체결 모델 보존.
             #    ⚠ 의도된 예외: 백테스트는 마감봉에서 EOD 를 신호청산보다 우선한다(마감가 체결
