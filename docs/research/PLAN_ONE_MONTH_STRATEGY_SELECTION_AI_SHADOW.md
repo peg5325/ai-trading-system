@@ -18,7 +18,7 @@
 | r2.1 | 2026-07-23 | #75 | 계획 정본을 이 Git 추적 파일로 이관(내용 변경 없음, `.omx` 는 로컬 mirror). |
 | r3 | 2026-07-30 | #98 | ORB development gate 실패(`RESULT_P0_US30_ORB_DEVELOPMENT.md`)에 따라 **ORB 규칙 수정·blind OOS 개봉 없이 종료**하고, 사전에 정한 두 번째 당일청산 후보 **Gap + RVOL Continuation**의 독립 사전등록으로 이동한다. 데이터 identity·비용·개발/OOS 게이트는 무완화. 근거: `DECISION_DAYTRADING_GAP_RVOL_NEXT.md`. |
 
-> **r3 실행 순서(현행)**: ORB는 development-only `INCONCLUSIVE_DATA`로 중단됐고 blind OOS는 열지 않았다. 다음은 **Gap + RVOL Continuation 사전등록 → 별도 구현·독립 리뷰 → development-only 판정**이다. 이 전략도 development gate를 통과한 경우에만 #78 unlock을 거쳐 blind OOS를 한 번 연다. 실패하면 규칙을 고치지 않고 세 번째 후보 VWAP/ATR Mean Reversion으로 이동한다. 스윙(1d·VCP-lite)은 후속 보류 상태를 유지한다. **공통 데이터 identity·비용(0.14/0.34/0.68%p)·OOS 경계·품질·선택 게이트는 바뀌지 않는다.**
+> **r3 실행 순서(현행·이전 규칙 대체)**: ORB는 development-only `INCONCLUSIVE_DATA`로 중단됐고 blind OOS는 열지 않았다. 다음은 **Gap + RVOL Continuation 사전등록 → 별도 구현·독립 리뷰 → development-only 판정**이다. 이 전략도 development gate를 통과한 경우에만 #78 unlock을 거쳐 blind OOS를 한 번 연다. 실패하면 규칙을 고치지 않고 세 번째 후보 VWAP/ATR Mean Reversion으로 이동한다. 스윙(1d·VCP-lite)은 후속 보류 상태를 유지한다. **r3는 “4개 전략 모두를 먼저 사전등록한 뒤 어떤 blind OOS도 연다”는 r1의 일괄 토너먼트 순서를 대체한다. 현행 규칙은 “각 후보의 blind OOS 전에 해당 후보 사전등록·구현·독립 리뷰를 완료”하는 순차 방식이며, 아직 열지 않을 후속 후보를 미리 사전등록하지 않는다.** 공통 데이터 identity·비용(0.14/0.34/0.68%p)·OOS 경계·품질·선택 게이트는 바뀌지 않는다.
 
 ## 1. 요구사항 요약
 
@@ -216,6 +216,9 @@
 - IS에서 볼 수 있는 지표와 blind OOS 접근 금지.
 - 다중 비교 보정과 최종 승자 선택식.
 - 합격 실패 시 규칙 수정 없이 `NO_SELECTION`.
+- **r3 순차 실행에서는 각 후보의 blind OOS 전까지 그 후보의 사전등록만 필수다.**
+  후속 후보는 선행 후보의 판정 후 별도 preregistration으로 잠그며, 미개봉 후보의 규칙을 결과 전에
+  불필요하게 확정하지 않는다.
 
 ## Phase 4 — Walk-forward·Blind OOS 전략 토너먼트 (Day 15~18)
 
@@ -306,7 +309,7 @@ AI shadow 출력:
 
 - H4 최종 판정과 경로 A 종료/유지 결정.
 - 데이터 manifest·quality report·known limitations.
-- 4전략 preregistration.
+- 실행한 후보별 preregistration과 후속 후보의 순차 진행/보류 기록.
 - 전략별 walk-forward 및 blind OOS 결과.
 - 공통 leaderboard와 선택 결정 메모.
 - Paper session manifest와 비용 보고.
@@ -343,7 +346,7 @@ AI shadow 출력:
 
 - [ ] PR #65 v1.4(FINAL) merge 및 H4 단일 패스 완료.
 - [ ] 데이터 snapshot/hash와 품질 리포트 존재.
-- [ ] blind OOS 이전 4전략 prereg 커밋.
+- [ ] 각 후보 blind OOS 이전 해당 후보 prereg·구현·독립 리뷰 커밋.
 - [ ] look-ahead/순서불변/체결/비용/다종목 자본경쟁 테스트 통과.
 - [ ] 전체 pytest green.
 - [ ] 전략별 0.14/0.34/0.68 비용 결과 존재.

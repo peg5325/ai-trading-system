@@ -30,6 +30,8 @@
 
 ### 1.3 ORB와 구조적 분리
 
+- 이 문서는 **post-ORB disclosed candidate-2 preregistration**이다. Gap+RVOL 자체 결과는
+  미열람이지만, ORB 실패를 본 뒤 후보 2로 이동했으므로 clean-room 또는 전략 순서 편향 0을 주장하지 않는다.
 - 후보의 `gap 0.30%`, 15분 `RVOL 1.5`, target `2R`은 **ORB 결과 전 고정값을 그대로 재사용**한다.
 - `OR_high`, `OR_low`, opening-range breakout/touch는 신호·stop·target 어디에도 쓰지 않는다.
 - 진입은 `pullback armed → 직전 5분봉 고가 strict reclaim + causal VWAP 상회`다.
@@ -150,8 +152,9 @@ armed 이후 처음으로 아래를 모두 만족한 완료 5분봉이 신호다
 - 심볼 notional 20%, 심볼 실질노출 30%, 포트폴리오 실질노출 50%, 동시 포지션 2를 cap으로 적용한다.
 - 같은 봉 stop/target 동시 touch는 stop 우선. stop/target gap-through는 봉 open 체결.
 - 진입봉도 stop/target 판정에 포함한다.
-- **60분 time stop**: 진입 시각부터 12개 5분 버킷을 보유한 뒤에도 열려 있으면 다음 가능한
-  5분봉 open으로 청산한다. stop/gap-through 판정을 time-stop보다 먼저 한다.
+- **60분 time stop**: `time_stop_at = entry bar 시작 시각 + 60분`으로 고정한다. 포지션이 열려 있으면
+  `time_stop_at` 이상인 첫 scheduled REGULAR 5분봉 open으로 청산한다. 단, 그 open의
+  stop/target gap-through 판정을 time-stop보다 먼저 한다. 중간 결측봉 때문에 60분이 늘어나지 않는다.
 - EOD: 정규장 마감 10분 전 decision 후 다음 봉 open으로 청산하며, 조기폐장은 거래소 캘린더를 쓴다.
 - time stop과 EOD가 같은 봉이면 EOD로 기록한다. 오버나잇은 금지다.
 - 정규장 기대봉 3개 연속 결측이면 다음 존재 REGULAR 5분봉 open으로 stale exit한다.
@@ -232,8 +235,10 @@ development primary는 아래 **전부** 충족해야 OOS 단계로 갈 수 있�
 | D8 | 반대 부호 진단 이웃 ≤ 1 |
 | D9 | major defect 0, 데이터 배제율 ≤ 5%, 운영 실패율 ≤ 20% |
 
-하나라도 실패하면 이 전략은 `NO_SELECTION`, 규칙 수정 금지, blind OOS 미개봉이다. 이는 전체
-연구계획을 즉시 종료한다는 뜻이 아니라 후보 2가 선택되지 않았다는 뜻이며 후보 3으로 이동할 수 있다.
+D1~D8 중 하나라도 실패하면 이 전략은 `NO_SELECTION`, 규칙 수정 금지, blind OOS 미개봉이다.
+이는 전체 연구계획을 즉시 종료한다는 뜻이 아니라 후보 2가 선택되지 않았다는 뜻이며 후보 3으로
+이동할 수 있다. D9 실패는 성과 실패가 아니라 데이터·운영 결함이므로 `INCONCLUSIVE_DATA`다.
+이 경우 결함만 교정하고 독립 리뷰를 다시 통과하기 전에는 OOS를 열거나 다음 후보로 이동하지 않는다.
 
 ## 11. blind OOS gate
 
@@ -255,6 +260,9 @@ development 전부 통과 후에만 #78의 tracked unlock artifact로 2026-01-21
 | O11 | major data defect 0 |
 
 전부 통과해야 `SELECT_ONE`이다. 일부만 통과한 “덜 나쁜” 전략을 선택하지 않는다.
+O5의 anchor-month는 달력월이 아니라 다음 고정 경계다:
+M1 2026-01-21~02-20, M2 02-21~03-20, M3 03-21~04-20,
+M4 04-21~05-20, M5 05-21~06-20, M6 06-21~07-21(모두 양끝 포함).
 
 ## 12. 결함·제외·감사
 

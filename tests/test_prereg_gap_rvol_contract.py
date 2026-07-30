@@ -65,8 +65,11 @@ def test_prior_access_is_disclosed_without_claiming_clean_room(contract, doc):
     assert p["orb_development_result_examined"] is True
     assert p["gap_rvol_standalone_results_examined"] is False
     assert p["gap_rvol_signals_or_returns_computed"] is False
+    assert p["evidence_label"].startswith("post-ORB disclosed candidate-2")
+    assert p["strategy_order_bias_claimed_zero"] is False
     assert "ORB development 결과" in doc
     assert "Gap+RVOL standalone" in doc
+    assert "clean-room" in doc
 
 
 def test_fixed_hashes_match_snapshot_receipt_and_document(contract, doc):
@@ -231,6 +234,11 @@ def test_risk_and_exit_semantics_are_pinned(contract, doc):
     assert r["target_r_multiple"] == 2.0
     assert r["risk_budget_pct_of_equity"] == 0.01
     assert r["time_stop_minutes"] == 60
+    assert r["time_stop_at"] == "entry bar start timestamp + 60 scheduled minutes"
+    assert r["time_stop_fill"] == (
+        "first scheduled REGULAR 5m bar open at or after time_stop_at"
+    )
+    assert r["missing_bars_do_not_extend_time_stop"] is True
     assert r["eod_flatten_minutes_before_close"] == 10
     assert r["overnight"] is False
     assert r["stale_bars_to_force_exit"] == 3
@@ -314,6 +322,27 @@ def test_development_sample_gates_are_rate_consistent_with_oos(contract):
     assert g["D2_min_trading_days_with_trade"] >= o["O3_min_trading_days_with_trade"] * scale
 
 
+def test_development_failure_verdict_separates_performance_from_defects(contract):
+    g = contract["development_gate"]
+    performance = g["economic_or_statistical_failure"]
+    defect = g["data_or_operational_defect_failure"]
+    assert performance["applies_to"] == [f"D{i}" for i in range(1, 9)]
+    assert performance["verdict"] == "NO_SELECTION"
+    assert performance["next_candidate_allowed"] == "VWAP_ATR_MEAN_REVERSION"
+    assert defect["applies_to"] == ["D9"]
+    assert defect["verdict"] == "INCONCLUSIVE_DATA"
+    assert defect["repair_requires_independent_review"] is True
+    assert defect["next_candidate_allowed_before_repair"] is None
+    assert performance["open_blind_oos"] is defect["open_blind_oos"] is False
+
+
+def test_oos_anchor_months_match_orb_preregistration(contract):
+    orb = _json(ORB_PREREG)
+    assert contract["oos_gate"]["O5_month_boundaries"] == orb["oos_gate"][
+        "O5_month_boundaries"
+    ]
+
+
 def test_parameter_neighbors_are_diagnostic_only_and_symmetric(contract):
     n = contract["parameter_cliff_neighborhood"]
     assert n["primary_only_decides"] is True
@@ -388,6 +417,8 @@ def test_plan_revision_records_orb_stop_and_gap_rvol_next():
     assert "ORB는 development-only `INCONCLUSIVE_DATA`로 중단" in plan
     assert "Gap + RVOL Continuation 사전등록" in plan
     assert "VWAP/ATR Mean Reversion" in plan
+    assert "r1의 일괄 토너먼트 순서를 대체" in plan
+    assert "각 후보 blind OOS 이전 해당 후보 prereg·구현·독립 리뷰 커밋" in plan
 
 
 def test_no_gap_rvol_result_implementation_or_unlock_artifact_exists():

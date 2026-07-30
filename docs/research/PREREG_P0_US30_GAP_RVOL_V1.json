@@ -9,6 +9,8 @@
     "orb_result": "docs/research/RESULT_P0_US30_ORB_DEVELOPMENT.md",
     "gap_rvol_standalone_results_examined": false,
     "gap_rvol_signals_or_returns_computed": false,
+    "evidence_label": "post-ORB disclosed candidate-2 preregistration; not clean-room evidence",
+    "strategy_order_bias_claimed_zero": false,
     "effect_on_design": "strategy order only; pre-result gap/rvol/target convention values retained without tuning"
   },
   "data_identity": {
@@ -162,7 +164,9 @@
     "gap_through_stop": "fill_at_bar_open",
     "gap_through_target": "fill_at_bar_open",
     "time_stop_minutes": 60,
-    "time_stop_fill": "next available 5m bar open after 12 held buckets",
+    "time_stop_at": "entry bar start timestamp + 60 scheduled minutes",
+    "time_stop_fill": "first scheduled REGULAR 5m bar open at or after time_stop_at",
+    "missing_bars_do_not_extend_time_stop": true,
     "eod_flatten_minutes_before_close": 10,
     "eod_decision_then_next_bar_open": true,
     "overnight": false,
@@ -223,11 +227,20 @@
     "D7_stress_cumulative_pnl_gte": 0,
     "D8_parameter_cliff": "opposite_sign_variants_lte_1",
     "D9_data_defects": "major_defects_zero_and_data_exclusion_lte_0.05_and_operational_failure_lte_0.20",
-    "on_failure": {
+    "economic_or_statistical_failure": {
+      "applies_to": ["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8"],
       "open_blind_oos": false,
       "modify_rules": false,
       "verdict": "NO_SELECTION",
       "next_candidate_allowed": "VWAP_ATR_MEAN_REVERSION"
+    },
+    "data_or_operational_defect_failure": {
+      "applies_to": ["D9"],
+      "open_blind_oos": false,
+      "modify_strategy_rules": false,
+      "verdict": "INCONCLUSIVE_DATA",
+      "repair_requires_independent_review": true,
+      "next_candidate_allowed_before_repair": null
     }
   },
   "oos_gate": {
@@ -243,6 +256,14 @@
     "O9_max_single_day_profit_share": 0.2,
     "O10_parameter_cliff": "opposite_sign_variants_lte_1",
     "O11_major_data_defects": 0,
+    "O5_month_boundaries": [
+      {"month": "M1", "start": "2026-01-21", "end": "2026-02-20"},
+      {"month": "M2", "start": "2026-02-21", "end": "2026-03-20"},
+      {"month": "M3", "start": "2026-03-21", "end": "2026-04-20"},
+      {"month": "M4", "start": "2026-04-21", "end": "2026-05-20"},
+      {"month": "M5", "start": "2026-05-21", "end": "2026-06-20"},
+      {"month": "M6", "start": "2026-06-21", "end": "2026-07-21"}
+    ],
     "single_pass": true,
     "rerun_on_bad_result": false,
     "publish_all_parameterizations": true
@@ -288,7 +309,7 @@
   },
   "verdict_definitions": {
     "SELECT_ONE": "all development and all OOS gates pass for primary",
-    "NO_SELECTION": "any development or OOS result gate fails for this candidate",
+    "NO_SELECTION": "any economic or statistical development/OOS gate fails for this candidate",
     "NOT_RUN": "process precondition unmet",
     "INCONCLUSIVE_DATA": "data or operational defect prevents judgement",
     "pick_least_bad": false
