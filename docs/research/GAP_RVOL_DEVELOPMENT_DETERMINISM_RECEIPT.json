@@ -1,0 +1,23 @@
+{
+  "artifact": "P0-US30 Gap+RVOL development-only deterministic rerun receipt",
+  "byte_identical": true,
+  "generated_at_utc": "2026-07-30T06:03:13Z",
+  "oos_opened": false,
+  "payload_sha256": "a0e46bf6f4135dab6961107fcb50ab226ee4ad5be5338cdde15097893ba81f14",
+  "producer_commit": "8f36af564c6d8bda5820fcff991f60f2a2496f1a",
+  "review_evidence_url": "https://github.com/peg5325/ai-trading-system/pull/103#issuecomment-5127205706",
+  "run_count": 2,
+  "runs": [
+    {
+      "json_sha256": "11d6e7e5f593b7b498b147b386585608d507e32d31feae4cc1b8a4b4e3542d05",
+      "markdown_sha256": "94768a02440ca9565eb77d96f3d90cdcb8fd34cb674483a9666c4dda7e2b70a0",
+      "ordinal": 1
+    },
+    {
+      "json_sha256": "11d6e7e5f593b7b498b147b386585608d507e32d31feae4cc1b8a4b4e3542d05",
+      "markdown_sha256": "94768a02440ca9565eb77d96f3d90cdcb8fd34cb674483a9666c4dda7e2b70a0",
+      "ordinal": 2
+    }
+  ],
+  "schema": "gap-rvol-development-determinism/v1"
+}

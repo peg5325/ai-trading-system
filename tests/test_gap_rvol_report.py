@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -158,3 +159,35 @@ def test_tracked_result_is_self_consistent_and_keeps_oos_closed():
     assert result["payload"]["single_pass"]["oos_opened"] is False
     assert len(result["payload"]["specs"]) == 9
     assert set(result["payload"]["stats"]) == {"low", "official", "stress"}
+
+
+def test_tracked_determinism_receipt_matches_result_artifacts():
+    receipt_path = Path(
+        "docs/research/GAP_RVOL_DEVELOPMENT_DETERMINISM_RECEIPT.json"
+    )
+    json_path = Path(
+        "docs/research/RESULT_P0_US30_GAP_RVOL_DEVELOPMENT.json"
+    )
+    md_path = Path(
+        "docs/research/RESULT_P0_US30_GAP_RVOL_DEVELOPMENT.md"
+    )
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    result = json.loads(json_path.read_text(encoding="utf-8"))
+
+    assert receipt["schema"] == "gap-rvol-development-determinism/v1"
+    assert receipt["run_count"] == 2
+    assert receipt["byte_identical"] is True
+    assert receipt["oos_opened"] is False
+    assert receipt["generated_at_utc"] == result["generated_at_utc"]
+    assert receipt["producer_commit"] == result["payload"]["producer_commit"]
+    assert receipt["payload_sha256"] == result["payload_sha256"]
+
+    expected_json_sha = hashlib.sha256(json_path.read_bytes()).hexdigest()
+    expected_md_sha = hashlib.sha256(md_path.read_bytes()).hexdigest()
+    assert [run["ordinal"] for run in receipt["runs"]] == [1, 2]
+    assert {
+        run["json_sha256"] for run in receipt["runs"]
+    } == {expected_json_sha}
+    assert {
+        run["markdown_sha256"] for run in receipt["runs"]
+    } == {expected_md_sha}
