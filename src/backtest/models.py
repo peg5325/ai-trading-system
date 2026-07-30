@@ -89,6 +89,8 @@ class EntryStrategy(Protocol):
     """진입 신호 전략. 반환: 진입 이유 리스트(진입) 또는 None(진입 안함).
 
     look-ahead 방지를 위해 indicators 의 t 행까지만 사용해야 한다.
+    하위호환을 위해 market 인자는 추가하지 않는다. 시장 컨텍스트가 필요한 사용자 전략은
+    생성 시 market을 주입해야 하며, 기본 ScreenerEntryStrategy는 엔진이 이를 자동 주입한다.
     """
     def signal(self, symbol: str, indicators: pd.DataFrame, t: int,
                leverage_factor: int) -> list[str] | None: ...

@@ -55,6 +55,7 @@ _SESSIONS_BY_MARKET = {
         SESSION_PRE, SESSION_REGULAR, SESSION_POST, SESSION_CLOSED,
     }),
 }
+_CURRENCY_BY_MARKET = {MARKET_US: "USD", MARKET_KR: "KRW"}
 
 
 def _validate_backtest_candles(canonical, symbol: str) -> str:
@@ -81,6 +82,11 @@ def _validate_backtest_candles(canonical, symbol: str) -> str:
             raise ValueError(
                 f"{market} market 에 허용되지 않는 session={candle.session!r}; "
                 f"허용={sorted(allowed_sessions)}")
+        expected_currency = _CURRENCY_BY_MARKET[market]
+        if str(candle.currency).upper() != expected_currency:
+            raise ValueError(
+                f"{market} market 의 currency 는 {expected_currency}여야 한다; "
+                f"입력={candle.currency!r}")
         if candle.ts_utc.tzinfo is None or candle.ts_exchange.tzinfo is None:
             raise ValueError("backtest candle timestamp 는 timezone-aware 여야 한다")
         if candle.ts_utc.astimezone(timezone.utc) != \
@@ -104,6 +110,8 @@ def _prepare_backtest_input(
     elif isinstance(candles, list):
         canonical = candles
     else:
+        # fail-closed 검증과 deterministic dedup에 같은 입력을 써야 하므로 one-shot iterable은
+        # 의도적으로 한 번 materialize한다. 대용량 호출자는 list/DataFrame을 직접 전달할 것.
         canonical = list(candles)
     if not canonical:
         return candles_to_frame([]), [], [], None

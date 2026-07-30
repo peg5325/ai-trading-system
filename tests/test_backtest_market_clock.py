@@ -9,8 +9,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from src.backtest.engine import BacktestEngine
 from src.backtest import engine as backtest_engine_module
+from src.backtest.engine import BacktestEngine
 from src.backtest.execution import ExecutionModel
 from src.backtest.models import BacktestConfig
 from src.engines.indicator_engine import candles_to_frame
@@ -131,6 +131,15 @@ def test_dataframe_input_keeps_same_canonical_market_clock():
         candles_to_frame(candles), "SOXL", 3, _StubStrategy({0, 3})).to_dict()
 
     assert actual == expected
+
+
+def test_dataframe_unsupported_currency_does_not_fall_back_to_us():
+    frame = candles_to_frame(_us_baseline()).drop(columns=["market"])
+    frame["currency"] = "EUR"
+
+    with pytest.raises(ValueError, match="currency 는 USD"):
+        BacktestEngine(_config()).run(
+            frame, "SOXL", 1, _StubStrategy(set()))
 
 
 def test_kr_uses_stored_regular_session_and_kst_trading_day():
