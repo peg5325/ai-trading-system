@@ -58,7 +58,16 @@ def test_package_has_no_runner_result_or_oos_unlock_artifact():
         if path.name != "run_gap_rvol_development.py"
     ]
     assert forbidden_scripts == []
-    assert not list(Path("docs/research").glob("RESULT*GAP*RVOL*"))
+    results = {
+        path.name for path in Path("docs/research").glob("RESULT*GAP*RVOL*")
+    }
+    assert results == {
+        "RESULT_P0_US30_GAP_RVOL_DEVELOPMENT.json",
+        "RESULT_P0_US30_GAP_RVOL_DEVELOPMENT.md",
+    }
+    assert not Path(
+        "docs/research/OOS_UNLOCK_P0_US30_GAP_RVOL.json"
+    ).exists()
 
 
 def test_implementation_map_tracks_frozen_hashes_and_required_sections():

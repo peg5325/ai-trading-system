@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
+from src.research.gap_rvol.manifest import payload_sha256
 from src.research.gap_rvol.report import (
     render_development_report,
     result_json_bytes,
@@ -138,3 +140,21 @@ def test_evidence_writer_reuses_identical_and_refuses_divergent(tmp_path):
     write_evidence_file(str(target), b"same")
     with pytest.raises(FileExistsError, match="differs"):
         write_evidence_file(str(target), b"different")
+
+
+def test_tracked_result_is_self_consistent_and_keeps_oos_closed():
+    json_path = Path(
+        "docs/research/RESULT_P0_US30_GAP_RVOL_DEVELOPMENT.json"
+    )
+    md_path = Path(
+        "docs/research/RESULT_P0_US30_GAP_RVOL_DEVELOPMENT.md"
+    )
+    result = json.loads(json_path.read_text(encoding="utf-8"))
+    assert result_json_bytes(result) == json_path.read_bytes()
+    assert render_development_report(result).encode("utf-8") == md_path.read_bytes()
+    assert payload_sha256(result["payload"]) == result["payload_sha256"]
+    assert result["payload"]["verdict"]["value"] == "INCONCLUSIVE_DATA"
+    assert result["payload"]["verdict"]["next_stage"] is None
+    assert result["payload"]["single_pass"]["oos_opened"] is False
+    assert len(result["payload"]["specs"]) == 9
+    assert set(result["payload"]["stats"]) == {"low", "official", "stress"}
