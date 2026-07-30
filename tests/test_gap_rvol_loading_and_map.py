@@ -10,16 +10,19 @@ from src.research.gap_rvol import loading
 from src.research.gap_rvol.contract import PREREG_JSON_SHA256, PREREG_MD_SHA256
 
 PACKAGE = Path("src/research/gap_rvol")
+RUNNER = Path("scripts/run_gap_rvol_development.py")
 MAP = Path("docs/research/PREREG_P0_US30_GAP_RVOL_V1_IMPLEMENTATION_MAP.md")
 
 
-def test_performance_package_has_no_direct_loader_or_coverage_bypass():
-    for path in PACKAGE.glob("*.py"):
+def test_performance_package_and_runner_have_no_loader_bypass():
+    for path in (*PACKAGE.glob("*.py"), RUNNER):
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
                 assert node.module != "src.history.loader"
+            if isinstance(node, ast.Attribute):
+                assert node.attr != "load_candles"
             if isinstance(node, ast.Call):
                 for keyword in node.keywords:
                     assert not (
@@ -27,6 +30,7 @@ def test_performance_package_has_no_direct_loader_or_coverage_bypass():
                         and isinstance(keyword.value, ast.Constant)
                         and keyword.value.value == "coverage"
                     )
+                    assert keyword.arg != "unlock"
 
 
 def test_dynamic_loader_is_performance_intraday_and_propagates_oos_denial(monkeypatch):
@@ -45,8 +49,15 @@ def test_dynamic_loader_is_performance_intraday_and_propagates_oos_denial(monkey
 
 def test_package_has_no_runner_result_or_oos_unlock_artifact():
     names = {path.name for path in PACKAGE.glob("*.py")}
-    assert not {"runner.py", "report.py", "oos.py"} & names
-    assert not list(Path("scripts").glob("*gap*rvol*"))
+    assert "oos.py" not in names
+    assert "runner.py" not in names
+    assert {"development.py", "manifest.py", "report.py", "stats.py"} <= names
+    assert RUNNER.is_file()
+    forbidden_scripts = [
+        path for path in Path("scripts").glob("*gap*rvol*")
+        if path.name != "run_gap_rvol_development.py"
+    ]
+    assert forbidden_scripts == []
     assert not list(Path("docs/research").glob("RESULT*GAP*RVOL*"))
 
 
