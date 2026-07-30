@@ -1,0 +1,316 @@
+{
+  "schema": "prereg-gap-rvol/contract/v1",
+  "version": "1.0",
+  "issue": 98,
+  "document": "docs/research/PREREG_P0_US30_GAP_RVOL_V1.md",
+  "results_examined": false,
+  "prior_access_disclosure": {
+    "orb_development_result_examined": true,
+    "orb_result": "docs/research/RESULT_P0_US30_ORB_DEVELOPMENT.md",
+    "gap_rvol_standalone_results_examined": false,
+    "gap_rvol_signals_or_returns_computed": false,
+    "effect_on_design": "strategy order only; pre-result gap/rvol/target convention values retained without tuning"
+  },
+  "data_identity": {
+    "snapshot_basename": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+    "snapshot_file_sha256": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+    "snapshot_content_sha256": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+    "manifest_data_sha256": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+    "raw_content_sha256": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+    "collection_run_id": "p0-us30-1m-20260721-r82",
+    "as_of": "2026-07-21",
+    "source_interval": "1m",
+    "derived_interval": "5m",
+    "allowed_sessions": ["PRE", "REGULAR", "POST"],
+    "tradable_sessions": ["REGULAR"],
+    "hash_mismatch_policy": "NOT_RUN"
+  },
+  "universe": {
+    "market_etf": ["SPY", "QQQ", "IWM", "DIA"],
+    "sector_etf": ["XLK", "XLF", "XLE", "XLV", "XLI", "XLY", "XLU", "SMH"],
+    "large_cap": [
+      "AAPL", "MSFT", "NVDA", "AMD", "AVGO", "AMZN", "META",
+      "GOOGL", "TSLA", "MU", "NFLX", "CRM", "PLTR", "VST"
+    ],
+    "leveraged_inverse": ["TQQQ", "SQQQ", "SOXL", "SOXS"],
+    "exposure_families": {
+      "QQQ_FAMILY": ["QQQ", "TQQQ", "SQQQ"],
+      "SOX_FAMILY": ["SMH", "SOXL", "SOXS"]
+    },
+    "generalization": "fixed 30-symbol high-liquidity sample as of 2026-07-21; not point-in-time; no catalyst/news data"
+  },
+  "windows": {
+    "development_data_start": "2023-04-20",
+    "development_data_end": "2026-01-20",
+    "development_data_trading_days": 690,
+    "warmup_trading_days": 20,
+    "development_eval_start": "2023-05-18",
+    "development_eval_end": "2026-01-20",
+    "development_eval_trading_days": 670,
+    "blind_oos_start": "2026-01-21",
+    "blind_oos_end": "2026-07-21",
+    "blind_oos_trading_days": 125,
+    "boundary_inclusive": true
+  },
+  "folds": {
+    "block_trading_days": 63,
+    "anchor": "end",
+    "remainder_absorbed_by": "earliest_fold",
+    "train_trading_days": 0,
+    "embargo_trading_days_between_folds": 0,
+    "development_may_use_oos_bars": false,
+    "oos_warmup_may_use_pre_oos_bars": true,
+    "boundaries": [
+      {"fold": "F01", "start": "2023-05-18", "end": "2023-10-13", "trading_days": 103},
+      {"fold": "F02", "start": "2023-10-16", "end": "2024-01-16", "trading_days": 63},
+      {"fold": "F03", "start": "2024-01-17", "end": "2024-04-16", "trading_days": 63},
+      {"fold": "F04", "start": "2024-04-17", "end": "2024-07-17", "trading_days": 63},
+      {"fold": "F05", "start": "2024-07-18", "end": "2024-10-15", "trading_days": 63},
+      {"fold": "F06", "start": "2024-10-16", "end": "2025-01-16", "trading_days": 63},
+      {"fold": "F07", "start": "2025-01-17", "end": "2025-04-17", "trading_days": 63},
+      {"fold": "F08", "start": "2025-04-21", "end": "2025-07-21", "trading_days": 63},
+      {"fold": "F09", "start": "2025-07-22", "end": "2025-10-17", "trading_days": 63},
+      {"fold": "F10", "start": "2025-10-20", "end": "2026-01-20", "trading_days": 63}
+    ]
+  },
+  "independence": {
+    "forbidden_entry_or_risk_inputs": ["opening_range_high", "opening_range_low", "orb_breakout", "orb_touch"],
+    "entry_hypothesis": "gap retention pullback then previous-bar-high reclaim above causal session VWAP",
+    "shares_with_orb": ["gap_definition", "rvol_15m_definition", "costs", "portfolio_caps", "evaluation_gates"],
+    "does_not_share_with_orb": ["entry_event", "stop_level", "time_stop"],
+    "orb_oos_must_remain_closed": true
+  },
+  "features": {
+    "gap": {
+      "direction": "up_only",
+      "definition": "(today REGULAR 09:30 1m open - previous trading day last completed REGULAR 1m close) / previous close",
+      "threshold_gte": 0.003,
+      "uses_absolute_value": false
+    },
+    "rvol": {
+      "definition": "cumulative REGULAR volume 09:30..09:44 / median of same complete window over prior 20 trading days",
+      "window_minutes": 15,
+      "lookback_trading_days": 20,
+      "min_valid_lookback_days": 15,
+      "threshold_gte": 1.5,
+      "today_excluded_from_denominator": true,
+      "future_volume_forbidden": true
+    },
+    "vwap": {
+      "definition": "cumulative REGULAR sum(((high+low+close)/3)*volume)/sum(volume) from 09:30 through current completed 5m bar",
+      "causal": true,
+      "premarket_included": false,
+      "postmarket_included": false,
+      "zero_volume": "data_exclusion"
+    }
+  },
+  "signal": {
+    "decision_bar_minutes": 5,
+    "decision_bar_min_bars": 5,
+    "closed_only": true,
+    "observation_start_et": "09:45",
+    "retention_fraction": 0.5,
+    "retention_floor": "previous_close + retention_fraction * (today_open - previous_close)",
+    "retention_equality_holds": true,
+    "retention_break_invalidates_day": true,
+    "pullback_armed_when": "completed 5m close strictly below immediately previous completed 5m close and close >= retention_floor",
+    "armed_and_trigger_same_bar": false,
+    "pullback_low": "minimum low from first armed bar through signal bar inclusive",
+    "trigger": {
+      "close_gt_previous_bar_high": true,
+      "close_gt_causal_session_vwap": true,
+      "close_gt_open": true,
+      "close_gte_retention_floor": true,
+      "strict_comparisons": ["previous_bar_high", "causal_session_vwap", "bar_open"]
+    },
+    "direction": "long_only",
+    "individual_stock_naked_short": false,
+    "inverse_etfs_trade_own_gap_up_only": true,
+    "fill": "next completed 5m bar open",
+    "signal_bar_fill": false,
+    "gap_through_entry": "fill_at_next_bar_open_no_price_improvement",
+    "latest_signal_bar_start_et": "10:25",
+    "latest_fill_bar_start_et": "10:30",
+    "latest_fill_boundary_inclusive": true,
+    "missing_next_scheduled_bar": "signal_expired",
+    "capacity_skipped_signal_requeued": false,
+    "max_trades_per_symbol_per_day": 1,
+    "same_day_reentry": false
+  },
+  "account_model": {
+    "initial_capital": 100000.0,
+    "currency": "USD",
+    "sizing_base": "fixed_initial_capital",
+    "sizing_base_uses_running_equity": false,
+    "folds_share_one_continuous_curve": true,
+    "oos_curve_restarts_at_initial_capital": true,
+    "curve_includes_initial_capital_at_t0": true
+  },
+  "risk": {
+    "one_r": "entry - pullback_low",
+    "reject_if_one_r_not_positive": true,
+    "stop": "pullback_low",
+    "target": "entry + 2.0R",
+    "target_r_multiple": 2.0,
+    "risk_budget_pct_of_equity": 0.01,
+    "partial_take_profit": false,
+    "trailing_stop": false,
+    "averaging_down": false,
+    "scale_in_max": 0,
+    "entry_bar_is_scanned_for_exits": true,
+    "same_bar_stop_and_target": "stop_first_conservative",
+    "gap_through_stop": "fill_at_bar_open",
+    "gap_through_target": "fill_at_bar_open",
+    "time_stop_minutes": 60,
+    "time_stop_fill": "next available 5m bar open after 12 held buckets",
+    "eod_flatten_minutes_before_close": 10,
+    "eod_decision_then_next_bar_open": true,
+    "overnight": false,
+    "stale_bars_to_force_exit": 3,
+    "open_exit_priority": ["gap_through_stop", "gap_through_target", "stale", "eod", "time"],
+    "intrabar_exit_priority": ["stop_touch", "target_touch"],
+    "eod_wins_time_tie": true,
+    "eod_must_use_exchange_calendar": true
+  },
+  "portfolio": {
+    "rank_keys": [
+      {"key": "rvol", "order": "desc"},
+      {"key": "gap", "order": "desc"},
+      {"key": "symbol", "order": "asc"}
+    ],
+    "order_invariant": true,
+    "max_positions": 2,
+    "max_portfolio_effective_pct": 0.5,
+    "max_symbol_effective_pct": 0.3,
+    "max_symbol_notional_pct": 0.2,
+    "max_positions_per_exposure_family": 1,
+    "same_bar_fill_order": ["exits", "entries"],
+    "family_cap_includes_pending_same_bar_picks": true,
+    "slot_allocation_is_arrival_time_priority": true,
+    "skipped_reason_vocabulary": [
+      "one_r_not_positive", "qty_lt_1", "family_cap", "slot_cap", "signal_expired"
+    ]
+  },
+  "costs": {
+    "round_trip_pct_points": {"low": 0.14, "official": 0.34, "stress": 0.68},
+    "allocation": {"entry": 0.5, "exit": 0.5},
+    "basis": "notional",
+    "includes": ["commission", "slippage", "spread"],
+    "additional_fee_on_top": false,
+    "official_level": "official"
+  },
+  "parameter_cliff_neighborhood": {
+    "primary_only_decides": true,
+    "diagnostics_may_rescue_primary": false,
+    "cliff_if_opposite_sign_variants_gte": 2,
+    "variants": [
+      {"axis": "gap_threshold_gte", "primary": 0.003, "neighbors": [0.002, 0.004]},
+      {"axis": "rvol_threshold_gte", "primary": 1.5, "neighbors": [1.3, 1.7]},
+      {"axis": "retention_fraction", "primary": 0.5, "neighbors": [0.4, 0.6]},
+      {"axis": "target_r_multiple", "primary": 2.0, "neighbors": [1.5, 2.5]}
+    ],
+    "current_oos_ineligible": true,
+    "successor_must_use_data_after": "2026-07-21"
+  },
+  "development_gate": {
+    "D1_min_trades": 536,
+    "D2_min_trading_days_with_trade": 322,
+    "D3_net_expectancy_gt": 0,
+    "D4_profit_factor_gte": 1.2,
+    "D5_abs_mdd_lte": 0.1,
+    "D6_min_positive_folds": 7,
+    "D6_total_folds": 10,
+    "D7_stress_cumulative_pnl_gte": 0,
+    "D8_parameter_cliff": "opposite_sign_variants_lte_1",
+    "D9_data_defects": "major_defects_zero_and_data_exclusion_lte_0.05_and_operational_failure_lte_0.20",
+    "on_failure": {
+      "open_blind_oos": false,
+      "modify_rules": false,
+      "verdict": "NO_SELECTION",
+      "next_candidate_allowed": "VWAP_ATR_MEAN_REVERSION"
+    }
+  },
+  "oos_gate": {
+    "O1_net_expectancy_gt": 0,
+    "O2_profit_factor_gte": 1.2,
+    "O3_min_trading_days_with_trade": 60,
+    "O4_min_trades": 100,
+    "O5_min_positive_months": 4,
+    "O5_total_months": 6,
+    "O6_abs_mdd_lte": 0.1,
+    "O7_stress_cumulative_pnl_gte": 0,
+    "O8_max_single_symbol_family_profit_share": 0.25,
+    "O9_max_single_day_profit_share": 0.2,
+    "O10_parameter_cliff": "opposite_sign_variants_lte_1",
+    "O11_major_data_defects": 0,
+    "single_pass": true,
+    "rerun_on_bad_result": false,
+    "publish_all_parameterizations": true
+  },
+  "defect_policy": {
+    "data_exclusion_reasons": [
+      "no_previous_regular_close",
+      "incomplete_rvol_window",
+      "insufficient_rvol_lookback",
+      "zero_cumulative_volume",
+      "incomplete_decision_bar"
+    ],
+    "strategy_filters_not_defects": [
+      "gap_below_threshold",
+      "rvol_below_threshold",
+      "retention_broken",
+      "pullback_not_armed",
+      "continuation_not_triggered"
+    ],
+    "data_exclusion_ratio_lte": 0.05,
+    "data_exclusion_unit": "symbol_day_deduplicated",
+    "operational_reasons": ["stale_exit", "eod_fallback", "unclosable"],
+    "operational_failure_ratio_lte": 0.2,
+    "major_defects_must_equal": 0
+  },
+  "blind_enforcement": {
+    "loader": "src.history.oos_guard.research_load",
+    "track": "intraday",
+    "development_purpose": "performance",
+    "direct_load_candles_forbidden": true,
+    "coverage_purpose_forbidden_in_performance_code": true,
+    "unlock_verifier_required_before_oos": "#78",
+    "unlock_artifact_created_in_this_change": false,
+    "bypass_is_invalidation_grade": true
+  },
+  "preconditions_not_result_criteria": {
+    "P1_prereg_merge_commit": "required",
+    "P2_implementation_commit_and_map": "required",
+    "P3_independent_reviews": "code-reviewer APPROVE and architect CLEAR",
+    "P4_snapshot_identity": "all four hashes match",
+    "P5_loader_boundary": "dynamic and AST tests pass",
+    "unmet_verdict": "NOT_RUN"
+  },
+  "verdict_definitions": {
+    "SELECT_ONE": "all development and all OOS gates pass for primary",
+    "NO_SELECTION": "any development or OOS result gate fails for this candidate",
+    "NOT_RUN": "process precondition unmet",
+    "INCONCLUSIVE_DATA": "data or operational defect prevents judgement",
+    "pick_least_bad": false
+  },
+  "revision_policy": {
+    "allowed_before_results": ["typo", "ambiguity", "internal_inconsistency"],
+    "forbidden_after_results": [
+      "thresholds", "windows", "filters", "entry", "exit", "costs",
+      "tie_break", "evaluation_stats", "gates"
+    ],
+    "post_merge_corrections": "append_only_erratum",
+    "invalidation_reasons": [
+      "data_contract_violation", "look_ahead_defect",
+      "fill_or_cost_contract_violation", "calendar_or_session_defect"
+    ],
+    "invalidation_not_allowed_for": "poor_performance"
+  },
+  "implementation_scope": {
+    "strategy_code_in_this_change": false,
+    "development_run_in_this_change": false,
+    "forward_returns_in_this_change": false,
+    "blind_oos_opened_in_this_change": false,
+    "next_step": "separate issue and branch after this prereg merges"
+  }
+}
