@@ -92,7 +92,7 @@ def _validate_backtest_candles(canonical, symbol: str) -> str:
 
 def _prepare_backtest_input(
         candles, symbol: str,
-) -> tuple[pd.DataFrame, list[datetime], list[str]]:
+) -> tuple[pd.DataFrame, list[datetime], list[str], str | None]:
     """입력 OHLCV와 canonical market clock을 같은 정렬·dedup 결과로 준비한다.
 
     `BacktestEngine.run` 은 단일 symbol·단일 market 시계열 API다. 혼합 market을
@@ -106,7 +106,7 @@ def _prepare_backtest_input(
     else:
         canonical = list(candles)
     if not canonical:
-        return candles_to_frame([]), [], []
+        return candles_to_frame([]), [], [], None
 
     market = _validate_backtest_candles(canonical, symbol)
     source = candles_to_frame(canonical)
@@ -115,7 +115,7 @@ def _prepare_backtest_input(
         ts.astimezone(exchange_tz(market)) for ts in source["ts_exchange"]
     ]
     aligned_sessions = source["session"].tolist()
-    return source, aligned_times, aligned_sessions
+    return source, aligned_times, aligned_sessions, market
 
 
 def _exit_config_from_backtest(cfg) -> ExitConfig:
@@ -137,12 +137,16 @@ class ScreenerEntryStrategy:
     """기본 진입 전략: live 와 동일한 UniverseScreener 를 재사용.
     t 행까지 슬라이스해 후보(LONG_SETUP)면 진입 신호."""
 
-    def __init__(self, screener: UniverseScreener | None = None):
+    def __init__(self, screener: UniverseScreener | None = None,
+                 market: str = MARKET_US):
         self._screener = screener or UniverseScreener()
+        self._market = market
 
     def signal(self, symbol, indicators, t, leverage_factor):
         window = indicators.iloc[: t + 1]
-        cands = self._screener.screen([SymbolData(symbol, window, leverage_factor)])
+        cands = self._screener.screen([
+            SymbolData(symbol, window, leverage_factor, self._market)
+        ])
         if cands and cands[0].symbol == symbol:
             return list(cands[0].reasons)
         return None
@@ -157,11 +161,11 @@ class BacktestEngine:
     def run(self, candles, symbol, leverage_factor=1,
             entry_strategy=None) -> BacktestReport:
         cfg = self.cfg
-        strat = entry_strategy or ScreenerEntryStrategy()
         exe = cfg.execution
         gen = ExitSignalGenerator(_exit_config_from_backtest(cfg))   # live/paper 와 동일 엔진
 
-        source, local_times, sessions = _prepare_backtest_input(candles, symbol)
+        source, local_times, sessions, market = _prepare_backtest_input(candles, symbol)
+        strat = entry_strategy or ScreenerEntryStrategy(market=market or MARKET_US)
         ind = IndicatorEngine().compute(source)   # live 와 동일 모듈
         n = len(ind)
         if n == 0:
@@ -175,7 +179,9 @@ class BacktestEngine:
         closes = ind["close"].tolist()
         ema20 = ind["ema20"].tolist()
 
-        def is_session_end(i: int) -> bool:
+        def is_trading_day_end(i: int) -> bool:
+            # 거래소의 예정 마감시각이 아니라 입력 시계열에 존재하는 로컬 거래일의 마지막 봉.
+            # 데이터 완전성은 상위 history manifest 계약의 책임이며 기존 체결 의미를 보존한다.
             return i == n - 1 or trading_dates[i + 1] != trading_dates[i]
 
         st = {"cash": cfg.initial_capital, "pos": None, "consec": 0,
@@ -259,7 +265,7 @@ class BacktestEngine:
             #    충실도 유지). live/paper 는 generator.evaluate() 로 SL>TP>TIME>EOD 우선순위를
             #    따른다(다음봉 시가 개념 없음). 두 경로는 마감봉에서만 사유 라벨/체결시점이 갈릴 수
             #    있으며, 그 외 모든 봉에서는 동일한 공유 규칙(evaluate_signal)을 쓴다.
-            if st["pos"] and is_session_end(i) and gen.eod_applies(leverage_factor):
+            if st["pos"] and is_trading_day_end(i) and gen.eod_applies(leverage_factor):
                 close_position(i, c, ["EOD_FLATTEN"], idx[i])
                 continue
 
@@ -275,12 +281,12 @@ class BacktestEngine:
                 reason = gen.evaluate_signal(pv, ExitContext(now_bar=i, now_time=idx[i]))
                 if reason is not None:
                     pending_exit = {"reasons": [reason]}
-            elif not is_session_end(i):   # 오버나잇으로 넘어가는 진입 금지
+            elif not is_trading_day_end(i):   # 오버나잇으로 넘어가는 진입 금지
                 sig = strat.signal(symbol, ind, i, leverage_factor)
                 if sig is not None:
                     decision = self._size_and_check(
                         symbol, c, leverage_factor, equity, sessions[i],
-                        is_session_end(i), daily_pnl_pct, cur_dd, st["consec"],
+                        is_trading_day_end(i), daily_pnl_pct, cur_dd, st["consec"],
                         now_time=idx[i], last_exit_time=st["last_exit_time"],
                         last_exit_reason=st["last_exit_reason"])
                     if decision is not None and decision.allowed and decision.adjusted_quantity > 0:

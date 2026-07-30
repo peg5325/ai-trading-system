@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from src.backtest.engine import BacktestEngine
+from src.backtest import engine as backtest_engine_module
 from src.backtest.execution import ExecutionModel
 from src.backtest.models import BacktestConfig
 from src.engines.indicator_engine import candles_to_frame
@@ -137,26 +138,53 @@ def test_kr_uses_stored_regular_session_and_kst_trading_day():
     closes = [100.0, 101.0, 102.0, 103.0]
     candles = []
     previous = 99.0
-    for offset, close in enumerate(closes):
-        moment = datetime(2026, 7, 8, 12, 50, tzinfo=KST) + \
-            timedelta(minutes=5 * offset)
-        candles.append(_candle(
-            "005930", moment, close, previous, market="KR", currency="KRW"))
-        previous = close
+    for day in (8, 9):
+        for offset, close in enumerate(closes):
+            moment = datetime(2026, 7, day, 12, 50, tzinfo=KST) + \
+                timedelta(minutes=5 * offset)
+            candles.append(_candle(
+                "005930", moment, close, previous, market="KR", currency="KRW"))
+            previous = close
 
     report = BacktestEngine(_config()).run(
-        candles, "005930", 3, _StubStrategy({0}))
+        candles, "005930", 3, _StubStrategy({0, 4}))
 
-    assert len(report.trades) == 1
-    trade = report.trades[0]
-    assert trade.entry_time == candles[1].ts_utc
-    assert trade.exit_time == candles[-1].ts_utc
-    assert trade.exit_reason == ["EOD_FLATTEN"]
-    assert trade.entry_time.astimezone(KST).date() == \
-        trade.exit_time.astimezone(KST).date()
-    # 기존 ET 고정 코드는 전 봉을 OVERNIGHT로 분류해 진입 자체를 차단했다.
-    assert trade.entry_time.astimezone(ET).date() != \
-        trade.exit_time.astimezone(ET).date()
+    assert len(report.trades) == 2
+    for trade, first, last in zip(
+            report.trades, (candles[1], candles[5]), (candles[3], candles[7])):
+        assert trade.entry_time == first.ts_utc
+        assert trade.exit_time == last.ts_utc
+        assert trade.exit_reason == ["EOD_FLATTEN"]
+        assert trade.entry_time.astimezone(KST).date() == \
+            trade.exit_time.astimezone(KST).date()
+        # 기존 ET 고정 코드는 전 봉을 OVERNIGHT로 분류해 진입 자체를 차단했다.
+        assert trade.entry_time.astimezone(ET).date() != \
+            trade.exit_time.astimezone(ET).date()
+
+
+def test_default_screener_receives_detected_kr_market(monkeypatch):
+    captured = []
+
+    class _SpyScreener:
+        def screen(self, inputs):
+            captured.extend(inputs)
+            return []
+
+    monkeypatch.setattr(
+        backtest_engine_module, "UniverseScreener", lambda: _SpyScreener())
+    candles = [
+        _candle(
+            "005930",
+            datetime(2026, 7, 8, 10, 0, tzinfo=KST) + timedelta(minutes=5 * i),
+            100.0 + i, 99.0 + i, market="KR", currency="KRW",
+        )
+        for i in range(3)
+    ]
+
+    BacktestEngine(_config()).run(candles, "005930", 1)
+
+    assert captured
+    assert {symbol_data.market for symbol_data in captured} == {"KR"}
 
 
 def test_mixed_market_run_fails_closed_even_at_same_timestamp():
