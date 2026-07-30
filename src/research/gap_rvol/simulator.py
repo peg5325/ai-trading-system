@@ -8,7 +8,6 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
-from itertools import pairwise
 
 from src.models import SESSION_POST, SESSION_PRE, SESSION_REGULAR, Candle
 from src.research.gap_rvol.contract import SpecParams, require
@@ -27,6 +26,13 @@ from src.research.gap_rvol.portfolio import (
 )
 from src.research.gap_rvol.signals import GapRvolSignal, detect_signal
 from src.research.orb.windows import minute_of_day, regular_close_minute_checked
+
+MAJOR_DEFECT_REASONS = frozenset({
+    "data_contract_violation",
+    "look_ahead_defect",
+    "fill_or_cost_contract_violation",
+    "calendar_or_session_defect",
+})
 
 
 @dataclass(frozen=True)
@@ -73,20 +79,9 @@ def detect_data_defects(candles: Sequence[Candle]) -> tuple[str, ...]:
         not (bar.low <= min(bar.open, bar.close) <= max(bar.open, bar.close) <= bar.high)
         for bar in candles
     ):
-        reasons.add("ohlc_invariant_violation")
+        reasons.add("data_contract_violation")
     if any(bar.session not in {SESSION_PRE, SESSION_REGULAR, SESSION_POST} for bar in candles):
-        reasons.add("session_label_violation")
-    regular = sorted(
-        (bar for bar in candles if bar.session == SESSION_REGULAR),
-        key=lambda bar: bar.ts_utc,
-    )
-    for previous, current in pairwise(regular):
-        if (
-            previous.ts_exchange.date() == current.ts_exchange.date()
-            and previous.close
-            and abs(current.close / previous.close - 1) > 0.5
-        ):
-            reasons.add("unexplained_1m_price_jump_gt_50pct")
+        reasons.add("calendar_or_session_defect")
     return tuple(sorted(reasons))
 
 
@@ -131,6 +126,10 @@ def simulate_day(
         feature = features_by_symbol[symbol]
         excluded.extend((symbol, reason) for reason in feature.excluded_reasons)
         defects = tuple(sorted(set(raw_defects_by_symbol[symbol])))
+        unknown_defects = set(defects) - MAJOR_DEFECT_REASONS
+        if unknown_defects:
+            raise ValueError(
+                f"unknown major-defect reason(s): {sorted(unknown_defects)}")
         if defects:
             major.extend((symbol, reason) for reason in defects)
             bars[symbol] = ()

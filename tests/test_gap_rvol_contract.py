@@ -55,6 +55,7 @@ def test_decision_and_rvol_specs_are_frozen_values():
     contract = c.load_contract()
     assert c.decision_bar_spec(contract) == c.GapDecisionSpec(5, 5)
     assert c.rvol_spec(contract) == c.RvolSpec(15, 20, 15)
+    assert c.signal_window_spec(contract) == c.SignalWindowSpec(585, 625, 630)
 
 
 def test_development_and_oos_windows_are_exactly_frozen():

@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import random
 from datetime import date
+from pathlib import Path
+
+import pytest
 
 from src.research.gap_rvol.contract import load_contract, primary_spec
 from src.research.gap_rvol.gates import DefectMetrics, evaluate_development
-from src.research.gap_rvol.simulator import simulate_day
+from src.research.gap_rvol.simulator import detect_data_defects, simulate_day
+from src.research.gap_rvol.windows import regular_close_minute_checked
 from src.research.orb.stats import PerformanceStats
 from tests.gap_rvol_test_helpers import bar, features
 
@@ -65,6 +70,118 @@ def test_identical_duplicates_and_input_shuffle_are_invariant():
     random.Random(7).shuffle(shuffled)
     assert simulate_day(
         decision_bars_by_symbol={"AAPL": shuffled}, **kwargs) == baseline
+
+
+def test_missing_immediate_fill_expires_instead_of_filling_late():
+    day = date(2024, 3, 4)
+    bars = [
+        item for item in _signal_bars(day)
+        if not (item.ts_exchange.hour == 9 and item.ts_exchange.minute == 55)
+    ]
+    result = simulate_day(
+        day=day,
+        spec=primary_spec(load_contract()),
+        decision_bars_by_symbol={"AAPL": bars},
+        features_by_symbol={"AAPL": features(
+            day, minutes=tuple(range(570, 661, 5)))},
+        raw_defects_by_symbol={"AAPL": ()},
+        contract=load_contract(),
+    )
+    assert not result.trades
+    assert [(item.fill_minute, item.reason) for item in result.skipped] == [
+        (595, "signal_expired")
+    ]
+
+
+def test_missing_exact_time_bar_exits_at_first_later_scheduled_bar_without_extension():
+    day = date(2024, 3, 4)
+    bars = [
+        item for item in _signal_bars(day)
+        if not (item.ts_exchange.hour == 10 and item.ts_exchange.minute == 55)
+    ]
+    bars.append(bar(day, 660, o=103, h=104, low=102, c=103))
+    result = simulate_day(
+        day=day,
+        spec=primary_spec(load_contract()),
+        decision_bars_by_symbol={"AAPL": bars},
+        features_by_symbol={"AAPL": features(
+            day, minutes=tuple(range(570, 666, 5)))},
+        raw_defects_by_symbol={"AAPL": ()},
+        contract=load_contract(),
+    )
+    trade = result.trades[0]
+    assert trade.exit is not None
+    assert (trade.exit.exit_minute, trade.exit.exit_reason) == (660, "time")
+    assert trade.operational_reason is None
+
+
+def test_early_close_calendar_boundary_is_exchange_derived():
+    assert regular_close_minute_checked(date(2024, 7, 3)) == 13 * 60
+
+
+def test_unknown_major_defect_reason_is_rejected():
+    day = date(2024, 3, 4)
+    with pytest.raises(ValueError, match="unknown major-defect"):
+        simulate_day(
+            day=day,
+            spec=primary_spec(load_contract()),
+            decision_bars_by_symbol={"AAPL": _signal_bars(day)},
+            features_by_symbol={"AAPL": features(
+                day, minutes=tuple(range(570, 661, 5)))},
+            raw_defects_by_symbol={"AAPL": ("unregistered_heuristic",)},
+            contract=load_contract(),
+        )
+
+
+def test_major_defects_use_only_frozen_invalidation_classes():
+    day = date(2024, 3, 4)
+    bad_ohlc = dataclasses.replace(bar(day, 570), low=102, high=101)
+    assert detect_data_defects((bad_ohlc,)) == ("data_contract_violation",)
+    # A large but structurally valid price jump is not an unstated D9 heuristic.
+    jump = (
+        bar(day, 570, o=100, h=100, low=100, c=100),
+        bar(day, 575, o=200, h=200, low=200, c=200),
+    )
+    assert detect_data_defects(jump) == ()
+
+
+def test_same_bar_exit_releases_capacity_before_new_entry():
+    day = date(2024, 3, 4)
+    aapl = _signal_bars(day)
+    aapl = [
+        dataclasses.replace(item, low=98)
+        if item.ts_exchange.hour == 10 and item.ts_exchange.minute == 0
+        else item
+        for item in aapl
+    ]
+    msft = [
+        bar(day, 570, symbol="MSFT", c=100),
+        bar(day, 575, symbol="MSFT", h=102, c=101),
+        bar(day, 580, symbol="MSFT", h=103, c=102),
+        bar(day, 585, symbol="MSFT", h=104, c=103),
+        bar(day, 590, symbol="MSFT", o=102, h=103, low=99, c=101),
+        bar(day, 595, symbol="MSFT", o=101, h=105, low=100, c=104),
+        bar(day, 600, symbol="MSFT", o=103, h=104, low=102, c=103),
+    ]
+    contract = json.loads(Path(
+        "docs/research/PREREG_P0_US30_GAP_RVOL_V1.json"
+    ).read_text(encoding="utf-8"))
+    contract["portfolio"]["max_positions"] = 1
+    result = simulate_day(
+        day=day,
+        spec=primary_spec(contract),
+        decision_bars_by_symbol={"AAPL": aapl, "MSFT": msft},
+        features_by_symbol={
+            "AAPL": features(day, minutes=tuple(range(570, 661, 5))),
+            "MSFT": features(
+                day, symbol="MSFT", minutes=tuple(range(570, 606, 5))),
+        },
+        raw_defects_by_symbol={"AAPL": (), "MSFT": ()},
+        contract=contract,
+    )
+    assert [trade.position.symbol for trade in result.trades] == ["AAPL", "MSFT"]
+    assert result.trades[0].exit is not None
+    assert result.trades[0].exit.exit_minute == 600
 
 
 def _stats(**changes) -> PerformanceStats:

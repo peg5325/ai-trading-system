@@ -7,7 +7,11 @@ from datetime import date
 from src.models import Candle, regular_session_window
 from src.research.gap_rvol.contract import SpecParams
 from src.research.orb.features import RvolWindow, window_sum_for_lookback
-from src.research.orb.windows import minute_of_day, regular_close_minute_checked
+from src.research.orb.windows import (
+    minute_of_day,
+    previous_trading_day,
+    regular_close_minute_checked,
+)
 
 DATA_EXCLUSION_REASONS = frozenset({
     "no_previous_regular_close",
@@ -39,7 +43,9 @@ class GapRvolDayFeatures:
     filter_reasons: tuple[str, ...]
 
 
-def _one_symbol_day(candles: tuple[Candle, ...], *, symbol: str, day: date) -> None:
+def _canonical_symbol_day(
+    candles: tuple[Candle, ...], *, symbol: str, day: date
+) -> tuple[Candle, ...]:
     if any(candle.symbol != symbol or candle.ts_exchange.date() != day for candle in candles):
         raise ValueError("candles must contain exactly one requested symbol-day")
     keys: dict[int, tuple[object, ...]] = {}
@@ -52,6 +58,8 @@ def _one_symbol_day(candles: tuple[Candle, ...], *, symbol: str, day: date) -> N
         if minute in keys and keys[minute] != value:
             raise ValueError(f"conflicting duplicate minute: {minute}")
         keys[minute] = value
+    by_minute = {minute_of_day(candle): candle for candle in candles}
+    return tuple(by_minute[minute] for minute in sorted(by_minute))
 
 
 def causal_vwap_by_bar(
@@ -61,14 +69,25 @@ def causal_vwap_by_bar(
     symbol: str,
     day: date,
     bar_minutes: int,
+    required_through_minute: int | None = None,
 ) -> tuple[dict[int, float], tuple[str, ...]]:
-    _one_symbol_day(regular_minutes, symbol=symbol, day=day)
-    _one_symbol_day(decision_bars, symbol=symbol, day=day)
+    regular_minutes = _canonical_symbol_day(
+        regular_minutes, symbol=symbol, day=day)
+    decision_bars = _canonical_symbol_day(
+        decision_bars, symbol=symbol, day=day)
+    open_minute, _ = regular_session_window("US")
+    if required_through_minute is not None:
+        required = set(range(
+            open_minute, required_through_minute + 1, bar_minutes))
+        present = {minute_of_day(bar) for bar in decision_bars}
+        if not required.issubset(present):
+            return {}, ("incomplete_decision_bar",)
+    if not decision_bars:
+        return {}, ("incomplete_decision_bar",)
     minutes = {minute_of_day(candle): candle for candle in regular_minutes}
     output: dict[int, float] = {}
     cumulative_pv = 0.0
     cumulative_volume = 0.0
-    open_minute, _ = regular_session_window("US")
     next_minute = open_minute
     for bar in sorted(decision_bars, key=minute_of_day):
         start = minute_of_day(bar)
@@ -100,9 +119,17 @@ def compute_day_features(
     spec: SpecParams,
     rvol_minutes: int,
     decision_minutes: int,
+    required_through_minute: int,
 ) -> GapRvolDayFeatures:
-    _one_symbol_day(today_regular_1m, symbol=symbol, day=day)
-    _one_symbol_day(previous_regular_1m, symbol=symbol, day=previous_day)
+    expected_previous = previous_trading_day(day)
+    if previous_day != expected_previous:
+        raise ValueError(
+            f"previous_day must be the prior NYSE trading day: "
+            f"{previous_day} != {expected_previous}")
+    today_regular_1m = _canonical_symbol_day(
+        today_regular_1m, symbol=symbol, day=day)
+    previous_regular_1m = _canonical_symbol_day(
+        previous_regular_1m, symbol=symbol, day=previous_day)
     close_minute = regular_close_minute_checked(previous_day)
     previous = [
         candle for candle in previous_regular_1m
@@ -154,6 +181,7 @@ def compute_day_features(
         symbol=symbol,
         day=day,
         bar_minutes=decision_minutes,
+        required_through_minute=required_through_minute,
     )
     reasons.update(vwap_reasons)
     retention_floor = (

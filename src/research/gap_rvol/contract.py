@@ -164,3 +164,26 @@ def rvol_spec(contract: Mapping[str, Any]) -> RvolSpec:
         lookback_days=int(require(contract, "features", "rvol", "lookback_trading_days")),
         min_valid_days=int(require(contract, "features", "rvol", "min_valid_lookback_days")),
     )
+
+
+@dataclass(frozen=True)
+class SignalWindowSpec:
+    observation_start_minute: int
+    latest_signal_minute: int
+    latest_fill_minute: int
+
+
+def _time_to_minute(value: object) -> int:
+    hour, minute = str(value).split(":")
+    return int(hour) * 60 + int(minute)
+
+
+def signal_window_spec(contract: Mapping[str, Any]) -> SignalWindowSpec:
+    return SignalWindowSpec(
+        observation_start_minute=_time_to_minute(
+            require(contract, "signal", "observation_start_et")),
+        latest_signal_minute=_time_to_minute(
+            require(contract, "signal", "latest_signal_bar_start_et")),
+        latest_fill_minute=_time_to_minute(
+            require(contract, "signal", "latest_fill_bar_start_et")),
+    )

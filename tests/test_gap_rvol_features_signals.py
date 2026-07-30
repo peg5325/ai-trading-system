@@ -43,12 +43,86 @@ def test_gap_rvol_retention_and_vwap_are_hand_calculated():
         spec=primary_spec(load_contract()),
         rvol_minutes=15,
         decision_minutes=5,
+        required_through_minute=625,
     )
     assert result.excluded_reasons == ()
     assert result.gap == pytest.approx(0.02)
     assert result.rvol == pytest.approx(1.0)
     assert result.retention_floor == pytest.approx(101.0)
     assert result.vwap_by_minute[570] == pytest.approx((103 + 101 + 102) / 3)
+
+
+def test_non_adjacent_previous_day_is_rejected():
+    day = date(2024, 3, 4)
+    stale = date(2024, 2, 20)
+    with pytest.raises(ValueError, match="prior NYSE trading day"):
+        compute_day_features(
+            symbol="AAPL",
+            day=day,
+            previous_day=stale,
+            previous_regular_1m=minute_bars(stale, price=50),
+            today_regular_1m=minute_bars(day, price=102),
+            decision_bars=tuple(
+                bar(day, minute) for minute in range(570, 960, 5)),
+            rvol_window=_seeded_window(day),
+            spec=primary_spec(load_contract()),
+            rvol_minutes=15,
+            decision_minutes=5,
+            required_through_minute=625,
+        )
+
+
+def test_missing_required_decision_bar_is_data_exclusion():
+    day = date(2024, 3, 4)
+    previous = date(2024, 3, 1)
+    decision = tuple(
+        bar(day, minute)
+        for minute in range(570, 960, 5)
+        if minute != 625
+    )
+    result = compute_day_features(
+        symbol="AAPL",
+        day=day,
+        previous_day=previous,
+        previous_regular_1m=minute_bars(previous),
+        today_regular_1m=minute_bars(day, price=102),
+        decision_bars=decision,
+        rvol_window=_seeded_window(day),
+        spec=primary_spec(load_contract()),
+        rvol_minutes=15,
+        decision_minutes=5,
+        required_through_minute=625,
+    )
+    assert "incomplete_decision_bar" in result.excluded_reasons
+
+
+def test_identical_one_minute_duplicates_do_not_change_rvol_or_vwap():
+    day = date(2024, 3, 4)
+    previous = date(2024, 3, 1)
+    today = minute_bars(day, price=102)
+    decision = tuple(bar(day, minute) for minute in range(570, 960, 5))
+    kwargs = {
+        "symbol": "AAPL",
+        "day": day,
+        "previous_day": previous,
+        "previous_regular_1m": minute_bars(previous),
+        "decision_bars": decision,
+        "spec": primary_spec(load_contract()),
+        "rvol_minutes": 15,
+        "decision_minutes": 5,
+        "required_through_minute": 625,
+    }
+    baseline = compute_day_features(
+        today_regular_1m=today,
+        rvol_window=_seeded_window(day),
+        **kwargs,
+    )
+    duplicate = compute_day_features(
+        today_regular_1m=(*today, today[0]),
+        rvol_window=_seeded_window(day),
+        **kwargs,
+    )
+    assert duplicate == baseline
 
 
 def test_causal_vwap_does_not_see_future_minutes():

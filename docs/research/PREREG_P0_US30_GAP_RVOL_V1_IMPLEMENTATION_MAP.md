@@ -26,7 +26,7 @@
 | 직전 봉 high strict reclaim | `close > previous.high` | strict equality 회귀 |
 | next-bar fill | `GapRvolSignal.fill_minute = signal + 5` | signal·simulator 회귀 |
 | pullback-low stop | armed 이후 signal까지 최소 low | portfolio stop/2R 회귀 |
-| 60분 time stop | 예정 시각 `entry_minute + 60` | `test_next_bar_fill_entry_bar_scan_and_scheduled_60_minute_stop` |
+| 60분 time stop | `entry_minute + 60`부터 due이며 첫 실제 scheduled 5분봉 open 체결; 결측 봉 수만큼 보유시간을 재계산하지 않음 | happy-path·655 결측→660 체결 회귀 |
 | EOD/조기폐장 | exchange calendar의 일별 close minute 사용 | simulator의 `regular_close_minute_checked` |
 | 입력 순서·중복 불변 | 분 단위 canonicalization, 충돌 fail-closed | shuffle/identical duplicate 회귀 |
 | 동시 후보 경쟁 | RVOL↓, gap↓, ASCII symbol↑, family/slot cap | portfolio 경쟁 회귀 |
@@ -44,6 +44,8 @@
 
 - D1~D8 경제·통계 실패: `NO_SELECTION`.
 - D9 데이터·운영 결함: `INCONCLUSIVE_DATA`.
+- major defect는 사전등록 revision policy의 4개 invalidation class만 허용하며
+  등록되지 않은 휴리스틱은 판정에 들어갈 수 없다.
 - P1~P5 절차 전제 미충족: `NOT_RUN`.
 - 이 PR은 어떤 판정도 실행하지 않는다. 후속 공식 development 실행은 이
   구현 merge commit, 독립 review evidence, snapshot 4-hash를 별도로 고정해야 한다.
