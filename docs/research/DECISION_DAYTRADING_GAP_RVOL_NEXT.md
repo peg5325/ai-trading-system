@@ -59,7 +59,9 @@ convention 값이다. 새 전략에서도 이 값은 그대로 둔다. 이는 OR
 1. 이 결정과 `PREREG_P0_US30_GAP_RVOL_V1.{md,json}`을 main에 병합한다.
 2. 별도 issue/branch에서 구현하고 사전등록↔구현 매핑·look-ahead 음성 테스트를 만든다.
 3. 독립 구현 리뷰와 snapshot 4-hash 검증을 통과한 뒤 development-only를 한 번 실행한다.
-4. development gate 실패 시 `NO_SELECTION`으로 끝내고 OOS를 열지 않는다.
-5. 통과한 경우에만 #78의 추적 unlock artifact로 blind OOS를 한 번 연다.
+4. D1~D8 경제·통계 gate 실패 시 `NO_SELECTION`으로 끝내고 OOS를 열지 않은 채 후보 3으로
+   이동할 수 있다. D9 데이터·운영 결함이면 `INCONCLUSIVE_DATA`로 중단하고, 결함 교정과
+   독립 재리뷰 전에는 OOS를 열거나 다음 후보로 이동하지 않는다.
+5. D1~D9를 모두 통과한 경우에만 #78의 추적 unlock artifact로 blind OOS를 한 번 연다.
 
 이번 문서와 사전등록 PR은 2~5를 실행하지 않는다.

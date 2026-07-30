@@ -413,12 +413,19 @@ def test_process_preconditions_cannot_masquerade_as_strategy_failure(contract):
 
 def test_plan_revision_records_orb_stop_and_gap_rvol_next():
     plan = _read(PLAN)
+    decision = _read(DECISION)
     assert "| r3 | 2026-07-30 | #98 |" in plan
     assert "ORB는 development-only `INCONCLUSIVE_DATA`로 중단" in plan
     assert "Gap + RVOL Continuation 사전등록" in plan
     assert "VWAP/ATR Mean Reversion" in plan
     assert "r1의 일괄 토너먼트 순서를 대체" in plan
     assert "각 후보 blind OOS 이전 해당 후보 prereg·구현·독립 리뷰 커밋" in plan
+    for text in (plan, decision):
+        assert "D1~D8" in text
+        assert "`NO_SELECTION`" in text
+        assert "D9" in text
+        assert "`INCONCLUSIVE_DATA`" in text
+        assert "다음 후보로 이동하지 않는다" in text
 
 
 def test_no_gap_rvol_result_implementation_or_unlock_artifact_exists():
