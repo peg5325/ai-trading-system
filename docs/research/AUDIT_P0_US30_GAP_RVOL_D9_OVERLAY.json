@@ -1,0 +1,56 @@
+{
+  "baseline": {
+    "denominator": 20100,
+    "numerator": 1296,
+    "ratio": 0.06447761194029851
+  },
+  "corrected_d9": {
+    "data_exclusion_denominator": 20100,
+    "data_exclusion_numerator": 1296,
+    "data_exclusion_ratio": 0.06447761194029851,
+    "major_defect_count": 0,
+    "passes": false,
+    "reason_counts": {
+      "incomplete_decision_bar": 734,
+      "incomplete_rvol_window": 708,
+      "insufficient_rvol_lookback": 566,
+      "no_previous_regular_close": 723
+    },
+    "threshold_lte": 0.05,
+    "verdict": "INCONCLUSIVE_DATA"
+  },
+  "generated_at_utc": "2026-08-04T02:08:58Z",
+  "identity": {
+    "candidate_data_sha256": "c798b00b9d7f0caef142fc8c813ae4db4497129780801cc6906b01c564acea21",
+    "candidate_manifest_file_sha256": "669d288e2049b11b0ed214876b6202e8f1d207cf41ccfd7fcd88643a928483d4",
+    "candidate_raw_sha256": "7a55bd24deaaad9be9888a150e4aadb768dde6edfb0dead734e1fc01136d05da",
+    "candidate_rows": 49150,
+    "frozen": {
+      "manifest_data": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "raw_content": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "snapshot_content": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "snapshot_file": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33"
+    }
+  },
+  "overlay": {
+    "added_event_count": 0,
+    "changed_event_count": 0,
+    "changed_events": [],
+    "eligible_targets": 66,
+    "ineligible_targets_not_applied": 10,
+    "resolved_event_count": 0,
+    "resolved_events": []
+  },
+  "producer_commit": "389e1d1bbd3a1fda593cfab2d49a0e0cab14e424",
+  "review_evidence_url": "https://github.com/peg5325/ai-trading-system/pull/107#issuecomment-5173786674",
+  "schema": "gap-rvol-d9-overlay-audit/v1",
+  "scope": {
+    "blind_oos_opened": false,
+    "d9_only": true,
+    "development_only": true,
+    "forward_returns_computed": false,
+    "frozen_snapshot_written": false,
+    "performance_computed": false,
+    "strategy_contract_changed": false
+  }
+}

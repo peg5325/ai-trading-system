@@ -1,0 +1,1368 @@
+{
+  "full_regular_session_count": 66,
+  "generated_at_utc": "2026-08-04T01:41:12.334868+00:00",
+  "http_429": 3,
+  "interval": "1m",
+  "provider": "toss",
+  "raw_content_file_count": 299,
+  "raw_content_sha256": "7a55bd24deaaad9be9888a150e4aadb768dde6edfb0dead734e1fc01136d05da",
+  "repair_db_data_content_sha256": "c798b00b9d7f0caef142fc8c813ae4db4497129780801cc6906b01c564acea21",
+  "repair_db_rows": 49150,
+  "required_feature_minutes_complete_count": 66,
+  "schema": "gap-rvol-d9-toss-repair-candidate/v1",
+  "scope": {
+    "blind_oos_opened": false,
+    "canonical_db_written": false,
+    "forward_returns_computed": false,
+    "frozen_snapshot_written": false,
+    "isolated_candidate_db_written": true,
+    "performance_computed": false
+  },
+  "selection_rule": "tracked D9 exclusion event AND tracked probe has_target_day=true",
+  "sessions": [
+    "PRE",
+    "REGULAR",
+    "POST"
+  ],
+  "target_count": 76,
+  "targets": [
+    {
+      "day": "2024-07-23",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "VST",
+      "target_rows": 468
+    },
+    {
+      "day": "2024-07-23",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLE",
+      "target_rows": 463
+    },
+    {
+      "day": "2024-07-23",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLF",
+      "target_rows": 478
+    },
+    {
+      "day": "2024-07-23",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": 570,
+      "full_regular_session": false,
+      "http_429": 0,
+      "missing_regular_minutes": 1,
+      "original_reasons": [
+        "incomplete_decision_bar",
+        "incomplete_rvol_window",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 389,
+      "required_feature_minutes_complete": false,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLI",
+      "target_rows": 408
+    },
+    {
+      "day": "2024-07-23",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLK",
+      "target_rows": 460
+    },
+    {
+      "day": "2024-07-23",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": 570,
+      "full_regular_session": false,
+      "http_429": 0,
+      "missing_regular_minutes": 1,
+      "original_reasons": [
+        "incomplete_decision_bar",
+        "incomplete_rvol_window",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 389,
+      "required_feature_minutes_complete": false,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLU",
+      "target_rows": 425
+    },
+    {
+      "day": "2024-07-23",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": 570,
+      "full_regular_session": false,
+      "http_429": 0,
+      "missing_regular_minutes": 1,
+      "original_reasons": [
+        "incomplete_decision_bar",
+        "incomplete_rvol_window",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 389,
+      "required_feature_minutes_complete": false,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLV",
+      "target_rows": 431
+    },
+    {
+      "day": "2024-07-23",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": 570,
+      "full_regular_session": false,
+      "http_429": 0,
+      "missing_regular_minutes": 1,
+      "original_reasons": [
+        "incomplete_decision_bar",
+        "incomplete_rvol_window",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 389,
+      "required_feature_minutes_complete": false,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLY",
+      "target_rows": 409
+    },
+    {
+      "day": "2024-07-24",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": 570,
+      "full_regular_session": false,
+      "http_429": 0,
+      "missing_regular_minutes": 1,
+      "original_reasons": [
+        "incomplete_decision_bar",
+        "incomplete_rvol_window",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 389,
+      "required_feature_minutes_complete": false,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "VST",
+      "target_rows": 545
+    },
+    {
+      "day": "2024-07-24",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLE",
+      "target_rows": 477
+    },
+    {
+      "day": "2024-07-24",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLF",
+      "target_rows": 492
+    },
+    {
+      "day": "2024-07-24",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": 570,
+      "full_regular_session": false,
+      "http_429": 0,
+      "missing_regular_minutes": 1,
+      "original_reasons": [
+        "incomplete_decision_bar",
+        "incomplete_rvol_window",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 389,
+      "required_feature_minutes_complete": false,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLI",
+      "target_rows": 416
+    },
+    {
+      "day": "2024-07-24",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLK",
+      "target_rows": 515
+    },
+    {
+      "day": "2024-07-24",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": 570,
+      "full_regular_session": false,
+      "http_429": 0,
+      "missing_regular_minutes": 1,
+      "original_reasons": [
+        "incomplete_decision_bar",
+        "incomplete_rvol_window",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 389,
+      "required_feature_minutes_complete": false,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLU",
+      "target_rows": 447
+    },
+    {
+      "day": "2024-07-24",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLV",
+      "target_rows": 436
+    },
+    {
+      "day": "2024-07-24",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLY",
+      "target_rows": 415
+    },
+    {
+      "day": "2024-07-25",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "VST",
+      "target_rows": 531
+    },
+    {
+      "day": "2024-07-26",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "VST",
+      "target_rows": 466
+    },
+    {
+      "day": "2024-07-29",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": 570,
+      "full_regular_session": false,
+      "http_429": 0,
+      "missing_regular_minutes": 1,
+      "original_reasons": [
+        "incomplete_decision_bar",
+        "incomplete_rvol_window",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 389,
+      "required_feature_minutes_complete": false,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "VST",
+      "target_rows": 470
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "AAPL",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "AMD",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "AMZN",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "AVGO",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 4,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "CRM",
+      "target_rows": 800
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 4,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "DIA",
+      "target_rows": 749
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "GOOGL",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "IWM",
+      "target_rows": 975
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "META",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "MSFT",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "MU",
+      "target_rows": 994
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 4,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "NFLX",
+      "target_rows": 800
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "NVDA",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "PLTR",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "QQQ",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 4,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "SMH",
+      "target_rows": 800
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "SOXL",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "SOXS",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "SPY",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "SQQQ",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "TQQQ",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "TSLA",
+      "target_rows": 1000
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 1,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "VST",
+      "target_rows": 600
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLE",
+      "target_rows": 600
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLF",
+      "target_rows": 600
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": 570,
+      "full_regular_session": false,
+      "http_429": 0,
+      "missing_regular_minutes": 1,
+      "original_reasons": [
+        "incomplete_decision_bar",
+        "incomplete_rvol_window",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 389,
+      "required_feature_minutes_complete": false,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLI",
+      "target_rows": 458
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLK",
+      "target_rows": 600
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLU",
+      "target_rows": 570
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLV",
+      "target_rows": 503
+    },
+    {
+      "day": "2024-08-05",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLY",
+      "target_rows": 436
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "AAPL",
+      "target_rows": 833
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "AMZN",
+      "target_rows": 835
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 4,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "AVGO",
+      "target_rows": 792
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "CRM",
+      "target_rows": 515
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "DIA",
+      "target_rows": 580
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "GOOGL",
+      "target_rows": 821
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 4,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "IWM",
+      "target_rows": 761
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "META",
+      "target_rows": 800
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "MSFT",
+      "target_rows": 826
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "MU",
+      "target_rows": 808
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 4,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "NFLX",
+      "target_rows": 667
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "NVDA",
+      "target_rows": 840
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "QQQ",
+      "target_rows": 839
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "SOXL",
+      "target_rows": 840
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "SOXS",
+      "target_rows": 835
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "SPY",
+      "target_rows": 807
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "SQQQ",
+      "target_rows": 837
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 1,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "TQQQ",
+      "target_rows": 840
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 5,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "TSLA",
+      "target_rows": 839
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "VST",
+      "target_rows": 479
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLE",
+      "target_rows": 473
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 1,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLF",
+      "target_rows": 520
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": 570,
+      "full_regular_session": false,
+      "http_429": 0,
+      "missing_regular_minutes": 1,
+      "original_reasons": [
+        "incomplete_decision_bar",
+        "incomplete_rvol_window",
+        "no_previous_regular_close"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 389,
+      "required_feature_minutes_complete": false,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLI",
+      "target_rows": 419
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLK",
+      "target_rows": 494
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLU",
+      "target_rows": 441
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLV",
+      "target_rows": 440
+    },
+    {
+      "day": "2024-08-06",
+      "expected_regular_minutes": 390,
+      "first_missing_regular_minute": null,
+      "full_regular_session": true,
+      "http_429": 0,
+      "missing_regular_minutes": 0,
+      "original_reasons": [
+        "insufficient_rvol_lookback"
+      ],
+      "pages_fetched": 3,
+      "regular_minutes": 390,
+      "required_feature_minutes_complete": true,
+      "stopped_reason": "crossed_pre_boundary",
+      "symbol": "XLY",
+      "target_rows": 416
+    }
+  ]
+}
