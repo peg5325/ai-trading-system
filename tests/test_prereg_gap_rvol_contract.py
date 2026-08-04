@@ -428,13 +428,15 @@ def test_plan_revision_records_orb_stop_and_gap_rvol_next():
         assert "다음 후보로 이동하지 않는다" in text
 
 
-def test_no_gap_rvol_result_runner_or_unlock_artifact_exists():
-    """사전등록 병합 후 #100 구현 패키지는 허용하되 실행·결과·unlock은 계속 금지한다."""
-    forbidden = [
+def test_gap_rvol_development_result_exists_but_unlock_does_not():
+    """Development evidence is tracked; blind OOS remains unopened."""
+    expected_results = [
         RESEARCH / "RESULT_P0_US30_GAP_RVOL_DEVELOPMENT.md",
         RESEARCH / "RESULT_P0_US30_GAP_RVOL_DEVELOPMENT.json",
+    ]
+    assert all(path.is_file() for path in expected_results)
+    forbidden = [
         RESEARCH / "OOS_UNLOCK_P0_US30_GAP_RVOL.json",
         REPO / "analysis" / "run_gap_rvol_development.py",
-        REPO / "scripts" / "run_gap_rvol_development.py",
     ]
     assert [str(path) for path in forbidden if path.exists()] == []
