@@ -41,4 +41,3 @@ After both files were created, `brctl status com.apple.CloudDocs` reported the C
 ## Scope and retention
 
 This replica preserves the ignored inputs needed to reproduce the tracked D9 overlay audit after the feature worktree is removed. It does not authorize OOS access, forward-return calculation, or performance evaluation. Issue #104 remains open because the event-day overlay resolved zero exclusions; the next repair must target prior-close and RVOL-lookback dependency days.
-
