@@ -23,6 +23,7 @@ from src.research.gap_rvol.manifest import (
 from src.research.gap_rvol.report import (
     render_development_report,
     result_json_bytes,
+    validate_evidence_output_paths,
     write_evidence_file,
 )
 
@@ -58,6 +59,17 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(
             f"--producer-commit {args.producer_commit} != current HEAD {head}"
         )
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        output_json, output_md = validate_evidence_output_paths(
+            output_json=args.output_json,
+            output_md=args.output_md,
+            evidence_root=os.path.join(repo_root, "docs", "research"),
+            snapshot_path=args.snapshot_db,
+            raw_root=args.raw_root,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
     preconditions = PreconditionEvidence(
         implementation_merge_commit=IMPLEMENTATION_MERGE_COMMIT,
         implementation_review_evidence_url=IMPLEMENTATION_REVIEW_EVIDENCE_URL,
@@ -85,8 +97,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     json_bytes = result_json_bytes(run.result)
     report_bytes = render_development_report(run.result).encode("utf-8")
-    write_evidence_file(args.output_json, json_bytes)
-    write_evidence_file(args.output_md, report_bytes)
+    write_evidence_file(output_json, json_bytes)
+    write_evidence_file(output_md, report_bytes)
     print(
         "Gap+RVOL development artifact complete "
         f"payload_sha256={run.result['payload_sha256']} "

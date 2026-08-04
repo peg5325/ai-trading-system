@@ -10,6 +10,7 @@ from src.research.gap_rvol.manifest import payload_sha256
 from src.research.gap_rvol.report import (
     render_development_report,
     result_json_bytes,
+    validate_evidence_output_paths,
     write_evidence_file,
 )
 
@@ -143,6 +144,66 @@ def test_evidence_writer_reuses_identical_and_refuses_divergent(tmp_path):
         write_evidence_file(str(target), b"different")
 
 
+def test_evidence_outputs_are_confined_away_from_snapshot_and_raw(tmp_path):
+    evidence = tmp_path / "repo" / "docs" / "research"
+    evidence.mkdir(parents=True)
+    snapshot_dir = tmp_path / "data"
+    snapshot_dir.mkdir()
+    snapshot = snapshot_dir / "snapshot.sqlite"
+    raw = tmp_path / "raw"
+    raw.mkdir()
+
+    json_path, md_path = validate_evidence_output_paths(
+        output_json=str(evidence / "result.json"),
+        output_md=str(evidence / "result.md"),
+        evidence_root=str(evidence),
+        snapshot_path=str(snapshot),
+        raw_root=str(raw),
+    )
+    assert Path(json_path).parent == evidence
+    assert Path(md_path).parent == evidence
+
+    with pytest.raises(ValueError, match="must stay under"):
+        validate_evidence_output_paths(
+            output_json=str(raw / "result.json"),
+            output_md=str(evidence / "result.md"),
+            evidence_root=str(evidence),
+            snapshot_path=str(snapshot),
+            raw_root=str(raw),
+        )
+    with pytest.raises(ValueError, match="must stay under"):
+        validate_evidence_output_paths(
+            output_json=str(snapshot_dir / "result.json"),
+            output_md=str(evidence / "result.md"),
+            evidence_root=str(evidence),
+            snapshot_path=str(snapshot),
+            raw_root=str(raw),
+        )
+
+
+def test_evidence_outputs_reject_protected_roots_even_when_misconfigured(tmp_path):
+    protected = tmp_path / "protected"
+    protected.mkdir()
+    snapshot = protected / "snapshot.sqlite"
+
+    with pytest.raises(ValueError, match="beside snapshot"):
+        validate_evidence_output_paths(
+            output_json=str(protected / "result.json"),
+            output_md=str(protected / "result.md"),
+            evidence_root=str(protected),
+            snapshot_path=str(snapshot),
+            raw_root=str(tmp_path / "raw"),
+        )
+    with pytest.raises(ValueError, match="inside raw root"):
+        validate_evidence_output_paths(
+            output_json=str(protected / "result.json"),
+            output_md=str(protected / "result.md"),
+            evidence_root=str(protected),
+            snapshot_path=str(tmp_path / "elsewhere" / "snapshot.sqlite"),
+            raw_root=str(protected),
+        )
+
+
 def test_tracked_result_is_self_consistent_and_keeps_oos_closed():
     json_path = Path(
         "docs/research/RESULT_P0_US30_GAP_RVOL_DEVELOPMENT.json"
@@ -186,6 +247,9 @@ def test_tracked_determinism_receipt_matches_result_artifacts():
     assert receipt["artifact_result_commit"] != receipt["producer_commit"]
     assert receipt["commit_semantics"]["producer_commit"].startswith(
         "exact executable source commit"
+    )
+    assert "externally audited provenance" in (
+        receipt["commit_semantics"]["runner_review_evidence"]
     )
     assert "cannot self-record" in receipt["commit_semantics"]["reviewed_pr_head"]
     assert receipt["payload_sha256"] == result["payload_sha256"]

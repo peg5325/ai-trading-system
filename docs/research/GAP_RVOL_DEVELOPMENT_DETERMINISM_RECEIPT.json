@@ -5,6 +5,7 @@
   "commit_semantics": {
     "artifact_result_commit": "first commit containing the tracked result artifacts and deterministic receipt; later commits may only clarify audit metadata",
     "producer_commit": "exact executable source commit used to generate the development metrics",
+    "runner_review_evidence": "externally audited provenance; the runner validates stable URL shape and declared status but does not fetch or cryptographically bind the comment body",
     "reviewed_pr_head": "externally attested by the GitHub PR review because a commit cannot self-record its own hash"
   },
   "generated_at_utc": "2026-07-30T06:03:13Z",

@@ -5,6 +5,7 @@ import json
 import math
 import os
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 
@@ -209,6 +210,45 @@ def result_json_bytes(result: Mapping[str, Any]) -> bytes:
         )
         + "\n"
     ).encode("utf-8")
+
+
+def validate_evidence_output_paths(
+    *,
+    output_json: str,
+    output_md: str,
+    evidence_root: str,
+    snapshot_path: str,
+    raw_root: str,
+) -> tuple[str, str]:
+    """Resolve official evidence outputs without permitting input mutation."""
+    root = Path(evidence_root).resolve()
+    snapshot = Path(snapshot_path).resolve()
+    raw = Path(raw_root).resolve()
+    targets = (Path(output_json).resolve(), Path(output_md).resolve())
+
+    if targets[0] == targets[1]:
+        raise ValueError("Gap+RVOL JSON and Markdown outputs must be distinct")
+    if targets[0].suffix != ".json" or targets[1].suffix != ".md":
+        raise ValueError("Gap+RVOL evidence outputs require .json and .md suffixes")
+
+    for target in targets:
+        try:
+            target.relative_to(root)
+        except ValueError as exc:
+            raise ValueError(
+                f"Gap+RVOL evidence output must stay under {root}: {target}"
+            ) from exc
+        if target == snapshot or target.parent == snapshot.parent:
+            raise ValueError(
+                "Gap+RVOL evidence output cannot overwrite or sit beside snapshot DB"
+            )
+        try:
+            target.relative_to(raw)
+        except ValueError:
+            pass
+        else:
+            raise ValueError("Gap+RVOL evidence output cannot be inside raw root")
+    return tuple(str(target) for target in targets)
 
 
 def write_evidence_file(path: str, content: bytes) -> None:
