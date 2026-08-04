@@ -30,6 +30,14 @@ from src.research.gap_rvol.windows import (
 
 PLAN_SCHEMA = "gap-rvol-d9-dependency-plan/v1"
 PROBE_SCHEMA = "gap-rvol-d9-dependency-probe/v1"
+FROZEN_PLAN_FILE_SHA256 = (
+    "7a27ee176f910e943c955ac2db034dfebf47d7f2ffa5583c3edf244d576014c0"
+)
+FROZEN_TARGET_COUNT = 458
+FROZEN_ROLE_COUNTS = {
+    "prior_regular_close": 193,
+    "rvol_15m_lookback": 448,
+}
 
 
 @dataclass(frozen=True, order=True)
@@ -233,6 +241,27 @@ def plan_bytes(plan: Mapping[str, Any]) -> bytes:
     return (
         json.dumps(plan, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
     ).encode("utf-8")
+
+
+def load_frozen_dependency_plan(path: str) -> dict[str, Any]:
+    """Load only the reviewed 458-target plan; arbitrary probe scope is refused."""
+    with open(path, "rb") as handle:
+        payload = handle.read()
+    if hashlib.sha256(payload).hexdigest() != FROZEN_PLAN_FILE_SHA256:
+        raise ValueError("dependency plan file hash mismatch")
+    plan = json.loads(payload)
+    if plan.get("schema") != PLAN_SCHEMA:
+        raise ValueError("unexpected dependency plan schema")
+    if int(plan.get("target_count", -1)) != FROZEN_TARGET_COUNT:
+        raise ValueError("dependency plan target count mismatch")
+    if plan.get("role_counts") != FROZEN_ROLE_COUNTS:
+        raise ValueError("dependency plan role counts mismatch")
+    targets = {
+        (str(item["symbol"]), str(item["day"])) for item in plan["targets"]
+    }
+    if len(targets) != FROZEN_TARGET_COUNT:
+        raise ValueError("dependency plan unique target set mismatch")
+    return plan
 
 
 def render_dependency_plan(plan: Mapping[str, Any]) -> str:

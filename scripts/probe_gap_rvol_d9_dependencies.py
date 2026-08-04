@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 import time
@@ -19,6 +18,7 @@ from src.providers.toss_client import TossClient
 from src.research.gap_rvol.contract import repo_root
 from src.research.gap_rvol.dependency_repair import (
     build_dependency_probe,
+    load_frozen_dependency_plan,
     probe_bytes,
     probe_observation,
     render_dependency_probe,
@@ -47,8 +47,16 @@ def main(argv: list[str] | None = None) -> int:
         raise ValueError("spacing must be nonnegative")
     output_json = _safe_output(args.output_json, ".json")
     output_md = _safe_output(args.output_md, ".md")
-    with open(args.plan, encoding="utf-8") as handle:
-        plan = json.load(handle)
+    plan_path = Path(args.plan).resolve()
+    expected_plan = (
+        Path(repo_root())
+        / "docs"
+        / "research"
+        / "MANIFEST_P0_US30_GAP_RVOL_D9_DEPENDENCIES.json"
+    ).resolve()
+    if plan_path != expected_plan:
+        raise ValueError("probe plan must be the tracked dependency manifest")
+    plan = load_frozen_dependency_plan(str(plan_path))
     settings = load_settings()
     if not settings.has_credentials:
         raise RuntimeError("Toss credentials are unavailable")

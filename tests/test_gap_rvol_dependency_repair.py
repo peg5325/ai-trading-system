@@ -11,6 +11,7 @@ from src.research.gap_rvol.dependency_repair import (
     build_dependency_plan,
     build_dependency_probe,
     build_dependency_targets,
+    load_frozen_dependency_plan,
     plan_bytes,
     probe_bytes,
     probe_observation,
@@ -132,6 +133,17 @@ def test_tracked_dependency_plan_is_exact_and_oos_closed():
     assert plan["scope"]["blind_oos_opened"] is False
     assert plan["scope"]["performance_computed"] is False
     assert plan["scope"]["canonical_db_written"] is False
+    assert load_frozen_dependency_plan(str(path)) == plan
+
+    tampered = json.loads(path.read_text(encoding="utf-8"))
+    tampered["targets"] = tampered["targets"][:-1]
+    bad = path.parent / "dependency-plan-tampered.test.json"
+    try:
+        bad.write_text(json.dumps(tampered), encoding="utf-8")
+        with pytest.raises(ValueError, match="file hash"):
+            load_frozen_dependency_plan(str(bad))
+    finally:
+        bad.unlink(missing_ok=True)
 
 
 def test_tracked_dependency_probe_is_sanitized_when_present():
