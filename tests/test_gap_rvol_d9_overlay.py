@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from datetime import date
@@ -7,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from src.history.raw_snapshot import RawSnapshotStore
 from src.research.gap_rvol.d9_overlay import (
     CandidateIdentity,
     build_overlay_audit,
@@ -14,6 +16,7 @@ from src.research.gap_rvol.d9_overlay import (
     verify_candidate_identity,
 )
 from src.research.gap_rvol.development import FeaturePass
+from src.research.gap_rvol.provider_repair import data_content_sha256_path
 
 
 class Feature:
@@ -89,6 +92,33 @@ def test_overlay_audit_rejects_new_exclusion_event():
         )
 
 
+def test_overlay_audit_rejects_exclusion_divergence_across_specs():
+    feature_pass = _feature_pass(())
+    day = feature_pass.eval_days[0]
+    feature_pass = FeaturePass(
+        data_days=feature_pass.data_days,
+        eval_days=feature_pass.eval_days,
+        symbols=feature_pass.symbols,
+        features_by_spec={
+            "primary": feature_pass.features_by_spec["primary"],
+            "alternate": {day: {"SPY": Feature(("still_excluded",))}},
+        },
+        decision_bars_by_day={},
+        defects_by_day={},
+    )
+    with pytest.raises(ValueError, match="diverge across specs"):
+        build_overlay_audit(
+            feature_pass=feature_pass,
+            baseline_audit=_baseline(),
+            candidate_identity=_identity(),
+            contract={"defect_policy": {"data_exclusion_ratio_lte": 0.05}},
+            frozen_identity={},
+            producer_commit="commit",
+            review_evidence_url="url",
+            generated_at_utc="2026-08-04T00:00:00Z",
+        )
+
+
 def test_overlay_loader_uses_candidate_only_for_eligible(monkeypatch):
     calls = []
 
@@ -128,7 +158,45 @@ def test_candidate_identity_rejects_hash_mismatch(tmp_path):
     }
     path = tmp_path / "manifest.json"
     path.write_text(json.dumps(manifest))
-    with pytest.raises(ValueError, match="content hash mismatch"):
+    with pytest.raises(ValueError, match="manifest file hash mismatch"):
+        verify_candidate_identity(
+            manifest_path=str(path),
+            candidate_db=str(db),
+            candidate_raw_root=str(tmp_path / "raw"),
+        )
+
+
+def test_candidate_identity_freezes_exact_76_66_10_counts(tmp_path, monkeypatch):
+    db = tmp_path / "candidate.sqlite"
+    con = sqlite3.connect(db)
+    con.execute(
+        "CREATE TABLE candle_history(symbol TEXT,interval TEXT,ts_utc TEXT,"
+        "ts_exchange TEXT,session TEXT,open REAL,high REAL,low REAL,close REAL,"
+        "volume REAL,currency TEXT,adjusted INTEGER,source TEXT)"
+    )
+    con.execute("CREATE TABLE import_conflict(x INTEGER)")
+    con.commit()
+    con.close()
+    raw = RawSnapshotStore(str(tmp_path / "raw")).manifest()
+    manifest = {
+        "schema": "gap-rvol-d9-toss-repair-candidate/v1",
+        "repair_db_data_content_sha256": data_content_sha256_path(str(db)),
+        "raw_content_sha256": raw["raw_content_sha256"],
+        "raw_content_file_count": 0,
+        "repair_db_rows": 0,
+        "target_count": 75,
+        "full_regular_session_count": 66,
+        "required_feature_minutes_complete_count": 66,
+        "targets": [],
+    }
+    path = tmp_path / "manifest.json"
+    content = json.dumps(manifest).encode()
+    path.write_bytes(content)
+    monkeypatch.setattr(
+        "src.research.gap_rvol.d9_overlay.CANDIDATE_MANIFEST_SHA256",
+        hashlib.sha256(content).hexdigest(),
+    )
+    with pytest.raises(ValueError, match="not frozen at 76"):
         verify_candidate_identity(
             manifest_path=str(path),
             candidate_db=str(db),

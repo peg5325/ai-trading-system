@@ -24,6 +24,12 @@ from src.research.gap_rvol.provider_repair import (
 )
 
 SCHEMA = "gap-rvol-d9-overlay-audit/v1"
+CANDIDATE_MANIFEST_SHA256 = (
+    "669d288e2049b11b0ed214876b6202e8f1d207cf41ccfd7fcd88643a928483d4"
+)
+EXPECTED_TARGET_COUNT = 76
+EXPECTED_ELIGIBLE_COUNT = 66
+EXPECTED_INELIGIBLE_COUNT = 10
 
 
 @dataclass(frozen=True)
@@ -42,6 +48,9 @@ def verify_candidate_identity(
     """Fail closed unless DB/raw/target identities match the tracked manifest."""
     with open(manifest_path, "rb") as handle:
         manifest_bytes = handle.read()
+    manifest_sha256 = hashlib.sha256(manifest_bytes).hexdigest()
+    if manifest_sha256 != CANDIDATE_MANIFEST_SHA256:
+        raise ValueError("repair candidate manifest file hash mismatch")
     manifest = json.loads(manifest_bytes)
     if manifest.get("schema") != CANDIDATE_SCHEMA:
         raise ValueError("unexpected repair candidate manifest schema")
@@ -66,6 +75,22 @@ def verify_candidate_identity(
         if item["full_regular_session"] is True
         and item["required_feature_minutes_complete"] is True
     }
+    ineligible = all_targets - eligible
+    if int(manifest.get("target_count", -1)) != EXPECTED_TARGET_COUNT:
+        raise ValueError("repair candidate target count is not frozen at 76")
+    if int(manifest.get("full_regular_session_count", -1)) != EXPECTED_ELIGIBLE_COUNT:
+        raise ValueError("repair candidate full-session count is not frozen at 66")
+    if (
+        int(manifest.get("required_feature_minutes_complete_count", -1))
+        != EXPECTED_ELIGIBLE_COUNT
+    ):
+        raise ValueError("repair candidate feature-complete count is not frozen at 66")
+    if len(all_targets) != EXPECTED_TARGET_COUNT:
+        raise ValueError("repair candidate unique target count mismatch")
+    if len(eligible) != EXPECTED_ELIGIBLE_COUNT:
+        raise ValueError("eligible repair target set is not frozen at 66")
+    if len(ineligible) != EXPECTED_INELIGIBLE_COUNT:
+        raise ValueError("ineligible repair target set is not frozen at 10")
     con = sqlite3.connect(f"file:{candidate_db}?mode=ro", uri=True)
     try:
         integrity = con.execute("PRAGMA integrity_check").fetchone()[0]
@@ -88,15 +113,13 @@ def verify_candidate_identity(
         raise ValueError("repair candidate DB target set mismatch")
     if conflicts:
         raise ValueError("repair candidate DB has import conflicts")
-    if len(eligible) != int(manifest["full_regular_session_count"]):
-        raise ValueError("eligible repair target count mismatch")
     return manifest, CandidateIdentity(
-        manifest_file_sha256=hashlib.sha256(manifest_bytes).hexdigest(),
+        manifest_file_sha256=manifest_sha256,
         candidate_data_sha256=actual_data,
         raw_content_sha256=actual_raw,
         candidate_rows=rows,
         eligible_targets=tuple(sorted(eligible)),
-        ineligible_targets=tuple(sorted(all_targets - eligible)),
+        ineligible_targets=tuple(sorted(ineligible)),
     )
 
 
@@ -117,13 +140,15 @@ def overlay_loader(
     return load
 
 
-def _event_map(feature_pass: FeaturePass) -> dict[tuple[str, str], tuple[str, ...]]:
-    primary = feature_pass.features_by_spec["primary"]
+def _event_map(
+    feature_pass: FeaturePass, spec_name: str
+) -> dict[tuple[str, str], tuple[str, ...]]:
+    features = feature_pass.features_by_spec[spec_name]
     return {
-        (symbol, day.isoformat()): primary[day][symbol].excluded_reasons
+        (symbol, day.isoformat()): features[day][symbol].excluded_reasons
         for day in feature_pass.eval_days
         for symbol in feature_pass.symbols
-        if primary[day][symbol].excluded_reasons
+        if features[day][symbol].excluded_reasons
     }
 
 
@@ -142,7 +167,14 @@ def build_overlay_audit(
         (str(item["symbol"]), str(item["day"])): tuple(map(str, item["reasons"]))
         for item in baseline_audit["exclusion_audit"]["events"]
     }
-    overlay_events = _event_map(feature_pass)
+    overlay_events = _event_map(feature_pass, "primary")
+    divergent_specs = [
+        spec_name
+        for spec_name in sorted(feature_pass.features_by_spec)
+        if _event_map(feature_pass, spec_name) != overlay_events
+    ]
+    if divergent_specs:
+        raise ValueError(f"D9 overlay exclusions diverge across specs: {divergent_specs}")
     added = sorted(set(overlay_events) - set(baseline_events))
     if added:
         raise ValueError(f"repair overlay introduced new exclusion events: {added[:5]}")
