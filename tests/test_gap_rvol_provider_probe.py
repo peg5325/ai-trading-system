@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -11,6 +11,7 @@ from src.research.gap_rvol.provider_probe import (
     build_report,
     report_bytes,
     request_before,
+    retry_after_seconds,
     summarize_page,
 )
 
@@ -38,6 +39,14 @@ def test_summarize_page_keeps_only_availability_metadata():
 
 def test_request_before_is_stable_and_after_regular_close():
     assert request_before(date(2024, 8, 1)) == "2024-08-02T08:59:00.000+09:00"
+
+
+def test_retry_after_accepts_seconds_http_date_and_invalid_fallback():
+    now = datetime(2026, 8, 4, 1, 0, tzinfo=timezone.utc)
+    assert retry_after_seconds("3", now=now) == 3.0
+    assert retry_after_seconds("Tue, 04 Aug 2026 01:00:05 GMT", now=now) == 5.0
+    assert retry_after_seconds("not-a-date", now=now) is None
+    assert retry_after_seconds(None, now=now) is None
 
 
 def test_build_report_requires_complete_frozen_matrix():

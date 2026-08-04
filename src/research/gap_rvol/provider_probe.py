@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from datetime import date, datetime, time, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -30,6 +31,23 @@ def request_before(day: date) -> str:
     """Return a stable instant late enough to include the target ET session."""
     moment = datetime.combine(day, time(23, 59), timezone.utc).astimezone(KST)
     return moment.isoformat(timespec="milliseconds")
+
+
+def retry_after_seconds(value: str | None, *, now: datetime) -> float | None:
+    """Parse Retry-After seconds or HTTP-date; return None for invalid input."""
+    if value is None:
+        return None
+    try:
+        return max(float(value), 0.0)
+    except ValueError:
+        pass
+    try:
+        moment = parsedate_to_datetime(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return max((moment - now.astimezone(timezone.utc)).total_seconds(), 0.0)
 
 
 def summarize_page(

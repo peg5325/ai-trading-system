@@ -22,6 +22,7 @@ from src.research.gap_rvol.provider_probe import (
     build_report,
     report_bytes,
     request_before,
+    retry_after_seconds,
     summarize_page,
 )
 from src.research.gap_rvol.report import write_evidence_file
@@ -76,7 +77,12 @@ def main(argv: list[str] | None = None) -> int:
                         if attempt == 5:
                             raise
                         retry_after = error.response.headers.get("Retry-After")
-                        wait = float(retry_after) if retry_after else 2 ** (attempt + 1)
+                        wait = retry_after_seconds(
+                            retry_after,
+                            now=datetime.now(timezone.utc),
+                        )
+                        if wait is None:
+                            wait = 2 ** (attempt + 1)
                         time.sleep(max(wait, 1.0))
                 observations.append(summarize_page(
                     symbol=symbol,
