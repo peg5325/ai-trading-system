@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
@@ -18,6 +19,7 @@ from src.research.gap_rvol.contract import (
     PREREG_MD_SHA256,
     all_specs,
     neighbor_specs,
+    repo_root,
     require,
 )
 from src.research.gap_rvol.gates import build_defect_metrics, evaluate_development
@@ -43,6 +45,13 @@ TRACKED_SNAPSHOT_MANIFEST_PATH = (
 )
 TRACKED_SNAPSHOT_MANIFEST_SHA256 = (
     "0b77433c58dbc15c933d2077fbf3cf64b65d194078c8bb6c498a1a78866fc978"
+)
+TRACKED_CONFLICT_BASELINE_PATH = "docs/research/PREREG_P0_US30_ORB_V1.json"
+TRACKED_CONFLICT_BASELINE_SHA256 = (
+    "4f69e8539a1140a94a9e14ceb10249352f130e3bc4bb98f518a2492089847559"
+)
+TRACKED_CONFLICT_BASELINE_COMMIT = (
+    "17681a7c1b893f035a7c4f645e08d98734e00fec"
 )
 LOADER_PROVENANCE = {
     "function": "src.history.oos_guard.research_load",
@@ -116,6 +125,32 @@ class SnapshotEvidence:
 class SnapshotDefectEvidence:
     conflict_total: int
     identity_failures: tuple[str, ...]
+    conflict_baseline_total: int = 0
+    new_conflict_total: int = 0
+    conflict_baseline_source: str = ""
+    conflict_baseline_by_symbol: tuple[tuple[str, int], ...] = ()
+    snapshot_report_conflict_candles: int = 0
+
+    @staticmethod
+    def _tracked_conflict_baseline() -> tuple[dict[str, int], int, int]:
+        path = os.path.join(repo_root(), TRACKED_CONFLICT_BASELINE_PATH)
+        with open(path, "rb") as handle:
+            content = handle.read()
+        if hashlib.sha256(content).hexdigest() != TRACKED_CONFLICT_BASELINE_SHA256:
+            raise ValueError("tracked conflict baseline SHA-256 is not frozen")
+        document = json.loads(content)
+        baseline = document["defect_policy"]["duplicate_ts_conflict_baseline"]
+        by_symbol = baseline["manifest_by_symbol"]
+        if not isinstance(by_symbol, Mapping):
+            raise TypeError("tracked conflict baseline by-symbol value must be an object")
+        normalized = {str(symbol): int(value) for symbol, value in by_symbol.items()}
+        total = int(baseline["manifest_conflict_total"])
+        if sum(normalized.values()) != total:
+            raise ValueError("tracked conflict baseline total does not match by-symbol sum")
+        if baseline["defect_is"] != "new conflicts beyond this baseline":
+            raise ValueError("tracked conflict baseline semantics are not frozen")
+        snapshot_report_conflicts = int(baseline["snapshot_report_conflict_candles"])
+        return normalized, total, snapshot_report_conflicts
 
     @classmethod
     def from_sources(
@@ -129,6 +164,7 @@ class SnapshotDefectEvidence:
         if not isinstance(symbols, Sequence) or isinstance(symbols, (str, bytes)):
             raise TypeError("snapshot manifest symbols must be an array")
         conflict_total = 0
+        conflict_by_symbol: dict[str, int] = {}
         manifest_symbols: set[str] = set()
         for item in symbols:
             if (
@@ -145,6 +181,7 @@ class SnapshotDefectEvidence:
             if not isinstance(conflict, int) or isinstance(conflict, bool) or conflict < 0:
                 raise ValueError("snapshot manifest conflict must be nonnegative int")
             conflict_total += conflict
+            conflict_by_symbol[symbol] = conflict
         if manifest_symbols != set(universe_symbols(contract)):
             raise ValueError("snapshot manifest symbols differ from frozen universe")
         expected = {
@@ -162,7 +199,32 @@ class SnapshotDefectEvidence:
             for check in identity.checks
             if check.status != "match" or check.actual != expected.get(check.name)
         )
-        return cls(conflict_total=conflict_total, identity_failures=identity_failures)
+        (
+            baseline_by_symbol,
+            baseline_total,
+            snapshot_report_conflicts,
+        ) = cls._tracked_conflict_baseline()
+        if any(
+            conflict_by_symbol.get(symbol, 0) < baseline
+            for symbol, baseline in baseline_by_symbol.items()
+        ):
+            raise ValueError("snapshot conflict count fell below frozen baseline")
+        new_conflict_total = sum(
+            max(0, conflict - baseline_by_symbol.get(symbol, 0))
+            for symbol, conflict in conflict_by_symbol.items()
+        )
+        return cls(
+            conflict_total=conflict_total,
+            identity_failures=identity_failures,
+            conflict_baseline_total=baseline_total,
+            new_conflict_total=new_conflict_total,
+            conflict_baseline_source=(
+                f"{TRACKED_CONFLICT_BASELINE_PATH}@"
+                f"{TRACKED_CONFLICT_BASELINE_COMMIT}"
+            ),
+            conflict_baseline_by_symbol=tuple(sorted(baseline_by_symbol.items())),
+            snapshot_report_conflict_candles=snapshot_report_conflicts,
+        )
 
 
 @dataclass(frozen=True)
@@ -407,7 +469,7 @@ def build_payload(
         day_results=primary_results,
         total_symbol_days=len(expected_days) * len(universe_symbols(contract)),
         identity_failure_count=len(evidence.snapshot_defects.identity_failures),
-        manifest_conflict_count=evidence.snapshot_defects.conflict_total,
+        new_manifest_conflict_count=evidence.snapshot_defects.new_conflict_total,
     )
     primary_stats = stats_by_spec["primary"]
     decision = evaluate_development(
@@ -525,6 +587,13 @@ def build_payload(
             },
             "major_defect_count": defects.major_defect_count,
             "conflict_total": evidence.snapshot_defects.conflict_total,
+            "conflict_baseline_total": (
+                evidence.snapshot_defects.conflict_baseline_total
+            ),
+            "new_conflict_total": evidence.snapshot_defects.new_conflict_total,
+            "conflict_baseline_source": (
+                evidence.snapshot_defects.conflict_baseline_source
+            ),
             "identity_failures": list(evidence.snapshot_defects.identity_failures),
         },
         "dev_gate": {

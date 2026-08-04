@@ -11,11 +11,12 @@ from src.research.gap_rvol.contract import PREREG_JSON_SHA256, PREREG_MD_SHA256
 
 PACKAGE = Path("src/research/gap_rvol")
 RUNNER = Path("scripts/run_gap_rvol_development.py")
+D9_AUDIT_RUNNER = Path("scripts/audit_gap_rvol_d9.py")
 MAP = Path("docs/research/PREREG_P0_US30_GAP_RVOL_V1_IMPLEMENTATION_MAP.md")
 
 
 def test_performance_package_and_runner_have_no_loader_bypass():
-    for path in (*PACKAGE.glob("*.py"), RUNNER):
+    for path in (*PACKAGE.glob("*.py"), RUNNER, D9_AUDIT_RUNNER):
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
         for node in ast.walk(tree):
@@ -53,9 +54,14 @@ def test_package_has_no_runner_result_or_oos_unlock_artifact():
     assert "runner.py" not in names
     assert {"development.py", "manifest.py", "report.py", "stats.py"} <= names
     assert RUNNER.is_file()
+    assert D9_AUDIT_RUNNER.is_file()
+    allowed_scripts = {
+        "audit_gap_rvol_d9.py",
+        "run_gap_rvol_development.py",
+    }
     forbidden_scripts = [
         path for path in Path("scripts").glob("*gap*rvol*")
-        if path.name != "run_gap_rvol_development.py"
+        if path.name not in allowed_scripts
     ]
     assert forbidden_scripts == []
     results = {

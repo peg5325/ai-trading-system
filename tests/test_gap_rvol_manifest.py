@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
@@ -117,13 +119,43 @@ def test_frozen_commits_are_gap_rvol_stage_values():
 
 
 def test_d9_precedes_economic_failures_as_inconclusive_data():
-    evidence = replace(_evidence(), snapshot_defects=SnapshotDefectEvidence(1, ()))
+    evidence = replace(
+        _evidence(),
+        snapshot_defects=SnapshotDefectEvidence(
+            conflict_total=29,
+            identity_failures=(),
+            conflict_baseline_total=28,
+            new_conflict_total=1,
+            conflict_baseline_source="pre-result baseline",
+        ),
+    )
     result = build_result(
         evidence, contract=load_contract(), generated_at_utc="2026-07-30T00:00:00Z"
     )
     assert result["payload"]["verdict"]["value"] == "INCONCLUSIVE_DATA"
     assert "D9" in result["payload"]["verdict"]["failed"]
     assert "D1" in result["payload"]["verdict"]["failed"]
+
+
+def test_pre_result_conflict_baseline_is_not_recounted_as_new_major_defect():
+    evidence = replace(
+        _evidence(),
+        snapshot_defects=SnapshotDefectEvidence(
+            conflict_total=28,
+            identity_failures=(),
+            conflict_baseline_total=28,
+            new_conflict_total=0,
+            conflict_baseline_source="pre-result baseline",
+        ),
+    )
+    result = build_result(
+        evidence, contract=load_contract(), generated_at_utc="2026-07-30T00:00:00Z"
+    )
+    defects = result["payload"]["defect_ratios"]
+    assert defects["conflict_total"] == 28
+    assert defects["conflict_baseline_total"] == 28
+    assert defects["new_conflict_total"] == 0
+    assert defects["major_defect_count"] == 0
 
 
 def test_preconditions_are_fail_closed():
@@ -201,3 +233,58 @@ def test_snapshot_evidence_requires_all_four_identity_matches():
         SnapshotEvidence.from_identity(
             contract=contract, identity=falsely_marked_match
         )
+
+
+def test_snapshot_defects_count_only_conflicts_beyond_pre_result_baseline():
+    contract = load_contract()
+    expected = contract["data_identity"]
+    identity = IdentityResult(
+        checks=(
+            IdentityCheck(
+                "snapshot_file",
+                expected["snapshot_file_sha256"],
+                expected["snapshot_file_sha256"],
+                "match",
+            ),
+            IdentityCheck(
+                "snapshot_content",
+                expected["snapshot_content_sha256"],
+                expected["snapshot_content_sha256"],
+                "match",
+            ),
+            IdentityCheck(
+                "manifest_data",
+                expected["manifest_data_sha256"],
+                expected["manifest_data_sha256"],
+                "match",
+            ),
+            IdentityCheck(
+                "raw_content",
+                expected["raw_content_sha256"],
+                expected["raw_content_sha256"],
+                "match",
+            ),
+        ),
+        ok=True,
+        verdict=None,
+    )
+    manifest = json.loads(Path(
+        "docs/research/P0_US30_ORB_CLEAN_1M_MANIFEST.json"
+    ).read_text(encoding="utf-8"))
+    defects = SnapshotDefectEvidence.from_sources(
+        manifest=manifest,
+        identity=identity,
+        contract=contract,
+    )
+    assert defects.conflict_total == 28
+    assert defects.conflict_baseline_total == 28
+    assert defects.new_conflict_total == 0
+    assert dict(defects.conflict_baseline_by_symbol) == {
+        "NVDA": 5,
+        "QQQ": 7,
+        "SOXL": 12,
+        "SPY": 3,
+        "VST": 1,
+    }
+    assert defects.snapshot_report_conflict_candles == 1
+    assert defects.identity_failures == ()

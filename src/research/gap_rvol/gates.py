@@ -56,7 +56,7 @@ def build_defect_metrics(
     day_results: Sequence[DaySimulationResult],
     total_symbol_days: int,
     identity_failure_count: int = 0,
-    manifest_conflict_count: int = 0,
+    new_manifest_conflict_count: int = 0,
 ) -> DefectMetrics:
     excluded = {
         (result.day, symbol)
@@ -77,7 +77,7 @@ def build_defect_metrics(
             trade.operational_reason in OPERATIONAL_REASONS for trade in trades),
         entered_trades=len(trades),
         major_defect_count=(
-            len(major) + identity_failure_count + manifest_conflict_count),
+            len(major) + identity_failure_count + new_manifest_conflict_count),
     )
 
 
