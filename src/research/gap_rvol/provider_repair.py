@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sqlite3
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -229,12 +230,8 @@ def summarize_collection(collection: TargetCollection) -> dict[str, object]:
     }
 
 
-def data_content_sha256(store: HistoryStore) -> str:
-    """Hash market data fields only; SQLite page layout and ingest times are excluded."""
-    rows = store._con.execute(
-        "SELECT symbol,interval,ts_utc,ts_exchange,session,open,high,low,close,volume,"
-        "currency,adjusted,source FROM candle_history ORDER BY symbol,interval,ts_utc"
-    )
+def _data_content_sha256(rows: Any) -> str:
+    """Hash market data rows; SQLite page layout and ingest times are excluded."""
     digest = hashlib.sha256()
     count = 0
     for row in rows:
@@ -245,6 +242,28 @@ def data_content_sha256(store: HistoryStore) -> str:
         count += 1
     digest.update(f"rows={count}\n".encode())
     return digest.hexdigest()
+
+
+def data_content_sha256(store: HistoryStore) -> str:
+    """Hash a live candidate store after its page commits."""
+    rows = store._con.execute(
+        "SELECT symbol,interval,ts_utc,ts_exchange,session,open,high,low,close,volume,"
+        "currency,adjusted,source FROM candle_history ORDER BY symbol,interval,ts_utc"
+    )
+    return _data_content_sha256(rows)
+
+
+def data_content_sha256_path(db_path: str) -> str:
+    """Verify an existing candidate DB through a read-only connection."""
+    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    try:
+        rows = con.execute(
+            "SELECT symbol,interval,ts_utc,ts_exchange,session,open,high,low,close,volume,"
+            "currency,adjusted,source FROM candle_history ORDER BY symbol,interval,ts_utc"
+        )
+        return _data_content_sha256(rows)
+    finally:
+        con.close()
 
 
 def build_manifest(
