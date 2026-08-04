@@ -11,8 +11,10 @@ import pytest
 from src.history.raw_snapshot import RawSnapshotStore
 from src.research.gap_rvol.d9_overlay import (
     CandidateIdentity,
+    audit_bytes,
     build_overlay_audit,
     overlay_loader,
+    render_overlay_audit,
     verify_candidate_identity,
 )
 from src.research.gap_rvol.development import FeaturePass
@@ -204,6 +206,31 @@ def test_candidate_identity_freezes_exact_76_66_10_counts(tmp_path, monkeypatch)
         )
 
 
-def test_overlay_runner_is_registered_but_result_not_yet_present():
+def test_tracked_overlay_result_is_deterministic_and_scope_closed():
     assert Path("scripts/audit_gap_rvol_d9_overlay.py").is_file()
-    assert not Path("docs/research/AUDIT_P0_US30_GAP_RVOL_D9_OVERLAY.json").exists()
+    json_path = Path("docs/research/AUDIT_P0_US30_GAP_RVOL_D9_OVERLAY.json")
+    md_path = json_path.with_suffix(".md")
+    audit = json.loads(json_path.read_text(encoding="utf-8"))
+    assert audit_bytes(audit) == json_path.read_bytes()
+    assert render_overlay_audit(audit) == md_path.read_text(encoding="utf-8")
+    assert audit["producer_commit"] == "389e1d1bbd3a1fda593cfab2d49a0e0cab14e424"
+    assert audit["overlay"]["eligible_targets"] == 66
+    assert audit["overlay"]["resolved_event_count"] == 0
+    assert audit["overlay"]["changed_event_count"] == 0
+    assert audit["corrected_d9"]["verdict"] == "INCONCLUSIVE_DATA"
+    assert audit["corrected_d9"]["data_exclusion_numerator"] == 1296
+    assert audit["scope"]["blind_oos_opened"] is False
+    assert audit["scope"]["performance_computed"] is False
+
+
+def test_eligible_target_reasons_are_dependency_only():
+    manifest = json.loads(Path(
+        "docs/research/MANIFEST_P0_US30_GAP_RVOL_D9_TOSS_REPAIR_CANDIDATE.json"
+    ).read_text(encoding="utf-8"))
+    eligible = [
+        item for item in manifest["targets"]
+        if item["full_regular_session"] is True
+        and item["required_feature_minutes_complete"] is True
+    ]
+    reasons = {reason for item in eligible for reason in item["original_reasons"]}
+    assert reasons == {"insufficient_rvol_lookback", "no_previous_regular_close"}
