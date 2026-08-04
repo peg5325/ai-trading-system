@@ -13,11 +13,20 @@ PACKAGE = Path("src/research/gap_rvol")
 RUNNER = Path("scripts/run_gap_rvol_development.py")
 D9_AUDIT_RUNNER = Path("scripts/audit_gap_rvol_d9.py")
 D9_PROVIDER_PROBE = Path("scripts/probe_gap_rvol_d9_provider.py")
+D9_DEPENDENCY_PLAN = Path("scripts/plan_gap_rvol_d9_dependencies.py")
+D9_DEPENDENCY_PROBE = Path("scripts/probe_gap_rvol_d9_dependencies.py")
 MAP = Path("docs/research/PREREG_P0_US30_GAP_RVOL_V1_IMPLEMENTATION_MAP.md")
 
 
 def test_performance_package_and_runner_have_no_loader_bypass():
-    for path in (*PACKAGE.glob("*.py"), RUNNER, D9_AUDIT_RUNNER, D9_PROVIDER_PROBE):
+    for path in (
+        *PACKAGE.glob("*.py"),
+        RUNNER,
+        D9_AUDIT_RUNNER,
+        D9_PROVIDER_PROBE,
+        D9_DEPENDENCY_PLAN,
+        D9_DEPENDENCY_PROBE,
+    ):
         source = path.read_text(encoding="utf-8")
         tree = ast.parse(source)
         for node in ast.walk(tree):
@@ -57,10 +66,14 @@ def test_package_has_no_runner_result_or_oos_unlock_artifact():
     assert RUNNER.is_file()
     assert D9_AUDIT_RUNNER.is_file()
     assert D9_PROVIDER_PROBE.is_file()
+    assert D9_DEPENDENCY_PLAN.is_file()
+    assert D9_DEPENDENCY_PROBE.is_file()
     allowed_scripts = {
         "audit_gap_rvol_d9.py",
         "audit_gap_rvol_d9_overlay.py",
         "collect_gap_rvol_d9_repair_candidates.py",
+        "plan_gap_rvol_d9_dependencies.py",
+        "probe_gap_rvol_d9_dependencies.py",
         "probe_gap_rvol_d9_provider.py",
         "run_gap_rvol_development.py",
     }
