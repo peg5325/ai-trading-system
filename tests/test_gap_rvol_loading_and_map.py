@@ -59,6 +59,7 @@ def test_package_has_no_runner_result_or_oos_unlock_artifact():
     assert D9_PROVIDER_PROBE.is_file()
     allowed_scripts = {
         "audit_gap_rvol_d9.py",
+        "collect_gap_rvol_d9_repair_candidates.py",
         "probe_gap_rvol_d9_provider.py",
         "run_gap_rvol_development.py",
     }
