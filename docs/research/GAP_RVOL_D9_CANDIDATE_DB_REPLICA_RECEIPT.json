@@ -1,0 +1,51 @@
+{
+  "created_utc": "20260804T022222Z",
+  "reason": "ok",
+  "replica": {
+    "basename": "gap-rvol-d9-toss-candidate.20260804T022222Z.sqlite",
+    "distinct_symbols": 30,
+    "integrity": "ok",
+    "intervals": {
+      "1m": {
+        "max_ts": "2024-08-06T22:00:00+00:00",
+        "min_ts": "2024-07-23T08:01:00+00:00",
+        "rows": 49150,
+        "symbols": 30
+      }
+    },
+    "replica_sha256": "d787122acb051db42db1182bba1284fa0fd35bc18c7027c7d78ef79778224f0d",
+    "sha256_match": true,
+    "size_bytes": 16842752,
+    "snapshot_sha256": "d787122acb051db42db1182bba1284fa0fd35bc18c7027c7d78ef79778224f0d",
+    "total_rows": 49150
+  },
+  "restore_smoke": {
+    "integrity": "ok",
+    "reason": "ok",
+    "restored_sha256": "d787122acb051db42db1182bba1284fa0fd35bc18c7027c7d78ef79778224f0d",
+    "semantic_match": true,
+    "sha256_match": true,
+    "status": "ok"
+  },
+  "schema": "history-external-replica/receipt/v1",
+  "source": {
+    "basename": "candidate.sqlite",
+    "distinct_symbols": 30,
+    "integrity": "ok",
+    "intervals": {
+      "1m": {
+        "max_ts": "2024-08-06T22:00:00+00:00",
+        "min_ts": "2024-07-23T08:01:00+00:00",
+        "rows": 49150,
+        "symbols": 30
+      }
+    },
+    "sha256": "e70cb6c8a57e72ce170d11f9878f2e2f3f32beb6865deaf206ee2c14f0f23890",
+    "size_bytes": 16842752,
+    "total_rows": 49150
+  },
+  "source_commit": "758e1fe3bfb50c3084d0b32254d63bd3f79ab662",
+  "status": "success",
+  "target_id": "icloud-documents",
+  "target_kind": "cloud_sync"
+}

@@ -1,0 +1,16 @@
+{
+  "archive_basename": "gap-rvol-d9-toss-raw.20260804T022222Z.tar",
+  "archive_sha256": "de3af5e0fb2bcd37658a602b9baef5ffa6b3535d37e68f6b7e7310da8d8ecacf",
+  "archive_size_bytes": 1136640,
+  "restore_content_match": true,
+  "restored_content_file_count": 299,
+  "restored_payload_files_verified": 299,
+  "restored_raw_content_sha256": "7a55bd24deaaad9be9888a150e4aadb768dde6edfb0dead734e1fc01136d05da",
+  "schema": "raw-external-replica/receipt/v2",
+  "source_content_file_count": 299,
+  "source_payload_files_verified": 299,
+  "source_raw_content_sha256": "7a55bd24deaaad9be9888a150e4aadb768dde6edfb0dead734e1fc01136d05da",
+  "status": "success",
+  "target_id": "icloud-documents",
+  "target_kind": "cloud_sync"
+}
