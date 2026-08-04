@@ -180,6 +180,14 @@ def test_tracked_determinism_receipt_matches_result_artifacts():
     assert receipt["oos_opened"] is False
     assert receipt["generated_at_utc"] == result["generated_at_utc"]
     assert receipt["producer_commit"] == result["payload"]["producer_commit"]
+    assert receipt["artifact_result_commit"] == (
+        "83f39e8072e52125e0253dcfebd64402b726884a"
+    )
+    assert receipt["artifact_result_commit"] != receipt["producer_commit"]
+    assert receipt["commit_semantics"]["producer_commit"].startswith(
+        "exact executable source commit"
+    )
+    assert "cannot self-record" in receipt["commit_semantics"]["reviewed_pr_head"]
     assert receipt["payload_sha256"] == result["payload_sha256"]
 
     expected_json_sha = hashlib.sha256(json_path.read_bytes()).hexdigest()

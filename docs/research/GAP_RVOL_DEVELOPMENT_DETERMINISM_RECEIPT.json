@@ -1,6 +1,12 @@
 {
   "artifact": "P0-US30 Gap+RVOL development-only deterministic rerun receipt",
+  "artifact_result_commit": "83f39e8072e52125e0253dcfebd64402b726884a",
   "byte_identical": true,
+  "commit_semantics": {
+    "artifact_result_commit": "first commit containing the tracked result artifacts and deterministic receipt; later commits may only clarify audit metadata",
+    "producer_commit": "exact executable source commit used to generate the development metrics",
+    "reviewed_pr_head": "externally attested by the GitHub PR review because a commit cannot self-record its own hash"
+  },
   "generated_at_utc": "2026-07-30T06:03:13Z",
   "oos_opened": false,
   "payload_sha256": "a0e46bf6f4135dab6961107fcb50ab226ee4ad5be5338cdde15097893ba81f14",
