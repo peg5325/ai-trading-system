@@ -12,7 +12,8 @@ import json
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, time as wall_time, timezone
+from datetime import date, datetime, timezone
+from datetime import time as wall_time
 from typing import Any, Protocol
 
 import httpx
@@ -21,7 +22,7 @@ from src.history.exchange_calendar import expected_regular_minutes, regular_clos
 from src.history.raw_snapshot import RawSnapshotStore
 from src.history.session_filter import SessionFilter
 from src.history.store import HistoryStore, ImportStats
-from src.models import ET, KST, Candle, SESSION_REGULAR
+from src.models import ET, KST, SESSION_REGULAR, Candle
 from src.research.gap_rvol.provider_probe import retry_after_seconds
 
 SCHEMA = "gap-rvol-d9-toss-repair-candidate/v1"
@@ -113,7 +114,7 @@ def _fetch_with_retry(
                 symbol, "1m", count=200, before=before, raw_sink=raw_sink
             )
             return candles, next_before, http_429
-        except Exception as error:  # noqa: BLE001 - retry is status-code based
+        except Exception as error:
             if _status_code(error) != 429 or attempt == max_retries:
                 raise
             http_429 += 1
@@ -230,7 +231,7 @@ def summarize_collection(collection: TargetCollection) -> dict[str, object]:
 
 def data_content_sha256(store: HistoryStore) -> str:
     """Hash market data fields only; SQLite page layout and ingest times are excluded."""
-    rows = store._con.execute(  # noqa: SLF001 - audit-only deterministic read
+    rows = store._con.execute(
         "SELECT symbol,interval,ts_utc,ts_exchange,session,open,high,low,close,volume,"
         "currency,adjusted,source FROM candle_history ORDER BY symbol,interval,ts_utc"
     )
