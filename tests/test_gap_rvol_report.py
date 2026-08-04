@@ -245,6 +245,15 @@ def test_tracked_determinism_receipt_matches_result_artifacts():
         "83f39e8072e52125e0253dcfebd64402b726884a"
     )
     assert receipt["artifact_result_commit"] != receipt["producer_commit"]
+    assert receipt["post_artifact_source_hardening_commit"] == (
+        "9f74bde943d9f31f6aaa40d47843238628dedb7f"
+    )
+    assert "preserve metric-producing code and result bytes" in (
+        receipt["commit_semantics"]["artifact_result_commit"]
+    )
+    assert "output-path isolation" in (
+        receipt["commit_semantics"]["post_artifact_source_hardening_commit"]
+    )
     assert receipt["commit_semantics"]["producer_commit"].startswith(
         "exact executable source commit"
     )
