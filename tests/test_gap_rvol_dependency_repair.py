@@ -153,6 +153,18 @@ def test_tracked_dependency_probe_is_sanitized_when_present():
     report = json.loads(path.read_text(encoding="utf-8"))
     assert probe_bytes(report) == path.read_bytes()
     assert report["target_count"] == 458
+    assert report["verdict"] == "DEPENDENCY_SOURCE_PARTIAL"
+    assert report["available_count"] == 265
+    assert report["unavailable_count"] == 193
+    assert report["available_role_counts"] == {"rvol_15m_lookback": 265}
+    assert report["unavailable_role_counts"] == {
+        "prior_regular_close": 193,
+        "rvol_15m_lookback": 183,
+    }
+    assert report["http_429"] == 1
+    assert report["plan_sha256"] == (
+        "7a27ee176f910e943c955ac2db034dfebf47d7f2ffa5583c3edf244d576014c0"
+    )
     assert report["scope"] == {
         "blind_oos_opened": False,
         "database_written": False,
