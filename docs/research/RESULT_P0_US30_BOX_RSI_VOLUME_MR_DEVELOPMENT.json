@@ -1,0 +1,156 @@
+{
+  "blind_oos_opened": false,
+  "candidate_count_before_portfolio": 97,
+  "defects": {
+    "incomplete_symbol_day_ratio": 0.04786069651741293,
+    "incomplete_symbol_days": 962,
+    "major_defects": 0,
+    "new_conflicts": 0,
+    "total_symbol_days": 20100
+  },
+  "exclusions": {
+    "incomplete_regular_session": 962
+  },
+  "exit_reasons": {
+    "stop": 43,
+    "target": 54
+  },
+  "filters": {
+    "box_width": 928108,
+    "ema_distance": 71,
+    "ema_slope": 93,
+    "no_lower_touch": 55530,
+    "no_reclaim": 13190,
+    "no_signal": 19041,
+    "rsi": 12102,
+    "volume": 2948
+  },
+  "gate": {
+    "failed": [
+      "D1",
+      "D2",
+      "D3",
+      "D4",
+      "D6",
+      "D7"
+    ],
+    "items": {
+      "D1": false,
+      "D2": false,
+      "D3": false,
+      "D4": false,
+      "D5": true,
+      "D6": false,
+      "D7": false,
+      "D9": true
+    },
+    "verdict": "NO_SELECTION"
+  },
+  "identity": [
+    {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "name": "snapshot_file",
+      "status": "match"
+    },
+    {
+      "actual": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "expected": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "name": "snapshot_content",
+      "status": "match"
+    },
+    {
+      "actual": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "expected": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "name": "manifest_data",
+      "status": "match"
+    },
+    {
+      "actual": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "expected": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "name": "raw_content",
+      "status": "match"
+    }
+  ],
+  "payload_sha256": "5ee7ae033102f05a577a02e4a9cbd94751bb42ccd82e41baf322a03d6275069e",
+  "portfolio_skips": {},
+  "prereg": {
+    "json_sha256": "9dd6997ae7d4a6054b844b7e429f9091396f731ed29062ff7d0ef0f8c28f314f",
+    "md_sha256": "ef074b48cd6e783c54a2e2fbba66bedf195180b3e5fcc3b4d82e08cc754cdbee"
+  },
+  "schema": "p0-us30-box-rsi-volume-mean-reversion-development/v1",
+  "scope": "development-only",
+  "stats": {
+    "low": {
+      "cumulative_net_pnl": -2466.810688262514,
+      "fold_pnl": {
+        "F01": -366.75142149871544,
+        "F02": -371.00083762772636,
+        "F03": -259.0523979932415,
+        "F04": -208.25190642842512,
+        "F05": -309.95234370740104,
+        "F06": -193.79945973082627,
+        "F07": -270.2870974774238,
+        "F08": -142.23229990835256,
+        "F09": -346.54703875039803,
+        "F10": 1.0641148599965646
+      },
+      "mdd": 0.025051368882625394,
+      "net_expectancy": -25.431038023324884,
+      "positive_folds": 1,
+      "profit_factor": 0.05682840457766842,
+      "trade_count": 97,
+      "trading_days_with_trade": 82
+    },
+    "official": {
+      "cumulative_net_pnl": -6326.58903521712,
+      "fold_pnl": {
+        "F01": -1043.642811750393,
+        "F02": -809.4591646189926,
+        "F03": -616.2871024883949,
+        "F04": -526.807573088659,
+        "F05": -747.2519530902617,
+        "F06": -552.8715445304551,
+        "F07": -548.3240990810689,
+        "F08": -421.55512358501784,
+        "F09": -823.9022276438731,
+        "F10": -236.48743534000346
+      },
+      "mdd": 0.06326589035217127,
+      "net_expectancy": -65.22256737337237,
+      "positive_folds": 0,
+      "profit_factor": 0.0,
+      "trade_count": 97,
+      "trading_days_with_trade": 82
+    },
+    "stress": {
+      "cumulative_net_pnl": -12888.21222503995,
+      "fold_pnl": {
+        "F01": -2194.3581751782444,
+        "F02": -1554.838320504145,
+        "F03": -1223.5861001301555,
+        "F04": -1068.3522064110564,
+        "F05": -1490.6612890411247,
+        "F06": -1163.2940886898245,
+        "F07": -1020.9870018072658,
+        "F08": -896.4039238353489,
+        "F09": -1635.4060487627805,
+        "F10": -640.3250706800035
+      },
+      "mdd": 0.12888212225039955,
+      "net_expectancy": -132.86816726845308,
+      "positive_folds": 0,
+      "profit_factor": 0.0,
+      "trade_count": 97,
+      "trading_days_with_trade": 82
+    }
+  },
+  "strategy_id": "p0-us30-box-rsi-volume-mr-v1",
+  "trade_count": 97,
+  "trades_sha256": "042f1eee9e11e75d38d45ff22080493fcacae637568d8d104150f8a0ef2e1545",
+  "window": {
+    "end": "2026-01-20",
+    "start": "2023-05-18",
+    "trading_days": 670
+  }
+}
