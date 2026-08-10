@@ -127,4 +127,3 @@ def overall_verdict(results: Sequence[CandidateResult]) -> str:
     if any(result.gross_edge_pass for result in results):
         return "GROSS_EDGE_NOT_ECONOMIC"
     return "NO_GROSS_EDGE"
-

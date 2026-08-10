@@ -1,7 +1,7 @@
 # P0-US30 Intraday Gross-Edge Screen — 사전등록 v1.0
 
-상태: **FROZEN BEFORE RESULTS**  
-이슈: #124  
+상태: **FROZEN BEFORE RESULTS**
+이슈: #124
 목적: blind OOS를 열지 않고, 고정된 development 구간에서 다음 정식 전략 연구로 넘길 만한
 일중 방향 가설이 있는지만 선별한다.
 
@@ -116,4 +116,3 @@ published_floor/stress 통과 여부는 별도 보고한다.
 이 문서와 동형 JSON을 결과 계산 전에 별도 커밋한다. 그 뒤 구현·테스트를 커밋하고 단 한 번
 공식 실행한다. 결과 문서는 별도 커밋한다. 데이터 무효화 결함이 아닌 한 결과를 본 뒤 이 계약을
 개정하지 않는다.
-

@@ -64,4 +64,3 @@ def test_first_hour_continuation_is_nearest_but_not_a_hidden_pass() -> None:
     assert candidate["sign_test_bonferroni_p"] == pytest.approx(0.050420413817741844)
     assert candidate["gross_edge_gates"]["G5_bonferroni_significance"] is False
     assert candidate["net_after_cost_pct_points"]["published_floor"] < 0
-

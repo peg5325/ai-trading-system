@@ -77,4 +77,3 @@ def load_contract(*, verify: bool = True) -> Mapping[str, Any]:
     if data.get("windows", {}).get("blind_oos_access") != "forbidden":
         raise ContractIntegrityError("gross-edge blind OOS policy must remain forbidden")
     return _freeze(data)
-

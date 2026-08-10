@@ -130,4 +130,3 @@ def extract_symbol_day(
             )
         )
     return tuple(out)
-
