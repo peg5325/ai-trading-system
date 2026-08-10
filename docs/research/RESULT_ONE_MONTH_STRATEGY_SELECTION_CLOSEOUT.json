@@ -1,0 +1,99 @@
+{
+  "closed_at": "2026-08-10",
+  "evidence": {
+    "data_foundation": {
+      "daily_manifest": {
+        "path": "docs/research/P0_US30_DAILY_10Y_MANIFEST.json",
+        "sha256": "d742fde6acef3dc76e388b838796a8170bf24da45be79938a860f1045ea09ad3",
+        "symbols_ok": 30,
+        "total_rows": 76690
+      },
+      "intraday_manifest": {
+        "path": "docs/research/P0_US30_INTRADAY_1M_MANIFEST.json",
+        "sha256": "65920c9f0f7d336f32081097cf5fc86be99116cf0966935780483f2e53b64331",
+        "symbols_meeting_3y": 30,
+        "total_rows": 22773133
+      },
+      "research_snapshot": {
+        "path": "docs/research/P0_US30_ORB_CLEAN_1M_MANIFEST.json",
+        "sha256": "0b77433c58dbc15c933d2077fbf3cf64b65d194078c8bb6c498a1a78866fc978",
+        "symbols_ok": 30,
+        "total_rows": 22534553
+      },
+      "snapshot_replica": {
+        "path": "docs/research/P0_US30_ORB_CLEAN_EXTERNAL_REPLICA_RECEIPT.json",
+        "restore_smoke": "ok",
+        "sha256": "fe480b655303aaf5d2a6b53f1a188c3c354c189a1b5485677f5b689a84b32cd8",
+        "status": "success"
+      }
+    },
+    "strategy_research": {
+      "gap_rvol": {
+        "failed_gates": [
+          "D3",
+          "D4",
+          "D5",
+          "D6",
+          "D7",
+          "D9"
+        ],
+        "path": "docs/research/RESULT_P0_US30_GAP_RVOL_DEVELOPMENT.json",
+        "sha256": "11d6e7e5f593b7b498b147b386585608d507e32d31feae4cc1b8a4b4e3542d05",
+        "verdict": "INCONCLUSIVE_DATA"
+      },
+      "h4_ranking": {
+        "go_cells": 0,
+        "path": "docs/research/RESULT_screener_ranking_h4.md",
+        "sha256": "2d880d9516300c35d7fcfe692c1114fabe418a1d31415f77e150538febfa7df9",
+        "verdict": "NULL"
+      },
+      "orb": {
+        "failed_gates": [
+          "D3",
+          "D4",
+          "D5",
+          "D6",
+          "D7",
+          "D9"
+        ],
+        "path": "docs/research/RESULT_P0_US30_ORB_DEVELOPMENT.json",
+        "sha256": "8e542e1f35987c313fc5abf76f16a668871ca3126b8f3b8b4d3a8351dc578fda",
+        "verdict": "INCONCLUSIVE_DATA"
+      },
+      "source_boundary_decision": {
+        "decision": "DO_NOT_USE_EXTERNAL_PROVIDER",
+        "path": "docs/research/DECISION_P0_US30_GAP_RVOL_NO_EXTERNAL_SOURCE.json",
+        "sha256": "1377a8bbaec0b2f1526c538aa6d912664c87f08523f1fbc9d8222b0e5f359805",
+        "status": "TERMINAL_INCONCLUSIVE_DATA"
+      }
+    }
+  },
+  "final_state": "INCONCLUSIVE_DATA",
+  "not_claimed": [
+    "ORB 또는 Gap+RVOL의 경제성이 없다는 결론",
+    "모든 데이트레이딩 전략에 엣지가 없다는 결론",
+    "NO_SELECTION 판정",
+    "blind OOS, Paper 또는 AI shadow 성과"
+  ],
+  "period": {
+    "planned_end": "2026-08-21",
+    "planned_start": "2026-07-21",
+    "terminal_state_reached_early": true
+  },
+  "resume_requires": [
+    "사용자 승인된 새 연구 계획",
+    "결과 확인 전 고정한 데이터 완전성 계약과 사전등록",
+    "D9를 만족하는 새 완전 스냅샷 또는 명시적으로 재승인된 데이터 원천 경계",
+    "새 snapshot hash와 독립 구현 리뷰"
+  ],
+  "schema": "one-month-strategy-selection-closeout/v1",
+  "scope": {
+    "ai_shadow_started": false,
+    "blind_oos_opened": false,
+    "live_trading_enabled": false,
+    "oos_unlock_created": false,
+    "paper_promotion_started": false,
+    "selected_strategy": null,
+    "vwap_atr_candidate_started": false
+  }
+}
