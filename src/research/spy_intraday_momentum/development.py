@@ -205,14 +205,15 @@ def _verify_data_identity(
         manifest_path=TRACKED_INTRADAY_MANIFEST,
     )
     require_identity(intraday)
+    as_of = str(contract["windows"]["blind_oos_end"])
     daily = build_manifest(
         daily_db_path,
         UNIVERSE_YAML,
         collection_params={},
         collection_code_commit=None,
         generated_at_utc="identity-check",
-        as_of="2026-07-21",
-        collection_completed_through="2026-07-21",
+        as_of=as_of,
+        collection_completed_through=as_of,
     )
     daily_hash = str(daily["data_content_sha256"])
     daily_rows = int(daily["summary"]["total_rows"])
