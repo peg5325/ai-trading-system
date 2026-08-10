@@ -50,6 +50,7 @@
     "rsi_max": 35.0,
     "volume_lookback_bars": 20,
     "volume_min_median_multiple": 1.5,
+    "atr_period": 14,
     "ema_period": 20,
     "ema_slope_lookback_bars": 3,
     "ema_slope_min_atr_multiple": -0.15,
