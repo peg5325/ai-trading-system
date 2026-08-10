@@ -710,8 +710,11 @@ def _research_load_offenders_in_tree(tree: ast.AST, rel: str, *,
                 "수 있음")
             continue
         kw_names = {kw.arg for kw in node.keywords}
-        if "unlock" in kw_names:
-            offenders.append(f"{rel}:{node.lineno}: unlock 인자 존재")
+        forbidden_grants = {"unlock", "execution_grant"} & kw_names
+        if forbidden_grants:
+            offenders.append(
+                f"{rel}:{node.lineno}: OOS 개봉 인자 존재({sorted(forbidden_grants)})"
+            )
             continue
 
         track_kw = next((kw for kw in node.keywords if kw.arg == "track"), None)
@@ -740,7 +743,8 @@ def _research_load_offenders_in_tree(tree: ast.AST, rel: str, *,
 
 def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
     """AST: `src/`·`scripts/`·`analysis/`(R4-8 — `tests/test_oos_guard_wiring.py` 의
-    `SCAN_DIRS` 와 동일 범위) 전역의 `research_load` 호출은 `unlock` 인자를 절대 넘기지 않고,
+    `SCAN_DIRS` 와 동일 범위) 전역의 `research_load` 호출은 `execution_grant`/legacy `unlock`
+    인자를 절대 넘기지 않고,
     `track` 은 반드시 `TRACK_INTRADAY` 상수여야 하며(임의 `OOSUnlock` 주입·`track="swing"`
     변조를 정적으로 차단, 독립 리뷰 H1), `purpose` 는 리터럴 `"performance"`(또는 allowlist
     파일에 한해 `"coverage"`)여야 한다(R5-4). 판정 로직은 `_research_load_offenders_in_tree`
@@ -800,7 +804,7 @@ def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attri
         "rl('db', 'AAPL', '1m', purpose='performance', track=TRACK_INTRADAY, **_EXTRA)\n"
         "og.research_load('db', 'AAPL', '1m', purpose='performance', track='swing')\n"
         "research_load('db', 'AAPL', '1m', purpose='performance', track=TRACK_INTRADAY,"
-        " unlock=U)\n"
+        " execution_grant=G)\n"
         "research_load('db', 'AAPL', '1m', purpose='performance')\n"
     )
     tmp_file = tmp_path / "offender.py"
@@ -811,7 +815,7 @@ def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attri
 
     offenders = _research_load_offenders_in_tree(tree, "offender.py")
     kwargs_hits = [o for o in offenders if "kwargs" in o]
-    unlock_hits = [o for o in offenders if "unlock 인자 존재" in o]
+    unlock_hits = [o for o in offenders if "OOS 개봉 인자 존재" in o]
     track_mismatch_hits = [o for o in offenders if "TRACK_INTRADAY 상수가 아님" in o]
     track_omitted_hits = [o for o in offenders if "track 인자가 생략됨" in o]
     # rl(**_EXTRA) 는 kwargs 은닉, og.research_load(...) 는 track 불일치, 세 번째 호출은

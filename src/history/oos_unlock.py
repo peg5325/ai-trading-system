@@ -16,9 +16,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from src.history.oos_guard import OOSLockError, OOSUnlock, blind_oos_window
+from src.history.oos_guard import (
+    OOSExecutionGrant,
+    OOSLockError,
+    OOSUnlock,
+    blind_oos_window,
+)
 
-UNLOCK_SCHEMA = "oos-unlock/v1"
+UNLOCK_SCHEMA = "oos-unlock/v2"
 _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 _CONTENT_SHA = re.compile(r"^[0-9a-f]{64}$")
 _GITHUB_PULL_URL = re.compile(
@@ -46,6 +51,18 @@ class ReviewEvidence:
     reviewed_commit: str
 
 
+@dataclass(frozen=True)
+class OOSExecutionSpec:
+    """공식 실행 코드가 선언하는 OOS 실행 주체의 정확한 정체성."""
+
+    strategy_id: str
+    prereg_path: str
+    config_path: str
+    implementation_paths: tuple[str, ...]
+    snapshot_manifest_path: str
+    snapshot_hash_field: str
+
+
 def _run_git(
     repo: Path, *args: str, check: bool = True
 ) -> subprocess.CompletedProcess[str]:
@@ -62,6 +79,26 @@ def _run_git(
     if check and result.returncode != 0:
         raise OOSLockError(f"OOS unlock git 증거 불충족: {' '.join(args[:2])}")
     return result
+
+
+def _git_blob_bytes(repo: Path, commit: str, relative: str, *, field: str) -> bytes:
+    """Git object의 원시 bytes를 읽는다. text newline/encoding 변환을 허용하지 않는다."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo), "show", f"{commit}:{relative}"],
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise OOSLockError(f"{field} Git blob을 읽을 수 없다") from exc
+    if result.returncode != 0:
+        raise OOSLockError(f"{field}가 지정 commit에 존재하지 않는다")
+    return result.stdout
+
+
+def _sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
 
 
 def _repo_root(repo_root: str | Path | None) -> Path:
@@ -216,6 +253,37 @@ def _artifact_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def _relative_artifact_path(value: Any, *, field: str) -> str:
+    if not isinstance(value, str) or not value or Path(value).is_absolute():
+        raise OOSLockError(f"{field}는 저장소 상대경로 문자열이어야 한다")
+    normalized = Path(value).as_posix()
+    if normalized.startswith("../") or "/../" in normalized or normalized == "..":
+        raise OOSLockError(f"{field}가 저장소 밖을 가리킨다")
+    return normalized
+
+
+def _implementation_paths(value: Any) -> tuple[str, ...]:
+    if not isinstance(value, list) or not value:
+        raise OOSLockError("implementation.paths는 비어 있지 않은 배열이어야 한다")
+    if not all(isinstance(item, str) for item in value):
+        raise OOSLockError("implementation.paths 항목은 문자열이어야 한다")
+    paths = tuple(value)
+    if list(paths) != sorted(paths) or len(set(paths)) != len(paths):
+        raise OOSLockError("implementation.paths는 정렬되고 중복이 없어야 한다")
+    allowed_roots = ("src/", "scripts/", "analysis/")
+    for path in paths:
+        relative = _relative_artifact_path(path, field="implementation.paths[]")
+        if (
+            relative != path
+            or not path.endswith(".py")
+            or not path.startswith(allowed_roots)
+        ):
+            raise OOSLockError(
+                "implementation.paths는 src/·scripts/·analysis/ 아래 Python 파일이어야 한다"
+            )
+    return paths
+
+
 def _gh_api(endpoint: str) -> Any:
     """GitHub API를 gh CLI로 조회한다. 인증/네트워크 실패는 항상 잠금 유지."""
     try:
@@ -304,6 +372,38 @@ def _verify_review_evidence(evidence: ReviewEvidence) -> bool:
     )
 
 
+def _validate_review_evidence(
+    review: Mapping[str, Any],
+    *,
+    expected_commit: str,
+    field: str,
+    declares_commit: bool,
+) -> ReviewEvidence:
+    expected_keys = {"status", "url", "reviewer"}
+    if declares_commit:
+        expected_keys.add("reviewed_commit")
+    _require_keys(review, expected_keys, field=field)
+    if review["status"] != "approved":
+        raise OOSLockError(f"{field} 상태가 approved가 아니다")
+    if not isinstance(review["url"], str) or not _GITHUB_PULL_URL.fullmatch(
+        review["url"]
+    ):
+        raise OOSLockError(f"{field}.url은 GitHub PR/review/comment URL이어야 한다")
+    if not isinstance(review["reviewer"], str) or not review["reviewer"].strip():
+        raise OOSLockError(f"{field}.reviewer가 비어 있다")
+    if declares_commit and review["reviewed_commit"] != expected_commit:
+        raise OOSLockError(f"{field} 대상 commit이 기대 commit과 다르다")
+    evidence = ReviewEvidence(
+        status=review["status"],
+        url=review["url"],
+        reviewer=review["reviewer"],
+        reviewed_commit=expected_commit,
+    )
+    if not _verify_review_evidence(evidence):
+        raise OOSLockError(f"{field} 외부 독립 리뷰 승인 증거가 확인되지 않았다")
+    return evidence
+
+
 def load_verified_oos_unlock(
     artifact_path: str | Path,
     *,
@@ -319,11 +419,21 @@ def load_verified_oos_unlock(
     _assert_tracked_clean_on_main(
         repo, artifact_rel, _CANONICAL_MAIN_REF, field="unlock artifact"
     )
-    _assert_append_only_artifact(repo, artifact_rel, _CANONICAL_MAIN_REF)
+    artifact_commit = _assert_append_only_artifact(
+        repo, artifact_rel, _CANONICAL_MAIN_REF
+    )
     payload = _load_json(artifact, field="unlock artifact")
     _require_keys(
         payload,
-        {"schema", "track", "prereg", "implementation", "snapshot", "review"},
+        {
+            "schema",
+            "track",
+            "execution",
+            "prereg",
+            "implementation",
+            "snapshot",
+            "review",
+        },
         field="unlock artifact",
     )
     if payload["schema"] != UNLOCK_SCHEMA:
@@ -336,11 +446,13 @@ def load_verified_oos_unlock(
     except ValueError as exc:
         raise OOSLockError("unlock track이 알려진 blind OOS track이 아니다") from exc
 
+    execution = payload["execution"]
     prereg = payload["prereg"]
     implementation = payload["implementation"]
     snapshot = payload["snapshot"]
     review = payload["review"]
     for value, name in (
+        (execution, "execution"),
         (prereg, "prereg"),
         (implementation, "implementation"),
         (snapshot, "snapshot"),
@@ -348,12 +460,21 @@ def load_verified_oos_unlock(
     ):
         if not isinstance(value, Mapping):
             raise OOSLockError(f"{name}은 object여야 한다")
-    _require_keys(prereg, {"path", "merge_commit"}, field="prereg")
-    _require_keys(implementation, {"commit"}, field="implementation")
-    _require_keys(snapshot, {"manifest_path", "hash_field", "hash"}, field="snapshot")
+    _require_keys(execution, {"strategy_id"}, field="execution")
     _require_keys(
-        review, {"status", "url", "reviewer", "reviewed_commit"}, field="review"
+        prereg,
+        {"path", "merge_commit", "config_path", "config_sha256"},
+        field="prereg",
     )
+    _require_keys(implementation, {"commit", "paths"}, field="implementation")
+    _require_keys(snapshot, {"manifest_path", "hash_field", "hash"}, field="snapshot")
+    _require_keys(review, {"implementation", "artifact"}, field="review")
+    implementation_review = review["implementation"]
+    artifact_review = review["artifact"]
+    if not isinstance(implementation_review, Mapping) or not isinstance(
+        artifact_review, Mapping
+    ):
+        raise OOSLockError("review.implementation과 review.artifact는 object여야 한다")
 
     prereg_commit = _full_commit(
         repo, prereg["merge_commit"], field="prereg.merge_commit"
@@ -371,11 +492,40 @@ def load_verified_oos_unlock(
         field="implementation commit",
     )
 
-    prereg_path = prereg["path"]
-    if not isinstance(prereg_path, str) or Path(prereg_path).is_absolute():
-        raise OOSLockError("prereg.path는 저장소 상대경로 문자열이어야 한다")
+    strategy_id = execution["strategy_id"]
+    if not isinstance(strategy_id, str) or not strategy_id.strip():
+        raise OOSLockError("execution.strategy_id가 비어 있다")
+
+    prereg_path = _relative_artifact_path(prereg["path"], field="prereg.path")
     _, prereg_rel = _repo_file(repo, prereg_path, field="prereg.path")
     _assert_tracked_clean_on_main(repo, prereg_rel, _CANONICAL_MAIN_REF, field="prereg")
+
+    config_path = _relative_artifact_path(
+        prereg["config_path"], field="prereg.config_path"
+    )
+    config_sha256 = prereg["config_sha256"]
+    if not isinstance(config_sha256, str) or not _CONTENT_SHA.fullmatch(config_sha256):
+        raise OOSLockError("prereg.config_sha256는 64자리 lowercase SHA-256이어야 한다")
+    _, config_rel = _repo_file(repo, config_path, field="prereg.config_path")
+    _assert_tracked_clean_on_main(
+        repo, config_rel, _CANONICAL_MAIN_REF, field="prereg config"
+    )
+    if (
+        _sha256_bytes(
+            _git_blob_bytes(repo, prereg_commit, config_rel, field="prereg config")
+        )
+        != config_sha256
+    ):
+        raise OOSLockError("prereg config hash가 prereg merge commit과 일치하지 않는다")
+
+    implementation_paths = _implementation_paths(implementation["paths"])
+    for implementation_path in implementation_paths:
+        _git_blob_bytes(
+            repo,
+            implementation_commit,
+            implementation_path,
+            field=f"implementation path {implementation_path}",
+        )
 
     manifest_path = snapshot["manifest_path"]
     hash_field = snapshot["hash_field"]
@@ -406,31 +556,162 @@ def load_verified_oos_unlock(
     if declared_hash not in prereg_at_commit:
         raise OOSLockError("snapshot hash가 prereg merge commit에 사전 고정되지 않았다")
 
-    evidence = ReviewEvidence(
-        status=review["status"],
-        url=review["url"],
-        reviewer=review["reviewer"],
-        reviewed_commit=review["reviewed_commit"],
+    implementation_evidence = _validate_review_evidence(
+        implementation_review,
+        expected_commit=implementation_commit,
+        field="review.implementation",
+        declares_commit=True,
     )
-    if evidence.status != "approved":
-        raise OOSLockError("독립 리뷰 상태가 approved가 아니다")
-    if not isinstance(evidence.url, str) or not _GITHUB_PULL_URL.fullmatch(
-        evidence.url
-    ):
-        raise OOSLockError("review.url은 GitHub PR/review/comment URL이어야 한다")
-    if not isinstance(evidence.reviewer, str) or not evidence.reviewer.strip():
-        raise OOSLockError("review.reviewer가 비어 있다")
-    if evidence.reviewed_commit != implementation_commit:
-        raise OOSLockError("리뷰 대상 commit이 implementation commit과 다르다")
-    if not _verify_review_evidence(evidence):
-        raise OOSLockError("외부 독립 리뷰 승인 증거가 확인되지 않았다")
+    _validate_review_evidence(
+        artifact_review,
+        expected_commit=artifact_commit,
+        field="review.artifact",
+        declares_commit=False,
+    )
 
     return OOSUnlock._from_verified_artifact(
         track=track,
+        strategy_id=strategy_id,
         prereg_merge_commit=prereg_commit,
+        prereg_path=prereg_rel,
+        config_path=config_rel,
+        config_sha256=config_sha256,
         implementation_commit=implementation_commit,
+        implementation_paths=implementation_paths,
         snapshot_hash=declared_hash,
-        review_status=evidence.status,
+        snapshot_manifest_path=manifest_rel,
+        snapshot_hash_field=hash_field,
+        review_status=implementation_evidence.status,
         artifact_path=artifact_rel,
         artifact_sha256=_artifact_sha256(artifact),
+    )
+
+
+def bind_verified_oos_execution(
+    unlock: OOSUnlock,
+    spec: OOSExecutionSpec,
+    *,
+    repo_root: str | Path | None = None,
+) -> OOSExecutionGrant:
+    """검증 artifact와 현재 main의 공식 실행 주체를 fail-closed로 결속한다."""
+    if not isinstance(unlock, OOSUnlock) or not unlock.is_valid_for(unlock.track):
+        raise OOSLockError("검증된 OOSUnlock이 아니다")
+    if not isinstance(spec, OOSExecutionSpec):
+        raise OOSLockError("OOSExecutionSpec이 필요하다")
+
+    expected = {
+        "strategy_id": unlock.strategy_id,
+        "prereg_path": unlock.prereg_path,
+        "config_path": unlock.config_path,
+        "implementation_paths": unlock.implementation_paths,
+        "snapshot_manifest_path": unlock.snapshot_manifest_path,
+        "snapshot_hash_field": unlock.snapshot_hash_field,
+    }
+    actual = {
+        "strategy_id": spec.strategy_id,
+        "prereg_path": spec.prereg_path,
+        "config_path": spec.config_path,
+        "implementation_paths": tuple(spec.implementation_paths),
+        "snapshot_manifest_path": spec.snapshot_manifest_path,
+        "snapshot_hash_field": spec.snapshot_hash_field,
+    }
+    mismatches = sorted(name for name in expected if expected[name] != actual[name])
+    if mismatches:
+        raise OOSLockError(
+            f"OOS 실행 주체가 artifact와 불일치한다: {', '.join(mismatches)}"
+        )
+
+    repo = _repo_root(repo_root)
+    artifact, artifact_rel = _repo_file(
+        repo, unlock.artifact_path, field="execution unlock artifact"
+    )
+    _assert_tracked_clean_on_main(
+        repo, artifact_rel, _CANONICAL_MAIN_REF, field="execution unlock artifact"
+    )
+    _assert_append_only_artifact(repo, artifact_rel, _CANONICAL_MAIN_REF)
+    if _artifact_sha256(artifact) != unlock.artifact_sha256:
+        raise OOSLockError("현재 unlock artifact가 최초 검증 객체와 다르다")
+    _assert_ancestor(
+        repo,
+        unlock.prereg_merge_commit,
+        _CANONICAL_MAIN_REF,
+        field="prereg merge commit",
+    )
+    _assert_ancestor(
+        repo,
+        unlock.implementation_commit,
+        _CANONICAL_MAIN_REF,
+        field="implementation commit",
+    )
+
+    _, config_rel = _repo_file(repo, spec.config_path, field="execution config")
+    _assert_tracked_clean_on_main(
+        repo, config_rel, _CANONICAL_MAIN_REF, field="execution config"
+    )
+    current_config = _git_blob_bytes(
+        repo, _CANONICAL_MAIN_REF, config_rel, field="execution config"
+    )
+    prereg_config = _git_blob_bytes(
+        repo, unlock.prereg_merge_commit, config_rel, field="prereg config"
+    )
+    if (
+        current_config != prereg_config
+        or _sha256_bytes(current_config) != unlock.config_sha256
+    ):
+        raise OOSLockError("현재 실행 config가 사전등록 config와 다르다")
+
+    for implementation_path in spec.implementation_paths:
+        _, relative = _repo_file(
+            repo, implementation_path, field="execution implementation"
+        )
+        _assert_tracked_clean_on_main(
+            repo, relative, _CANONICAL_MAIN_REF, field="execution implementation"
+        )
+        current_blob = _git_blob_bytes(
+            repo, _CANONICAL_MAIN_REF, relative, field="execution implementation"
+        )
+        reviewed_blob = _git_blob_bytes(
+            repo,
+            unlock.implementation_commit,
+            relative,
+            field="reviewed implementation",
+        )
+        if current_blob != reviewed_blob:
+            raise OOSLockError(f"현재 구현이 독립 리뷰 commit과 다르다: {relative}")
+
+    manifest, manifest_rel = _repo_file(
+        repo, spec.snapshot_manifest_path, field="execution snapshot manifest"
+    )
+    _assert_tracked_clean_on_main(
+        repo, manifest_rel, _CANONICAL_MAIN_REF, field="execution snapshot manifest"
+    )
+    current_snapshot_hash = _lookup_hash(
+        _load_json(manifest, field="execution snapshot manifest"),
+        spec.snapshot_hash_field,
+    )
+    if current_snapshot_hash != unlock.snapshot_hash:
+        raise OOSLockError("현재 snapshot manifest가 unlock artifact와 다르다")
+
+    fingerprint_payload = {
+        "artifact_sha256": unlock.artifact_sha256,
+        "track": unlock.track,
+        "strategy_id": unlock.strategy_id,
+        "prereg_merge_commit": unlock.prereg_merge_commit,
+        "config_sha256": unlock.config_sha256,
+        "implementation_commit": unlock.implementation_commit,
+        "implementation_paths": list(unlock.implementation_paths),
+        "snapshot_hash": unlock.snapshot_hash,
+    }
+    fingerprint = hashlib.sha256(
+        json.dumps(
+            fingerprint_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    return OOSExecutionGrant._from_verified_execution(
+        track=unlock.track,
+        strategy_id=unlock.strategy_id,
+        artifact_sha256=unlock.artifact_sha256,
+        execution_fingerprint=fingerprint,
     )
