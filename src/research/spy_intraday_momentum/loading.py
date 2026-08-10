@@ -94,4 +94,3 @@ def complete_regular_1m(
     if defects:
         return (), tuple(sorted(defects))
     return tuple(by_minute[minute] for minute in range(open_minute, close_minute)), ()
-

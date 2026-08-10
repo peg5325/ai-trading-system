@@ -12,7 +12,7 @@ from src.history.exchange_calendar import trading_days
 PREREG_JSON_PATH = "docs/research/PREREG_SPY_INTRADAY_MOMENTUM_V1.json"
 PREREG_MD_PATH = "docs/research/PREREG_SPY_INTRADAY_MOMENTUM_V1.md"
 PREREG_JSON_SHA256 = "36a5061c466a5e1a3dc25105f9aba6e77912edfa9f89c8e4cba521f0facbc5cf"
-PREREG_MD_SHA256 = "c8f35e5e6fca46c691b34cee91adb7e607cfad41fc87b85e13e4da81b42847a5"
+PREREG_MD_SHA256 = "b6d327eaaa57755b72760024358bec19fb64c8f46342b7c0420dcfd805e80a9d"
 SCHEMA = "spy-intraday-momentum-prereg/v1"
 
 
@@ -75,4 +75,3 @@ def fold_boundaries(contract: Mapping[str, Any]) -> tuple[tuple[str, date, date]
     if len(result) != expected:
         raise ContractError(f"fold 개수 불일치: {len(result)} != {expected}")
     return result
-

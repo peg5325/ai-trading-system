@@ -80,4 +80,3 @@ def render(result: Mapping[str, Any]) -> str:
         "",
     ])
     return "\n".join(lines)
-

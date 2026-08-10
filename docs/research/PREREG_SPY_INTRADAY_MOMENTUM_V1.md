@@ -1,6 +1,6 @@
 # 사전등록 — SPY 첫 30분 → 마지막 30분 장중 모멘텀 v1
 
-> 작성: 2026-08-10 · 이슈 #122 · **development-only**  
+> 작성: 2026-08-10 · 이슈 #122 · **development-only**
 > 상태: **결과 미열람.** 이 문서는 구현·성과 계산 전에 규칙과 판정 기준을 고정한다.
 
 ## 1. 질문과 근거
@@ -71,4 +71,3 @@ Gao, Han, Li, Zhou의 *Market Intraday Momentum*은 전일 시장 종가부터 �
 - low/official/stress, LONG/SHORT, 10개 fold, 신호 부호 수, 품질 결함을 모두 공개한다.
 - 결과가 불리해도 이번 실행에서 규칙·비용·게이트를 고치지 않는다.
 - Paper·실거래·주문·위험·config를 변경하지 않는다.
-

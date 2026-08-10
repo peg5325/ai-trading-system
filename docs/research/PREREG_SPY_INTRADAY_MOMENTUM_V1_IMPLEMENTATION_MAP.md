@@ -15,4 +15,3 @@
 | §6 방향별·비용별 공개 | `development.run`, `report.render` | 결과 JSON/Markdown 단일 renderer |
 
 구현은 사전등록 숫자를 계약 JSON에서 읽는다. 별도 sensitivity, 성과 기반 필터, OOS unlock은 없다.
-

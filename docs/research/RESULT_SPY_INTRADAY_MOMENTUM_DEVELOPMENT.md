@@ -43,4 +43,4 @@
 - SPY 단일 종목, 2023-05-18~2026-01-20 development 구간에만 해당한다.
 - 2026-01-21~2026-07-21 blind OOS는 로드하지 않았다.
 - Paper/실거래·주문·위험·config 변경은 없다.
-- 결과 payload SHA-256: `c2ea8c7ffddefe8e9061cbf380b0792d951aa798a192ceeac7fb039ec5922e7d`
+- 결과 payload SHA-256: `93f63836d21c33e2bfff6fb3f0264b281479cdde3fe4514eeeb054858a97e067`

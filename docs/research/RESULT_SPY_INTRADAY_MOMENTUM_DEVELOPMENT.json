@@ -82,10 +82,10 @@
       "trade_count": 269
     }
   },
-  "payload_sha256": "c2ea8c7ffddefe8e9061cbf380b0792d951aa798a192ceeac7fb039ec5922e7d",
+  "payload_sha256": "93f63836d21c33e2bfff6fb3f0264b281479cdde3fe4514eeeb054858a97e067",
   "prereg": {
     "json_sha256": "36a5061c466a5e1a3dc25105f9aba6e77912edfa9f89c8e4cba521f0facbc5cf",
-    "md_sha256": "c8f35e5e6fca46c691b34cee91adb7e607cfad41fc87b85e13e4da81b42847a5"
+    "md_sha256": "b6d327eaaa57755b72760024358bec19fb64c8f46342b7c0420dcfd805e80a9d"
   },
   "schema": "spy-intraday-momentum-development/v1",
   "scope": "development-only",
