@@ -1,0 +1,70 @@
+{
+  "decision_at": "2026-08-10",
+  "evidence": {
+    "d9_audit": {
+      "data_exclusion_denominator": 20100,
+      "data_exclusion_numerator": 1296,
+      "data_exclusion_ratio": 0.06447761194029851,
+      "path": "docs/research/AUDIT_P0_US30_GAP_RVOL_D9.json",
+      "sha256": "14207ea572a3433c18d4c9bd80839acef45b6d1fc8b2948ef7142d8b5f68d9f6",
+      "threshold_lte": 0.05,
+      "verdict": "INCONCLUSIVE_DATA"
+    },
+    "dependency_plan": {
+      "path": "docs/research/MANIFEST_P0_US30_GAP_RVOL_D9_DEPENDENCIES.json",
+      "prior_regular_close_targets": 193,
+      "rvol_15m_lookback_targets": 448,
+      "sha256": "7a27ee176f910e943c955ac2db034dfebf47d7f2ffa5583c3edf244d576014c0",
+      "target_count": 458
+    },
+    "dependency_probe": {
+      "available_count": 265,
+      "path": "docs/research/PROBE_P0_US30_GAP_RVOL_D9_DEPENDENCIES_TOSS.json",
+      "provider": "toss",
+      "sha256": "7d27367c20f4d43444a1f622ef4331f07c1bb666529cae54227165e5ce9e1717",
+      "unavailable_count": 193,
+      "unavailable_prior_regular_close_targets": 193,
+      "verdict": "DEPENDENCY_SOURCE_PARTIAL"
+    },
+    "development_result": {
+      "next_stage": null,
+      "path": "docs/research/RESULT_P0_US30_GAP_RVOL_DEVELOPMENT.json",
+      "sha256": "11d6e7e5f593b7b498b147b386585608d507e32d31feae4cc1b8a4b4e3542d05",
+      "verdict": "INCONCLUSIVE_DATA"
+    },
+    "toss_overlay_audit": {
+      "eligible_targets": 66,
+      "path": "docs/research/AUDIT_P0_US30_GAP_RVOL_D9_OVERLAY.json",
+      "resolved_event_count": 0,
+      "sha256": "a73d114c2c6a17b7f22a2f25f9970d49b0a964ad08eb8d91865fc5c8cdc509cd",
+      "verdict": "INCONCLUSIVE_DATA"
+    }
+  },
+  "governance": {
+    "decision": "DO_NOT_USE_EXTERNAL_PROVIDER",
+    "issue": 109,
+    "reason": "사용자 비용·공급자 경계 결정",
+    "scientific_gate_changed": false,
+    "strategy_contract_changed": false
+  },
+  "not_claimed": [
+    "Gap+RVOL 전략이 경제적으로 실패했다",
+    "Gap+RVOL 전략이 선택되지 않았다는 NO_SELECTION 판정",
+    "VWAP/ATR 후보가 검증되었거나 실패했다"
+  ],
+  "research_disposition": {
+    "next_candidate": null,
+    "status": "TERMINAL_INCONCLUSIVE_DATA",
+    "strategy_verdict": "INCONCLUSIVE_DATA"
+  },
+  "schema": "gap-rvol-no-external-source-decision/v1",
+  "scope": {
+    "additional_external_provider_called": false,
+    "blind_oos_opened": false,
+    "canonical_data_written": false,
+    "forward_returns_computed": false,
+    "oos_unlock_created": false,
+    "performance_rerun": false,
+    "vwap_atr_candidate_started": false
+  }
+}
