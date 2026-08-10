@@ -1,0 +1,106 @@
+{
+  "schema": "p0-us30-box-rsi-volume-mean-reversion-prereg/v1",
+  "strategy_id": "p0-us30-box-rsi-volume-mr-v1",
+  "scope": "development-only",
+  "market": "US",
+  "side": "long-only",
+  "decision_bar_minutes": 5,
+  "universe": [
+    "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV", "XLI", "XLY",
+    "XLU", "SMH", "AAPL", "MSFT", "NVDA", "AMD", "AVGO", "AMZN", "META",
+    "GOOGL", "TSLA", "MU", "NFLX", "CRM", "PLTR", "VST", "TQQQ", "SQQQ",
+    "SOXL", "SOXS"
+  ],
+  "data_identity": {
+    "snapshot_basename": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+    "snapshot_file_sha256": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+    "snapshot_content_sha256": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+    "manifest_data_sha256": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+    "raw_content_sha256": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+    "collection_run_id": "p0-us30-1m-20260721-r82",
+    "as_of": "2026-07-21",
+    "allowed_sessions": ["PRE", "REGULAR", "POST"]
+  },
+  "windows": {
+    "development_data_start": "2023-04-20",
+    "development_data_end": "2026-01-20",
+    "development_eval_start": "2023-05-18",
+    "development_eval_end": "2026-01-20",
+    "blind_oos_start": "2026-01-21",
+    "blind_oos_end": "2026-07-21",
+    "blind_oos_policy": "locked-and-not-read",
+    "fold_block_trading_days": 63,
+    "fold_anchor": "end",
+    "fold_remainder": "earliest-fold"
+  },
+  "eligibility": {
+    "session": "REGULAR",
+    "require_complete_regular_session_1m_grid": true,
+    "duplicate_timestamp_policy": "identical-deduplicate-conflict-fail-closed",
+    "minimum_signal_minute_et": 630,
+    "maximum_signal_minute_et": 930,
+    "one_trade_per_symbol_day": true
+  },
+  "signal": {
+    "box_lookback_bars": 12,
+    "box_width_max_atr_multiple": 2.0,
+    "box_lower_touch_fraction": 0.15,
+    "box_reclaim_fraction": 0.10,
+    "rsi_period": 5,
+    "rsi_max": 35.0,
+    "volume_lookback_bars": 20,
+    "volume_min_median_multiple": 1.5,
+    "ema_period": 20,
+    "ema_slope_lookback_bars": 3,
+    "ema_slope_min_atr_multiple": -0.15,
+    "close_min_ema_distance_atr_multiple": -0.5,
+    "entry": "next-complete-5m-bar-open"
+  },
+  "exit": {
+    "stop_atr_below_box": 0.25,
+    "target": "box-midpoint",
+    "intrabar_collision": "stop-first",
+    "gap_through": "bar-open",
+    "maximum_holding_bars": 12,
+    "time_exit": "twelfth-held-bar-close",
+    "eod": "last-complete-regular-bar-close",
+    "overnight": false
+  },
+  "portfolio": {
+    "initial_capital": 100000.0,
+    "risk_fraction_per_trade": 0.005,
+    "notional_cap_fraction_per_trade": 0.20,
+    "max_positions": 5,
+    "same_timestamp_rank": ["volume_multiple_desc", "rsi_asc", "symbol_asc"],
+    "equity_sizing": "fixed-initial-capital"
+  },
+  "costs": {
+    "round_trip_pct_points": {"low": 0.14, "official": 0.34, "stress": 0.68},
+    "entry_exit_allocation": [0.5, 0.5],
+    "basis": "entry-and-exit-notional"
+  },
+  "development_gate": {
+    "D1_min_trades": 300,
+    "D2_min_trading_days": 200,
+    "D3_official_expectancy_gt": 0.0,
+    "D4_official_profit_factor_gte": 1.2,
+    "D5_official_mdd_lte": 0.10,
+    "D6_min_positive_folds": 7,
+    "D7_stress_cumulative_net_gte": 0.0,
+    "D9_max_incomplete_symbol_day_ratio": 0.05,
+    "D9_max_new_conflicts": 0
+  },
+  "verdicts": {
+    "all_gates_pass": "GO_CANDIDATE",
+    "D9_fail": "INCONCLUSIVE_DATA",
+    "other_gate_fail": "NO_SELECTION",
+    "identity_or_procedure_fail": "NOT_RUN"
+  },
+  "discipline": {
+    "primary_specs": 1,
+    "parameter_tuning_after_result": false,
+    "blind_oos_opened": false,
+    "paper_or_live_promotion": false,
+    "result_must_report_all_cost_levels": true
+  }
+}
