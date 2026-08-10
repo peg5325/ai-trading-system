@@ -242,7 +242,10 @@ def _gate(stats: Mapping[str, Mapping[str, Any]], defects: Mapping[str, Any],
         "D1": official["trade_count"] >= int(g["D1_min_trades"]),
         "D2": official["trading_days_with_trade"] >= int(g["D2_min_trading_days"]),
         "D3": official["net_expectancy"] > float(g["D3_official_expectancy_gt"]),
-        "D4": pf != "Infinity" and float(pf) >= float(g["D4_official_profit_factor_gte"]),
+        "D4": (
+            pf == "Infinity"
+            or float(pf) >= float(g["D4_official_profit_factor_gte"])
+        ),
         "D5": official["mdd"] <= float(g["D5_official_mdd_lte"]),
         "D6": official["positive_folds"] >= int(g["D6_min_positive_folds"]),
         "D7": stress["cumulative_net_pnl"] >= float(g["D7_stress_cumulative_net_gte"]),

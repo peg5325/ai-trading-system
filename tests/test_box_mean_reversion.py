@@ -6,7 +6,7 @@ import pytest
 
 from src.models import ET, Candle
 from src.research.box_mean_reversion.contract import development_days, fold_boundaries, load_contract
-from src.research.box_mean_reversion.development import Candidate, close_candidate
+from src.research.box_mean_reversion.development import Candidate, _gate, close_candidate
 from src.research.box_mean_reversion.indicators import ema, exact_median, wilder_atr, wilder_rsi
 from src.research.box_mean_reversion.loading import complete_regular_5m
 
@@ -111,3 +111,21 @@ def test_close_candidate_uses_twelfth_bar_close_for_time_exit():
     assert ts == bars[11].ts_utc
     assert price == pytest.approx(100.1)
     assert reason == "time_exit"
+
+
+def test_infinite_profit_factor_passes_d4_but_zero_trades_still_fail_d1():
+    contract = load_contract()
+    stats = {
+        "official": {
+            "trade_count": 0, "trading_days_with_trade": 0,
+            "net_expectancy": 0.0, "profit_factor": "Infinity", "mdd": 0.0,
+            "positive_folds": 0, "cumulative_net_pnl": 0.0,
+        },
+        "stress": {"cumulative_net_pnl": 0.0},
+    }
+    defects = {
+        "incomplete_symbol_day_ratio": 0.0, "new_conflicts": 0, "major_defects": 0,
+    }
+    gate = _gate(stats, defects, contract)
+    assert gate["items"]["D4"] is True
+    assert gate["items"]["D1"] is False
