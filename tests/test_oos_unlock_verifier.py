@@ -130,10 +130,17 @@ def _make_repo(tmp_path: Path, *, prereg_contains_hash: bool = True) -> RepoFixt
             "hash": SNAPSHOT_HASH,
         },
         "review": {
-            "status": "approved",
-            "url": "https://github.com/acme/repo/pull/1#issuecomment-1",
-            "reviewer": "independent-reviewer",
-            "reviewed_commit": implementation_commit,
+            "implementation": {
+                "status": "approved",
+                "url": "https://github.com/acme/repo/pull/1#issuecomment-1",
+                "reviewer": "independent-reviewer",
+                "reviewed_commit": implementation_commit,
+            },
+            "artifact": {
+                "status": "approved",
+                "url": "https://github.com/acme/repo/pull/2#issuecomment-2",
+                "reviewer": "independent-artifact-reviewer",
+            },
         },
     }
     artifact = repo / "docs" / "research" / "OOS_UNLOCK.json"
@@ -170,6 +177,44 @@ def test_verified_artifact_returns_unlock(tmp_path):
     assert unlock.snapshot_hash == SNAPSHOT_HASH
     assert unlock.artifact_path == "docs/research/OOS_UNLOCK.json"
     assert len(unlock.artifact_sha256) == 64
+
+
+def test_reviews_bind_implementation_and_actual_artifact_commit(tmp_path, monkeypatch):
+    fixture = _make_repo(tmp_path)
+    artifact_commit = _git(
+        fixture.root,
+        "log",
+        "-1",
+        "--format=%H",
+        "--",
+        "docs/research/OOS_UNLOCK.json",
+    )
+    reviewed_commits = []
+
+    def capture(evidence):
+        reviewed_commits.append(evidence.reviewed_commit)
+        return True
+
+    monkeypatch.setattr(oos_unlock_module, "_verify_review_evidence", capture)
+    load_verified_oos_unlock(fixture.artifact, repo_root=fixture.root)
+    assert reviewed_commits == [fixture.implementation_commit, artifact_commit]
+    assert "reviewed_commit" not in fixture.payload["review"]["artifact"]
+
+
+def test_unapproved_artifact_commit_review_is_rejected(tmp_path, monkeypatch):
+    fixture = _make_repo(tmp_path)
+    artifact_commit = _git(fixture.root, "rev-parse", "HEAD")
+
+    def approve_only_implementation(evidence):
+        return evidence.reviewed_commit != artifact_commit
+
+    monkeypatch.setattr(
+        oos_unlock_module,
+        "_verify_review_evidence",
+        approve_only_implementation,
+    )
+    with pytest.raises(OOSLockError, match="review.artifact.*확인되지 않았다"):
+        load_verified_oos_unlock(fixture.artifact, repo_root=fixture.root)
 
 
 def test_verified_execution_binding_returns_grant(tmp_path):
@@ -226,7 +271,10 @@ def test_dirty_artifact_is_rejected(tmp_path):
 def test_artifact_modified_after_initial_add_is_rejected(tmp_path):
     fixture = _make_repo(tmp_path)
     _rewrite_and_commit(
-        fixture, lambda payload: payload["review"].update({"reviewer": "other"})
+        fixture,
+        lambda payload: payload["review"]["artifact"].update(
+            {"reviewer": "other"}
+        ),
     )
     with pytest.raises(OOSLockError, match="append-only"):
         load_verified_oos_unlock(
@@ -261,7 +309,7 @@ def test_unmerged_evidence_commit_is_rejected(tmp_path, field):
             payload["prereg"]["merge_commit"] = side_commit
         else:
             payload["implementation"]["commit"] = side_commit
-            payload["review"]["reviewed_commit"] = side_commit
+            payload["review"]["implementation"]["reviewed_commit"] = side_commit
 
     _rewrite_and_amend(fixture, mutate)
     with pytest.raises(OOSLockError, match="병합되지 않았다"):
@@ -439,16 +487,35 @@ def test_execution_identity_schema_is_fail_closed(tmp_path, mutate, message):
 @pytest.mark.parametrize(
     ("mutate", "message"),
     [
-        (lambda payload: payload["review"].update({"status": "pending"}), "approved"),
         (
-            lambda payload: payload["review"].update({"reviewed_commit": "a" * 40}),
-            "implementation commit과 다르다",
+            lambda payload: payload["review"]["implementation"].update(
+                {"status": "pending"}
+            ),
+            "approved",
         ),
         (
-            lambda payload: payload["review"].update(
+            lambda payload: payload["review"]["implementation"].update(
+                {"reviewed_commit": "a" * 40}
+            ),
+            "기대 commit과 다르다",
+        ),
+        (
+            lambda payload: payload["review"]["implementation"].update(
                 {"url": "https://example.com/review"}
             ),
             "GitHub",
+        ),
+        (
+            lambda payload: payload["review"]["artifact"].update(
+                {"status": "pending"}
+            ),
+            "review.artifact 상태가 approved가 아니다",
+        ),
+        (
+            lambda payload: payload["review"]["artifact"].update(
+                {"reviewed_commit": "a" * 40}
+            ),
+            "키 불일치",
         ),
     ],
 )

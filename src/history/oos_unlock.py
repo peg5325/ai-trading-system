@@ -372,6 +372,38 @@ def _verify_review_evidence(evidence: ReviewEvidence) -> bool:
     )
 
 
+def _validate_review_evidence(
+    review: Mapping[str, Any],
+    *,
+    expected_commit: str,
+    field: str,
+    declares_commit: bool,
+) -> ReviewEvidence:
+    expected_keys = {"status", "url", "reviewer"}
+    if declares_commit:
+        expected_keys.add("reviewed_commit")
+    _require_keys(review, expected_keys, field=field)
+    if review["status"] != "approved":
+        raise OOSLockError(f"{field} 상태가 approved가 아니다")
+    if not isinstance(review["url"], str) or not _GITHUB_PULL_URL.fullmatch(
+        review["url"]
+    ):
+        raise OOSLockError(f"{field}.url은 GitHub PR/review/comment URL이어야 한다")
+    if not isinstance(review["reviewer"], str) or not review["reviewer"].strip():
+        raise OOSLockError(f"{field}.reviewer가 비어 있다")
+    if declares_commit and review["reviewed_commit"] != expected_commit:
+        raise OOSLockError(f"{field} 대상 commit이 기대 commit과 다르다")
+    evidence = ReviewEvidence(
+        status=review["status"],
+        url=review["url"],
+        reviewer=review["reviewer"],
+        reviewed_commit=expected_commit,
+    )
+    if not _verify_review_evidence(evidence):
+        raise OOSLockError(f"{field} 외부 독립 리뷰 승인 증거가 확인되지 않았다")
+    return evidence
+
+
 def load_verified_oos_unlock(
     artifact_path: str | Path,
     *,
@@ -387,7 +419,9 @@ def load_verified_oos_unlock(
     _assert_tracked_clean_on_main(
         repo, artifact_rel, _CANONICAL_MAIN_REF, field="unlock artifact"
     )
-    _assert_append_only_artifact(repo, artifact_rel, _CANONICAL_MAIN_REF)
+    artifact_commit = _assert_append_only_artifact(
+        repo, artifact_rel, _CANONICAL_MAIN_REF
+    )
     payload = _load_json(artifact, field="unlock artifact")
     _require_keys(
         payload,
@@ -434,9 +468,13 @@ def load_verified_oos_unlock(
     )
     _require_keys(implementation, {"commit", "paths"}, field="implementation")
     _require_keys(snapshot, {"manifest_path", "hash_field", "hash"}, field="snapshot")
-    _require_keys(
-        review, {"status", "url", "reviewer", "reviewed_commit"}, field="review"
-    )
+    _require_keys(review, {"implementation", "artifact"}, field="review")
+    implementation_review = review["implementation"]
+    artifact_review = review["artifact"]
+    if not isinstance(implementation_review, Mapping) or not isinstance(
+        artifact_review, Mapping
+    ):
+        raise OOSLockError("review.implementation과 review.artifact는 object여야 한다")
 
     prereg_commit = _full_commit(
         repo, prereg["merge_commit"], field="prereg.merge_commit"
@@ -518,24 +556,18 @@ def load_verified_oos_unlock(
     if declared_hash not in prereg_at_commit:
         raise OOSLockError("snapshot hash가 prereg merge commit에 사전 고정되지 않았다")
 
-    evidence = ReviewEvidence(
-        status=review["status"],
-        url=review["url"],
-        reviewer=review["reviewer"],
-        reviewed_commit=review["reviewed_commit"],
+    implementation_evidence = _validate_review_evidence(
+        implementation_review,
+        expected_commit=implementation_commit,
+        field="review.implementation",
+        declares_commit=True,
     )
-    if evidence.status != "approved":
-        raise OOSLockError("독립 리뷰 상태가 approved가 아니다")
-    if not isinstance(evidence.url, str) or not _GITHUB_PULL_URL.fullmatch(
-        evidence.url
-    ):
-        raise OOSLockError("review.url은 GitHub PR/review/comment URL이어야 한다")
-    if not isinstance(evidence.reviewer, str) or not evidence.reviewer.strip():
-        raise OOSLockError("review.reviewer가 비어 있다")
-    if evidence.reviewed_commit != implementation_commit:
-        raise OOSLockError("리뷰 대상 commit이 implementation commit과 다르다")
-    if not _verify_review_evidence(evidence):
-        raise OOSLockError("외부 독립 리뷰 승인 증거가 확인되지 않았다")
+    _validate_review_evidence(
+        artifact_review,
+        expected_commit=artifact_commit,
+        field="review.artifact",
+        declares_commit=False,
+    )
 
     return OOSUnlock._from_verified_artifact(
         track=track,
@@ -549,7 +581,7 @@ def load_verified_oos_unlock(
         snapshot_hash=declared_hash,
         snapshot_manifest_path=manifest_rel,
         snapshot_hash_field=hash_field,
-        review_status=evidence.status,
+        review_status=implementation_evidence.status,
         artifact_path=artifact_rel,
         artifact_sha256=_artifact_sha256(artifact),
     )
