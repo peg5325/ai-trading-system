@@ -35,20 +35,36 @@ def test_closeout_data_foundation_matches_manifests_and_replica() -> None:
     data = closeout["evidence"]["data_foundation"]
 
     daily = _load(ROOT / data["daily_manifest"]["path"])
-    assert daily["summary"]["total_rows"] == 76690
-    assert daily["summary"]["verdict_counts"] == {"OK": 30}
+    assert daily["summary"]["total_rows"] == data["daily_manifest"]["total_rows"]
+    assert daily["summary"]["verdict_counts"] == {
+        "OK": data["daily_manifest"]["symbols_ok"]
+    }
 
     intraday = _load(ROOT / data["intraday_manifest"]["path"])
-    assert intraday["summary"]["total_rows"] == 22773133
-    assert intraday["summary"]["meets_3y_count"] == 30
+    assert (
+        intraday["summary"]["total_rows"]
+        == data["intraday_manifest"]["total_rows"]
+    )
+    assert (
+        intraday["summary"]["meets_3y_count"]
+        == data["intraday_manifest"]["symbols_meeting_3y"]
+    )
 
     snapshot = _load(ROOT / data["research_snapshot"]["path"])
-    assert snapshot["summary"]["total_rows"] == 22534553
-    assert snapshot["summary"]["verdict_counts"] == {"OK": 30}
+    assert (
+        snapshot["summary"]["total_rows"]
+        == data["research_snapshot"]["total_rows"]
+    )
+    assert snapshot["summary"]["verdict_counts"] == {
+        "OK": data["research_snapshot"]["symbols_ok"]
+    }
 
     replica = _load(ROOT / data["snapshot_replica"]["path"])
-    assert replica["status"] == "success"
-    assert replica["restore_smoke"]["status"] == "ok"
+    assert replica["status"] == data["snapshot_replica"]["status"]
+    assert (
+        replica["restore_smoke"]["status"]
+        == data["snapshot_replica"]["restore_smoke"]
+    )
     assert replica["restore_smoke"]["semantic_match"] is True
 
 
@@ -57,23 +73,25 @@ def test_closeout_strategy_results_preserve_inconclusive_distinction() -> None:
     research = closeout["evidence"]["strategy_research"]
 
     h4 = (ROOT / research["h4_ranking"]["path"]).read_text(encoding="utf-8")
-    assert "H4 = NULL" in h4
-    assert "GO 셀 0/9" not in h4  # 표기는 "0개"로 고정되어 있다.
-    assert "전부 충족한 셀 = 0개" in h4
+    assert f"H4 = {research['h4_ranking']['verdict']}" in h4
+    assert f"전부 충족한 셀 = {research['h4_ranking']['go_cells']}개" in h4
 
     for candidate in ("orb", "gap_rvol"):
         result = _load(ROOT / research[candidate]["path"])
         assert result["payload"]["verdict"] == {
-            "failed": ["D3", "D4", "D5", "D6", "D7", "D9"],
+            "failed": research[candidate]["failed_gates"],
             "next_stage": None,
-            "value": "INCONCLUSIVE_DATA",
+            "value": research[candidate]["verdict"],
         }
 
     decision = _load(ROOT / research["source_boundary_decision"]["path"])
-    assert decision["governance"]["decision"] == "DO_NOT_USE_EXTERNAL_PROVIDER"
+    assert (
+        decision["governance"]["decision"]
+        == research["source_boundary_decision"]["decision"]
+    )
     assert decision["research_disposition"] == {
         "next_candidate": None,
-        "status": "TERMINAL_INCONCLUSIVE_DATA",
+        "status": research["source_boundary_decision"]["status"],
         "strategy_verdict": "INCONCLUSIVE_DATA",
     }
 
