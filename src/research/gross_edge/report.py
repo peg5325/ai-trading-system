@@ -47,7 +47,8 @@ def render_markdown(result: Mapping[str, Any]) -> str:
             "",
         ]
     )
-    for name, check in result["data_identity"].items():
+    for name in ("snapshot_file", "snapshot_content", "manifest_data", "raw_content"):
+        check = result["data_identity"][name]
         lines.append(f"- {name}: `{check['status']}`")
     return "\n".join(lines) + "\n"
 
@@ -65,4 +66,3 @@ def write_result(path: str, payload: bytes) -> None:
 def write_outputs(result: Mapping[str, Any], *, json_path: str, md_path: str) -> None:
     write_result(json_path, canonical_json_bytes(result))
     write_result(md_path, render_markdown(result).encode("utf-8"))
-

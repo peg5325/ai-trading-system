@@ -194,7 +194,10 @@ def test_result_serialization_and_markdown_are_deterministic_and_mapped() -> Non
             "gross_edge_pass": False, "economic_pass": False,
         }],
         "shortlisted_candidates": [], "gross_edge_only_candidates": [],
-        "data_identity": {"snapshot_file": {"status": "match"}},
+        "data_identity": {
+            name: {"status": "match"}
+            for name in ("snapshot_file", "snapshot_content", "manifest_data", "raw_content")
+        },
     }
     assert canonical_json_bytes(result) == canonical_json_bytes(json.loads(canonical_json_bytes(result)))
     report = render_markdown(result)
@@ -210,4 +213,3 @@ def test_blind_oos_remains_fail_closed_before_database_access() -> None:
             end=datetime(2026, 1, 22, tzinfo=ET),
             purpose="performance", track=TRACK_INTRADAY, market="US",
         )
-

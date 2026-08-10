@@ -1,0 +1,386 @@
+{
+  "blind_oos_accessed": false,
+  "candidate_count": 8,
+  "candidates": [
+    {
+      "candidate_id": "gap_continuation",
+      "cost_survival": {
+        "conservative": false,
+        "published_floor": false,
+        "stress": false
+      },
+      "economic_pass": false,
+      "fold_mean_gross_pct_points": {
+        "F01": -0.12326080263375735,
+        "F02": 0.08744852837303409,
+        "F03": 0.024182408974084173,
+        "F04": 0.0664487993388678,
+        "F05": 0.024346724146120654,
+        "F06": 0.0202477586400086,
+        "F07": -0.20644631373064012,
+        "F08": -0.00901949119308043,
+        "F09": -0.11903639754943485,
+        "F10": -0.10649674781826983
+      },
+      "gross_edge_gates": {
+        "G1_min_trades": true,
+        "G2_min_trading_days": true,
+        "G3_mean_gross_positive": false,
+        "G4_positive_folds": false,
+        "G5_bonferroni_significance": false
+      },
+      "gross_edge_pass": false,
+      "mean_daily_gross_pct_points": -0.04001893769478063,
+      "median_daily_gross_pct_points": -0.0412597300568022,
+      "net_after_cost_pct_points": {
+        "conservative": -0.3800189376947807,
+        "published_floor": -0.2440189376947806,
+        "stress": -0.7200189376947806
+      },
+      "nonzero_days": 659,
+      "positive_days": 313,
+      "positive_folds": 5,
+      "sign_test_bonferroni_p": 1.0,
+      "sign_test_raw_p": 0.9073444353157061,
+      "trade_count": 19109,
+      "trading_days": 659
+    },
+    {
+      "candidate_id": "gap_reversal",
+      "cost_survival": {
+        "conservative": false,
+        "published_floor": false,
+        "stress": false
+      },
+      "economic_pass": false,
+      "fold_mean_gross_pct_points": {
+        "F01": 0.12326080263375735,
+        "F02": -0.08744852837303409,
+        "F03": -0.024182408974084173,
+        "F04": -0.0664487993388678,
+        "F05": -0.024346724146120654,
+        "F06": -0.0202477586400086,
+        "F07": 0.20644631373064012,
+        "F08": 0.00901949119308043,
+        "F09": 0.11903639754943485,
+        "F10": 0.10649674781826983
+      },
+      "gross_edge_gates": {
+        "G1_min_trades": true,
+        "G2_min_trading_days": true,
+        "G3_mean_gross_positive": true,
+        "G4_positive_folds": false,
+        "G5_bonferroni_significance": false
+      },
+      "gross_edge_pass": false,
+      "mean_daily_gross_pct_points": 0.04001893769478063,
+      "median_daily_gross_pct_points": 0.0412597300568022,
+      "net_after_cost_pct_points": {
+        "conservative": -0.29998106230521937,
+        "published_floor": -0.16398106230521936,
+        "stress": -0.6399810623052195
+      },
+      "nonzero_days": 659,
+      "positive_days": 346,
+      "positive_folds": 5,
+      "sign_test_bonferroni_p": 0.8501326313596433,
+      "sign_test_raw_p": 0.10626657891995542,
+      "trade_count": 19109,
+      "trading_days": 659
+    },
+    {
+      "candidate_id": "opening_30m_continuation",
+      "cost_survival": {
+        "conservative": false,
+        "published_floor": false,
+        "stress": false
+      },
+      "economic_pass": false,
+      "fold_mean_gross_pct_points": {
+        "F01": 0.05263975165939097,
+        "F02": 0.10426487015304639,
+        "F03": 0.004840163239167776,
+        "F04": -0.0035099940324008682,
+        "F05": 0.04590685793489733,
+        "F06": 0.06864664818031177,
+        "F07": 0.3873183339538446,
+        "F08": -0.004776374419454444,
+        "F09": -0.0522203280306019,
+        "F10": -0.011934107990568448
+      },
+      "gross_edge_gates": {
+        "G1_min_trades": true,
+        "G2_min_trading_days": true,
+        "G3_mean_gross_positive": true,
+        "G4_positive_folds": false,
+        "G5_bonferroni_significance": false
+      },
+      "gross_edge_pass": false,
+      "mean_daily_gross_pct_points": 0.05910455669139874,
+      "median_daily_gross_pct_points": 0.05117187248758204,
+      "net_after_cost_pct_points": {
+        "conservative": -0.2808954433086013,
+        "published_floor": -0.14489544330860124,
+        "stress": -0.6208954433086014
+      },
+      "nonzero_days": 659,
+      "positive_days": 354,
+      "positive_folds": 6,
+      "sign_test_bonferroni_p": 0.24571010659358417,
+      "sign_test_raw_p": 0.03071376332419802,
+      "trade_count": 19101,
+      "trading_days": 659
+    },
+    {
+      "candidate_id": "opening_30m_reversal",
+      "cost_survival": {
+        "conservative": false,
+        "published_floor": false,
+        "stress": false
+      },
+      "economic_pass": false,
+      "fold_mean_gross_pct_points": {
+        "F01": -0.05263975165939097,
+        "F02": -0.10426487015304639,
+        "F03": -0.004840163239167776,
+        "F04": 0.0035099940324008682,
+        "F05": -0.04590685793489733,
+        "F06": -0.06864664818031177,
+        "F07": -0.3873183339538446,
+        "F08": 0.004776374419454444,
+        "F09": 0.0522203280306019,
+        "F10": 0.011934107990568448
+      },
+      "gross_edge_gates": {
+        "G1_min_trades": true,
+        "G2_min_trading_days": true,
+        "G3_mean_gross_positive": false,
+        "G4_positive_folds": false,
+        "G5_bonferroni_significance": false
+      },
+      "gross_edge_pass": false,
+      "mean_daily_gross_pct_points": -0.05910455669139874,
+      "median_daily_gross_pct_points": -0.05117187248758204,
+      "net_after_cost_pct_points": {
+        "conservative": -0.39910455669139877,
+        "published_floor": -0.2631045566913987,
+        "stress": -0.7391045566913987
+      },
+      "nonzero_days": 659,
+      "positive_days": 305,
+      "positive_folds": 4,
+      "sign_test_bonferroni_p": 1.0,
+      "sign_test_raw_p": 0.9743171931860879,
+      "trade_count": 19101,
+      "trading_days": 659
+    },
+    {
+      "candidate_id": "first_hour_continuation",
+      "cost_survival": {
+        "conservative": false,
+        "published_floor": false,
+        "stress": false
+      },
+      "economic_pass": false,
+      "fold_mean_gross_pct_points": {
+        "F01": 0.0677814543447779,
+        "F02": 0.06944560667268435,
+        "F03": -0.029360306365694512,
+        "F04": 0.05921110525487073,
+        "F05": 0.1355731248128598,
+        "F06": 0.05059570044785828,
+        "F07": 0.23100982013780155,
+        "F08": 0.021226942449946655,
+        "F09": 0.0018653689548018002,
+        "F10": 0.019602814397596337
+      },
+      "gross_edge_gates": {
+        "G1_min_trades": true,
+        "G2_min_trading_days": true,
+        "G3_mean_gross_positive": true,
+        "G4_positive_folds": true,
+        "G5_bonferroni_significance": false
+      },
+      "gross_edge_pass": false,
+      "mean_daily_gross_pct_points": 0.06288987772490444,
+      "median_daily_gross_pct_points": 0.043785373468836854,
+      "net_after_cost_pct_points": {
+        "conservative": -0.27711012227509557,
+        "published_floor": -0.14111012227509556,
+        "stress": -0.6171101222750957
+      },
+      "nonzero_days": 659,
+      "positive_days": 362,
+      "positive_folds": 9,
+      "sign_test_bonferroni_p": 0.050420413817741844,
+      "sign_test_raw_p": 0.0063025517272177305,
+      "trade_count": 19107,
+      "trading_days": 659
+    },
+    {
+      "candidate_id": "first_hour_reversal",
+      "cost_survival": {
+        "conservative": false,
+        "published_floor": false,
+        "stress": false
+      },
+      "economic_pass": false,
+      "fold_mean_gross_pct_points": {
+        "F01": -0.0677814543447779,
+        "F02": -0.06944560667268435,
+        "F03": 0.029360306365694512,
+        "F04": -0.05921110525487073,
+        "F05": -0.1355731248128598,
+        "F06": -0.05059570044785828,
+        "F07": -0.23100982013780155,
+        "F08": -0.021226942449946655,
+        "F09": -0.0018653689548018002,
+        "F10": -0.019602814397596337
+      },
+      "gross_edge_gates": {
+        "G1_min_trades": true,
+        "G2_min_trading_days": true,
+        "G3_mean_gross_positive": false,
+        "G4_positive_folds": false,
+        "G5_bonferroni_significance": false
+      },
+      "gross_edge_pass": false,
+      "mean_daily_gross_pct_points": -0.06288987772490444,
+      "median_daily_gross_pct_points": -0.043785373468836854,
+      "net_after_cost_pct_points": {
+        "conservative": -0.4028898777249045,
+        "published_floor": -0.2668898777249044,
+        "stress": -0.7428898777249044
+      },
+      "nonzero_days": 659,
+      "positive_days": 297,
+      "positive_folds": 1,
+      "sign_test_bonferroni_p": 1.0,
+      "sign_test_raw_p": 0.9949563923664364,
+      "trade_count": 19107,
+      "trading_days": 659
+    },
+    {
+      "candidate_id": "morning_continuation",
+      "cost_survival": {
+        "conservative": false,
+        "published_floor": false,
+        "stress": false
+      },
+      "economic_pass": false,
+      "fold_mean_gross_pct_points": {
+        "F01": -0.01850644718564503,
+        "F02": 0.03304050066526534,
+        "F03": 0.05749183660558157,
+        "F04": 0.005347917270766952,
+        "F05": -0.011815355708330344,
+        "F06": -0.04322922956925987,
+        "F07": 0.3155943808960123,
+        "F08": -0.03828666989238008,
+        "F09": 0.018452330771342895,
+        "F10": -0.02659826717920458
+      },
+      "gross_edge_gates": {
+        "G1_min_trades": true,
+        "G2_min_trading_days": true,
+        "G3_mean_gross_positive": true,
+        "G4_positive_folds": false,
+        "G5_bonferroni_significance": false
+      },
+      "gross_edge_pass": false,
+      "mean_daily_gross_pct_points": 0.027036692963292124,
+      "median_daily_gross_pct_points": 0.0043431770036928,
+      "net_after_cost_pct_points": {
+        "conservative": -0.3129633070367079,
+        "published_floor": -0.17696330703670787,
+        "stress": -0.6529633070367079
+      },
+      "nonzero_days": 659,
+      "positive_days": 335,
+      "positive_folds": 5,
+      "sign_test_bonferroni_p": 1.0,
+      "sign_test_raw_p": 0.3484521197391144,
+      "trade_count": 19118,
+      "trading_days": 659
+    },
+    {
+      "candidate_id": "morning_reversal",
+      "cost_survival": {
+        "conservative": false,
+        "published_floor": false,
+        "stress": false
+      },
+      "economic_pass": false,
+      "fold_mean_gross_pct_points": {
+        "F01": 0.01850644718564503,
+        "F02": -0.03304050066526534,
+        "F03": -0.05749183660558157,
+        "F04": -0.005347917270766952,
+        "F05": 0.011815355708330344,
+        "F06": 0.04322922956925987,
+        "F07": -0.3155943808960123,
+        "F08": 0.03828666989238008,
+        "F09": -0.018452330771342895,
+        "F10": 0.02659826717920458
+      },
+      "gross_edge_gates": {
+        "G1_min_trades": true,
+        "G2_min_trading_days": true,
+        "G3_mean_gross_positive": false,
+        "G4_positive_folds": false,
+        "G5_bonferroni_significance": false
+      },
+      "gross_edge_pass": false,
+      "mean_daily_gross_pct_points": -0.027036692963292124,
+      "median_daily_gross_pct_points": -0.0043431770036928,
+      "net_after_cost_pct_points": {
+        "conservative": -0.36703669296329217,
+        "published_floor": -0.2310366929632921,
+        "stress": -0.7070366929632922
+      },
+      "nonzero_days": 659,
+      "positive_days": 324,
+      "positive_folds": 5,
+      "sign_test_bonferroni_p": 1.0,
+      "sign_test_raw_p": 0.6798957519811679,
+      "trade_count": 19118,
+      "trading_days": 659
+    }
+  ],
+  "data_identity": {
+    "manifest_data": {
+      "actual": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "expected": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "status": "match"
+    },
+    "raw_content": {
+      "actual": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "expected": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "status": "match"
+    },
+    "snapshot_content": {
+      "actual": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "expected": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "status": "match"
+    },
+    "snapshot_file": {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "status": "match"
+    }
+  },
+  "development_window": {
+    "end": "2026-01-20",
+    "start": "2023-05-18",
+    "trading_days": 670
+  },
+  "excluded_symbol_days_without_any_candidate": 951,
+  "gross_edge_only_candidates": [],
+  "payload_sha256": "6af152ca13e7c1f3070f37040c7e1ae16f6ddd057a849d5d5aee3f7fe8afaeba",
+  "prereg_json_sha256": "784543544a192252b78481d1e2d12e9810c07dc9f61b6ea4352024994f207e1e",
+  "schema": "p0_us30_gross_edge_screen_result_v1",
+  "shortlisted_candidates": [],
+  "strategy_id": "p0_us30_gross_edge_screen_v1",
+  "universe_count": 30,
+  "verdict": "NO_GROSS_EDGE"
+}
