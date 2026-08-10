@@ -95,7 +95,8 @@ append-only 로 대체")을 **명문 결정**하도록 요구한다.
 - raw 계층 외부 복제(#73 확장)·수집 후 자동 백업은 별도 이슈.
 - `receipts.jsonl` 은 **단일 프로세스 순차 수집 전제**(동시 writer 미보장 — `raw_snapshot.py`
   docstring 명시). 병렬 수집 도입 시 run별 receipts 분리 또는 파일 잠금 선행.
-- OOS unlock artifact **검증 로더**(commit 실존·snapshot hash·리뷰 증거 대조)는 **#78** — blind
-  OOS 개봉 전 필수(1m bulk 와는 무관).
+- OOS unlock artifact **검증 로더**(commit 실존·main ancestry·snapshot hash·GitHub 리뷰 증거 대조)는
+  **#78에서 구현** — `src/history/oos_unlock.py`, 계약
+  `docs/research/OOS_UNLOCK_VERIFICATION_CONTRACT.md`. blind OOS 개봉 전 필수(1m bulk 와는 무관).
 - 5m 연구↔라이브 리샘플러 통일은 **별도 Phase 2 blocking-gate 이슈 #76**(ORB 공식 연구 전 필수).
 - 실제 30종목×3년 raw 수집은 이 ADR 범위 밖(Phase 1B 이후 사용자 승인 하 실행).

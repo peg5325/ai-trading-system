@@ -16,8 +16,8 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.history import HistoryStore  # noqa: E402
-from src.history.oos_guard import (  # noqa: E402
+from src.history import HistoryStore
+from src.history.oos_guard import (
     TRACK_INTRADAY,
     OOSLockError,
     OOSUnlock,
@@ -26,8 +26,8 @@ from src.history.oos_guard import (  # noqa: E402
     overlaps_blind_oos,
     research_load,
 )
-from src.history.store import ImportStats  # noqa: E402
-from src.models import Candle  # noqa: E402
+from src.history.store import ImportStats
+from src.models import Candle
 
 ET = ZoneInfo("America/New_York")
 
@@ -52,9 +52,16 @@ def _make_db(tmp_path) -> str:
 
 
 def _valid_unlock() -> OOSUnlock:
-    return OOSUnlock(track=TRACK_INTRADAY, prereg_merge_commit="abc123",
-                     implementation_commit="def456", snapshot_hash="deadbeef",
-                     review_status="approved")
+    """게이트 단위 테스트용 검증완료 객체(실 artifact 검증은 별도 테스트)."""
+    return OOSUnlock._from_verified_artifact(
+        track=TRACK_INTRADAY,
+        prereg_merge_commit="a" * 40,
+        implementation_commit="b" * 40,
+        snapshot_hash="d" * 64,
+        review_status="approved",
+        artifact_path="docs/research/OOS_UNLOCK_TEST.json",
+        artifact_sha256="e" * 64,
+    )
 
 
 # ---- 경계/overlap 단위 ----
@@ -134,20 +141,16 @@ def test_valid_unlock_opens_gate(tmp_path):
 
 
 def test_incomplete_unlock_stays_locked(tmp_path):
-    """리뷰 미승인·필드 누락 unlock 은 잠금 유지(boolean 우회 불가)."""
-    db = _make_db(tmp_path)
-    pending = OOSUnlock(track=TRACK_INTRADAY, prereg_merge_commit="abc",
-                        implementation_commit="def", snapshot_hash="h",
-                        review_status="pending")
-    missing = OOSUnlock(track=TRACK_INTRADAY, prereg_merge_commit="",
-                        implementation_commit="def", snapshot_hash="h",
-                        review_status="approved")
-    for bad in (pending, missing):
-        with pytest.raises(OOSLockError):
-            research_load(db, "SPY", "1m",
-                          start=datetime(2026, 3, 1, tzinfo=ET),
-                          end=datetime(2026, 4, 1, tzinfo=ET),
-                          purpose="performance", track=TRACK_INTRADAY, unlock=bad)
+    """임의 문자열로 OOSUnlock을 직접 만들 수 없다."""
+    del tmp_path
+    with pytest.raises(OOSLockError, match="직접 생성 금지"):
+        OOSUnlock(
+            track=TRACK_INTRADAY,
+            prereg_merge_commit="abc",
+            implementation_commit="def",
+            snapshot_hash="h",
+            review_status="approved",
+        )
 
 
 def test_unlock_wrong_track_rejected():

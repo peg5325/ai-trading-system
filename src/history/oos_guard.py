@@ -14,9 +14,9 @@
 - **배선(opt-in 아님)**: 공식 연구/평가 코드는 이 로더를 경유해야 한다. `load_candles` 직접
   import 는 `tests/test_oos_guard_wiring.py` 의 AST 경계 테스트가 src/·scripts/·analysis/ 전역에서
   금지한다(PR #77 독립 리뷰 차단 1 반영).
-- **unlock 검증 깊이 한계**: 현재 `OOSUnlock.is_valid_for` 는 **형식**(필드 비어있지 않음 +
-  review=approved)만 본다. 실제 blind OOS 개봉 전에는 commit 실존·snapshot hash 일치·리뷰 증거를
-  대조하는 검증 로더가 선행돼야 한다(**#78, 개봉 전 필수**).
+- **검증된 unlock 만 허용**: `OOSUnlock` 은 직접 생성할 수 없다. 추적·append-only artifact,
+  main 에 병합된 prereg/implementation commit, prereg↔manifest snapshot hash, 독립 리뷰 승인을
+  `src.history.oos_unlock.load_verified_oos_unlock` 이 모두 대조한 뒤에만 생성된다(#78).
 
 경계(계약 §5.1, as-of 2026-07-21):
 - intraday(1m): blind OOS = 2026-01-21 ~ 2026-07-21.
@@ -49,16 +49,13 @@ class OOSLockError(RuntimeError):
     """blind OOS 성과 접근을 unlock 없이 시도(fail-closed)."""
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class OOSUnlock:
-    """blind OOS 개봉 근거(provenance). 단순 boolean 우회 방지.
+    """검증이 끝난 blind OOS 개봉 근거.
 
-    이번 작업에서는 **생성하지 않는다**. 향후 사전등록 merge·구현 commit·snapshot hash·독립
-    리뷰 승인 뒤에만 유효한 인스턴스를 만든다.
-
-    한계: `is_valid_for` 는 형식 검증(비어있지 않은 문자열 + approved)이다. 실제 개봉 전에는
-    artifact 파일을 읽어 commit 실존·snapshot hash 일치·리뷰 증거를 대조하는 검증 로더가
-    필요하다(#78) — 임의 문자열로 만든 unlock 이 개봉에 쓰이면 안 된다.
+    공개 생성자는 의도적으로 막혀 있다. `load_verified_oos_unlock` 의 모든 증거 대조를 통과한
+    경우에만 내부 factory 가 인스턴스를 만든다. private factory 는 loader 단위 테스트 외의
+    production 코드에서 사용하지 못하도록 AST 경계 테스트로 잠근다.
     """
 
     track: str
@@ -66,6 +63,41 @@ class OOSUnlock:
     implementation_commit: str
     snapshot_hash: str
     review_status: str
+    artifact_path: str
+    artifact_sha256: str
+
+    def __init__(self, *args, **kwargs) -> None:
+        del args, kwargs
+        raise OOSLockError(
+            "OOSUnlock 직접 생성 금지 — 추적 artifact를 "
+            "load_verified_oos_unlock()으로 검증해야 한다"
+        )
+
+    @classmethod
+    def _from_verified_artifact(
+        cls,
+        *,
+        track: str,
+        prereg_merge_commit: str,
+        implementation_commit: str,
+        snapshot_hash: str,
+        review_status: str,
+        artifact_path: str,
+        artifact_sha256: str,
+    ) -> OOSUnlock:
+        """검증 로더 전용 factory. production 직접 호출은 경계 테스트가 금지한다."""
+        obj = object.__new__(cls)
+        for name, value in (
+            ("track", track),
+            ("prereg_merge_commit", prereg_merge_commit),
+            ("implementation_commit", implementation_commit),
+            ("snapshot_hash", snapshot_hash),
+            ("review_status", review_status),
+            ("artifact_path", artifact_path),
+            ("artifact_sha256", artifact_sha256),
+        ):
+            object.__setattr__(obj, name, value)
+        return obj
 
     def is_valid_for(self, track: str) -> bool:
         return (
@@ -74,6 +106,8 @@ class OOSUnlock:
             and bool(self.implementation_commit)
             and bool(self.snapshot_hash)
             and self.review_status in _APPROVED_REVIEW
+            and bool(self.artifact_path)
+            and bool(self.artifact_sha256)
         )
 
 
