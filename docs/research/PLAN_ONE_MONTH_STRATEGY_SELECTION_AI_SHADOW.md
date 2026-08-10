@@ -6,7 +6,7 @@
 > `.omx` 경로를 정본으로 참조하던 문제를 교정(새 clone 에서도 계획 복원 가능).
 
 기간: 2026-07-21 ~ 2026-08-21  
-목표: 검증된 전략 1개를 선택하거나 `NO_SELECTION`을 선언하고, 선택된 전략으로 1~2주 Paper baseline과 AI shadow를 수집한다.  
+목표: 검증된 전략 1개를 선택하거나 `NO_SELECTION`을 선언한다. 데이터 결함 때문에 선택 가능성을 판단할 수 없고 원천 복구를 중단한 경우에는 `INCONCLUSIVE_DATA`를 별도 종료 상태로 기록한다. 선택된 전략이 있을 때만 1~2주 Paper baseline과 AI shadow를 수집한다.
 범위 밖: 실계좌 주문 활성화, AI의 직접 주문·청산·사이징, 결과를 본 뒤 전략 규칙 변경.
 
 ## 개정 이력 (Revision History)
@@ -17,8 +17,11 @@
 | r2 | 2026-07-23 | #75 | **실행 우선순위를 intraday(당일청산 ORB) 우선으로 현행화.** 첫 검증 전략을 VCP-lite 일봉 스윙 → **Liquid-universe ORB(당일청산)** 로 교정(사용자 목표=오버나잇 없는 데이트레이딩). VCP-lite 는 후속 보류(폐기 아님). **전략 합격 게이트·비용·OOS 경계·품질 기준은 무변경**(Phase 4 게이트 그대로). 근거: `docs/research/DECISION_DAYTRADING_ORB_PRIORITY.md`, `DATA_CONTRACT_4STRATEGY_V1.md` AMENDMENT A1. 성과 열람 전 교정. |
 | r2.1 | 2026-07-23 | #75 | 계획 정본을 이 Git 추적 파일로 이관(내용 변경 없음, `.omx` 는 로컬 mirror). |
 | r3 | 2026-07-30 | #98 | ORB development gate 실패(`RESULT_P0_US30_ORB_DEVELOPMENT.md`)에 따라 **ORB 규칙 수정·blind OOS 개봉 없이 종료**하고, 사전에 정한 두 번째 당일청산 후보 **Gap + RVOL Continuation**의 독립 사전등록으로 이동한다. 데이터 identity·비용·개발/OOS 게이트는 무완화. 근거: `DECISION_DAYTRADING_GAP_RVOL_NEXT.md`. |
+| r4 | 2026-08-10 | #109 | Gap+RVOL D9 결손의 Toss-only 복구가 불가능하고 사용자가 외부 공급자를 사용하지 않기로 결정했다. verdict를 `INCONCLUSIVE_DATA`로 유지하고 blind OOS·후보 3을 열지 않은 채 이번 데이터 원천 기반 순차 연구를 종결한다. 이는 `NO_SELECTION` 재분류나 품질 기준 완화가 아니다. 근거: `DECISION_P0_US30_GAP_RVOL_NO_EXTERNAL_SOURCE.{md,json}`. |
 
 > **r3 실행 순서(현행·이전 규칙 대체)**: ORB는 development-only `INCONCLUSIVE_DATA`로 중단됐고 blind OOS는 열지 않았다. 다음은 **Gap + RVOL Continuation 사전등록 → 별도 구현·독립 리뷰 → development-only 판정**이다. 이 전략도 D1~D9 development gate를 모두 통과한 경우에만 #78 unlock을 거쳐 blind OOS를 한 번 연다. D1~D8 경제·통계 gate 실패면 `NO_SELECTION`으로 규칙을 고치지 않고 세 번째 후보 VWAP/ATR Mean Reversion으로 이동할 수 있다. D9 데이터·운영 결함이면 `INCONCLUSIVE_DATA`로 중단하고 결함 교정·독립 재리뷰 전에는 OOS를 열거나 다음 후보로 이동하지 않는다. 스윙(1d·VCP-lite)은 후속 보류 상태를 유지한다. **r3는 “4개 전략 모두를 먼저 사전등록한 뒤 어떤 blind OOS도 연다”는 r1의 일괄 토너먼트 순서를 대체한다. 현행 규칙은 “각 후보의 blind OOS 전에 해당 후보 사전등록·구현·독립 리뷰를 완료”하는 순차 방식이며, 아직 열지 않을 후속 후보를 미리 사전등록하지 않는다.** 공통 데이터 identity·비용(0.14/0.34/0.68%p)·OOS 경계·품질·선택 게이트는 바뀌지 않는다.
+
+> **r4 종료 결정(현행)**: Gap+RVOL D9는 결함 감사·Toss 재조회·dependency probe 후에도 `INCONCLUSIVE_DATA`다. 사용자가 외부 공급자를 사용하지 않기로 결정했으므로 원천 복구를 중단한다. D9 기준은 완화하지 않고, 결과를 `NO_SELECTION`으로 바꾸지 않으며, blind OOS와 #78 unlock을 열지 않는다. 동일 결손 데이터에 의존하는 후보 3 VWAP/ATR도 시작하지 않는다. 이번 계획의 종료 상태는 `INCONCLUSIVE_DATA`이며, 새 데이터 원천 또는 새 완전 스냅샷을 승인한 별도 계획 없이는 재개하지 않는다.
 
 ## 1. 요구사항 요약
 
@@ -32,7 +35,7 @@
 - 횡단면 선별이 핵심인 ORB/Gap/VCP의 공식 일반화 평가는 가능하면 point-in-time 100~300개 이상으로 확장한다.
 - 최신 블라인드 OOS를 보기 전에 전략 정의, 비용, 통계, 합격 기준을 사전등록한다.
 - AI는 선택된 전략의 Paper 주문에 영향을 주지 않는 shadow로만 연결한다.
-- 한 달 종료 시 결과는 `SELECT_ONE`, `EXTEND_PAPER`, `NO_SELECTION` 중 하나여야 한다.
+- 한 달 종료 시 결과는 `SELECT_ONE`, `EXTEND_PAPER`, `NO_SELECTION`, 또는 데이터 원천 한계로 판단 불가능한 `INCONCLUSIVE_DATA` 중 하나여야 한다.
 
 ## 2. 현재 근거와 제약
 
@@ -321,6 +324,7 @@ AI shadow 출력:
 - `SELECT_ONE`: 전략이 모든 OOS 게이트 통과, Paper/AI shadow 계속 진행.
 - `EXTEND_PAPER`: 전략은 통과했지만 Paper 세션 수나 운영 안정성 부족.
 - `NO_SELECTION`: 어떤 전략도 통과하지 못함; 실거래·AI 영향 활성화 금지.
+- `INCONCLUSIVE_DATA`: 데이터 결함 때문에 전략 선택 여부를 판단할 수 없고 승인된 복구 경로가 없음; 실거래·Paper 승격·AI 영향·후속 후보 활성화 금지.
 
 ## 6. 실계좌 연결 조건(다음 단계)
 
@@ -350,7 +354,7 @@ AI shadow 출력:
 - [ ] look-ahead/순서불변/체결/비용/다종목 자본경쟁 테스트 통과.
 - [ ] 전체 pytest green.
 - [ ] 전략별 0.14/0.34/0.68 비용 결과 존재.
-- [ ] 승자 또는 NO_SELECTION 결정이 기계적 gate와 일치.
+- [ ] 승자, NO_SELECTION 또는 INCONCLUSIVE_DATA 결정이 기계적 gate와 일치.
 - [ ] #44/#64가 Paper 사용 전에 해결됨.
 - [ ] Paper는 fresh namespace와 FULL manifest 사용.
 - [ ] AI shadow 결과가 주문에 영향을 주지 않았음을 parity 테스트로 증명.
