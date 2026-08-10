@@ -1,0 +1,172 @@
+{
+  "blind_oos_opened": false,
+  "candidate_count_before_portfolio": 28,
+  "defects": {
+    "incomplete_symbol_day_ratio": 0.04786069651741293,
+    "incomplete_symbol_days": 962,
+    "major_defects": 0,
+    "missing_previous_close_ratio": 0.0,
+    "missing_previous_close_symbol_days": 0,
+    "new_conflicts": 0,
+    "total_symbol_days": 20100
+  },
+  "exclusions": {
+    "incomplete_regular_session": 962,
+    "insufficient_opening_volume_lookback": 14
+  },
+  "exit_reasons": {
+    "eod": 19,
+    "stop": 7,
+    "target": 2
+  },
+  "filters": {
+    "gap_too_small": 17500,
+    "no_higher_low": 19,
+    "no_signal": 150,
+    "opening_rsi": 417,
+    "opening_selloff_too_small": 485,
+    "opening_volume": 544,
+    "signal_volume": 79,
+    "vwap_not_crossed": 3666
+  },
+  "gate": {
+    "failed": [
+      "D1",
+      "D2",
+      "D3",
+      "D4",
+      "D6",
+      "D7"
+    ],
+    "items": {
+      "D1": false,
+      "D2": false,
+      "D3": false,
+      "D4": false,
+      "D5": true,
+      "D6": false,
+      "D7": false,
+      "D9": true
+    },
+    "verdict": "NO_SELECTION"
+  },
+  "identity": [
+    {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "name": "snapshot_file",
+      "status": "match"
+    },
+    {
+      "actual": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "expected": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "name": "snapshot_content",
+      "status": "match"
+    },
+    {
+      "actual": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "expected": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "name": "manifest_data",
+      "status": "match"
+    },
+    {
+      "actual": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "expected": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "name": "raw_content",
+      "status": "match"
+    },
+    {
+      "actual": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
+      "expected": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
+      "name": "daily_content",
+      "status": "match"
+    },
+    {
+      "actual": "76690",
+      "expected": "76690",
+      "name": "daily_rows",
+      "status": "match"
+    }
+  ],
+  "payload_sha256": "673137dc862d9127766bea80a8364b44b66633a0c4d8ae07d7eab11f5ebc3276",
+  "portfolio_skips": {},
+  "prereg": {
+    "json_sha256": "5ebd7118a82be7ef969e7677aa2f76df1b591c5f898801e932631fee88364494",
+    "md_sha256": "3700a6de62ebe9c1361c3f4b644ab312395a29d0b964345f3bdf55e3f3bd7d16"
+  },
+  "schema": "p0-us30-gap-down-fade-development/v1",
+  "scope": "development-only",
+  "stats": {
+    "low": {
+      "cumulative_net_pnl": 20.592725871073014,
+      "fold_pnl": {
+        "F01": 357.9282389999996,
+        "F02": -428.30161504741784,
+        "F03": 0,
+        "F04": -378.5781480513426,
+        "F05": -52.554360656785576,
+        "F06": 1239.2193415653499,
+        "F07": -674.2739776253319,
+        "F08": 488.98351638999793,
+        "F09": -157.93404431004677,
+        "F10": -373.8962253933497
+      },
+      "mdd": 0.012209588891048543,
+      "net_expectancy": 0.7354544953954648,
+      "positive_folds": 3,
+      "profit_factor": 1.0061653267412833,
+      "trade_count": 28,
+      "trading_days_with_trade": 25
+    },
+    "official": {
+      "cumulative_net_pnl": -1016.2483028749202,
+      "fold_pnl": {
+        "F01": 277.7400089999996,
+        "F02": -492.4849617750798,
+        "F03": 0,
+        "F04": -417.7069600717055,
+        "F05": -161.27928374228867,
+        "F06": 1041.892505938846,
+        "F07": -833.3696005837775,
+        "F08": 424.2852540899979,
+        "F09": -356.0978149051533,
+        "F10": -499.2274508257591
+      },
+      "mdd": 0.014156419695763148,
+      "net_expectancy": -36.294582245532865,
+      "positive_folds": 3,
+      "profit_factor": 0.7397740254404246,
+      "trade_count": 28,
+      "trading_days_with_trade": 25
+    },
+    "stress": {
+      "cumulative_net_pnl": -2778.8780517431087,
+      "fold_pnl": {
+        "F01": 141.4200179999996,
+        "F02": -601.596651212105,
+        "F03": 0,
+        "F04": -484.22594050632244,
+        "F05": -346.1116529876439,
+        "F06": 706.4368853737892,
+        "F07": -1103.832159613135,
+        "F08": 314.2982081799979,
+        "F09": -692.9762249168344,
+        "F10": -712.290534060855
+      },
+      "mdd": 0.02916174015924887,
+      "net_expectancy": -99.24564470511102,
+      "positive_folds": 3,
+      "profit_factor": 0.4413473750408832,
+      "trade_count": 28,
+      "trading_days_with_trade": 25
+    }
+  },
+  "strategy_id": "p0-us30-gap-down-fade-v1",
+  "trade_count": 28,
+  "trades_sha256": "c066bdb2b6abeb53705d01b854b65ce142bb78ba864c5ae760b60d66c9fbe2c1",
+  "window": {
+    "end": "2026-01-20",
+    "start": "2023-05-18",
+    "trading_days": 670
+  }
+}
