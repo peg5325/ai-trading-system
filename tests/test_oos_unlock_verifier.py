@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from dataclasses import dataclass
@@ -10,8 +11,18 @@ from pathlib import Path
 import pytest
 
 import src.history.oos_unlock as oos_unlock_module
-from src.history.oos_guard import TRACK_INTRADAY, OOSLockError, OOSUnlock
-from src.history.oos_unlock import ReviewEvidence, load_verified_oos_unlock
+from src.history.oos_guard import (
+    TRACK_INTRADAY,
+    OOSExecutionGrant,
+    OOSLockError,
+    OOSUnlock,
+)
+from src.history.oos_unlock import (
+    OOSExecutionSpec,
+    ReviewEvidence,
+    bind_verified_oos_execution,
+    load_verified_oos_unlock,
+)
 
 SNAPSHOT_HASH = "1" * 64
 REAL_REVIEW_VERIFIER = oos_unlock_module._verify_review_evidence
@@ -54,6 +65,18 @@ class RepoFixture:
     prereg_commit: str
     implementation_commit: str
 
+    def spec(self, **overrides) -> OOSExecutionSpec:
+        values = {
+            "strategy_id": "p0-us30-orb",
+            "prereg_path": "docs/research/PREREG.md",
+            "config_path": "docs/research/PREREG.json",
+            "implementation_paths": ("src/strategy.py",),
+            "snapshot_manifest_path": "docs/research/SNAPSHOT.json",
+            "snapshot_hash_field": "data_content_sha256",
+        }
+        values.update(overrides)
+        return OOSExecutionSpec(**values)
+
 
 def _commit(repo: Path, message: str) -> str:
     _git(repo, "add", ".")
@@ -76,6 +99,10 @@ def _make_repo(tmp_path: Path, *, prereg_contains_hash: bool = True) -> RepoFixt
         f"snapshot={SNAPSHOT_HASH}\n" if prereg_contains_hash else "snapshot=pending\n",
         encoding="utf-8",
     )
+    config = repo / "docs" / "research" / "PREREG.json"
+    config_bytes = b'{"opening_range_minutes":15}\n'
+    config.write_bytes(config_bytes)
+    config_sha256 = hashlib.sha256(config_bytes).hexdigest()
     prereg_commit = _commit(repo, "prereg")
 
     implementation = repo / "src" / "strategy.py"
@@ -84,13 +111,19 @@ def _make_repo(tmp_path: Path, *, prereg_contains_hash: bool = True) -> RepoFixt
     implementation_commit = _commit(repo, "implementation")
 
     payload = {
-        "schema": "oos-unlock/v1",
+        "schema": "oos-unlock/v2",
         "track": "intraday",
+        "execution": {"strategy_id": "p0-us30-orb"},
         "prereg": {
             "path": "docs/research/PREREG.md",
             "merge_commit": prereg_commit,
+            "config_path": "docs/research/PREREG.json",
+            "config_sha256": config_sha256,
         },
-        "implementation": {"commit": implementation_commit},
+        "implementation": {
+            "commit": implementation_commit,
+            "paths": ["src/strategy.py"],
+        },
         "snapshot": {
             "manifest_path": "docs/research/SNAPSHOT.json",
             "hash_field": "data_content_sha256",
@@ -131,11 +164,31 @@ def test_verified_artifact_returns_unlock(tmp_path):
         repo_root=fixture.root,
     )
     assert unlock.is_valid_for(TRACK_INTRADAY) is True
+    assert unlock.strategy_id == "p0-us30-orb"
     assert unlock.prereg_merge_commit == fixture.prereg_commit
     assert unlock.implementation_commit == fixture.implementation_commit
     assert unlock.snapshot_hash == SNAPSHOT_HASH
     assert unlock.artifact_path == "docs/research/OOS_UNLOCK.json"
     assert len(unlock.artifact_sha256) == 64
+
+
+def test_verified_execution_binding_returns_grant(tmp_path):
+    fixture = _make_repo(tmp_path)
+    unlock = load_verified_oos_unlock(fixture.artifact, repo_root=fixture.root)
+    grant = bind_verified_oos_execution(unlock, fixture.spec(), repo_root=fixture.root)
+    assert grant.is_valid_for(TRACK_INTRADAY, "p0-us30-orb") is True
+    assert grant.strategy_id == "p0-us30-orb"
+    assert len(grant.execution_fingerprint) == 64
+
+
+def test_direct_execution_grant_construction_is_rejected():
+    with pytest.raises(OOSLockError, match="직접 생성 금지"):
+        OOSExecutionGrant(
+            track="intraday",
+            strategy_id="p0-us30-orb",
+            artifact_sha256="a" * 64,
+            execution_fingerprint="b" * 64,
+        )
 
 
 def test_direct_unlock_construction_is_rejected():
@@ -291,6 +344,96 @@ def test_artifact_schema_is_fail_closed(tmp_path, mutate, message):
             fixture.artifact,
             repo_root=fixture.root,
         )
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"strategy_id": "other-strategy"},
+        {"prereg_path": "docs/research/OTHER.md"},
+        {"config_path": "docs/research/OTHER.json"},
+        {"implementation_paths": ("src/other.py",)},
+        {"snapshot_manifest_path": "docs/research/OTHER.json"},
+        {"snapshot_hash_field": "raw_content_sha256"},
+    ],
+)
+def test_execution_subject_mismatch_is_fail_closed(tmp_path, overrides):
+    fixture = _make_repo(tmp_path)
+    unlock = load_verified_oos_unlock(fixture.artifact, repo_root=fixture.root)
+    with pytest.raises(OOSLockError, match="실행 주체가 artifact와 불일치"):
+        bind_verified_oos_execution(
+            unlock, fixture.spec(**overrides), repo_root=fixture.root
+        )
+
+
+def test_execution_config_drift_after_artifact_is_rejected(tmp_path):
+    fixture = _make_repo(tmp_path)
+    unlock = load_verified_oos_unlock(fixture.artifact, repo_root=fixture.root)
+    config = fixture.root / "docs" / "research" / "PREREG.json"
+    config.write_text('{"opening_range_minutes":5}\n', encoding="utf-8")
+    _commit(fixture.root, "drift config")
+    with pytest.raises(OOSLockError, match="사전등록 config와 다르다"):
+        bind_verified_oos_execution(unlock, fixture.spec(), repo_root=fixture.root)
+
+
+def test_execution_artifact_drift_after_load_is_rejected(tmp_path):
+    fixture = _make_repo(tmp_path)
+    unlock = load_verified_oos_unlock(fixture.artifact, repo_root=fixture.root)
+    fixture.artifact.write_text("{}\n", encoding="utf-8")
+    with pytest.raises(OOSLockError, match="commit되지 않은 변경"):
+        bind_verified_oos_execution(unlock, fixture.spec(), repo_root=fixture.root)
+
+
+def test_execution_implementation_drift_after_artifact_is_rejected(tmp_path):
+    fixture = _make_repo(tmp_path)
+    unlock = load_verified_oos_unlock(fixture.artifact, repo_root=fixture.root)
+    implementation = fixture.root / "src" / "strategy.py"
+    implementation.write_text("VALUE = 2\n", encoding="utf-8")
+    _commit(fixture.root, "drift implementation")
+    with pytest.raises(OOSLockError, match="독립 리뷰 commit과 다르다"):
+        bind_verified_oos_execution(unlock, fixture.spec(), repo_root=fixture.root)
+
+
+def test_execution_snapshot_drift_after_artifact_is_rejected(tmp_path):
+    fixture = _make_repo(tmp_path)
+    unlock = load_verified_oos_unlock(fixture.artifact, repo_root=fixture.root)
+    manifest = fixture.root / "docs" / "research" / "SNAPSHOT.json"
+    _write_json(manifest, {"data_content_sha256": "2" * 64})
+    _commit(fixture.root, "drift snapshot")
+    with pytest.raises(
+        OOSLockError, match="snapshot manifest가 unlock artifact와 다르다"
+    ):
+        bind_verified_oos_execution(unlock, fixture.spec(), repo_root=fixture.root)
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    [
+        (
+            lambda payload: payload["execution"].update({"strategy_id": ""}),
+            "strategy_id",
+        ),
+        (
+            lambda payload: payload["prereg"].update({"config_sha256": "bad"}),
+            "config_sha256",
+        ),
+        (
+            lambda payload: payload["implementation"].update({"paths": []}),
+            "비어 있지 않은",
+        ),
+        (
+            lambda payload: payload["implementation"].update(
+                {"paths": ["docs/research/PREREG.md"]}
+            ),
+            "Python 파일",
+        ),
+    ],
+)
+def test_execution_identity_schema_is_fail_closed(tmp_path, mutate, message):
+    fixture = _make_repo(tmp_path)
+    _rewrite_and_amend(fixture, mutate)
+    with pytest.raises(OOSLockError, match=message):
+        load_verified_oos_unlock(fixture.artifact, repo_root=fixture.root)
 
 
 @pytest.mark.parametrize(
@@ -567,7 +710,9 @@ def test_github_plain_pr_requires_matching_formal_review(monkeypatch):
 
 def test_contract_documents_fail_closed_scope_without_creating_artifact():
     text = CONTRACT.read_text(encoding="utf-8")
-    assert '"schema": "oos-unlock/v1"' in text
+    assert '"schema": "oos-unlock/v2"' in text
+    assert "OOSExecutionGrant" in text
+    assert "bind_verified_oos_execution" in text
     assert "GitHub API·인증·네트워크·JSON" in text
     assert "lambda True" in text
     assert "실 unlock artifact를 만들지 않으며 OOS도" in text

@@ -13,6 +13,7 @@ AST 기반이므로 docstring/주석의 언급은 위반으로 잡지 않는다(
 직접 조회는 정적 검사로 못 잡는다 — 이 테스트의 목적은 **우발적 직접 import 방지**이며,
 실제 blind OOS 개봉의 증거 검증은 #78 검증 로더가 담당한다.
 """
+
 from __future__ import annotations
 
 import ast
@@ -68,7 +69,8 @@ def test_no_direct_load_candles_outside_gate():
             offenders[rel] = refs
     assert offenders == {}, (
         "load_candles 직접 사용 금지 — blind OOS 게이트(oos_guard.research_load)를 "
-        f"경유하라(계약 §5.1). 위반: {offenders}")
+        f"경유하라(계약 §5.1). 위반: {offenders}"
+    )
 
 
 def test_allowlist_files_exist():
@@ -87,8 +89,8 @@ def test_eval_slices_wired_through_guarded_loader():
     assert _direct_load_candles_refs(path) == []
 
 
-def test_verified_unlock_factory_is_private_to_verifier():
-    """production 코드가 검증 로더를 건너뛰어 private factory를 호출하지 못한다."""
+def test_verified_unlock_and_grant_factories_are_private_to_verifier():
+    """production 코드가 artifact 검증·실행 결속을 건너뛰지 못한다."""
     allowed = {
         os.path.join("src", "history", "oos_guard.py"),
         os.path.join("src", "history", "oos_unlock.py"),
@@ -101,15 +103,15 @@ def test_verified_unlock_factory_is_private_to_verifier():
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), filename=path)
         for node in ast.walk(tree):
-            if (
-                isinstance(node, ast.Attribute)
-                and node.attr == "_from_verified_artifact"
-            ):
+            if isinstance(node, ast.Attribute) and node.attr in {
+                "_from_verified_artifact",
+                "_from_verified_execution",
+            }:
                 offenders.append(f"{rel}:{node.lineno}")
             if (
                 isinstance(node, ast.Call)
                 and isinstance(node.func, ast.Name)
-                and node.func.id == "OOSUnlock"
+                and node.func.id in {"OOSUnlock", "OOSExecutionGrant"}
             ):
                 offenders.append(f"{rel}:{node.lineno}")
-    assert offenders == [], f"OOSUnlock 검증 우회 production 호출: {offenders}"
+    assert offenders == [], f"OOS 검증/실행결속 우회 production 호출: {offenders}"

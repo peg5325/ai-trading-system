@@ -14,7 +14,10 @@
 - **배선(opt-in 아님)**: 공식 연구/평가 코드는 이 로더를 경유해야 한다. `load_candles` 직접
   import 는 `tests/test_oos_guard_wiring.py` 의 AST 경계 테스트가 src/·scripts/·analysis/ 전역에서
   금지한다(PR #77 독립 리뷰 차단 1 반영).
-- **검증된 unlock 만 허용**: `OOSUnlock` 은 직접 생성할 수 없다. 추적·append-only artifact,
+- **검증된 execution grant 만 허용**: `OOSUnlock` 은 artifact 증거 객체일 뿐 OOS를 직접 열지
+  못한다. artifact와 현재 실행 전략·사전등록 config·구현 파일·snapshot을 다시 결속한
+  `OOSExecutionGrant`만 성과 경로를 연다(#113).
+- `OOSUnlock` 은 직접 생성할 수 없다. 추적·append-only artifact,
   main 에 병합된 prereg/implementation commit, prereg↔manifest snapshot hash, 독립 리뷰 승인을
   `src.history.oos_unlock.load_verified_oos_unlock` 이 모두 대조한 뒤에만 생성된다(#78).
 
@@ -24,6 +27,7 @@
 
 ★ 자본 안전: 주문/broker/risk/pipeline 을 import 하지 않는다. read-only 로더만 위임.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -59,9 +63,16 @@ class OOSUnlock:
     """
 
     track: str
+    strategy_id: str
     prereg_merge_commit: str
+    prereg_path: str
+    config_path: str
+    config_sha256: str
     implementation_commit: str
+    implementation_paths: tuple[str, ...]
     snapshot_hash: str
+    snapshot_manifest_path: str
+    snapshot_hash_field: str
     review_status: str
     artifact_path: str
     artifact_sha256: str
@@ -78,9 +89,16 @@ class OOSUnlock:
         cls,
         *,
         track: str,
+        strategy_id: str,
         prereg_merge_commit: str,
+        prereg_path: str,
+        config_path: str,
+        config_sha256: str,
         implementation_commit: str,
+        implementation_paths: tuple[str, ...],
         snapshot_hash: str,
+        snapshot_manifest_path: str,
+        snapshot_hash_field: str,
         review_status: str,
         artifact_path: str,
         artifact_sha256: str,
@@ -89,9 +107,16 @@ class OOSUnlock:
         obj = object.__new__(cls)
         for name, value in (
             ("track", track),
+            ("strategy_id", strategy_id),
             ("prereg_merge_commit", prereg_merge_commit),
+            ("prereg_path", prereg_path),
+            ("config_path", config_path),
+            ("config_sha256", config_sha256),
             ("implementation_commit", implementation_commit),
+            ("implementation_paths", implementation_paths),
             ("snapshot_hash", snapshot_hash),
+            ("snapshot_manifest_path", snapshot_manifest_path),
+            ("snapshot_hash_field", snapshot_hash_field),
             ("review_status", review_status),
             ("artifact_path", artifact_path),
             ("artifact_sha256", artifact_sha256),
@@ -102,12 +127,64 @@ class OOSUnlock:
     def is_valid_for(self, track: str) -> bool:
         return (
             self.track == track
+            and bool(self.strategy_id)
             and bool(self.prereg_merge_commit)
+            and bool(self.prereg_path)
+            and bool(self.config_path)
+            and bool(self.config_sha256)
             and bool(self.implementation_commit)
+            and bool(self.implementation_paths)
             and bool(self.snapshot_hash)
+            and bool(self.snapshot_manifest_path)
+            and bool(self.snapshot_hash_field)
             and self.review_status in _APPROVED_REVIEW
             and bool(self.artifact_path)
             and bool(self.artifact_sha256)
+        )
+
+
+@dataclass(frozen=True, init=False)
+class OOSExecutionGrant:
+    """현재 실행 주체와 검증 artifact를 다시 결속한 단명 권한 객체."""
+
+    track: str
+    strategy_id: str
+    artifact_sha256: str
+    execution_fingerprint: str
+
+    def __init__(self, *args, **kwargs) -> None:
+        del args, kwargs
+        raise OOSLockError(
+            "OOSExecutionGrant 직접 생성 금지 — 검증된 unlock과 현재 실행 주체를 "
+            "bind_verified_oos_execution()으로 결속해야 한다"
+        )
+
+    @classmethod
+    def _from_verified_execution(
+        cls,
+        *,
+        track: str,
+        strategy_id: str,
+        artifact_sha256: str,
+        execution_fingerprint: str,
+    ) -> OOSExecutionGrant:
+        """실행 결속기 전용 factory. production 직접 호출은 경계 테스트가 금지한다."""
+        obj = object.__new__(cls)
+        for name, value in (
+            ("track", track),
+            ("strategy_id", strategy_id),
+            ("artifact_sha256", artifact_sha256),
+            ("execution_fingerprint", execution_fingerprint),
+        ):
+            object.__setattr__(obj, name, value)
+        return obj
+
+    def is_valid_for(self, track: str, strategy_id: str) -> bool:
+        return (
+            self.track == track
+            and self.strategy_id == strategy_id
+            and bool(self.artifact_sha256)
+            and bool(self.execution_fingerprint)
         )
 
 
@@ -121,37 +198,57 @@ def _oos_bounds_utc(track: str) -> tuple[datetime, datetime]:
     """blind OOS 창을 ET 거래일 기준 half-open [lo, hi) UTC datetime 으로."""
     lo_d, hi_d = blind_oos_window(track)
     lo = datetime(lo_d.year, lo_d.month, lo_d.day, tzinfo=ET)
-    hi = datetime(hi_d.year, hi_d.month, hi_d.day, tzinfo=ET) + timedelta(days=1)  # inclusive→exclusive
+    hi = datetime(hi_d.year, hi_d.month, hi_d.day, tzinfo=ET) + timedelta(
+        days=1
+    )  # inclusive→exclusive
     return lo, hi
 
 
-def overlaps_blind_oos(start: datetime | None, end: datetime | None, track: str) -> bool:
+def overlaps_blind_oos(
+    start: datetime | None, end: datetime | None, track: str
+) -> bool:
     """요청 [start, end) 가 blind OOS 창과 겹치는가.
 
     start/end 중 하나라도 None(무제한)이면 그쪽은 OOS 를 덮는 것으로 본다(fail-closed).
     """
     lo, hi = _oos_bounds_utc(track)
-    after_lo = (end is None) or (end > lo)      # 요청이 lo 이후로 뻗음
+    after_lo = (end is None) or (end > lo)  # 요청이 lo 이후로 뻗음
     before_hi = (start is None) or (start < hi)  # 요청이 hi 이전에서 시작
     return after_lo and before_hi
 
 
-def assert_window_unlocked(start: datetime | None, end: datetime | None, *,
-                           track: str, unlock: OOSUnlock | None) -> None:
-    """성과 경로 게이트: [start,end) 가 blind OOS 와 겹치면 유효 unlock 없이는 raise."""
+def assert_window_unlocked(
+    start: datetime | None,
+    end: datetime | None,
+    *,
+    track: str,
+    strategy_id: str | None,
+    execution_grant: OOSExecutionGrant | None,
+) -> None:
+    """성과 경로 게이트: OOS와 겹치면 실행 주체 결속 grant 없이는 raise."""
     if not overlaps_blind_oos(start, end, track):
-        return                                  # train/validation 구간 → 허용
-    if unlock is not None and unlock.is_valid_for(track):
-        return                                  # 유효 unlock → 개봉
+        return  # train/validation 구간 → 허용
+    if (
+        execution_grant is not None
+        and strategy_id is not None
+        and execution_grant.is_valid_for(track, strategy_id)
+    ):
+        return  # 검증된 실행 결속 → 개봉
     lo, hi = blind_oos_window(track)
     raise OOSLockError(
-        f"blind OOS({track}: {lo}~{hi}) 성과 접근은 fail-closed — 유효한 OOSUnlock "
-        f"(사전등록 merge·구현 commit·snapshot hash·review=approved) 필요. "
-        f"(coverage/schema 검사는 purpose='coverage' 로 허용)")
+        f"blind OOS({track}: {lo}~{hi}) 성과 접근은 fail-closed — 유효한 "
+        f"OOSExecutionGrant(artifact+전략·config·구현·snapshot 실행 결속) 필요. "
+        f"(coverage/schema 검사는 purpose='coverage' 로 허용)"
+    )
 
 
-def guard_returns_for_candles(candles: list[Candle], *, track: str,
-                              unlock: OOSUnlock | None = None) -> None:
+def guard_returns_for_candles(
+    candles: list[Candle],
+    *,
+    track: str,
+    strategy_id: str | None = None,
+    execution_grant: OOSExecutionGrant | None = None,
+) -> None:
     """캔들 집합에서 [min ts, max ts] 를 유도해 성과 경로 게이트 적용(빈 리스트는 no-op).
 
     연구 forward-return/전략 성과 계산 **직전**에 호출한다(가격 수익률 계산 경계).
@@ -160,14 +257,28 @@ def guard_returns_for_candles(candles: list[Candle], *, track: str,
         return
     tss = [c.ts_utc for c in candles]
     lo, hi = min(tss), max(tss)
-    assert_window_unlocked(lo, hi + timedelta(microseconds=1), track=track, unlock=unlock)
+    assert_window_unlocked(
+        lo,
+        hi + timedelta(microseconds=1),
+        track=track,
+        strategy_id=strategy_id,
+        execution_grant=execution_grant,
+    )
 
 
-def research_load(db_path: str, symbol: str, interval: str, *,
-                  start: datetime | None = None, end: datetime | None = None,
-                  purpose: str = "performance", track: str = TRACK_INTRADAY,
-                  unlock: OOSUnlock | None = None,
-                  market: str | None = None) -> list[Candle]:
+def research_load(
+    db_path: str,
+    symbol: str,
+    interval: str,
+    *,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    purpose: str = "performance",
+    track: str = TRACK_INTRADAY,
+    strategy_id: str | None = None,
+    execution_grant: OOSExecutionGrant | None = None,
+    market: str | None = None,
+) -> list[Candle]:
     """연구용 read-only 로더 게이트.
 
     - purpose="performance"(기본, fail-closed): [start,end) 가 blind OOS 와 겹치면 유효 unlock
@@ -178,5 +289,11 @@ def research_load(db_path: str, symbol: str, interval: str, *,
     if purpose not in ("performance", "coverage"):
         raise ValueError(f"purpose 는 'performance'|'coverage' — got {purpose!r}")
     if purpose == "performance":
-        assert_window_unlocked(start, end, track=track, unlock=unlock)
+        assert_window_unlocked(
+            start,
+            end,
+            track=track,
+            strategy_id=strategy_id,
+            execution_grant=execution_grant,
+        )
     return load_candles(db_path, symbol, interval, start=start, end=end, market=market)

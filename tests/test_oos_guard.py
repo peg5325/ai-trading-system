@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.history import HistoryStore
 from src.history.oos_guard import (
     TRACK_INTRADAY,
+    OOSExecutionGrant,
     OOSLockError,
     OOSUnlock,
     blind_oos_window,
@@ -51,16 +52,13 @@ def _make_db(tmp_path) -> str:
     return db
 
 
-def _valid_unlock() -> OOSUnlock:
-    """게이트 단위 테스트용 검증완료 객체(실 artifact 검증은 별도 테스트)."""
-    return OOSUnlock._from_verified_artifact(
+def _valid_grant() -> OOSExecutionGrant:
+    """게이트 단위 테스트용 실행 결속 객체(실 결속 검증은 별도 테스트)."""
+    return OOSExecutionGrant._from_verified_execution(
         track=TRACK_INTRADAY,
-        prereg_merge_commit="a" * 40,
-        implementation_commit="b" * 40,
-        snapshot_hash="d" * 64,
-        review_status="approved",
-        artifact_path="docs/research/OOS_UNLOCK_TEST.json",
+        strategy_id="p0-us30-orb",
         artifact_sha256="e" * 64,
+        execution_fingerprint="f" * 64,
     )
 
 
@@ -130,14 +128,32 @@ def test_coverage_load_on_oos_allowed(tmp_path):
 
 # ---- unlock provenance ----
 
-def test_valid_unlock_opens_gate(tmp_path):
+def test_valid_execution_grant_opens_gate(tmp_path):
     db = _make_db(tmp_path)
     got = research_load(db, "SPY", "1m",
                         start=datetime(2026, 3, 1, tzinfo=ET),
                         end=datetime(2026, 4, 1, tzinfo=ET),
                         purpose="performance", track=TRACK_INTRADAY,
-                        unlock=_valid_unlock())
+                        strategy_id="p0-us30-orb",
+                        execution_grant=_valid_grant())
     assert len(got) == 1
+
+
+@pytest.mark.parametrize("strategy_id", [None, "other-strategy"])
+def test_execution_grant_requires_matching_strategy_id(tmp_path, strategy_id):
+    db = _make_db(tmp_path)
+    with pytest.raises(OOSLockError):
+        research_load(
+            db,
+            "SPY",
+            "1m",
+            start=datetime(2026, 3, 1, tzinfo=ET),
+            end=datetime(2026, 4, 1, tzinfo=ET),
+            purpose="performance",
+            track=TRACK_INTRADAY,
+            strategy_id=strategy_id,
+            execution_grant=_valid_grant(),
+        )
 
 
 def test_incomplete_unlock_stays_locked(tmp_path):
@@ -154,8 +170,8 @@ def test_incomplete_unlock_stays_locked(tmp_path):
 
 
 def test_unlock_wrong_track_rejected():
-    u = _valid_unlock()                       # track=intraday
-    assert u.is_valid_for("swing") is False   # 다른 track 엔 무효
+    u = _valid_grant()                        # track=intraday
+    assert u.is_valid_for("swing", "p0-us30-orb") is False   # 다른 track 엔 무효
 
 
 # ---- 캔들 기반 성과 가드 ----
@@ -167,4 +183,9 @@ def test_guard_returns_for_candles(tmp_path):
         guard_returns_for_candles(oos, track=TRACK_INTRADAY)     # 성과 계산 직전 차단
     guard_returns_for_candles(train, track=TRACK_INTRADAY)       # train → 통과
     guard_returns_for_candles([], track=TRACK_INTRADAY)          # 빈 리스트 no-op
-    guard_returns_for_candles(oos, track=TRACK_INTRADAY, unlock=_valid_unlock())  # 개봉
+    guard_returns_for_candles(
+        oos,
+        track=TRACK_INTRADAY,
+        strategy_id="p0-us30-orb",
+        execution_grant=_valid_grant(),
+    )  # 개봉
