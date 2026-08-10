@@ -18,6 +18,7 @@
 | r2.1 | 2026-07-23 | #75 | 계획 정본을 이 Git 추적 파일로 이관(내용 변경 없음, `.omx` 는 로컬 mirror). |
 | r3 | 2026-07-30 | #98 | ORB development gate 실패(`RESULT_P0_US30_ORB_DEVELOPMENT.md`)에 따라 **ORB 규칙 수정·blind OOS 개봉 없이 종료**하고, 사전에 정한 두 번째 당일청산 후보 **Gap + RVOL Continuation**의 독립 사전등록으로 이동한다. 데이터 identity·비용·개발/OOS 게이트는 무완화. 근거: `DECISION_DAYTRADING_GAP_RVOL_NEXT.md`. |
 | r4 | 2026-08-10 | #109 | Gap+RVOL D9 결손의 Toss-only 복구가 불가능하고 사용자가 외부 공급자를 사용하지 않기로 결정했다. verdict를 `INCONCLUSIVE_DATA`로 유지하고 blind OOS·후보 3을 열지 않은 채 이번 데이터 원천 기반 순차 연구를 종결한다. 이는 `NO_SELECTION` 재분류나 품질 기준 완화가 아니다. 근거: `DECISION_P0_US30_GAP_RVOL_NO_EXTERNAL_SOURCE.{md,json}`. |
+| r5 | 2026-08-10 | #111 | 계획의 조기 종료 상태를 `RESULT_ONE_MONTH_STRATEGY_SELECTION_CLOSEOUT.{md,json}`으로 고정한다. 전략 선정·blind OOS·Paper·AI shadow·실거래는 미실행이며, 재개에는 새 계획·새 데이터 완전성 계약·새 사전등록이 필요하다. |
 
 > **r3 실행 순서(현행·이전 규칙 대체)**: ORB는 development-only `INCONCLUSIVE_DATA`로 중단됐고 blind OOS는 열지 않았다. 다음은 **Gap + RVOL Continuation 사전등록 → 별도 구현·독립 리뷰 → development-only 판정**이다. 이 전략도 D1~D9 development gate를 모두 통과한 경우에만 #78 unlock을 거쳐 blind OOS를 한 번 연다. D1~D8 경제·통계 gate 실패면 `NO_SELECTION`으로 규칙을 고치지 않고 세 번째 후보 VWAP/ATR Mean Reversion으로 이동할 수 있다. D9 데이터·운영 결함이면 `INCONCLUSIVE_DATA`로 중단하고 결함 교정·독립 재리뷰 전에는 OOS를 열거나 다음 후보로 이동하지 않는다. 스윙(1d·VCP-lite)은 후속 보류 상태를 유지한다. **r3는 “4개 전략 모두를 먼저 사전등록한 뒤 어떤 blind OOS도 연다”는 r1의 일괄 토너먼트 순서를 대체한다. 현행 규칙은 “각 후보의 blind OOS 전에 해당 후보 사전등록·구현·독립 리뷰를 완료”하는 순차 방식이며, 아직 열지 않을 후속 후보를 미리 사전등록하지 않는다.** 공통 데이터 identity·비용(0.14/0.34/0.68%p)·OOS 경계·품질·선택 게이트는 바뀌지 않는다.
 
@@ -359,3 +360,18 @@ AI shadow 출력:
 - [ ] Paper는 fresh namespace와 FULL manifest 사용.
 - [ ] AI shadow 결과가 주문에 영향을 주지 않았음을 parity 테스트로 증명.
 - [ ] 실주문 provider 비활성 유지.
+
+### r5 종료 적용성 감사
+
+| 항목 | 상태 | 근거 |
+| --- | --- | --- |
+| H4 단일 패스 | 완료 | `RESULT_screener_ranking_h4.md` |
+| 데이터 snapshot/hash·품질 리포트 | 완료 | P0-US30 일봉·1분봉·clean snapshot manifest와 외부 복제 receipt |
+| 후보별 prereg·구현·독립 리뷰 | 완료(실행 후보 범위) | ORB와 Gap+RVOL 정본·구현 매핑·development 결과 |
+| blind OOS·walk-forward | 해당 없음 | 두 후보 모두 D9 `INCONCLUSIVE_DATA`; #78 unlock 미생성 |
+| 공통 leaderboard·전략 선정 | 해당 없음 | 비교 가능한 OOS 판정 전략 0개; 최종 `INCONCLUSIVE_DATA` |
+| Paper·AI shadow | 해당 없음 | 선택 전략 없음; 단계 진입 금지 |
+| 실계좌 전환 readiness | 해당 없음 | 이 계획 범위 밖이며 실주문 비활성 유지 |
+
+이 표는 원래 체크리스트의 기준을 완화하지 않는다. terminal 상태 때문에 실행하지 않은 항목을
+“완료”로 바꾸지 않고 **해당 없음**으로 분리해, 계획 종료와 전략 승격을 혼동하지 않게 한다.
