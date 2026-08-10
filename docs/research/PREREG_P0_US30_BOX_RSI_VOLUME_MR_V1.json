@@ -56,6 +56,13 @@
     "close_min_ema_distance_atr_multiple": -0.5,
     "entry": "next-complete-5m-bar-open"
   },
+  "indicator_conventions": {
+    "atr": "Wilder RMA; seed=simple mean of first 14 true ranges",
+    "rsi": "Wilder RMA of gains/losses; seed=simple mean of first 5 changes",
+    "ema": "alpha=2/(20+1); seed=first complete 5m close",
+    "volume_median": "exact median of previous 20 bars; even sample=mean of middle pair",
+    "feature_timing": "all signal features use data through signal-bar close only"
+  },
   "exit": {
     "stop_atr_below_box": 0.25,
     "target": "box-midpoint",
