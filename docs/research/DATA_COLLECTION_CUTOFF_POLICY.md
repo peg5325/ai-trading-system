@@ -209,7 +209,8 @@ coverage 범위가 필요하면 `HistoryStore.symbol_coverage()`(read-only 집�
   --run-id …` 로 **30종목×3년 1m bulk 수집**(사용자 승인 후 실행) → 그 run_id 로 §7.2 교차검증.
   10년 일봉은 이미 수집(#70)돼 재수집은 선택.
 - **#76**(리샘플러 통일): ORB 공식 사전등록/백테스트 **전** 별도 blocking gate. 이번 PR 범위 밖.
-- **#78**(blind OOS unlock 검증 로더): blind OOS 개봉 **직전** 필수. 이번 PR 범위 밖.
+- **#78**(blind OOS unlock 검증 로더): `src/history/oos_unlock.py`와
+  `OOS_UNLOCK_VERIFICATION_CONTRACT.md`로 구현. blind OOS 개봉 **직전** 실제 artifact 전수 검증 필수.
 
 ## 9. 알려진 잔여/후속(조용히 생략하지 않음)
 

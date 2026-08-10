@@ -85,3 +85,31 @@ def test_eval_slices_wired_through_guarded_loader():
     assert "from src.history.oos_guard import research_load" in src
     assert 'purpose="coverage"' in src
     assert _direct_load_candles_refs(path) == []
+
+
+def test_verified_unlock_factory_is_private_to_verifier():
+    """production 코드가 검증 로더를 건너뛰어 private factory를 호출하지 못한다."""
+    allowed = {
+        os.path.join("src", "history", "oos_guard.py"),
+        os.path.join("src", "history", "oos_unlock.py"),
+    }
+    offenders = []
+    for path in _py_files():
+        rel = os.path.relpath(path, REPO)
+        if rel in allowed:
+            continue
+        with open(path, encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=path)
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Attribute)
+                and node.attr == "_from_verified_artifact"
+            ):
+                offenders.append(f"{rel}:{node.lineno}")
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "OOSUnlock"
+            ):
+                offenders.append(f"{rel}:{node.lineno}")
+    assert offenders == [], f"OOSUnlock 검증 우회 production 호출: {offenders}"
