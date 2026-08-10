@@ -92,7 +92,7 @@ def run_screen(
         "schema": "p0_us30_gross_edge_screen_result_v1",
         "strategy_id": contract["strategy_id"],
         "verdict": overall_verdict(results),
-        "blind_oos_accessed": false,
+        "blind_oos_accessed": False,
         "development_window": {
             "start": evaluation_days[0].isoformat(),
             "end": evaluation_days[-1].isoformat(),
@@ -130,4 +130,3 @@ def default_manifest_path() -> str:
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
         "docs/research/P0_US30_ORB_CLEAN_1M_MANIFEST.json",
     )
-
