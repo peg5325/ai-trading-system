@@ -75,4 +75,3 @@ def exact_median(values: Sequence[float]) -> float:
     if len(ordered) % 2:
         return ordered[mid]
     return (ordered[mid - 1] + ordered[mid]) / 2.0
-

@@ -59,4 +59,3 @@ def complete_regular_5m(candles: tuple[Candle, ...], day: date, symbol: str
     if len(bars) != expected_bars:
         return (), ("incomplete_5m_resample",)
     return tuple(bars), ()
-
