@@ -3,4 +3,3 @@
 from .contract import STRATEGY_ID, load_contract
 
 __all__ = ["STRATEGY_ID", "load_contract"]
-

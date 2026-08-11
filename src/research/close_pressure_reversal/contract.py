@@ -57,4 +57,3 @@ def _validate_contract(doc: dict[str, Any]) -> None:
         raise ContractError("blind OOS는 닫혀 있어야 한다")
     if doc.get("discipline", {}).get("oos_grant_allowed") is not False:
         raise ContractError("development 실행은 OOS grant를 받을 수 없다")
-
