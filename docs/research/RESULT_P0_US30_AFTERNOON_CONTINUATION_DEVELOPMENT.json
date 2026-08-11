@@ -1,0 +1,174 @@
+{
+  "blind_oos_opened": false,
+  "candidate_count_before_portfolio": 115,
+  "defects": {
+    "incomplete_symbol_day_ratio": 0.04786069651741293,
+    "incomplete_symbol_days": 962,
+    "major_defects": 0,
+    "new_conflicts": 0,
+    "total_symbol_days": 20100
+  },
+  "exclusions": {
+    "incomplete_regular_session": 962,
+    "insufficient_morning_volume_lookback": 14
+  },
+  "execution_audit": [
+    {
+      "issue": "signal_completion_window_compared_against_start_label",
+      "performance_values_inspected_before_fix": true,
+      "phase": "post_result_merge_review",
+      "resolution": "compare_canonical_5m_start_label_plus_5_minutes",
+      "result_regenerated": true,
+      "strategy_rules_changed": false
+    }
+  ],
+  "exit_reasons": {
+    "eod": 39,
+    "stop": 46,
+    "target": 25
+  },
+  "filters": {
+    "ema_not_reclaimed": 846,
+    "ema_slope": 61,
+    "morning_ema_or_move": 14,
+    "morning_return": 15268,
+    "morning_volume": 2474,
+    "morning_vwap": 163,
+    "no_signal": 1090,
+    "retracement": 23725,
+    "signal_volume": 415,
+    "vwap_not_reclaimed": 6047,
+    "vwap_not_touched": 14637
+  },
+  "gate": {
+    "failed": [
+      "D1",
+      "D2",
+      "D3",
+      "D4",
+      "D6",
+      "D7"
+    ],
+    "items": {
+      "D1": false,
+      "D2": false,
+      "D3": false,
+      "D4": false,
+      "D5": true,
+      "D6": false,
+      "D7": false,
+      "D9": true
+    },
+    "verdict": "NO_SELECTION"
+  },
+  "identity": [
+    {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "name": "snapshot_file",
+      "status": "match"
+    },
+    {
+      "actual": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "expected": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "name": "snapshot_content",
+      "status": "match"
+    },
+    {
+      "actual": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "expected": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "name": "manifest_data",
+      "status": "match"
+    },
+    {
+      "actual": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "expected": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "name": "raw_content",
+      "status": "match"
+    }
+  ],
+  "payload_sha256": "fcac5096c21961c05d1ffc5db476bd98f23f78506cfc192d4f8c5cde7a98711b",
+  "portfolio_skips": {
+    "family_cap": 1,
+    "qty_lt_1": 4
+  },
+  "prereg": {
+    "json_sha256": "90c45be15f18288622cc7c57f629ec959e1adcf05fc19d9d09b7f45658d82b24",
+    "md_sha256": "24577d696e99ccc7add3a303909c91b0dc47bc1bfb439d896e6e459f5734a38a"
+  },
+  "schema": "p0-us30-afternoon-continuation-development/v1",
+  "scope": "development-only",
+  "stats": {
+    "low": {
+      "cumulative_net_pnl": -2275.7529510737236,
+      "fold_pnl": {
+        "F01": -254.80044675109934,
+        "F02": -571.380331236052,
+        "F03": 317.70588166108644,
+        "F04": 188.43347836214937,
+        "F05": 33.77459655677626,
+        "F06": -492.0578586463999,
+        "F07": 363.3338266468112,
+        "F08": -338.9852846853395,
+        "F09": -1175.61990853121,
+        "F10": -346.1569044504457
+      },
+      "mdd": 0.024032798762300717,
+      "net_expectancy": -20.688663191579305,
+      "positive_folds": 4,
+      "profit_factor": 0.7164879617196834,
+      "trade_count": 110,
+      "trading_days_with_trade": 94
+    },
+    "official": {
+      "cumulative_net_pnl": -6595.071748680974,
+      "fold_pnl": {
+        "F01": -892.2853637462449,
+        "F02": -1273.3287668097175,
+        "F03": -114.63390306988644,
+        "F04": -80.52732287708021,
+        "F05": -125.54950891360978,
+        "F06": -929.7798555856108,
+        "F07": -46.19199505502695,
+        "F08": -577.2408376877557,
+        "F09": -1651.084423182935,
+        "F10": -904.4497717531069
+      },
+      "mdd": 0.06595071748680974,
+      "net_expectancy": -59.955197715281585,
+      "positive_folds": 0,
+      "profit_factor": 0.39782509605963357,
+      "trade_count": 110,
+      "trading_days_with_trade": 94
+    },
+    "stress": {
+      "cumulative_net_pnl": -13937.913704613306,
+      "fold_pnl": {
+        "F01": -1976.0097226379924,
+        "F02": -2466.641107284949,
+        "F03": -849.6115371125402,
+        "F04": -537.7606849837706,
+        "F05": -396.40048821326616,
+        "F06": -1673.90725038227,
+        "F07": -742.3858919481519,
+        "F08": -982.2752777918637,
+        "F09": -2459.3740980908674,
+        "F10": -1853.5476461676317
+      },
+      "mdd": 0.13937913704613297,
+      "net_expectancy": -126.7083064055755,
+      "positive_folds": 0,
+      "profit_factor": 0.15503257031375883,
+      "trade_count": 110,
+      "trading_days_with_trade": 94
+    }
+  },
+  "strategy_id": "p0-us30-afternoon-continuation-v1",
+  "trade_count": 110,
+  "trades_sha256": "5514d8bd4a5b058fac90018ee113fe5211b4f3a5a1af64f2209dc897afc540a1",
+  "window": {
+    "end": "2026-01-20",
+    "start": "2023-05-18",
+    "trading_days": 670
+  }
+}
