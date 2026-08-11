@@ -426,7 +426,7 @@ def test_json_and_markdown_are_deterministic():
         "metrics": {level: metrics for level in ("gross", "low", "official", "stress")},
         "episode_digest_sha256": "0" * 64,
         "official_cost_drag": 0,
-        "official_cost_drag_vs_gross_profit": None,
+        "official_cost_drag_ratio_to_gross_pnl": None,
     }
     result = {
         "verdict": "NO_SELECTION",

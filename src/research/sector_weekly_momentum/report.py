@@ -66,7 +66,7 @@ def render_markdown(result: dict[str, Any]) -> str:
     add("")
     add("### 공식 비용 실행 수치")
     add("")
-    add("| portfolio | buys | sells | retained | mean hold | median hold | max loss streak | max symbol contribution | cost drag / gross |")
+    add("| portfolio | buys | sells | retained | mean hold | median hold | max loss streak | max symbol contribution | cost drag / gross PnL |")
     add("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
     for name in ("primary", "sensitivity", "equal_all"):
         portfolio = result[name]
@@ -77,7 +77,7 @@ def render_markdown(result: dict[str, Any]) -> str:
             f"{_number(metrics['holding_days_median'])} | "
             f"{metrics['max_consecutive_losses']:,} | "
             f"{_number(metrics['max_symbol_contribution'])} | "
-            f"{_number(portfolio['official_cost_drag_vs_gross_profit'])} |"
+            f"{_number(portfolio['official_cost_drag_ratio_to_gross_pnl'])} |"
         )
     add("")
     add("## 3. 데이터·경제 게이트")

@@ -480,7 +480,7 @@ def _run_levels(
         "metrics": metrics,
         "episode_digest_sha256": digest,
         "official_cost_drag": cost_drag,
-        "official_cost_drag_vs_gross_profit": (
+        "official_cost_drag_ratio_to_gross_pnl": (
             cost_drag / gross["total_net_pnl"]
             if gross["total_net_pnl"] > 0
             else None
@@ -683,6 +683,12 @@ def run_development(
             "issue": "derived_invalid_week_rate_missing_from_asdict",
             "resolution": "explicit_property_serialization",
             "performance_values_inspected_before_fix": False,
+            "strategy_rules_changed": False,
+        }, {
+            "phase": "post_result_self_review",
+            "issue": "cost_drag_ratio_field_misnamed_as_gross_profit",
+            "resolution": "renamed_to_gross_pnl_without_formula_change",
+            "performance_values_inspected_before_fix": True,
             "strategy_rules_changed": False,
         }],
         "verdict": verdict,
