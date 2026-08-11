@@ -1,25 +1,25 @@
 # P0-US30 오전 강세·점심 눌림·오후 재상승 development 결과
 
 > scope: **development-only** · blind OOS 미개봉
-> payload SHA-256: `8d032db4607d5db6da997fc181b5b3609bc4c919bb7bf8d79a4bb162a6ad25bb`
+> payload SHA-256: `fcac5096c21961c05d1ffc5db476bd98f23f78506cfc192d4f8c5cde7a98711b`
 
 ## 결론
 
 - verdict: **NO_SELECTION**
 - failed gates: `['D1', 'D2', 'D3', 'D4', 'D6', 'D7']`
-- candidates/trades: **116/111**
+- candidates/trades: **115/110**
 
 ## 비용별 성과
 
 | 비용 | 거래 | 거래일 | 누적 net | 기대값 | PF | MDD | 양수 fold |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| low | 111 | 95 | -2476.977075 | -22.315109 | 0.698966 | 0.024949 | 4 |
-| official | 111 | 95 | -6836.045874 | -61.585999 | 0.389260 | 0.068360 | 0 |
-| stress | 111 | 95 | -14246.462831 | -128.346512 | 0.152186 | 0.142465 | 0 |
+| low | 110 | 94 | -2275.752951 | -20.688663 | 0.716488 | 0.024033 | 4 |
+| official | 110 | 94 | -6595.071749 | -59.955198 | 0.397825 | 0.065951 | 0 |
+| stress | 110 | 94 | -13937.913705 | -126.708306 | 0.155033 | 0.139379 | 0 |
 
 ## 청산·포트폴리오
 
-- exit reasons: `{'eod': 39, 'stop': 47, 'target': 25}`
+- exit reasons: `{'eod': 39, 'stop': 46, 'target': 25}`
 - portfolio skips: `{'family_cap': 1, 'qty_lt_1': 4}`
 
 ## 게이트
@@ -47,3 +47,7 @@
 - 2026-01-21 이후 blind OOS를 로드하지 않았다.
 - 결과 후 임계값·목표·손절을 수정하지 않았다.
 - Paper·실거래 승격 결과가 아니다.
+
+## 실행 감사
+
+- post_result_merge_review: `signal_completion_window_compared_against_start_label` → `compare_canonical_5m_start_label_plus_5_minutes`; 성과 사전열람=True, 전략 규칙 변경=False
