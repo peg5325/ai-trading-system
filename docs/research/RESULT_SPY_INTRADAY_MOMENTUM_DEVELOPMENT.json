@@ -1,0 +1,201 @@
+{
+  "blind_oos_opened": false,
+  "defects": {
+    "incomplete_spy_day_ratio": 0.011940298507462687,
+    "incomplete_spy_days": 8,
+    "major_defects": 0,
+    "missing_previous_close_days": 0,
+    "missing_previous_close_ratio": 0.0,
+    "new_conflicts": 0,
+    "total_spy_days": 670
+  },
+  "exclusions": {
+    "incomplete_regular_session": 8
+  },
+  "execution_audit": {
+    "fixes": [
+      "tracked_full_receipts_plus_live_development_only_daily_hash",
+      "last_bar_start_label_plus_one_minute"
+    ],
+    "issues": [
+      "full_daily_identity_scanned_blind_oos_ohlcv",
+      "last_complete_bar_exit_timestamp_used_start_label"
+    ],
+    "performance_values_inspected_before_fix": true,
+    "result_regenerated": true,
+    "review_phase": "post_result_merge_review",
+    "strategy_rules_changed": false
+  },
+  "gate": {
+    "failed": [
+      "D3",
+      "D4",
+      "D5",
+      "D6",
+      "D7"
+    ],
+    "items": {
+      "D1": true,
+      "D2": true,
+      "D3": false,
+      "D4": false,
+      "D5": false,
+      "D6": false,
+      "D7": false,
+      "D9": true
+    },
+    "verdict": "NO_SELECTION"
+  },
+  "identity": [
+    {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "name": "snapshot_file",
+      "status": "match"
+    },
+    {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "name": "snapshot_receipt_file",
+      "status": "match"
+    },
+    {
+      "actual": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "expected": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "name": "snapshot_content_receipt",
+      "status": "match"
+    },
+    {
+      "actual": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "expected": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "name": "manifest_data_receipt",
+      "status": "match"
+    },
+    {
+      "actual": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "expected": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "name": "raw_content_index",
+      "status": "match"
+    },
+    {
+      "actual": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
+      "expected": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
+      "name": "daily_full_manifest_receipt",
+      "status": "match"
+    },
+    {
+      "actual": "76690",
+      "expected": "76690",
+      "name": "daily_full_rows_receipt",
+      "status": "match"
+    },
+    {
+      "actual": "0550100cdf9b6a04ec5ba191ab0037c189dae7ea4feeab222cadf0140b980f1c",
+      "expected": "0550100cdf9b6a04ec5ba191ab0037c189dae7ea4feeab222cadf0140b980f1c",
+      "name": "daily_development_content",
+      "status": "match"
+    },
+    {
+      "actual": "72940",
+      "expected": "72940",
+      "name": "daily_development_rows",
+      "status": "match"
+    }
+  ],
+  "official_direction_attribution": {
+    "LONG": {
+      "cumulative_net_pnl": -137497.2267264899,
+      "net_expectancy": -349.86571686129747,
+      "trade_count": 393
+    },
+    "SHORT": {
+      "cumulative_net_pnl": -91931.15850194002,
+      "net_expectancy": -341.7515185945726,
+      "trade_count": 269
+    }
+  },
+  "payload_sha256": "eeb1285ccd4236faba7bfd51a4c7611342b81672a891c284a52bc17541302002",
+  "prereg": {
+    "json_sha256": "36a5061c466a5e1a3dc25105f9aba6e77912edfa9f89c8e4cba521f0facbc5cf",
+    "md_sha256": "b6d327eaaa57755b72760024358bec19fb64c8f46342b7c0420dcfd805e80a9d"
+  },
+  "schema": "spy-intraday-momentum-development/v1",
+  "scope": "development-only",
+  "signal_sign_counts": {
+    "LONG": 393,
+    "SHORT": 269
+  },
+  "stats": {
+    "low": {
+      "cumulative_net_pnl": -97408.79327052999,
+      "fold_pnl": {
+        "F01": -17377.204900189994,
+        "F02": -7807.8937705899825,
+        "F03": -10741.190103100034,
+        "F04": -6102.956964750063,
+        "F05": -8390.300074359879,
+        "F06": -10608.657988609948,
+        "F07": -7490.326555300027,
+        "F08": -10538.26470909006,
+        "F09": -7612.696104130047,
+        "F10": -10739.302100409928
+      },
+      "mdd": 0.9740879327053008,
+      "net_expectancy": -147.1431922515559,
+      "positive_folds": 0,
+      "profit_factor": 0.15042255858906683,
+      "trade_count": 662,
+      "trading_days_with_trade": 662
+    },
+    "official": {
+      "cumulative_net_pnl": -229428.38522842992,
+      "fold_pnl": {
+        "F01": -37928.40347189001,
+        "F02": -20381.27301428999,
+        "F03": -23307.86453610004,
+        "F04": -18668.96505725007,
+        "F05": -19356.183609159885,
+        "F06": -23168.894400909936,
+        "F07": -20053.90363430003,
+        "F08": -23101.791007790056,
+        "F09": -20172.152110030056,
+        "F10": -23288.954386709935
+      },
+      "mdd": 2.294283852284299,
+      "net_expectancy": -346.568557746873,
+      "positive_folds": 0,
+      "profit_factor": 0.024406525156339766,
+      "trade_count": 662,
+      "trading_days_with_trade": 662
+    },
+    "stress": {
+      "cumulative_net_pnl": -453861.69155685994,
+      "fold_pnl": {
+        "F01": -72865.44104377998,
+        "F02": -41756.01772857999,
+        "F03": -44671.21107220004,
+        "F04": -40031.178814500076,
+        "F05": -37998.1856183199,
+        "F06": -44521.29630181996,
+        "F07": -41411.984668600046,
+        "F08": -44459.785715580045,
+        "F09": -41523.22732006004,
+        "F10": -44623.36327341993
+      },
+      "mdd": 4.538616915568598,
+      "net_expectancy": -685.5916790889123,
+      "positive_folds": 0,
+      "profit_factor": 0.003992842168451928,
+      "trade_count": 662,
+      "trading_days_with_trade": 662
+    }
+  },
+  "strategy_id": "spy-first-to-last-half-hour-momentum-v1",
+  "trade_count": 662,
+  "trades_sha256": "852b2e2677c02d3e32a92b3f0a6b4e4253d675757512b924ff05485660fc2233",
+  "window": {
+    "end": "2026-01-20",
+    "start": "2023-05-18",
+    "trading_days": 670
+  }
+}
