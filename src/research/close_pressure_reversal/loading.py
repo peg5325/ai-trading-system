@@ -48,9 +48,7 @@ def load_development_bars(
             purpose="performance",
             track=TRACK_SWING,
             strategy_id=STRATEGY_ID,
-            execution_grant=None,
             market="US",
         )
         for symbol in symbols
     }
-

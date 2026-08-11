@@ -61,6 +61,21 @@ def render_markdown(result: dict[str, Any]) -> str:
             f"{skips['duplicate_symbol']:,} | `{spec['trades_sha256'][:16]}…` |"
         )
     add("")
+    add("### 보유·청산 감사")
+    add("")
+    add("| spec | boundary skip | quantity skip | mean hold | median hold | gap stop | intraday stop | time exit |")
+    add("|---|---:|---:|---:|---:|---:|---:|---:|")
+    for spec_name, spec in result["specs"].items():
+        audit = spec["candidate_audit"]
+        skips = spec["portfolio_skips"]
+        reasons = spec["exit_reasons"]
+        add(
+            f"| {spec_name} | {audit['boundary_skips']:,} | "
+            f"{skips['quantity_lt_one']:,} | {_number(spec['holding_days_mean'])} | "
+            f"{_number(spec['holding_days_median'])} | {reasons.get('gap_stop', 0):,} | "
+            f"{reasons.get('intraday_stop', 0):,} | {reasons.get('time_exit', 0):,} |"
+        )
+    add("")
     add("## 3. 게이트")
     add("")
     add("### 데이터 게이트")

@@ -96,6 +96,11 @@ _ALLOWED_TRACK_UNSPECIFIED = {
     # 패키지 자신의 코딩 규율(항상 명시)과는 다른, 이미 검토된 pre-ORB 스크립트.
     os.path.join("scripts", "history_eval_slices.py"),
 }
+_ALLOWED_SWING_TRACK = {
+    # 결과 전에 잠긴 일봉 단기반전 연구. swing OOS 경계를 명시적으로 사용하며,
+    # unlock/execution_grant 및 coverage purpose 면제는 받지 않는다.
+    os.path.join("src", "research", "close_pressure_reversal", "loading.py"),
+}
 
 # §6.2 primary/sensitivity 공용 결정봉 스펙(5분·min_bars=1) — 계약값과 동일(§contract.py 로
 # 별도 검증). 여기서는 리터럴로 고정해 loading.py 테스트를 contract.py 로딩에 결합하지 않는다.
@@ -601,7 +606,10 @@ def _research_load_call_names(tree: ast.AST) -> set[str]:
 
 def _research_load_offenders_in_tree(tree: ast.AST, rel: str, *,
                                      allow_coverage_purpose: bool = False,
-                                     allow_track_unspecified: bool = False) -> list[str]:
+                                     allow_track_unspecified: bool = False,
+                                     allowed_track_names: frozenset[str] = frozenset(
+                                         {"TRACK_INTRADAY"}
+                                     )) -> list[str]:
     """AST: `rel` 파일의 `research_load` 호출 중 unlock/track/purpose 규칙 위반 offender 목록.
 
     R4-5(lane1 §6-B, team-lead 재현) — 실제 스캔(`test_research_load_calls_never_pass_unlock_
@@ -723,10 +731,15 @@ def _research_load_offenders_in_tree(tree: ast.AST, rel: str, *,
                 offenders.append(
                     f"{rel}:{node.lineno}: track 인자가 생략됨(기본값에 암묵적으로 의존)")
         else:
-            is_intraday_const = (
-                isinstance(track_kw.value, ast.Name) and track_kw.value.id == "TRACK_INTRADAY")
-            if not is_intraday_const:
-                offenders.append(f"{rel}:{node.lineno}: track 이 TRACK_INTRADAY 상수가 아님")
+            is_allowed_const = (
+                isinstance(track_kw.value, ast.Name)
+                and track_kw.value.id in allowed_track_names
+            )
+            if not is_allowed_const:
+                offenders.append(
+                    f"{rel}:{node.lineno}: track 이 허용된 상수가 아님"
+                    f"(허용: {sorted(allowed_track_names)})"
+                )
 
         purpose_kw = next((kw for kw in node.keywords if kw.arg == "purpose"), None)
         if purpose_kw is not None:
@@ -745,8 +758,8 @@ def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
     """AST: `src/`·`scripts/`·`analysis/`(R4-8 — `tests/test_oos_guard_wiring.py` 의
     `SCAN_DIRS` 와 동일 범위) 전역의 `research_load` 호출은 `execution_grant`/legacy `unlock`
     인자를 절대 넘기지 않고,
-    `track` 은 반드시 `TRACK_INTRADAY` 상수여야 하며(임의 `OOSUnlock` 주입·`track="swing"`
-    변조를 정적으로 차단, 독립 리뷰 H1), `purpose` 는 리터럴 `"performance"`(또는 allowlist
+    `track` 은 기본적으로 `TRACK_INTRADAY`, 좁은 파일 allowlist 에서만 `TRACK_SWING` 상수여야
+    하며(문자열 `"swing"` 변조는 계속 차단), `purpose` 는 리터럴 `"performance"`(또는 allowlist
     파일에 한해 `"coverage"`)여야 한다(R5-4). 판정 로직은 `_research_load_offenders_in_tree`
     (R4-5/R5-4 — 아래 증명 fixture 와 공유).
 
@@ -779,6 +792,11 @@ def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
             tree, rel,
             allow_coverage_purpose=rel in _ALLOWED_COVERAGE_STRING,
             allow_track_unspecified=rel in _ALLOWED_TRACK_UNSPECIFIED,
+            allowed_track_names=(
+                frozenset({"TRACK_SWING"})
+                if rel in _ALLOWED_SWING_TRACK
+                else frozenset({"TRACK_INTRADAY"})
+            ),
         ))
     assert offenders == [], offenders
 
@@ -816,7 +834,7 @@ def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attri
     offenders = _research_load_offenders_in_tree(tree, "offender.py")
     kwargs_hits = [o for o in offenders if "kwargs" in o]
     unlock_hits = [o for o in offenders if "OOS 개봉 인자 존재" in o]
-    track_mismatch_hits = [o for o in offenders if "TRACK_INTRADAY 상수가 아님" in o]
+    track_mismatch_hits = [o for o in offenders if "허용된 상수가 아님" in o]
     track_omitted_hits = [o for o in offenders if "track 인자가 생략됨" in o]
     # rl(**_EXTRA) 는 kwargs 은닉, og.research_load(...) 는 track 불일치, 세 번째 호출은
     # unlock 을 딕셔너리 경유 없이 직접 명시, 네 번째는 track 자체를 생략(비-allowlist 파일)

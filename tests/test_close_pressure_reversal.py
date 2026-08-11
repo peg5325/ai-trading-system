@@ -337,7 +337,8 @@ def test_development_loader_uses_locked_half_open_range_and_no_oos_grant(monkeyp
     assert kwargs["end"].date() == date(2025, 7, 19)
     assert kwargs["purpose"] == "performance"
     assert kwargs["track"] == "swing"
-    assert kwargs["execution_grant"] is None
+    assert "execution_grant" not in kwargs
+    assert "unlock" not in kwargs
     assert "OOSUnlock" not in inspect.getsource(load_development_bars)
 
 
@@ -354,8 +355,11 @@ def test_json_and_markdown_rendering_are_deterministic():
             name: {
                 "gross": _minimal_metrics(),
                 "cost_levels": {level: _minimal_metrics() for level in ("low", "official", "stress")},
-                "candidate_audit": {"qualifying_signals": 0, "prepared_candidates": 0, "data_exclusions": 0, "data_exclusion_rate": 0},
-                "portfolio_skips": {"capacity": 0, "duplicate_symbol": 0},
+                "candidate_audit": {"qualifying_signals": 0, "boundary_skips": 0, "prepared_candidates": 0, "data_exclusions": 0, "data_exclusion_rate": 0},
+                "portfolio_skips": {"capacity": 0, "duplicate_symbol": 0, "quantity_lt_one": 0},
+                "exit_reasons": {},
+                "holding_days_mean": 0,
+                "holding_days_median": 0,
                 "trades_sha256": "0" * 64,
                 "folds_official": [],
             }
