@@ -15,3 +15,12 @@
 | §6 방향별·비용별 공개 | `development.run`, `report.render` | 결과 JSON/Markdown 단일 renderer |
 
 구현은 사전등록 숫자를 계약 JSON에서 읽는다. 별도 sensitivity, 성과 기반 필터, OOS unlock은 없다.
+
+## 병합 전 구현 감사
+
+- 전체 intraday snapshot은 file SHA와 tracked 생성 receipt로 인증해 OOS OHLCV를 역직렬화하지 않는다.
+  전체 일봉 계약은 tracked manifest로 확인하고 live DB content hash는 development 종료일
+  `2026-01-20`까지만 계산한다(`0550100c…`, 72,940행).
+- 마지막 1분봉 청산 timestamp는 canonical 시작 라벨에 1분을 더한 완료시각으로 기록한다.
+- 최초 결과 확인 뒤 발견된 구현·증거 경계 교정이며, 신호·진입가·청산가·비용·게이트는 바꾸지 않는다.
+  결과의 `execution_audit`에 성과 사전열람과 재생성을 공개한다.

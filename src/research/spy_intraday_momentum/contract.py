@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from datetime import date
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from src.history.exchange_calendar import trading_days
 

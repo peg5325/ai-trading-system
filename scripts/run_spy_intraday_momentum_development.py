@@ -7,8 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.research.spy_intraday_momentum.development import run, write_result  # noqa: E402
-from src.research.spy_intraday_momentum.report import render  # noqa: E402
+from src.research.spy_intraday_momentum.development import run, write_result
+from src.research.spy_intraday_momentum.report import render
 
 
 def main() -> None:

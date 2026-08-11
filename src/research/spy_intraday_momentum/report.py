@@ -1,7 +1,8 @@
 """SPY 장중 모멘텀 결과 Markdown renderer."""
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 
 def _number(value: Any) -> str:
@@ -22,9 +23,11 @@ def render(result: Mapping[str, Any]) -> str:
         "",
         f"- 평가 거래일: {result['window']['trading_days']}일",
         f"- 거래: {result['trade_count']}건 / 거래 발생일 {official['trading_days_with_trade']}일",
-        f"- 신호: LONG {result['signal_sign_counts'].get('LONG', 0)} / "
-        f"SHORT {result['signal_sign_counts'].get('SHORT', 0)} / "
-        f"ZERO {result['signal_sign_counts'].get('ZERO', 0)}",
+        (
+            f"- 신호: LONG {result['signal_sign_counts'].get('LONG', 0)} / "
+            f"SHORT {result['signal_sign_counts'].get('SHORT', 0)} / "
+            f"ZERO {result['signal_sign_counts'].get('ZERO', 0)}"
+        ),
         f"- official 순손익: {_number(official['cumulative_net_pnl'])}",
         f"- official 거래당 기대값: {_number(official['net_expectancy'])}",
         f"- official PF: {_number(official['profit_factor'])}",
@@ -62,10 +65,14 @@ def render(result: Mapping[str, Any]) -> str:
         "",
         "## 데이터 품질",
         "",
-        f"- 불완전 SPY 거래일: {defects['incomplete_spy_days']} / "
-        f"{defects['total_spy_days']} ({defects['incomplete_spy_day_ratio']:.4%})",
-        f"- 직전 거래일 일봉 종가 누락: {defects['missing_previous_close_days']} "
-        f"({defects['missing_previous_close_ratio']:.4%})",
+        (
+            f"- 불완전 SPY 거래일: {defects['incomplete_spy_days']} / "
+            f"{defects['total_spy_days']} ({defects['incomplete_spy_day_ratio']:.4%})"
+        ),
+        (
+            f"- 직전 거래일 일봉 종가 누락: {defects['missing_previous_close_days']} "
+            f"({defects['missing_previous_close_ratio']:.4%})"
+        ),
         f"- 신규 충돌: {defects['new_conflicts']}",
         f"- 중대 결함: {defects['major_defects']}",
         "",
@@ -77,6 +84,19 @@ def render(result: Mapping[str, Any]) -> str:
         "- 2026-01-21~2026-07-21 blind OOS는 로드하지 않았다.",
         "- Paper/실거래·주문·위험·config 변경은 없다.",
         f"- 결과 payload SHA-256: `{result['payload_sha256']}`",
+        "- payload SHA-256은 해당 해시 필드를 넣기 전 canonical payload에 대해 계산했다.",
+        "",
+        "## 실행 감사",
+        "",
+        (
+            f"- {result['execution_audit']['review_phase']}: "
+            f"{result['execution_audit']['issues']} → "
+            f"{result['execution_audit']['fixes']}; "
+            "성과 사전열람="
+            f"{result['execution_audit']['performance_values_inspected_before_fix']}, "
+            "전략 규칙 변경="
+            f"{result['execution_audit']['strategy_rules_changed']}"
+        ),
         "",
     ])
     return "\n".join(lines)

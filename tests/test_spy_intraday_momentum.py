@@ -13,6 +13,7 @@ from src.research.spy_intraday_momentum.contract import (
 from src.research.spy_intraday_momentum.development import (
     GrossTrade,
     _gate,
+    _stats,
     gross_pnl,
     net_pnl,
     signal_direction,
@@ -101,7 +102,8 @@ def test_positive_signal_enters_1530_open_and_exits_1559_close():
     assert trade.direction == "LONG"
     assert trade.entry_price == 102.0
     assert trade.exit_price == 104.0
-    assert trade.entry_ts.endswith("-04:00") is False  # stored execution timestamp is UTC
+    assert trade.entry_ts == bars[930 - 570].ts_utc.isoformat()
+    assert trade.exit_ts == (bars[959 - 570].ts_utc + timedelta(minutes=1)).isoformat()
     assert trade.qty == 980
 
 
@@ -136,6 +138,41 @@ def test_cost_is_applied_to_both_entry_and_exit_notional():
     )
     assert gross_pnl(trade) == 100.0
     assert net_pnl(trade, 0.34) == pytest.approx(65.83)
+
+
+def test_fold_attribution_uses_trade_day():
+    day1 = date(2025, 6, 2)
+    day2 = date(2025, 6, 3)
+    win = GrossTrade(
+        day=day1,
+        direction="LONG",
+        signal_return=0.01,
+        entry_ts="entry",
+        exit_ts="exit",
+        entry_price=100.0,
+        exit_price=101.0,
+        qty=10,
+    )
+    loss = GrossTrade(
+        day=day2,
+        direction="LONG",
+        signal_return=0.01,
+        entry_ts="entry",
+        exit_ts="exit",
+        entry_price=100.0,
+        exit_price=99.0,
+        qty=10,
+    )
+    stats = _stats(
+        (win, loss),
+        (day1, day2),
+        (("F01", day1, day1), ("F02", day2, day2)),
+        0.34,
+        100_000,
+    )
+    assert stats["fold_pnl"]["F01"] > 0
+    assert stats["fold_pnl"]["F02"] < 0
+    assert stats["positive_folds"] == 1
 
 
 def test_gate_rejects_bad_economics_when_data_passes():

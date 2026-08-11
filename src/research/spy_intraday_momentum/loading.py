@@ -1,8 +1,8 @@
 """blind OOS 게이트를 통과하는 SPY 일봉·1분봉 로더와 완전 세션 검증."""
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import date, datetime, timedelta
-from typing import Sequence
 
 from src.history.oos_guard import TRACK_INTRADAY, research_load
 from src.models import ET, SESSION_REGULAR, Candle, regular_session_window

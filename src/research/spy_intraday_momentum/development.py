@@ -5,14 +5,14 @@ import hashlib
 import json
 import math
 from collections import Counter, defaultdict
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
-from src.history.daily_manifest import build_manifest
 from src.history.exchange_calendar import trading_days
-from src.research.orb.identity import require_identity, verify_snapshot_identity
+from src.research.development_identity import verify_development_identity
 from src.research.orb.simulator import detect_data_defects
 from src.research.orb.windows import regular_close_minute_checked
 from src.research.spy_intraday_momentum.contract import (
@@ -30,7 +30,13 @@ from src.research.spy_intraday_momentum.loading import (
 
 RESULT_SCHEMA = "spy-intraday-momentum-development/v1"
 TRACKED_INTRADAY_MANIFEST = "docs/research/P0_US30_ORB_CLEAN_1M_MANIFEST.json"
+TRACKED_SNAPSHOT_RECEIPT = "docs/research/P0_US30_ORB_CLEAN_SNAPSHOT_RECEIPT.json"
+TRACKED_DAILY_MANIFEST = "docs/research/P0_US30_DAILY_10Y_MANIFEST.json"
 UNIVERSE_YAML = "config/universe_p0_us30.yaml"
+DAILY_DEVELOPMENT_CONTENT_SHA256 = (
+    "0550100cdf9b6a04ec5ba191ab0037c189dae7ea4feeab222cadf0140b980f1c"
+)
+DAILY_DEVELOPMENT_ROW_COUNT = 72_940
 
 
 @dataclass(frozen=True)
@@ -85,7 +91,7 @@ def trade_for_day(
         direction=direction,
         signal_return=signal_return,
         entry_ts=entry.ts_utc.isoformat(),
-        exit_ts=exit_bar.ts_utc.isoformat(),
+        exit_ts=(exit_bar.ts_utc + timedelta(minutes=1)).isoformat(),
         entry_price=float(entry.open),
         exit_price=float(exit_bar.close),
         qty=qty,
@@ -198,37 +204,24 @@ def _verify_data_identity(
     contract: Mapping[str, Any], snapshot_path: str, raw_root: str, daily_db_path: str
 ) -> list[dict[str, Any]]:
     identity = contract["data_identity"]
-    intraday = verify_snapshot_identity(
-        contract=contract,
+    return verify_development_identity(
         snapshot_path=snapshot_path,
         raw_root=raw_root,
-        manifest_path=TRACKED_INTRADAY_MANIFEST,
+        daily_db_path=daily_db_path,
+        universe_yaml=UNIVERSE_YAML,
+        intraday_manifest_path=TRACKED_INTRADAY_MANIFEST,
+        snapshot_receipt_path=TRACKED_SNAPSHOT_RECEIPT,
+        daily_manifest_path=TRACKED_DAILY_MANIFEST,
+        expected_snapshot_file=str(identity["snapshot_file_sha256"]),
+        expected_snapshot_content=str(identity["snapshot_content_sha256"]),
+        expected_intraday_manifest=str(identity["manifest_data_sha256"]),
+        expected_raw_content=str(identity["raw_content_sha256"]),
+        expected_daily_full_content=str(identity["daily_data_content_sha256"]),
+        expected_daily_full_rows=int(identity["daily_row_count"]),
+        development_end=str(contract["windows"]["development_eval_end"]),
+        expected_daily_development_content=DAILY_DEVELOPMENT_CONTENT_SHA256,
+        expected_daily_development_rows=DAILY_DEVELOPMENT_ROW_COUNT,
     )
-    require_identity(intraday)
-    as_of = str(contract["windows"]["blind_oos_end"])
-    daily = build_manifest(
-        daily_db_path,
-        UNIVERSE_YAML,
-        collection_params={},
-        collection_code_commit=None,
-        generated_at_utc="identity-check",
-        as_of=as_of,
-        collection_completed_through=as_of,
-    )
-    daily_hash = str(daily["data_content_sha256"])
-    daily_rows = int(daily["summary"]["total_rows"])
-    expected_hash = str(identity["daily_data_content_sha256"])
-    expected_rows = int(identity["daily_row_count"])
-    if daily_hash != expected_hash or daily_rows != expected_rows:
-        raise RuntimeError("일봉 data identity 불일치")
-    checks = [asdict(check) for check in intraday.checks]
-    checks.extend([
-        {"name": "daily_content", "expected": expected_hash, "actual": daily_hash,
-         "status": "match"},
-        {"name": "daily_rows", "expected": str(expected_rows), "actual": str(daily_rows),
-         "status": "match"},
-    ])
-    return checks
 
 
 def run(snapshot_path: str, daily_db_path: str, raw_root: str) -> dict[str, Any]:
@@ -307,6 +300,20 @@ def run(snapshot_path: str, daily_db_path: str, raw_root: str) -> dict[str, Any]
         "defects": defects,
         "gate": _gate(stats, defects, contract),
         "exclusions": dict(sorted(exclusions.items())),
+        "execution_audit": {
+            "review_phase": "post_result_merge_review",
+            "issues": [
+                "full_daily_identity_scanned_blind_oos_ohlcv",
+                "last_complete_bar_exit_timestamp_used_start_label",
+            ],
+            "fixes": [
+                "tracked_full_receipts_plus_live_development_only_daily_hash",
+                "last_bar_start_label_plus_one_minute",
+            ],
+            "performance_values_inspected_before_fix": True,
+            "strategy_rules_changed": False,
+            "result_regenerated": True,
+        },
         "trades_sha256": hashlib.sha256(canonical_json_bytes({
             "trades": [{**asdict(trade), "day": trade.day.isoformat()} for trade in trades]
         })).hexdigest(),
