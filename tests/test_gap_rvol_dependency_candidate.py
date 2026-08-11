@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from src.models import Candle
+from src.research.gap_rvol.d9_overlay import audit_bytes, render_overlay_audit
 from src.research.gap_rvol.dependency_candidate import (
     DependencyCandidateTarget,
     build_dependency_candidate_manifest,
@@ -242,3 +243,36 @@ def test_dependency_candidate_identity_reconciles_aggregate_counts(
             candidate_db="not-read.sqlite",
             candidate_raw_root="not-read-raw",
         )
+
+
+def test_tracked_dependency_overlay_audit_is_deterministic_and_scope_closed():
+    json_path = Path(
+        "docs/research/AUDIT_P0_US30_GAP_RVOL_D9_TOSS_DEPENDENCY_OVERLAY.json"
+    )
+    md_path = json_path.with_suffix(".md")
+    audit = json.loads(json_path.read_text(encoding="utf-8"))
+    assert audit_bytes(audit) == json_path.read_bytes()
+    assert render_overlay_audit(audit) == md_path.read_text(encoding="utf-8")
+    assert audit["producer_commit"] == (
+        "2023516eb9915028a25fb7b19754f6d10083e516"
+    )
+    assert audit["overlay"] == {
+        "added_event_count": 0,
+        "changed_event_count": 0,
+        "changed_events": [],
+        "eligible_targets": 0,
+        "ineligible_targets_not_applied": 265,
+        "resolved_event_count": 0,
+        "resolved_events": [],
+    }
+    assert audit["corrected_d9"]["data_exclusion_numerator"] == 1296
+    assert audit["corrected_d9"]["data_exclusion_denominator"] == 20100
+    assert audit["corrected_d9"]["data_exclusion_ratio"] == pytest.approx(
+        0.06447761194029851
+    )
+    assert audit["corrected_d9"]["threshold_lte"] == 0.05
+    assert audit["corrected_d9"]["verdict"] == "INCONCLUSIVE_DATA"
+    assert audit["scope"]["blind_oos_opened"] is False
+    assert audit["scope"]["performance_computed"] is False
+    assert audit["scope"]["forward_returns_computed"] is False
+    assert audit["scope"]["frozen_snapshot_written"] is False
