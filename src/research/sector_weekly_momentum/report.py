@@ -129,4 +129,13 @@ def render_markdown(result: dict[str, Any]) -> str:
         "결과에 맞춰 신호·보유·비용을 수정하지 않는다."
     )
     add("")
+    add("## 7. 실행 감사")
+    add("")
+    for item in result.get("execution_audit", []):
+        add(
+            f"- {item['phase']}: `{item['issue']}` → `{item['resolution']}`; "
+            f"성과 사전열람={item['performance_values_inspected_before_fix']}, "
+            f"전략 규칙 변경={item['strategy_rules_changed']}"
+        )
+    add("")
     return "\n".join(lines)

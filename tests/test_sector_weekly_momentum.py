@@ -17,6 +17,7 @@ from src.research.sector_weekly_momentum.development import (
     chronological_blocks,
     equal_all_events,
     prepare_targets,
+    prepared_audit,
     simulate,
     summarize,
     weekly_signal_trade_pairs,
@@ -354,6 +355,7 @@ def test_chronological_blocks_cover_calendar_once():
 def test_invalid_week_rate_boundary_is_inclusive():
     prepared = PreparedTargets((), 21, 0, 19, 1, 1, 0, 0)
     assert prepared.invalid_week_rate == pytest.approx(0.05)
+    assert prepared_audit(prepared)["invalid_week_rate"] == pytest.approx(0.05)
 
 
 def test_missing_trade_bar_is_fail_closed_after_warmup():

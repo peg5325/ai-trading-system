@@ -257,6 +257,14 @@ def equal_all_events(
     )
 
 
+def prepared_audit(prepared: PreparedTargets) -> dict[str, Any]:
+    """이벤트 payload를 제외하고 계산 속성까지 명시 직렬화한다."""
+    audit = asdict(prepared)
+    audit.pop("events")
+    audit["invalid_week_rate"] = prepared.invalid_week_rate
+    return audit
+
+
 def simulate(
     features: dict[str, dict[date, FeatureBar]],
     calendar: tuple[date, ...],
@@ -643,11 +651,9 @@ def run_development(
         verdict = "DEVELOPMENT_GO"
 
     audit = {
-        "primary": asdict(primary_prepared),
-        "sensitivity": asdict(sensitivity_prepared),
+        "primary": prepared_audit(primary_prepared),
+        "sensitivity": prepared_audit(sensitivity_prepared),
     }
-    audit["primary"].pop("events")
-    audit["sensitivity"].pop("events")
     return {
         "schema": "p0_sector_etf_weekly_momentum_development/v1",
         "strategy_id": contract["strategy_id"],
@@ -672,5 +678,12 @@ def run_development(
         "spy_buy_hold_reference_gross_pnl_50k": spy_reference_pnl,
         "data_gates": data_gates,
         "economic_gates": economic_gates,
+        "execution_audit": [{
+            "phase": "initial_markdown_render",
+            "issue": "derived_invalid_week_rate_missing_from_asdict",
+            "resolution": "explicit_property_serialization",
+            "performance_values_inspected_before_fix": False,
+            "strategy_rules_changed": False,
+        }],
         "verdict": verdict,
     }
