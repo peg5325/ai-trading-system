@@ -39,7 +39,7 @@
     "require_complete_regular_session_1m_grid": true,
     "duplicate_timestamp_policy": "identical-deduplicate-conflict-fail-closed",
     "indicator_reset_after_incomplete_symbol_day": true,
-    "minimum_complete_5m_bars_after_reset": 62,
+    "minimum_complete_5m_bars_after_reset": 63,
     "one_trade_per_symbol_day": true,
     "latest_signal_rule": "signal bar plus next entry bar plus 12 held bars must fit before regular close"
   },
@@ -129,5 +129,14 @@
     "blind_oos_opened": false,
     "paper_or_live_promotion": false,
     "external_provider_used": false
-  }
+  },
+  "revision_history": [
+    {
+      "version": "v1.1",
+      "timing": "before implementation commit and before any result run",
+      "change": "minimum complete 5m bars after reset corrected from 62 to 63",
+      "reason": "raw K60 needs 60 bars, D3 needs 62 bars, and a centerline cross needs both previous and current ready D values",
+      "go_easier": false
+    }
+  ]
 }
