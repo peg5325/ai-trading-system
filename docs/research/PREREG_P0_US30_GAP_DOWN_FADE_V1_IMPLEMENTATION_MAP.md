@@ -22,3 +22,10 @@
   next-bar entry, stop-first, 데이터/경제성 판정을 고정한다.
 - repository OOS wiring 테스트가 신규 성과 로더의 `research_load` 경유를 검사한다.
 - canonical DB, snapshot, raw store는 read-only이며 live/Paper/order/risk/config를 수정하지 않는다.
+
+## 병합 전 구현 감사
+
+- 최초 결과 보존 뒤 canonical 5분봉의 시작시각을 완료시각으로 직접 비교한 신호창 경계 오독을
+  발견했다. 사전등록 규칙은 바꾸지 않고 `start + 5분` 완료시각으로 구현을 교정했다.
+- 교정 전 성과값을 이미 확인했으므로 결과의 `execution_audit`에 이를 명시하고, 같은 잠긴 계약으로
+  결과를 다시 생성한다. blind OOS는 계속 미개봉이다.

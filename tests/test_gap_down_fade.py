@@ -5,9 +5,28 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from src.models import ET, Candle
-from src.research.gap_down_fade.contract import evaluation_days, fold_boundaries, load_contract
-from src.research.gap_down_fade.development import Candidate, _gate, close_candidate, detect_candidate
-from src.research.gap_down_fade.indicators import cumulative_vwap, exact_median, wilder_atr, wilder_rsi
+from src.research.gap_down_fade.contract import (
+    evaluation_days,
+    fold_boundaries,
+    load_contract,
+)
+from src.research.gap_down_fade.development import (
+    Candidate,
+    GrossTrade,
+    _allocate,
+    _completion_minute,
+    _gate,
+    _net,
+    _stats,
+    close_candidate,
+    detect_candidate,
+)
+from src.research.gap_down_fade.indicators import (
+    cumulative_vwap,
+    exact_median,
+    wilder_atr,
+    wilder_rsi,
+)
 from src.research.gap_down_fade.loading import complete_regular_5m
 
 
@@ -110,6 +129,35 @@ def test_primary_signal_uses_previous_daily_close_and_next_bar_open():
     assert candidate.gap_return == pytest.approx(100 / 102 - 1)
 
 
+def test_signal_window_uses_completed_bar_time():
+    eligibility = load_contract()["eligibility"]
+    first = bar5(
+        datetime(2025, 6, 3, 9, 55, tzinfo=ET),
+        open_=100,
+        high=101,
+        low=99,
+        close=100,
+    )
+    last = bar5(
+        datetime(2025, 6, 3, 12, 55, tzinfo=ET),
+        open_=100,
+        high=101,
+        low=99,
+        close=100,
+    )
+    after = bar5(
+        datetime(2025, 6, 3, 13, 0, tzinfo=ET),
+        open_=100,
+        high=101,
+        low=99,
+        close=100,
+    )
+
+    assert _completion_minute(first) == int(eligibility["signal_start_minute_et"])
+    assert _completion_minute(last) == int(eligibility["signal_end_minute_et"])
+    assert _completion_minute(after) > int(eligibility["signal_end_minute_et"])
+
+
 def test_gap_threshold_rejects_small_gap():
     candidate, reasons = detect_candidate(
         "AAPL", date(2025, 6, 3), recovery_bars(), previous_close=100.5,
@@ -156,3 +204,75 @@ def test_gate_marks_missing_previous_close_inconclusive():
     defects = {"incomplete_symbol_day_ratio": .04, "missing_previous_close_ratio": .0001,
                "new_conflicts": 0, "major_defects": 0}
     assert _gate(stats, defects, load_contract())["verdict"] == "INCONCLUSIVE_DATA"
+
+
+def _trade(symbol: str, day: date, *, entry: float, exit_: float, qty: int = 10) -> GrossTrade:
+    entry_ts = datetime(day.year, day.month, day.day, 13, 0, tzinfo=ET)
+    return GrossTrade(
+        symbol=symbol,
+        day=day,
+        signal_ts=entry_ts - timedelta(minutes=5),
+        entry_ts=entry_ts,
+        exit_ts=entry_ts + timedelta(minutes=5),
+        entry_price=entry,
+        exit_price=exit_,
+        qty=qty,
+        exit_reason="target" if exit_ > entry else "stop",
+        gap_return=-0.02,
+        opening_volume_multiple=1.5,
+    )
+
+
+def test_net_cost_and_fold_attribution_are_locked():
+    day1 = date(2025, 6, 2)
+    day2 = date(2025, 6, 3)
+    win = _trade("AAPL", day1, entry=100, exit_=101)
+    loss = _trade("MSFT", day2, entry=100, exit_=99)
+    assert _net(win, 0.34) == pytest.approx(10 - (100 + 101) * 10 * 0.0034 / 2)
+    stats = _stats(
+        (win, loss),
+        (day1, day2),
+        (("F01", day1, day1), ("F02", day2, day2)),
+        0.34,
+        100_000,
+    )
+    assert stats["fold_pnl"]["F01"] > 0
+    assert stats["fold_pnl"]["F02"] < 0
+    assert stats["positive_folds"] == 1
+
+
+def test_allocate_enforces_exposure_family_at_same_entry_time():
+    contract = load_contract()
+    day = date(2025, 6, 3)
+    start = datetime(2025, 6, 3, 13, 0, tzinfo=ET)
+    bars = [
+        bar5(
+            start + timedelta(minutes=5 * index),
+            open_=100,
+            high=100.5,
+            low=99.5,
+            close=100,
+        )
+        for index in range(2)
+    ]
+
+    def candidate(symbol: str, volume_multiple: float) -> Candidate:
+        return Candidate(
+            symbol=symbol,
+            day=day,
+            entry_index=0,
+            signal_ts=bars[0].ts_utc - timedelta(minutes=5),
+            entry_ts=bars[0].ts_utc,
+            entry_price=100,
+            stop=98,
+            target=103,
+            gap_return=-0.02,
+            opening_volume_multiple=volume_multiple,
+        )
+
+    trades, skipped = _allocate(
+        ((candidate("QQQ", 2.0), bars), (candidate("TQQQ", 1.5), bars)),
+        contract,
+    )
+    assert [trade.symbol for trade in trades] == ["QQQ"]
+    assert skipped["family_cap"] == 1

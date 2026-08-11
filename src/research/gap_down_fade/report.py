@@ -1,7 +1,8 @@
 """Gap-down fade result Markdown renderer."""
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 
 def _number(value: Any) -> str:
@@ -43,11 +44,16 @@ def render(result: Mapping[str, Any]) -> str:
         "",
         "## 데이터 품질",
         "",
-        f"- 불완전 종목-일: {result['defects']['incomplete_symbol_days']} / "
-        f"{result['defects']['total_symbol_days']} "
-        f"({result['defects']['incomplete_symbol_day_ratio']:.4%})",
-        f"- 직전 거래일 종가 누락: {result['defects']['missing_previous_close_symbol_days']} "
-        f"({result['defects']['missing_previous_close_ratio']:.4%})",
+        (
+            f"- 불완전 종목-일: {result['defects']['incomplete_symbol_days']} / "
+            f"{result['defects']['total_symbol_days']} "
+            f"({result['defects']['incomplete_symbol_day_ratio']:.4%})"
+        ),
+        (
+            "- 직전 거래일 종가 누락: "
+            f"{result['defects']['missing_previous_close_symbol_days']} "
+            f"({result['defects']['missing_previous_close_ratio']:.4%})"
+        ),
         f"- 신규 충돌: {result['defects']['new_conflicts']}",
         f"- 중대 결함: {result['defects']['major_defects']}",
         "",
@@ -57,6 +63,18 @@ def render(result: Mapping[str, Any]) -> str:
         "- 2026-01-21~2026-07-21 blind OOS는 로드하지 않았다.",
         "- 외부 공급자, Paper/실거래, 주문·위험·config 변경은 없었다.",
         f"- 결과 payload SHA-256: `{result['payload_sha256']}`",
+        "",
+        "## 실행 감사",
+        "",
+        (
+            f"- {result['execution_audit']['review_phase']}: "
+            f"`{result['execution_audit']['issue']}` → "
+            f"`{result['execution_audit']['fix']}`; "
+            "성과 사전열람="
+            f"{result['execution_audit']['performance_values_inspected_before_fix']}, "
+            "전략 규칙 변경="
+            f"{result['execution_audit']['strategy_rules_changed']}"
+        ),
         "",
     ])
     return "\n".join(lines)

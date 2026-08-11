@@ -5,10 +5,11 @@ import hashlib
 import json
 import math
 from collections import Counter, defaultdict, deque
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from src.history.daily_manifest import build_manifest
 from src.history.exchange_calendar import trading_days
@@ -70,6 +71,11 @@ class GrossTrade:
 
 def _minute(bar: Any) -> int:
     return bar.ts_exchange.hour * 60 + bar.ts_exchange.minute
+
+
+def _completion_minute(bar: Any) -> int:
+    """Return the completion minute for canonical start-labelled 5m bars."""
+    return _minute(bar) + 5
 
 
 def opening_volume(bars: Sequence[Any], contract: Mapping[str, Any]) -> float:
@@ -141,7 +147,7 @@ def detect_candidate(
     volume_lookback = int(signal["signal_volume_lookback_bars"])
     start_index = max(last + 1, int(signal["atr_period"]), volume_lookback)
     for index in range(start_index, len(bars) - 1):
-        minute = _minute(bars[index])
+        minute = _completion_minute(bars[index])
         if not signal_start <= minute <= signal_end:
             continue
         atr = atrs[index]
@@ -499,6 +505,14 @@ def run(snapshot_path: str, daily_db_path: str, raw_root: str) -> dict[str, Any]
         "exclusions": dict(sorted(exclusions.items())),
         "filters": dict(sorted(filters.items())),
         "portfolio_skips": dict(sorted(skipped.items())),
+        "execution_audit": {
+            "review_phase": "post_result_merge_review",
+            "issue": "signal_completion_window_compared_against_start_label",
+            "fix": "compare_canonical_5m_start_label_plus_5_minutes",
+            "performance_values_inspected_before_fix": True,
+            "strategy_rules_changed": False,
+            "result_regenerated": True,
+        },
         "trades_sha256": hashlib.sha256(canonical_json_bytes({
             "trades": [{
                 **asdict(trade),
