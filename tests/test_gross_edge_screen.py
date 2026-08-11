@@ -182,7 +182,15 @@ def test_result_serialization_and_markdown_are_deterministic_and_mapped() -> Non
         "development_window": {"start": "a", "end": "b", "trading_days": 1},
         "universe_count": 30,
         "candidate_count": 1,
-        "blind_oos_accessed": False,
+        "blind_oos_accessed": True,
+        "blind_oos_performance_accessed": False,
+        "current_execution_blind_oos_ohlcv_accessed": False,
+        "prereg_compliance": "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM",
+        "erratum_path": "docs/research/ERRATUM.md",
+        "cost_audit": {
+            "tracked_provenance_artifact_found": False,
+            "decision_impact": "none; gross gate failed",
+        },
         "payload_sha256": "abc",
         "candidates": [{
             "candidate_id": "x", "trade_count": 1, "trading_days": 1,

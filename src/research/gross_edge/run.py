@@ -104,7 +104,13 @@ def run_screen(
         "schema": "p0_us30_gross_edge_screen_result_v1",
         "strategy_id": contract["strategy_id"],
         "verdict": overall_verdict(results),
-        "blind_oos_accessed": False,
+        "blind_oos_accessed": True,
+        "blind_oos_performance_accessed": False,
+        "current_execution_blind_oos_ohlcv_accessed": False,
+        "prereg_compliance": "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM",
+        "erratum_path": (
+            "docs/research/ERRATUM_P0_US30_GROSS_EDGE_SCREEN_OOS_IDENTITY.md"
+        ),
         "development_window": {
             "start": evaluation_days[0].isoformat(),
             "end": evaluation_days[-1].isoformat(),
@@ -129,6 +135,13 @@ def run_screen(
             "performance_values_inspected_before_fix": True,
             "strategy_rules_changed": False,
             "result_regenerated": True,
+        },
+        "cost_audit": {
+            "published_floor_pct_points": 0.204,
+            "tracked_provenance_artifact_found": False,
+            "decision_impact": (
+                "none; every candidate fails the gross-edge gate before cost"
+            ),
         },
         "candidates": [result.to_dict() for result in results],
         "shortlisted_candidates": [

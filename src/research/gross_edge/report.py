@@ -19,7 +19,17 @@ def render_markdown(result: Mapping[str, Any]) -> str:
             f"({result['development_window']['trading_days']} 거래일)"
         ),
         f"- universe/candidates: {result['universe_count']} / {result['candidate_count']}",
-        f"- blind OOS accessed: `{str(result['blind_oos_accessed']).lower()}`",
+        f"- blind OOS OHLCV touched historically: `{str(result['blind_oos_accessed']).lower()}`",
+        (
+            "- blind OOS performance accessed: "
+            f"`{str(result['blind_oos_performance_accessed']).lower()}`"
+        ),
+        (
+            "- corrected execution touched blind OOS OHLCV: "
+            f"`{str(result['current_execution_blind_oos_ohlcv_accessed']).lower()}`"
+        ),
+        f"- prereg compliance: `{result['prereg_compliance']}`",
+        f"- erratum: `{result['erratum_path']}`",
         f"- payload SHA-256: `{result['payload_sha256']}`",
         "",
         "## 후보별 결과",
@@ -71,6 +81,14 @@ def render_markdown(result: Mapping[str, Any]) -> str:
                 f"- 수정: `{audit['fix']}`",
                 f"- 전략 규칙 변경: `{str(audit['strategy_rules_changed']).lower()}`",
                 f"- 결과 재생성: `{str(audit['result_regenerated']).lower()}`",
+                "",
+                "## 비용 증거 주의",
+                "",
+                (
+                    "- 0.204%p published floor의 별도 추적 비용감사 artifact: "
+                    f"`{str(result['cost_audit']['tracked_provenance_artifact_found']).lower()}`"
+                ),
+                f"- 판정 영향: {result['cost_audit']['decision_impact']}",
             ]
         )
     return "\n".join(lines) + "\n"

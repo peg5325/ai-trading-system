@@ -29,7 +29,12 @@ def test_result_payload_hash_and_markdown_are_exactly_reproducible() -> None:
 
 def test_result_keeps_oos_locked_and_identity_receipts_match() -> None:
     result = load_result()
-    assert result["blind_oos_accessed"] is False
+    assert result["blind_oos_accessed"] is True
+    assert result["blind_oos_performance_accessed"] is False
+    assert result["current_execution_blind_oos_ohlcv_accessed"] is False
+    assert result["prereg_compliance"] == (
+        "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM"
+    )
     assert result["development_window"] == {
         "start": "2023-05-18", "end": "2026-01-20", "trading_days": 670,
     }
@@ -42,6 +47,8 @@ def test_result_keeps_oos_locked_and_identity_receipts_match() -> None:
         "strategy_rules_changed": False,
         "result_regenerated": True,
     }
+    assert result["cost_audit"]["tracked_provenance_artifact_found"] is False
+    assert result["cost_audit"]["decision_impact"].startswith("none;")
 
 
 def test_result_candidate_pairs_are_exact_opposites() -> None:
