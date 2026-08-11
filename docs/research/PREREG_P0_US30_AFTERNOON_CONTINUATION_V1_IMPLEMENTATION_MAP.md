@@ -13,3 +13,10 @@
 
 성과 로더는 `research_load(... purpose="performance", track=TRACK_INTRADAY, market="US")`만
 사용하며 OOS unlock을 받지 않는다.
+
+## 결과 후 병합 검수 교정
+
+병합 전 검수에서 정본 5분봉 timestamp가 시작 라벨인데도 §3.2의 “11:00~14:30 ET의 완료
+5분봉” 구간을 시작 라벨에 직접 적용한 오류를 발견했다. 오전 창은 §3.1이 09:30~10:25
+시작봉을 명시하므로 그대로 두고, 신호 창만 `start_label + 5분` 완료 시각으로 비교한다.
+성과 열람 뒤 발견된 실행 교정이므로 전체 결과를 재생성하고 `execution_audit`에 공개한다.

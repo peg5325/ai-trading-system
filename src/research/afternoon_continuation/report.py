@@ -1,7 +1,8 @@
 """오후 추세 지속 결과 Markdown 렌더러."""
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 
 def render(result: Mapping[str, Any]) -> str:
@@ -17,8 +18,10 @@ def render(result: Mapping[str, Any]) -> str:
         "",
         f"- verdict: **{gate['verdict']}**",
         f"- failed gates: `{gate['failed']}`",
-        f"- candidates/trades: **{result['candidate_count_before_portfolio']}/"
-        f"{result['trade_count']}**",
+        (
+            f"- candidates/trades: **{result['candidate_count_before_portfolio']}/"
+            f"{result['trade_count']}**"
+        ),
         "",
         "## 비용별 성과",
         "",
@@ -41,8 +44,10 @@ def render(result: Mapping[str, Any]) -> str:
     lines.extend(f"| {name} | {passed} |" for name, passed in gate["items"].items())
     lines += [
         "", "## 데이터 품질", "",
-        f"- incomplete symbol-days: `{defects['incomplete_symbol_days']}/"
-        f"{defects['total_symbol_days']} = {defects['incomplete_symbol_day_ratio']:.6%}`",
+        (
+            f"- incomplete symbol-days: `{defects['incomplete_symbol_days']}/"
+            f"{defects['total_symbol_days']} = {defects['incomplete_symbol_day_ratio']:.6%}`"
+        ),
         f"- new conflicts: `{defects['new_conflicts']}`",
         f"- major defects: `{defects['major_defects']}`",
         "", "## 실행 규율", "",
@@ -51,5 +56,14 @@ def render(result: Mapping[str, Any]) -> str:
         "- 결과 후 임계값·목표·손절을 수정하지 않았다.",
         "- Paper·실거래 승격 결과가 아니다.",
         "",
+        "## 실행 감사",
+        "",
     ]
+    lines.extend(
+        f"- {item['phase']}: `{item['issue']}` → `{item['resolution']}`; "
+        f"성과 사전열람={item['performance_values_inspected_before_fix']}, "
+        f"전략 규칙 변경={item['strategy_rules_changed']}"
+        for item in result.get("execution_audit", [])
+    )
+    lines.append("")
     return "\n".join(lines)

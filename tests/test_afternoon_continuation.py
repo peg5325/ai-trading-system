@@ -5,14 +5,28 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from src.models import ET, Candle
-from src.research.afternoon_continuation.contract import evaluation_days, fold_boundaries, load_contract
+from src.research.afternoon_continuation.contract import (
+    evaluation_days,
+    fold_boundaries,
+    load_contract,
+)
 from src.research.afternoon_continuation.development import (
     Candidate,
+    GrossTrade,
+    _allocate,
+    _completion_minute,
     _gate,
+    _net,
+    _stats,
     close_candidate,
     detect_candidate,
 )
-from src.research.afternoon_continuation.indicators import cumulative_vwap, ema, exact_median, wilder_atr
+from src.research.afternoon_continuation.indicators import (
+    cumulative_vwap,
+    ema,
+    exact_median,
+    wilder_atr,
+)
 from src.research.afternoon_continuation.loading import complete_regular_5m
 
 
@@ -99,6 +113,38 @@ def test_missing_minute_excludes_symbol_day():
     assert defects == ("incomplete_regular_session",)
 
 
+def test_signal_window_uses_completed_bar_time_but_morning_uses_start_labels():
+    contract = load_contract()
+    eligibility = contract["eligibility"]
+    first = bar5(
+        datetime(2025, 6, 3, 10, 55, tzinfo=ET),
+        open_=100,
+        high=101,
+        low=99,
+        close=100,
+    )
+    last = bar5(
+        datetime(2025, 6, 3, 14, 25, tzinfo=ET),
+        open_=100,
+        high=101,
+        low=99,
+        close=100,
+    )
+    after = bar5(
+        datetime(2025, 6, 3, 14, 30, tzinfo=ET),
+        open_=100,
+        high=101,
+        low=99,
+        close=100,
+    )
+
+    assert _completion_minute(first) == int(eligibility["signal_start_minute_et"])
+    assert _completion_minute(last) == int(eligibility["signal_end_minute_et"])
+    assert _completion_minute(after) > int(eligibility["signal_end_minute_et"])
+    assert eligibility["morning_start_minute_et"] == 9 * 60 + 30
+    assert eligibility["morning_end_exclusive_minute_et"] == 10 * 60 + 30
+
+
 def test_close_candidate_stop_first_on_collision():
     start = datetime(2025, 6, 3, 13, 0, tzinfo=ET)
     bars = [bar5(start, open_=100, high=102, low=98, close=101)]
@@ -174,3 +220,75 @@ def test_gate_marks_data_failure_inconclusive():
     defects = {"incomplete_symbol_day_ratio": .051, "new_conflicts": 0,
                "major_defects": 0}
     assert _gate(stats, defects, contract)["verdict"] == "INCONCLUSIVE_DATA"
+
+
+def _trade(symbol: str, day: date, *, entry: float, exit_: float, qty: int = 10) -> GrossTrade:
+    entry_ts = datetime(day.year, day.month, day.day, 13, 0, tzinfo=ET)
+    return GrossTrade(
+        symbol=symbol,
+        day=day,
+        signal_ts=entry_ts - timedelta(minutes=5),
+        entry_ts=entry_ts,
+        exit_ts=entry_ts + timedelta(minutes=5),
+        entry_price=entry,
+        exit_price=exit_,
+        qty=qty,
+        exit_reason="target" if exit_ > entry else "stop",
+        morning_return=0.01,
+        morning_volume_multiple=1.5,
+    )
+
+
+def test_net_cost_and_fold_attribution_are_locked():
+    day1 = date(2025, 6, 2)
+    day2 = date(2025, 6, 3)
+    win = _trade("AAPL", day1, entry=100, exit_=101)
+    loss = _trade("MSFT", day2, entry=100, exit_=99)
+    assert _net(win, 0.34) == pytest.approx(10 - (100 + 101) * 10 * 0.0034 / 2)
+    stats = _stats(
+        (win, loss),
+        (day1, day2),
+        (("F01", day1, day1), ("F02", day2, day2)),
+        0.34,
+        100_000,
+    )
+    assert stats["fold_pnl"]["F01"] > 0
+    assert stats["fold_pnl"]["F02"] < 0
+    assert stats["positive_folds"] == 1
+
+
+def test_allocate_enforces_exposure_family_at_same_entry_time():
+    contract = load_contract()
+    day = date(2025, 6, 3)
+    start = datetime(2025, 6, 3, 13, 0, tzinfo=ET)
+    bars = [
+        bar5(
+            start + timedelta(minutes=5 * i),
+            open_=100,
+            high=100.5,
+            low=99.5,
+            close=100,
+        )
+        for i in range(2)
+    ]
+
+    def candidate(symbol: str, volume_multiple: float) -> Candidate:
+        return Candidate(
+            symbol=symbol,
+            day=day,
+            entry_index=0,
+            signal_ts=bars[0].ts_utc - timedelta(minutes=5),
+            entry_ts=bars[0].ts_utc,
+            entry_price=100,
+            stop=98,
+            target=103,
+            morning_return=0.01,
+            morning_volume_multiple=volume_multiple,
+        )
+
+    trades, skipped = _allocate(
+        ((candidate("QQQ", 2.0), bars), (candidate("TQQQ", 1.5), bars)),
+        contract,
+    )
+    assert [trade.symbol for trade in trades] == ["QQQ"]
+    assert skipped["family_cap"] == 1

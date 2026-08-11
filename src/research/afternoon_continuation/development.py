@@ -5,10 +5,11 @@ import hashlib
 import json
 import math
 from collections import Counter, defaultdict, deque
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from src.research.afternoon_continuation.contract import (
     PREREG_JSON_SHA256,
@@ -24,7 +25,10 @@ from src.research.afternoon_continuation.indicators import (
     exact_median,
     wilder_atr,
 )
-from src.research.afternoon_continuation.loading import complete_regular_5m, load_symbol_day
+from src.research.afternoon_continuation.loading import (
+    complete_regular_5m,
+    load_symbol_day,
+)
 from src.research.orb.identity import require_identity, verify_snapshot_identity
 from src.research.orb.simulator import detect_data_defects
 
@@ -63,6 +67,11 @@ class GrossTrade:
 
 def _minute(bar: Any) -> int:
     return bar.ts_exchange.hour * 60 + bar.ts_exchange.minute
+
+
+def _completion_minute(bar: Any) -> int:
+    """Return completion minute for canonical start-labelled 5m bars."""
+    return _minute(bar) + 5
 
 
 def morning_volume(bars: Sequence[Any], contract: Mapping[str, Any]) -> float:
@@ -120,7 +129,7 @@ def detect_candidate(symbol: str, day: date, bars: Sequence[Any], baseline_volum
     volume_lookback = int(signal["signal_volume_lookback_bars"])
     pullback_start = last + 1
     for i in range(max(pullback_start, volume_lookback, int(signal["atr_period"])), len(bars) - 1):
-        minute = _minute(bars[i])
+        minute = _completion_minute(bars[i])
         if not signal_start <= minute <= signal_end:
             continue
         atr = atrs[i]
@@ -374,6 +383,14 @@ def run(snapshot_path: str, raw_root: str) -> dict[str, Any]:
         "exclusions": dict(sorted(exclusions.items())),
         "filters": dict(sorted(filters.items())),
         "portfolio_skips": dict(sorted(skipped.items())),
+        "execution_audit": [{
+            "phase": "post_result_merge_review",
+            "issue": "signal_completion_window_compared_against_start_label",
+            "resolution": "compare_canonical_5m_start_label_plus_5_minutes",
+            "performance_values_inspected_before_fix": True,
+            "strategy_rules_changed": False,
+            "result_regenerated": True,
+        }],
         "trades_sha256": hashlib.sha256(canonical_json_bytes({
             "trades": [{**asdict(trade), "day": trade.day.isoformat(),
                         "signal_ts": trade.signal_ts.isoformat(),
