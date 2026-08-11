@@ -480,6 +480,8 @@ def _minimal_metrics():
         "win_rate": 0,
         "max_drawdown_pct": 0,
         "max_consecutive_losses": 0,
+        "max_symbol_contribution": None,
+        "max_entry_day_contribution": None,
         "net_pnl_by_symbol": {},
         "net_pnl_by_entry_day": {},
     }

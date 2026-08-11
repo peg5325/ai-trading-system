@@ -106,6 +106,15 @@ def render_markdown(result: dict[str, Any]) -> str:
     add("## 5. 공식 비용 기여도")
     add("")
     official = result["specs"]["primary_5d"]["cost_levels"]["official"]
+    add(
+        "- 최대 종목 기여 비율: "
+        f"{_number(official['max_symbol_contribution'])}"
+    )
+    add(
+        "- 최대 진입일 기여 비율: "
+        f"{_number(official['max_entry_day_contribution'])}"
+    )
+    add("")
     add("### 종목별")
     add("")
     add("| symbol | net PnL |")
