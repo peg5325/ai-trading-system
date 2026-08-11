@@ -12,6 +12,7 @@ from src.research.gap_rvol.dependency_candidate import (
     build_dependency_candidate_targets,
     load_tracked_dependency_probe,
     manifest_bytes,
+    render_dependency_candidate_manifest,
     summarize_dependency_collection,
 )
 from src.research.gap_rvol.dependency_overlay import dependency_overlay_loader
@@ -151,3 +152,22 @@ def test_dependency_manifest_is_deterministic_and_scope_closed():
 def test_dependency_scripts_are_tracked():
     assert Path("scripts/collect_gap_rvol_d9_dependency_candidates.py").is_file()
     assert Path("scripts/audit_gap_rvol_d9_dependency_overlay.py").is_file()
+
+
+def test_tracked_dependency_candidate_is_exact_and_scope_closed_when_present():
+    path = Path(
+        "docs/research/MANIFEST_P0_US30_GAP_RVOL_D9_TOSS_DEPENDENCY_CANDIDATE.json"
+    )
+    if not path.exists():
+        pytest.skip("live dependency candidate collection has not run")
+    manifest = __import__("json").loads(path.read_text(encoding="utf-8"))
+    assert manifest_bytes(manifest) == path.read_bytes()
+    assert manifest["target_count"] == 265
+    assert manifest["eligible_dependency_count"] == 0
+    assert manifest["ineligible_dependency_count"] == 265
+    assert sum(item["has_complete_rvol_window"] for item in manifest["targets"]) == 0
+    assert sum(item["has_usable_regular_close"] for item in manifest["targets"]) == 265
+    assert manifest["scope"]["blind_oos_opened"] is False
+    assert manifest["scope"]["performance_computed"] is False
+    md = path.with_suffix(".md")
+    assert render_dependency_candidate_manifest(manifest) == md.read_text(encoding="utf-8")

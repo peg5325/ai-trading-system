@@ -214,6 +214,11 @@ def manifest_bytes(manifest: Mapping[str, object]) -> bytes:
 
 
 def render_dependency_candidate_manifest(manifest: Mapping[str, object]) -> str:
+    missing = Counter(
+        str(item["first_missing_regular_minute"])
+        for item in manifest["targets"]
+        if item["eligible_dependency"] is not True
+    )
     return "\n".join([
         "# P0-US30 Gap+RVOL Toss dependency repair candidate",
         "",
@@ -228,6 +233,10 @@ def render_dependency_candidate_manifest(manifest: Mapping[str, object]) -> str:
         f"- ineligible dependencies: `{manifest['ineligible_dependency_count']}`",
         f"- isolated candidate rows: `{manifest['repair_db_rows']}`",
         f"- HTTP 429 recovered: `{manifest['http_429']}`",
+        (
+            "- first missing REGULAR minute among ineligible targets: `"
+            f"{json.dumps(dict(sorted(missing.items())), sort_keys=True)}`"
+        ),
         "",
         "## Identity",
         "",
@@ -242,6 +251,12 @@ def render_dependency_candidate_manifest(manifest: Mapping[str, object]) -> str:
         "- canonical DB / frozen snapshot written: `False`",
         "- blind OOS opened: `False`",
         "- performance / forward returns computed: `False`",
+        "",
+        (
+            "`has_target_day=true`는 날짜 존재만 뜻했다. 실제 full-day 수집 결과 "
+            "고정 RVOL 입력인 09:30–09:44 ET가 완전한 대상은 0개였으므로, "
+            "이번 후보 계층은 D9 결손을 해결하지 못한다."
+        ),
         "",
     ])
 
