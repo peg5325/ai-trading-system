@@ -601,7 +601,10 @@ def _research_load_call_names(tree: ast.AST) -> set[str]:
 
 def _research_load_offenders_in_tree(tree: ast.AST, rel: str, *,
                                      allow_coverage_purpose: bool = False,
-                                     allow_track_unspecified: bool = False) -> list[str]:
+                                     allow_track_unspecified: bool = False,
+                                     allowed_track_names: frozenset[str] = frozenset(
+                                         {"TRACK_INTRADAY"}
+                                     )) -> list[str]:
     """AST: `rel` 파일의 `research_load` 호출 중 unlock/track/purpose 규칙 위반 offender 목록.
 
     R4-5(lane1 §6-B, team-lead 재현) — 실제 스캔(`test_research_load_calls_never_pass_unlock_
@@ -723,10 +726,15 @@ def _research_load_offenders_in_tree(tree: ast.AST, rel: str, *,
                 offenders.append(
                     f"{rel}:{node.lineno}: track 인자가 생략됨(기본값에 암묵적으로 의존)")
         else:
-            is_intraday_const = (
-                isinstance(track_kw.value, ast.Name) and track_kw.value.id == "TRACK_INTRADAY")
-            if not is_intraday_const:
-                offenders.append(f"{rel}:{node.lineno}: track 이 TRACK_INTRADAY 상수가 아님")
+            is_allowed_const = (
+                isinstance(track_kw.value, ast.Name)
+                and track_kw.value.id in allowed_track_names
+            )
+            if not is_allowed_const:
+                offenders.append(
+                    f"{rel}:{node.lineno}: track 이 허용된 상수가 아님"
+                    f"(허용: {sorted(allowed_track_names)})"
+                )
 
         purpose_kw = next((kw for kw in node.keywords if kw.arg == "purpose"), None)
         if purpose_kw is not None:
@@ -745,8 +753,9 @@ def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
     """AST: `src/`·`scripts/`·`analysis/`(R4-8 — `tests/test_oos_guard_wiring.py` 의
     `SCAN_DIRS` 와 동일 범위) 전역의 `research_load` 호출은 `execution_grant`/legacy `unlock`
     인자를 절대 넘기지 않고,
-    `track` 은 반드시 `TRACK_INTRADAY` 상수여야 하며(임의 `OOSUnlock` 주입·`track="swing"`
-    변조를 정적으로 차단, 독립 리뷰 H1), `purpose` 는 리터럴 `"performance"`(또는 allowlist
+    `track` 은 기본적으로 반드시 `TRACK_INTRADAY` 상수여야 하며, 섹터 주간 모멘텀의 단일
+    로더만 정확한 파일 경로로 `TRACK_SWING`을 허용한다(임의 `OOSUnlock` 주입·문자열
+    `track="swing"` 변조는 계속 차단). `purpose` 는 리터럴 `"performance"`(또는 allowlist
     파일에 한해 `"coverage"`)여야 한다(R5-4). 판정 로직은 `_research_load_offenders_in_tree`
     (R4-5/R5-4 — 아래 증명 fixture 와 공유).
 
@@ -771,6 +780,9 @@ def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
     테스트도 잡지 못한다. 이 한계는 열려 있다.
     """
     offenders: list[str] = []
+    allowed_swing_track = {
+        os.path.join("src", "research", "sector_weekly_momentum", "loading.py")
+    }
     for path in sorted(_orb_scan_py_files()):
         rel = os.path.relpath(path, REPO)
         with open(path, encoding="utf-8") as f:
@@ -779,6 +791,11 @@ def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
             tree, rel,
             allow_coverage_purpose=rel in _ALLOWED_COVERAGE_STRING,
             allow_track_unspecified=rel in _ALLOWED_TRACK_UNSPECIFIED,
+            allowed_track_names=(
+                frozenset({"TRACK_SWING"})
+                if rel in allowed_swing_track
+                else frozenset({"TRACK_INTRADAY"})
+            ),
         ))
     assert offenders == [], offenders
 
@@ -816,7 +833,7 @@ def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attri
     offenders = _research_load_offenders_in_tree(tree, "offender.py")
     kwargs_hits = [o for o in offenders if "kwargs" in o]
     unlock_hits = [o for o in offenders if "OOS 개봉 인자 존재" in o]
-    track_mismatch_hits = [o for o in offenders if "TRACK_INTRADAY 상수가 아님" in o]
+    track_mismatch_hits = [o for o in offenders if "허용된 상수가 아님" in o]
     track_omitted_hits = [o for o in offenders if "track 인자가 생략됨" in o]
     # rl(**_EXTRA) 는 kwargs 은닉, og.research_load(...) 는 track 불일치, 세 번째 호출은
     # unlock 을 딕셔너리 경유 없이 직접 명시, 네 번째는 track 자체를 생략(비-allowlist 파일)
