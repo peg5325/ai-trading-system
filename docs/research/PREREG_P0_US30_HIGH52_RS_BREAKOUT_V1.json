@@ -1,0 +1,92 @@
+{
+  "schema": "p0_us30_high52_rs_breakout_prereg/v1",
+  "status": "PREREGISTERED_RESULTS_UNSEEN",
+  "strategy_id": "p0_us30_high52_rs_breakout_v1",
+  "data": {
+    "universe_path": "config/universe_p0_us30.yaml",
+    "manifest_path": "docs/research/P0_US30_DAILY_10Y_MANIFEST.json",
+    "data_content_sha256": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
+    "interval": "1d",
+    "market": "US",
+    "development_start": "2016-03-18",
+    "development_end_inclusive": "2025-07-18",
+    "performance_load_end_exclusive_et": "2025-07-21T00:00:00-04:00",
+    "blind_oos_start": "2025-07-21",
+    "blind_oos_end_inclusive": "2026-07-21",
+    "track": "swing",
+    "excluded_classes": ["leveraged_etf", "inverse_etf"],
+    "excluded_symbols": ["TQQQ", "SQQQ", "SOXL", "SOXS"],
+    "official_symbol_count": 26,
+    "calendar_symbol": "SPY"
+  },
+  "signal": {
+    "atr_period": 14,
+    "sma_period": 200,
+    "high52_period": 252,
+    "high52_proximity_gte": 0.97,
+    "relative_strength_lookback": 63,
+    "relative_strength_top_fraction": 0.2,
+    "relative_strength_top_count_rounding": "ceil",
+    "minimum_cross_section": 20,
+    "breakout_lookback": 20,
+    "first_breakout": "close_t_gt_prior20_high_and_close_t_minus_1_lte_its_prior20_high",
+    "ranking": ["return63_desc", "breakout_strength_desc", "high52_proximity_desc", "symbol_asc"]
+  },
+  "portfolio": {
+    "direction": "long_only",
+    "initial_capital_usd": 100000,
+    "max_positions": 5,
+    "max_entry_notional_usd": 10000,
+    "risk_budget_usd": 500,
+    "quantity": "floor(min(10000/entry_open,500/(1.5*atr14_signal)))",
+    "duplicate_symbol_positions": false,
+    "entry": "next_market_trading_day_open",
+    "stop_atr_multiple": 1.5,
+    "gap_stop_fill": "holding_day_open_if_open_lte_stop",
+    "intraday_stop_fill": "stop_if_low_lte_stop_after_open_check",
+    "primary_holding_days": 5,
+    "sensitivity_holding_days": 3,
+    "time_exit": "holding_day_close",
+    "stop_precedes_time_exit": true,
+    "target": null,
+    "scale_in": false,
+    "averaging_down": false
+  },
+  "costs_round_trip_pct_points": {
+    "low": 0.14,
+    "official": 0.34,
+    "stress": 0.68
+  },
+  "evaluation": {
+    "chronological_folds": 10,
+    "random_split": false,
+    "missing_candidate_rate_lte": 0.05,
+    "primary_gates": {
+      "min_trades": 300,
+      "official_expectancy_gt": 0,
+      "official_profit_factor_gte": 1.2,
+      "stress_total_net_pnl_gte": 0,
+      "official_positive_folds_gte": 7,
+      "official_max_drawdown_abs_pct_lte": 10,
+      "max_symbol_contribution_lte": 0.25,
+      "max_entry_day_contribution_lte": 0.2,
+      "sensitivity_official_expectancy_gt": 0
+    },
+    "verdicts": {
+      "data_gate_failure": "INCONCLUSIVE_DATA",
+      "economic_gate_failure": "NO_SELECTION",
+      "all_pass": "DEVELOPMENT_GO"
+    }
+  },
+  "discipline": {
+    "blind_oos_opened": false,
+    "oos_grant_allowed": false,
+    "result_driven_revision_allowed": false,
+    "invalidation_only": [
+      "look_ahead",
+      "blind_oos_contamination",
+      "wrong_data_identity",
+      "pnl_or_execution_contract_bug"
+    ]
+  }
+}
