@@ -10,6 +10,7 @@ from typing import Any
 
 from src.history.oos_guard import TRACK_INTRADAY, research_load
 from src.models import ET
+from src.research.development_identity import verify_intraday_identity
 from src.research.gross_edge.contract import compute_json_sha256, load_contract
 from src.research.gross_edge.engine import (
     candidate_specs,
@@ -18,8 +19,11 @@ from src.research.gross_edge.engine import (
 )
 from src.research.gross_edge.evaluation import evaluate_candidate, overall_verdict
 from src.research.orb.contract import load_contract as load_orb_contract
-from src.research.orb.identity import require_identity, verify_snapshot_identity
 from src.research.orb.windows import development_eval_days, folds, previous_trading_day
+
+TRACKED_SNAPSHOT_RECEIPT = (
+    "docs/research/P0_US30_ORB_CLEAN_SNAPSHOT_RECEIPT.json"
+)
 
 
 def _et_midnight(day: date) -> datetime:
@@ -33,17 +37,25 @@ def canonical_json_bytes(result: Mapping[str, Any]) -> bytes:
 
 
 def run_screen(
-    *, snapshot_path: str, raw_root: str, manifest_path: str
+    *,
+    snapshot_path: str,
+    raw_root: str,
+    manifest_path: str,
+    snapshot_receipt_path: str = TRACKED_SNAPSHOT_RECEIPT,
 ) -> dict[str, Any]:
     contract = load_contract()
     orb_contract = load_orb_contract()
-    identity = verify_snapshot_identity(
-        contract=contract,
+    expected_identity = contract["data_identity"]
+    identity = verify_intraday_identity(
         snapshot_path=snapshot_path,
         raw_root=raw_root,
-        manifest_path=manifest_path,
+        intraday_manifest_path=manifest_path,
+        snapshot_receipt_path=snapshot_receipt_path,
+        expected_snapshot_file=str(expected_identity["snapshot_file_sha256"]),
+        expected_snapshot_content=str(expected_identity["snapshot_content_sha256"]),
+        expected_intraday_manifest=str(expected_identity["manifest_data_sha256"]),
+        expected_raw_content=str(expected_identity["raw_content_sha256"]),
     )
-    require_identity(identity)
 
     evaluation_days = development_eval_days(orb_contract)
     fold_specs = folds(orb_contract)
@@ -103,12 +115,20 @@ def run_screen(
         "excluded_symbol_days_without_any_candidate": excluded_symbol_days,
         "prereg_json_sha256": compute_json_sha256(),
         "data_identity": {
-            check.name: {
-                "expected": check.expected,
-                "actual": check.actual,
-                "status": check.status,
+            str(check["name"]): {
+                "expected": check["expected"],
+                "actual": check["actual"],
+                "status": check["status"],
             }
-            for check in identity.checks
+            for check in identity
+        },
+        "execution_audit": {
+            "review_phase": "post_result_premerge_review",
+            "issue": "full_snapshot_content_hash_decoded_blind_oos_ohlcv",
+            "fix": "snapshot_file_sha_plus_tracked_content_receipt",
+            "performance_values_inspected_before_fix": True,
+            "strategy_rules_changed": False,
+            "result_regenerated": True,
         },
         "candidates": [result.to_dict() for result in results],
         "shortlisted_candidates": [

@@ -13,8 +13,11 @@ def render_markdown(result: Mapping[str, Any]) -> str:
         "# P0-US30 Intraday Gross-Edge Screen — 결과",
         "",
         f"- verdict: **{result['verdict']}**",
-        f"- development: {result['development_window']['start']}~{result['development_window']['end']} "
-        f"({result['development_window']['trading_days']} 거래일)",
+        (
+            f"- development: {result['development_window']['start']}~"
+            f"{result['development_window']['end']} "
+            f"({result['development_window']['trading_days']} 거래일)"
+        ),
         f"- universe/candidates: {result['universe_count']} / {result['candidate_count']}",
         f"- blind OOS accessed: `{str(result['blind_oos_accessed']).lower()}`",
         f"- payload SHA-256: `{result['payload_sha256']}`",
@@ -47,9 +50,29 @@ def render_markdown(result: Mapping[str, Any]) -> str:
             "",
         ]
     )
-    for name in ("snapshot_file", "snapshot_content", "manifest_data", "raw_content"):
+    for name in (
+        "snapshot_file",
+        "snapshot_receipt_file",
+        "snapshot_content_receipt",
+        "manifest_data_receipt",
+        "raw_content_index",
+    ):
         check = result["data_identity"][name]
         lines.append(f"- {name}: `{check['status']}`")
+    audit = result.get("execution_audit")
+    if audit:
+        lines.extend(
+            [
+                "",
+                "## 병합 전 실행 감사",
+                "",
+                f"- 발견 단계: `{audit['review_phase']}`",
+                f"- 결함: `{audit['issue']}`",
+                f"- 수정: `{audit['fix']}`",
+                f"- 전략 규칙 변경: `{str(audit['strategy_rules_changed']).lower()}`",
+                f"- 결과 재생성: `{str(audit['result_regenerated']).lower()}`",
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 

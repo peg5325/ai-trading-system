@@ -27,13 +27,21 @@ def test_result_payload_hash_and_markdown_are_exactly_reproducible() -> None:
     assert render_markdown(result) == MD_PATH.read_text(encoding="utf-8")
 
 
-def test_result_keeps_oos_locked_and_all_four_identity_checks_match() -> None:
+def test_result_keeps_oos_locked_and_identity_receipts_match() -> None:
     result = load_result()
     assert result["blind_oos_accessed"] is False
     assert result["development_window"] == {
         "start": "2023-05-18", "end": "2026-01-20", "trading_days": 670,
     }
     assert {item["status"] for item in result["data_identity"].values()} == {"match"}
+    assert result["execution_audit"] == {
+        "review_phase": "post_result_premerge_review",
+        "issue": "full_snapshot_content_hash_decoded_blind_oos_ohlcv",
+        "fix": "snapshot_file_sha_plus_tracked_content_receipt",
+        "performance_values_inspected_before_fix": True,
+        "strategy_rules_changed": False,
+        "result_regenerated": True,
+    }
 
 
 def test_result_candidate_pairs_are_exact_opposites() -> None:

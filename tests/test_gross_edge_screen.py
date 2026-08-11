@@ -6,7 +6,7 @@ from datetime import date, datetime
 
 import pytest
 
-from src.history.oos_guard import OOSLockError, TRACK_INTRADAY, research_load
+from src.history.oos_guard import TRACK_INTRADAY, OOSLockError, research_load
 from src.models import ET, Candle
 from src.research.gross_edge.contract import (
     PREREG_JSON_SHA256,
@@ -196,7 +196,13 @@ def test_result_serialization_and_markdown_are_deterministic_and_mapped() -> Non
         "shortlisted_candidates": [], "gross_edge_only_candidates": [],
         "data_identity": {
             name: {"status": "match"}
-            for name in ("snapshot_file", "snapshot_content", "manifest_data", "raw_content")
+            for name in (
+                "snapshot_file",
+                "snapshot_receipt_file",
+                "snapshot_content_receipt",
+                "manifest_data_receipt",
+                "raw_content_index",
+            )
         },
     }
     assert canonical_json_bytes(result) == canonical_json_bytes(json.loads(canonical_json_bytes(result)))
