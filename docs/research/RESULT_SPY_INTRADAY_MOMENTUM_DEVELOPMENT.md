@@ -43,4 +43,9 @@
 - SPY 단일 종목, 2023-05-18~2026-01-20 development 구간에만 해당한다.
 - 2026-01-21~2026-07-21 blind OOS는 로드하지 않았다.
 - Paper/실거래·주문·위험·config 변경은 없다.
-- 결과 payload SHA-256: `93f63836d21c33e2bfff6fb3f0264b281479cdde3fe4514eeeb054858a97e067`
+- 결과 payload SHA-256: `eeb1285ccd4236faba7bfd51a4c7611342b81672a891c284a52bc17541302002`
+- payload SHA-256은 해당 해시 필드를 넣기 전 canonical payload에 대해 계산했다.
+
+## 실행 감사
+
+- post_result_merge_review: ['full_daily_identity_scanned_blind_oos_ohlcv', 'last_complete_bar_exit_timestamp_used_start_label'] → ['tracked_full_receipts_plus_live_development_only_daily_hash', 'last_bar_start_label_plus_one_minute']; 성과 사전열람=True, 전략 규칙 변경=False

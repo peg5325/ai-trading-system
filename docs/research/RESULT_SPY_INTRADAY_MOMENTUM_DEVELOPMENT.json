@@ -12,6 +12,20 @@
   "exclusions": {
     "incomplete_regular_session": 8
   },
+  "execution_audit": {
+    "fixes": [
+      "tracked_full_receipts_plus_live_development_only_daily_hash",
+      "last_bar_start_label_plus_one_minute"
+    ],
+    "issues": [
+      "full_daily_identity_scanned_blind_oos_ohlcv",
+      "last_complete_bar_exit_timestamp_used_start_label"
+    ],
+    "performance_values_inspected_before_fix": true,
+    "result_regenerated": true,
+    "review_phase": "post_result_merge_review",
+    "strategy_rules_changed": false
+  },
   "gate": {
     "failed": [
       "D3",
@@ -40,33 +54,51 @@
       "status": "match"
     },
     {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "name": "snapshot_receipt_file",
+      "status": "match"
+    },
+    {
       "actual": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
       "expected": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
-      "name": "snapshot_content",
+      "name": "snapshot_content_receipt",
       "status": "match"
     },
     {
       "actual": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
       "expected": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
-      "name": "manifest_data",
+      "name": "manifest_data_receipt",
       "status": "match"
     },
     {
       "actual": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
       "expected": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
-      "name": "raw_content",
+      "name": "raw_content_index",
       "status": "match"
     },
     {
       "actual": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
       "expected": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
-      "name": "daily_content",
+      "name": "daily_full_manifest_receipt",
       "status": "match"
     },
     {
       "actual": "76690",
       "expected": "76690",
-      "name": "daily_rows",
+      "name": "daily_full_rows_receipt",
+      "status": "match"
+    },
+    {
+      "actual": "0550100cdf9b6a04ec5ba191ab0037c189dae7ea4feeab222cadf0140b980f1c",
+      "expected": "0550100cdf9b6a04ec5ba191ab0037c189dae7ea4feeab222cadf0140b980f1c",
+      "name": "daily_development_content",
+      "status": "match"
+    },
+    {
+      "actual": "72940",
+      "expected": "72940",
+      "name": "daily_development_rows",
       "status": "match"
     }
   ],
@@ -82,7 +114,7 @@
       "trade_count": 269
     }
   },
-  "payload_sha256": "93f63836d21c33e2bfff6fb3f0264b281479cdde3fe4514eeeb054858a97e067",
+  "payload_sha256": "eeb1285ccd4236faba7bfd51a4c7611342b81672a891c284a52bc17541302002",
   "prereg": {
     "json_sha256": "36a5061c466a5e1a3dc25105f9aba6e77912edfa9f89c8e4cba521f0facbc5cf",
     "md_sha256": "b6d327eaaa57755b72760024358bec19fb64c8f46342b7c0420dcfd805e80a9d"
@@ -160,7 +192,7 @@
   },
   "strategy_id": "spy-first-to-last-half-hour-momentum-v1",
   "trade_count": 662,
-  "trades_sha256": "5bc603507dc5bda50627ec73f6d00dd0f61ec4f489ad950c68f25e822e10fdf4",
+  "trades_sha256": "852b2e2677c02d3e32a92b3f0a6b4e4253d675757512b924ff05485660fc2233",
   "window": {
     "end": "2026-01-20",
     "start": "2023-05-18",

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -14,12 +17,14 @@ from src.research.spy_intraday_momentum.development import (
     GrossTrade,
     _gate,
     _stats,
+    canonical_json_bytes,
     gross_pnl,
     net_pnl,
     signal_direction,
     trade_for_day,
 )
 from src.research.spy_intraday_momentum.loading import complete_regular_1m
+from src.research.spy_intraday_momentum.report import render
 
 
 def candle(
@@ -67,6 +72,16 @@ def test_contract_is_frozen_and_blind_oos_is_excluded():
     assert date(2026, 1, 21) not in days
     assert len(fold_boundaries(contract)) == 10
     assert contract["discipline"]["sensitivity_specs"] == 0
+
+
+def test_tracked_result_hash_and_markdown_match_renderer():
+    json_path = Path("docs/research/RESULT_SPY_INTRADAY_MOMENTUM_DEVELOPMENT.json")
+    markdown_path = Path("docs/research/RESULT_SPY_INTRADAY_MOMENTUM_DEVELOPMENT.md")
+    result = json.loads(json_path.read_text(encoding="utf-8"))
+    payload_hash = result.pop("payload_sha256")
+    assert hashlib.sha256(canonical_json_bytes(result)).hexdigest() == payload_hash
+    result["payload_sha256"] = payload_hash
+    assert render(result) == markdown_path.read_text(encoding="utf-8")
 
 
 def test_complete_regular_session_has_exact_390_minute_grid():
