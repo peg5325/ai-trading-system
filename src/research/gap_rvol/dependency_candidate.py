@@ -22,7 +22,6 @@ from src.models import Candle
 from src.research.gap_rvol.dependency_repair import (
     FROZEN_PLAN_FILE_SHA256,
     FROZEN_TARGET_COUNT,
-    load_frozen_dependency_plan,
 )
 from src.research.gap_rvol.features import window_sum_for_lookback
 from src.research.gap_rvol.loading import regular_1m
