@@ -72,4 +72,3 @@ def render_report(result: Mapping[str, Any]) -> str:
         "",
     ])
     return "\n".join(lines)
-

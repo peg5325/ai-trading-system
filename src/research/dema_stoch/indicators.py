@@ -15,7 +15,6 @@ def ema(values: Sequence[float], period: int) -> tuple[float, ...]:
         out.append(alpha * float(value) + (1.0 - alpha) * out[-1])
     return tuple(out)
 
-
 def dema(values: Sequence[float], period: int) -> tuple[float, ...]:
     first = ema(values, period)
     second = ema(first, period)
@@ -46,4 +45,3 @@ def stochastic_d(
         if all(value is not None for value in window):
             out[index] = sum(float(value) for value in window) / d_period
     return tuple(out)
-
