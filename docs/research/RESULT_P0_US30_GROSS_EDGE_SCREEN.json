@@ -1,5 +1,6 @@
 {
-  "blind_oos_accessed": false,
+  "blind_oos_accessed": true,
+  "blind_oos_performance_accessed": false,
   "candidate_count": 8,
   "candidates": [
     {
@@ -347,23 +348,34 @@
       "trading_days": 659
     }
   ],
+  "cost_audit": {
+    "decision_impact": "none; every candidate fails the gross-edge gate before cost",
+    "published_floor_pct_points": 0.204,
+    "tracked_provenance_artifact_found": false
+  },
+  "current_execution_blind_oos_ohlcv_accessed": false,
   "data_identity": {
-    "manifest_data": {
+    "manifest_data_receipt": {
       "actual": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
       "expected": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
       "status": "match"
     },
-    "raw_content": {
+    "raw_content_index": {
       "actual": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
       "expected": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
       "status": "match"
     },
-    "snapshot_content": {
+    "snapshot_content_receipt": {
       "actual": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
       "expected": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
       "status": "match"
     },
     "snapshot_file": {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "status": "match"
+    },
+    "snapshot_receipt_file": {
       "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
       "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
       "status": "match"
@@ -374,9 +386,19 @@
     "start": "2023-05-18",
     "trading_days": 670
   },
+  "erratum_path": "docs/research/ERRATUM_P0_US30_GROSS_EDGE_SCREEN_OOS_IDENTITY.md",
   "excluded_symbol_days_without_any_candidate": 951,
+  "execution_audit": {
+    "fix": "snapshot_file_sha_plus_tracked_content_receipt",
+    "issue": "full_snapshot_content_hash_decoded_blind_oos_ohlcv",
+    "performance_values_inspected_before_fix": true,
+    "result_regenerated": true,
+    "review_phase": "post_result_premerge_review",
+    "strategy_rules_changed": false
+  },
   "gross_edge_only_candidates": [],
-  "payload_sha256": "6af152ca13e7c1f3070f37040c7e1ae16f6ddd057a849d5d5aee3f7fe8afaeba",
+  "payload_sha256": "f20589472e4b718085679e3be051ffb2466225518736a54e2b076c25a89e5604",
+  "prereg_compliance": "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM",
   "prereg_json_sha256": "784543544a192252b78481d1e2d12e9810c07dc9f61b6ea4352024994f207e1e",
   "schema": "p0_us30_gross_edge_screen_result_v1",
   "shortlisted_candidates": [],

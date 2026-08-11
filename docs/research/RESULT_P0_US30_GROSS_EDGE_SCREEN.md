@@ -3,8 +3,12 @@
 - verdict: **NO_GROSS_EDGE**
 - development: 2023-05-18~2026-01-20 (670 거래일)
 - universe/candidates: 30 / 8
-- blind OOS accessed: `false`
-- payload SHA-256: `6af152ca13e7c1f3070f37040c7e1ae16f6ddd057a849d5d5aee3f7fe8afaeba`
+- blind OOS OHLCV touched historically: `true`
+- blind OOS performance accessed: `false`
+- corrected execution touched blind OOS OHLCV: `false`
+- prereg compliance: `DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM`
+- erratum: `docs/research/ERRATUM_P0_US30_GROSS_EDGE_SCREEN_OOS_IDENTITY.md`
+- payload SHA-256: `f20589472e4b718085679e3be051ffb2466225518736a54e2b076c25a89e5604`
 
 ## 후보별 결과
 
@@ -28,6 +32,20 @@
 ## 무결성
 
 - snapshot_file: `match`
-- snapshot_content: `match`
-- manifest_data: `match`
-- raw_content: `match`
+- snapshot_receipt_file: `match`
+- snapshot_content_receipt: `match`
+- manifest_data_receipt: `match`
+- raw_content_index: `match`
+
+## 병합 전 실행 감사
+
+- 발견 단계: `post_result_premerge_review`
+- 결함: `full_snapshot_content_hash_decoded_blind_oos_ohlcv`
+- 수정: `snapshot_file_sha_plus_tracked_content_receipt`
+- 전략 규칙 변경: `false`
+- 결과 재생성: `true`
+
+## 비용 증거 주의
+
+- 0.204%p published floor의 별도 추적 비용감사 artifact: `false`
+- 판정 영향: none; every candidate fails the gross-edge gate before cost
