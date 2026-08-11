@@ -7,7 +7,7 @@ import math
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -136,9 +136,14 @@ def candidates_in_segment(
                     symbol=symbol,
                     day=day,
                     side=side,
-                    signal_ts=bars[index].ts_utc,
+                    # Resampled candle timestamps label bucket starts.  Signals
+                    # become observable only when the completed bar closes.
+                    signal_ts=bars[index].ts_utc + timedelta(minutes=5),
                     entry_ts=entry.ts_utc,
-                    exit_ts=exit_bar.ts_utc,
+                    # The exit price is the held bar's close, not its open.
+                    # Recording the close event prevents the allocator from
+                    # freeing a slot five minutes before the position exits.
+                    exit_ts=exit_bar.ts_utc + timedelta(minutes=5),
                     entry_price=float(entry.open),
                     exit_price=float(exit_bar.close),
                     dema_distance_fraction=abs(
@@ -436,4 +441,3 @@ def write_result(result: Mapping[str, Any], path: str) -> None:
         ).encode("utf-8")
         + b"\n"
     )
-

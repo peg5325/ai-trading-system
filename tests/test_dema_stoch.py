@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from scripts.run_dema_stoch_development import validate_review_evidence_url
 from src.models import Candle
 from src.research.dema_stoch.contract import (
     PREREG_JSON_SHA256,
@@ -18,7 +19,9 @@ from src.research.dema_stoch.contract import (
     load_contract,
 )
 from src.research.dema_stoch.development import (
+    Candidate,
     Trade,
+    allocate,
     candidates_in_segment,
     cross_side,
     trade_pnl,
@@ -147,11 +150,40 @@ def test_candidate_uses_next_open_and_twelfth_held_close(monkeypatch):
     candidate = candidates_in_segment(
         "SPY", bars, {date(2024, 8, 5)}, load_contract()
     )[0]
-    assert candidate.signal_ts == bars[1].ts_utc
+    assert candidate.signal_ts == bars[1].ts_utc + timedelta(minutes=5)
     assert candidate.entry_ts == bars[2].ts_utc
     assert candidate.entry_price == bars[2].open
-    assert candidate.exit_ts == bars[13].ts_utc
+    assert candidate.exit_ts == bars[13].ts_utc + timedelta(minutes=5)
     assert candidate.exit_price == bars[13].close
+
+
+def _candidate(symbol: str, entry_minute: int, exit_minute: int) -> Candidate:
+    day = date(2024, 8, 5)
+    start = datetime(2024, 8, 5, 9, 30, tzinfo=ET)
+    return Candidate(
+        symbol=symbol,
+        day=day,
+        side="LONG",
+        signal_ts=start + timedelta(minutes=entry_minute - 5),
+        entry_ts=start + timedelta(minutes=entry_minute),
+        exit_ts=start + timedelta(minutes=exit_minute),
+        entry_price=100.0,
+        exit_price=101.0,
+        dema_distance_fraction=0.01,
+        stochastic_distance=1.0,
+    )
+
+
+def test_allocator_keeps_slot_until_exit_bar_close_event():
+    first_wave = tuple(_candidate(f"S{index}", 0, 60) for index in range(5))
+    before_close = _candidate("EARLY", 55, 115)
+    at_close = _candidate("AT_CLOSE", 60, 120)
+    trades, skipped = allocate(
+        first_wave + (before_close, at_close), load_contract()
+    )
+    assert "EARLY" not in {trade.symbol for trade in trades}
+    assert "AT_CLOSE" in {trade.symbol for trade in trades}
+    assert skipped["slot_cap"] == 1
 
 
 def _regular_1m_day() -> tuple[Candle, ...]:
@@ -197,6 +229,30 @@ def test_incomplete_regular_grid_fails_closed_and_resets():
     assert complete_regular_5m(
         incomplete, date(2024, 8, 5), "SPY"
     ) == ((), ("incomplete_regular_1m_grid",))
+
+
+def test_complete_regular_day_does_not_require_a_post_session_frontier():
+    regular_only = _regular_1m_day()[:-1]
+    bars, defects = complete_regular_5m(
+        regular_only, date(2024, 8, 5), "SPY"
+    )
+    assert len(bars) == 78
+    assert defects == ()
+
+
+def test_review_evidence_is_bound_to_stable_pr_129_comment():
+    validate_review_evidence_url(
+        "https://github.com/peg5325/ai-trading-system/pull/129"
+        "#issuecomment-123456"
+    )
+    for invalid in (
+        "https://github.com/peg5325/ai-trading-system/pull/129",
+        "https://github.com/peg5325/ai-trading-system/pull/128#issuecomment-1",
+        "https://github.com/peg5325/ai-trading-system/pull/129/files",
+        "https://example.com/pull/129#issuecomment-1",
+    ):
+        with pytest.raises(ValueError):
+            validate_review_evidence_url(invalid)
 
 
 def test_performance_loader_is_the_only_candle_path():

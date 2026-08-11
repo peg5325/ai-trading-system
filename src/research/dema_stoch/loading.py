@@ -51,10 +51,18 @@ def complete_regular_5m(
         return (), ("duplicate_regular_minute",)
     if tuple(sorted(observed)) != expected_1m:
         return (), ("incomplete_regular_1m_grid",)
+    # The exact REGULAR grid above proves that the 15:59 bar exists.  Use its
+    # completion boundary explicitly so the 15:55-16:00 bucket does not depend
+    # on a POST-session candle being present as an accidental frontier.
+    completion_frontier = regular[-1].ts_utc + timedelta(minutes=1)
     bars = tuple(
         bar
         for bar in resample_1m(
-            list(candles), 5, min_bars=5, closed_only=True
+            list(regular),
+            5,
+            min_bars=5,
+            closed_only=True,
+            evaluation_time=completion_frontier,
         )
         if bar.session == SESSION_REGULAR
         and open_minute <= minute_of_day(bar) < close_minute
@@ -63,4 +71,3 @@ def complete_regular_5m(
     if tuple(minute_of_day(bar) for bar in bars) != expected_5m:
         return (), ("incomplete_regular_5m_grid",)
     return bars, ()
-

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -13,6 +14,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.research.dema_stoch.development import run, write_result
 from src.research.dema_stoch.report import render_report
 
+_REVIEW_EVIDENCE_PATTERN = re.compile(
+    r"https://github\.com/peg5325/ai-trading-system/pull/129"
+    r"#issuecomment-\d+"
+)
+
 
 def _head() -> str:
     return subprocess.run(
@@ -21,6 +27,14 @@ def _head() -> str:
         capture_output=True,
         text=True,
     ).stdout.strip()
+
+
+def validate_review_evidence_url(url: str) -> None:
+    """Require the stable, exact implementation-review comment for PR #129."""
+    if _REVIEW_EVIDENCE_PATTERN.fullmatch(url) is None:
+        raise ValueError(
+            "review evidence must be a stable PR #129 GitHub comment URL"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -34,8 +48,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.producer_commit != _head():
         parser.error("producer commit must equal current HEAD")
-    if "github.com/peg5325/ai-trading-system/pull/" not in args.review_evidence_url:
-        parser.error("review evidence must be a stable GitHub PR comment URL")
+    try:
+        validate_review_evidence_url(args.review_evidence_url)
+    except ValueError as error:
+        parser.error(str(error))
     result = run(
         args.snapshot_db,
         args.raw_root,
@@ -53,4 +69,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
