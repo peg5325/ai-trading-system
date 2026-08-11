@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 from collections import Counter, defaultdict, deque
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
@@ -13,6 +14,8 @@ from typing import Any
 
 from src.history.daily_manifest import build_manifest
 from src.history.exchange_calendar import trading_days
+from src.history.raw_snapshot import RawSnapshotStore
+from src.history.research_snapshot import file_sha256
 from src.research.gap_down_fade.contract import (
     PREREG_JSON_SHA256,
     PREREG_MD_SHA256,
@@ -32,12 +35,17 @@ from src.research.gap_down_fade.loading import (
     load_daily_closes,
     load_symbol_day,
 )
-from src.research.orb.identity import require_identity, verify_snapshot_identity
 from src.research.orb.simulator import detect_data_defects
 
 RESULT_SCHEMA = "p0-us30-gap-down-fade-development/v1"
 TRACKED_INTRADAY_MANIFEST = "docs/research/P0_US30_ORB_CLEAN_1M_MANIFEST.json"
+TRACKED_SNAPSHOT_RECEIPT = "docs/research/P0_US30_ORB_CLEAN_SNAPSHOT_RECEIPT.json"
+TRACKED_DAILY_MANIFEST = "docs/research/P0_US30_DAILY_10Y_MANIFEST.json"
 UNIVERSE_YAML = "config/universe_p0_us30.yaml"
+DAILY_DEVELOPMENT_CONTENT_SHA256 = (
+    "0550100cdf9b6a04ec5ba191ab0037c189dae7ea4feeab222cadf0140b980f1c"
+)
+DAILY_DEVELOPMENT_ROW_COUNT = 72_940
 
 
 @dataclass(frozen=True)
@@ -360,45 +368,106 @@ def canonical_json_bytes(value: Mapping[str, Any]) -> bytes:
     ).encode("utf-8")
 
 
+def _read_json(path: str) -> Mapping[str, Any]:
+    with open(path, encoding="utf-8") as handle:
+        value = json.load(handle)
+    if not isinstance(value, dict):
+        raise TypeError(f"identity JSON object 아님: {path}")
+    return value
+
+
+def _identity_check(name: str, expected: str, actual: str) -> dict[str, str]:
+    status = "match" if actual == expected else "mismatch"
+    if status != "match":
+        raise RuntimeError(
+            f"identity 불일치: {name} expected={expected} actual={actual}"
+        )
+    return {"name": name, "expected": expected, "actual": actual, "status": status}
+
+
 def _verify_data_identity(
     contract: Mapping[str, Any], snapshot_path: str, raw_root: str, daily_db_path: str
 ) -> list[dict[str, Any]]:
+    """Verify frozen receipts plus a live development-only daily content hash.
+
+    The snapshot file SHA authenticates the exact frozen file without decoding OOS
+    OHLCV. Its semantic content hash is then verified transitively through the
+    tracked creation receipt. The live daily manifest is bounded at the development
+    end date so blind-OOS daily values are never streamed into the run.
+    """
     identity = contract["data_identity"]
-    intraday_contract = {"data_identity": {
-        "snapshot_file_sha256": identity["intraday_snapshot_file_sha256"],
-        "snapshot_content_sha256": identity["intraday_snapshot_content_sha256"],
-        "manifest_data_sha256": identity["intraday_manifest_data_sha256"],
-        "raw_content_sha256": identity["raw_content_sha256"],
-    }}
-    intraday = verify_snapshot_identity(
-        contract=intraday_contract,
-        snapshot_path=snapshot_path,
-        raw_root=raw_root,
-        manifest_path=TRACKED_INTRADAY_MANIFEST,
-    )
-    require_identity(intraday)
-    daily = build_manifest(
+    if not os.path.isfile(snapshot_path):
+        raise RuntimeError("고정 intraday snapshot 부재")
+    if not os.path.isdir(raw_root):
+        raise RuntimeError("고정 raw snapshot root 부재")
+    snapshot_receipt = _read_json(TRACKED_SNAPSHOT_RECEIPT)
+    snapshot_receipt_data = snapshot_receipt["snapshot"]
+    intraday_manifest = _read_json(TRACKED_INTRADAY_MANIFEST)
+    daily_manifest_receipt = _read_json(TRACKED_DAILY_MANIFEST)
+    snapshot_file_actual = file_sha256(snapshot_path)
+    raw_actual = str(RawSnapshotStore(raw_root).manifest()["raw_content_sha256"])
+
+    checks = [
+        _identity_check(
+            "snapshot_file",
+            str(identity["intraday_snapshot_file_sha256"]),
+            snapshot_file_actual,
+        ),
+        _identity_check(
+            "snapshot_receipt_file",
+            snapshot_file_actual,
+            str(snapshot_receipt_data["file_sha256"]),
+        ),
+        _identity_check(
+            "snapshot_content_receipt",
+            str(identity["intraday_snapshot_content_sha256"]),
+            str(snapshot_receipt_data["content_sha256"]),
+        ),
+        _identity_check(
+            "manifest_data_receipt",
+            str(identity["intraday_manifest_data_sha256"]),
+            str(intraday_manifest["data_content_sha256"]),
+        ),
+        _identity_check(
+            "raw_content_index",
+            str(identity["raw_content_sha256"]),
+            raw_actual,
+        ),
+        _identity_check(
+            "daily_full_manifest_receipt",
+            str(identity["daily_data_content_sha256"]),
+            str(daily_manifest_receipt["data_content_sha256"]),
+        ),
+        _identity_check(
+            "daily_full_rows_receipt",
+            str(identity["daily_row_count"]),
+            str(daily_manifest_receipt["summary"]["total_rows"]),
+        ),
+    ]
+    development_end = str(contract["windows"]["development_eval_end"])
+    daily_development = build_manifest(
         daily_db_path,
         UNIVERSE_YAML,
         collection_params={},
         collection_code_commit=None,
         generated_at_utc="identity-check",
-        as_of="2026-07-21",
-        collection_completed_through="2026-07-21",
+        as_of=development_end,
+        collection_completed_through=development_end,
     )
-    daily_hash = str(daily["data_content_sha256"])
-    daily_rows = int(daily["summary"]["total_rows"])
-    expected_hash = str(identity["daily_data_content_sha256"])
-    expected_rows = int(identity["daily_row_count"])
-    if daily_hash != expected_hash or daily_rows != expected_rows:
-        raise RuntimeError("일봉 data identity 불일치")
-    checks = [asdict(check) for check in intraday.checks]
-    checks.extend([
-        {"name": "daily_content", "expected": expected_hash, "actual": daily_hash,
-         "status": "match"},
-        {"name": "daily_rows", "expected": str(expected_rows), "actual": str(daily_rows),
-         "status": "match"},
-    ])
+    checks.extend(
+        [
+            _identity_check(
+                "daily_development_content",
+                DAILY_DEVELOPMENT_CONTENT_SHA256,
+                str(daily_development["data_content_sha256"]),
+            ),
+            _identity_check(
+                "daily_development_rows",
+                str(DAILY_DEVELOPMENT_ROW_COUNT),
+                str(daily_development["summary"]["total_rows"]),
+            ),
+        ]
+    )
     return checks
 
 

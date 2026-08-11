@@ -29,7 +29,10 @@
   발견했다. 사전등록 규칙은 바꾸지 않고 `start + 5분` 완료시각으로 구현을 교정했다.
 - 교정 전 성과값을 이미 확인했으므로 결과의 `execution_audit`에 이를 명시하고, 같은 잠긴 계약으로
   결과를 다시 생성한다. blind OOS는 계속 미개봉이다.
-- 고정 스냅샷과 일봉의 전체 content hash 계산은 파일 동일성 확인만을 위한 허용된 identity 단계다.
-  OOS 행의 가격을 전략 로더·신호·성과 계산이나 사람에게 노출하지 않으므로 OOS 개봉으로 보지 않는다.
+- 고정 intraday snapshot은 전체 파일 SHA를 재계산하고, 그 파일과 결속된 tracked 생성 receipt의
+  content hash를 대조한다. 실행 중 OOS OHLCV를 역직렬화하지 않는다.
+- 전체 일봉 계약 hash·행수는 tracked manifest 영수증에서 확인한다. 실제 canonical DB는
+  development 종료일 `2026-01-20`까지만 live manifest를 계산하고 content SHA
+  `0550100c…`·72,940행과 대조해 blind OOS 일봉 가격을 읽지 않는다.
 - intrabar stop/target은 5분봉 완료시각까지 포지션이 열려 있다고 보수적으로 간주한다. gap-through만
   봉 시작시각 체결로 처리해 동시 포지션·가족 cap을 낙관적으로 비우지 않는다.

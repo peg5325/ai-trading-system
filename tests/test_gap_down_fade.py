@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timedelta
 
 import pytest
 
 from src.models import ET, Candle
+from src.research.gap_down_fade import development as gap_development
 from src.research.gap_down_fade.contract import (
     evaluation_days,
     fold_boundaries,
@@ -114,6 +116,83 @@ def test_missing_minute_excludes_symbol_day():
     bars, defects = complete_regular_5m(candles, day, "AAPL")
     assert bars == ()
     assert defects == ("incomplete_regular_session",)
+
+
+def test_identity_live_daily_hash_stops_at_development_end(tmp_path, monkeypatch):
+    contract = load_contract()
+    snapshot = tmp_path / "snapshot.sqlite"
+    snapshot.write_bytes(b"identity-only")
+    raw_root = tmp_path / "raw"
+    raw_root.mkdir()
+    receipt = tmp_path / "snapshot-receipt.json"
+    receipt.write_text(
+        json.dumps(
+            {
+                "snapshot": {
+                    "file_sha256": contract["data_identity"]["intraday_snapshot_file_sha256"],
+                    "content_sha256": contract["data_identity"][
+                        "intraday_snapshot_content_sha256"
+                    ],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    intraday_manifest = tmp_path / "intraday-manifest.json"
+    intraday_manifest.write_text(
+        json.dumps(
+            {
+                "data_content_sha256": contract["data_identity"][
+                    "intraday_manifest_data_sha256"
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    daily_manifest = tmp_path / "daily-manifest.json"
+    daily_manifest.write_text(
+        json.dumps(
+            {
+                "data_content_sha256": contract["data_identity"][
+                    "daily_data_content_sha256"
+                ],
+                "summary": {"total_rows": contract["data_identity"]["daily_row_count"]},
+            }
+        ),
+        encoding="utf-8",
+    )
+    seen_as_of: list[str] = []
+
+    class RawReceipt:
+        def __init__(self, _root):
+            pass
+
+        def manifest(self):
+            return {"raw_content_sha256": contract["data_identity"]["raw_content_sha256"]}
+
+    def development_manifest(*_args, **kwargs):
+        seen_as_of.append(kwargs["as_of"])
+        return {
+            "data_content_sha256": gap_development.DAILY_DEVELOPMENT_CONTENT_SHA256,
+            "summary": {"total_rows": gap_development.DAILY_DEVELOPMENT_ROW_COUNT},
+        }
+
+    monkeypatch.setattr(gap_development, "TRACKED_SNAPSHOT_RECEIPT", str(receipt))
+    monkeypatch.setattr(gap_development, "TRACKED_INTRADAY_MANIFEST", str(intraday_manifest))
+    monkeypatch.setattr(gap_development, "TRACKED_DAILY_MANIFEST", str(daily_manifest))
+    monkeypatch.setattr(
+        gap_development,
+        "file_sha256",
+        lambda _path: contract["data_identity"]["intraday_snapshot_file_sha256"],
+    )
+    monkeypatch.setattr(gap_development, "RawSnapshotStore", RawReceipt)
+    monkeypatch.setattr(gap_development, "build_manifest", development_manifest)
+
+    checks = gap_development._verify_data_identity(
+        contract, str(snapshot), str(raw_root), "unused.sqlite"
+    )
+    assert all(check["status"] == "match" for check in checks)
+    assert seen_as_of == ["2026-01-20"]
 
 
 def test_primary_signal_uses_previous_daily_close_and_next_bar_open():
