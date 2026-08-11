@@ -66,6 +66,10 @@ def render_report(result: Mapping[str, Any]) -> str:
         "## 해석 경계",
         "",
         "- 사진에 없던 청산은 결과 전에 60분 고정 보유로 잠갔다.",
+        (
+            "- MDD는 초기자본 기준 고정 notional을 계속 적용한 연구 손익곡선이라 "
+            "자본 소진 뒤에도 100%를 넘을 수 있으며, 실계좌 운용 가능성을 뜻하지 않는다."
+        ),
         "- SHORT는 borrow/locate/borrow fee를 모델링하지 않은 연구용 수치다.",
         "- 2026-01-21 이후 blind OOS를 로드하지 않았다.",
         "- 외부 공급자·Paper·실거래·주문·위험·config 변경은 없다.",
