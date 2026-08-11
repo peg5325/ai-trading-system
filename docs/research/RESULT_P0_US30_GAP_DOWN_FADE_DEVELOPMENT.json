@@ -1,6 +1,6 @@
 {
   "blind_oos_opened": false,
-  "candidate_count_before_portfolio": 28,
+  "candidate_count_before_portfolio": 26,
   "defects": {
     "incomplete_symbol_day_ratio": 0.04786069651741293,
     "incomplete_symbol_days": 962,
@@ -14,20 +14,28 @@
     "incomplete_regular_session": 962,
     "insufficient_opening_volume_lookback": 14
   },
+  "execution_audit": {
+    "fix": "compare_canonical_5m_start_label_plus_5_minutes",
+    "issue": "signal_completion_window_compared_against_start_label",
+    "performance_values_inspected_before_fix": true,
+    "result_regenerated": true,
+    "review_phase": "post_result_merge_review",
+    "strategy_rules_changed": false
+  },
   "exit_reasons": {
-    "eod": 19,
+    "eod": 17,
     "stop": 7,
     "target": 2
   },
   "filters": {
     "gap_too_small": 17500,
-    "no_higher_low": 19,
-    "no_signal": 150,
+    "no_higher_low": 18,
+    "no_signal": 152,
     "opening_rsi": 417,
     "opening_selloff_too_small": 485,
     "opening_volume": 544,
-    "signal_volume": 79,
-    "vwap_not_crossed": 3666
+    "signal_volume": 77,
+    "vwap_not_crossed": 3519
   },
   "gate": {
     "failed": [
@@ -58,37 +66,55 @@
       "status": "match"
     },
     {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "name": "snapshot_receipt_file",
+      "status": "match"
+    },
+    {
       "actual": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
       "expected": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
-      "name": "snapshot_content",
+      "name": "snapshot_content_receipt",
       "status": "match"
     },
     {
       "actual": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
       "expected": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
-      "name": "manifest_data",
+      "name": "manifest_data_receipt",
       "status": "match"
     },
     {
       "actual": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
       "expected": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
-      "name": "raw_content",
+      "name": "raw_content_index",
       "status": "match"
     },
     {
       "actual": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
       "expected": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
-      "name": "daily_content",
+      "name": "daily_full_manifest_receipt",
       "status": "match"
     },
     {
       "actual": "76690",
       "expected": "76690",
-      "name": "daily_rows",
+      "name": "daily_full_rows_receipt",
+      "status": "match"
+    },
+    {
+      "actual": "0550100cdf9b6a04ec5ba191ab0037c189dae7ea4feeab222cadf0140b980f1c",
+      "expected": "0550100cdf9b6a04ec5ba191ab0037c189dae7ea4feeab222cadf0140b980f1c",
+      "name": "daily_development_content",
+      "status": "match"
+    },
+    {
+      "actual": "72940",
+      "expected": "72940",
+      "name": "daily_development_rows",
       "status": "match"
     }
   ],
-  "payload_sha256": "673137dc862d9127766bea80a8364b44b66633a0c4d8ae07d7eab11f5ebc3276",
+  "payload_sha256": "ece0ab96d36eb3880ecb3323e48f4bd8e6b2704f679650387fbac4c24b42db06",
   "portfolio_skips": {},
   "prereg": {
     "json_sha256": "5ebd7118a82be7ef969e7677aa2f76df1b591c5f898801e932631fee88364494",
@@ -98,7 +124,7 @@
   "scope": "development-only",
   "stats": {
     "low": {
-      "cumulative_net_pnl": 20.592725871073014,
+      "cumulative_net_pnl": -98.40210517892984,
       "fold_pnl": {
         "F01": 357.9282389999996,
         "F02": -428.30161504741784,
@@ -106,20 +132,20 @@
         "F04": -378.5781480513426,
         "F05": -52.554360656785576,
         "F06": 1239.2193415653499,
-        "F07": -674.2739776253319,
+        "F07": -871.4561963753342,
         "F08": 488.98351638999793,
-        "F09": -157.93404431004677,
+        "F09": -79.74665661004734,
         "F10": -373.8962253933497
       },
       "mdd": 0.012209588891048543,
-      "net_expectancy": 0.7354544953954648,
+      "net_expectancy": -3.784696353035763,
       "positive_folds": 3,
-      "profit_factor": 1.0061653267412833,
-      "trade_count": 28,
-      "trading_days_with_trade": 25
+      "profit_factor": 0.9698328808913975,
+      "trade_count": 26,
+      "trading_days_with_trade": 24
     },
     "official": {
-      "cumulative_net_pnl": -1016.2483028749202,
+      "cumulative_net_pnl": -1055.1450354249232,
       "fold_pnl": {
         "F01": 277.7400089999996,
         "F02": -492.4849617750798,
@@ -127,20 +153,20 @@
         "F04": -417.7069600717055,
         "F05": -161.27928374228867,
         "F06": 1041.892505938846,
-        "F07": -833.3696005837775,
+        "F07": -990.3371318337798,
         "F08": 424.2852540899979,
-        "F09": -356.0978149051533,
+        "F09": -238.02701620515387,
         "F10": -499.2274508257591
       },
-      "mdd": 0.014156419695763148,
-      "net_expectancy": -36.294582245532865,
+      "mdd": 0.013642555042288446,
+      "net_expectancy": -40.58250136249705,
       "positive_folds": 3,
-      "profit_factor": 0.7397740254404246,
-      "trade_count": 28,
-      "trading_days_with_trade": 25
+      "profit_factor": 0.721390484582825,
+      "trade_count": 26,
+      "trading_days_with_trade": 24
     },
     "stress": {
-      "cumulative_net_pnl": -2778.8780517431087,
+      "cumulative_net_pnl": -2681.6080168431117,
       "fold_pnl": {
         "F01": 141.4200179999996,
         "F02": -601.596651212105,
@@ -148,22 +174,22 @@
         "F04": -484.22594050632244,
         "F05": -346.1116529876439,
         "F06": 706.4368853737892,
-        "F07": -1103.832159613135,
+        "F07": -1192.4347221131375,
         "F08": 314.2982081799979,
-        "F09": -692.9762249168344,
+        "F09": -507.103627516835,
         "F10": -712.290534060855
       },
-      "mdd": 0.02916174015924887,
-      "net_expectancy": -99.24564470511102,
+      "mdd": 0.028190413460640946,
+      "net_expectancy": -103.13876987858121,
       "positive_folds": 3,
-      "profit_factor": 0.4413473750408832,
-      "trade_count": 28,
-      "trading_days_with_trade": 25
+      "profit_factor": 0.43997568304096407,
+      "trade_count": 26,
+      "trading_days_with_trade": 24
     }
   },
   "strategy_id": "p0-us30-gap-down-fade-v1",
-  "trade_count": 28,
-  "trades_sha256": "c066bdb2b6abeb53705d01b854b65ce142bb78ba864c5ae760b60d66c9fbe2c1",
+  "trade_count": 26,
+  "trades_sha256": "50623ee831989b3ce6f5d4f82e31de747234c4d59bfb1142c028c4758cb30475",
   "window": {
     "end": "2026-01-20",
     "start": "2023-05-18",

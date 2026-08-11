@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -20,6 +22,7 @@ from src.research.gap_down_fade.development import (
     _gate,
     _net,
     _stats,
+    canonical_json_bytes,
     close_candidate,
     detect_candidate,
 )
@@ -30,6 +33,7 @@ from src.research.gap_down_fade.indicators import (
     wilder_rsi,
 )
 from src.research.gap_down_fade.loading import complete_regular_5m
+from src.research.gap_down_fade.report import render
 
 
 def candle(moment: datetime, close: float = 100.0, volume: float = 100.0) -> Candle:
@@ -193,6 +197,16 @@ def test_identity_live_daily_hash_stops_at_development_end(tmp_path, monkeypatch
     )
     assert all(check["status"] == "match" for check in checks)
     assert seen_as_of == ["2026-01-20"]
+
+
+def test_tracked_result_hash_and_markdown_match_renderer():
+    json_path = Path("docs/research/RESULT_P0_US30_GAP_DOWN_FADE_DEVELOPMENT.json")
+    markdown_path = Path("docs/research/RESULT_P0_US30_GAP_DOWN_FADE_DEVELOPMENT.md")
+    result = json.loads(json_path.read_text(encoding="utf-8"))
+    payload_hash = result.pop("payload_sha256")
+    assert hashlib.sha256(canonical_json_bytes(result)).hexdigest() == payload_hash
+    result["payload_sha256"] = payload_hash
+    assert render(result) == markdown_path.read_text(encoding="utf-8")
 
 
 def test_primary_signal_uses_previous_daily_close_and_next_bar_open():
