@@ -5,9 +5,23 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from src.models import ET, Candle
-from src.research.box_mean_reversion.contract import development_days, fold_boundaries, load_contract
-from src.research.box_mean_reversion.development import Candidate, _gate, close_candidate
-from src.research.box_mean_reversion.indicators import ema, exact_median, wilder_atr, wilder_rsi
+from src.research.box_mean_reversion.contract import (
+    development_days,
+    fold_boundaries,
+    load_contract,
+)
+from src.research.box_mean_reversion.development import (
+    Candidate,
+    _completion_minute,
+    _gate,
+    close_candidate,
+)
+from src.research.box_mean_reversion.indicators import (
+    ema,
+    exact_median,
+    wilder_atr,
+    wilder_rsi,
+)
 from src.research.box_mean_reversion.loading import complete_regular_5m
 
 
@@ -70,6 +84,41 @@ def test_complete_regular_session_builds_78_complete_bars():
     assert defects == ()
     assert len(bars) == 78
     assert all(bar.interval == "5m" for bar in bars)
+
+
+def test_signal_window_uses_completed_bar_time_for_start_labelled_bars():
+    contract = load_contract()
+    eligibility = contract["eligibility"]
+    minimum = int(eligibility["minimum_signal_minute_et"])
+    maximum = int(eligibility["maximum_signal_minute_et"])
+    day = date(2025, 6, 3)
+
+    first = bar5(
+        datetime(2025, 6, 3, 10, 25, tzinfo=ET),
+        open_=100,
+        high=101,
+        low=99,
+        close=100,
+    )
+    last = bar5(
+        datetime(2025, 6, 3, 15, 25, tzinfo=ET),
+        open_=100,
+        high=101,
+        low=99,
+        close=100,
+    )
+    after = bar5(
+        datetime(2025, 6, 3, 15, 30, tzinfo=ET),
+        open_=100,
+        high=101,
+        low=99,
+        close=100,
+    )
+
+    assert first.ts_exchange.date() == day
+    assert _completion_minute(first) == minimum
+    assert _completion_minute(last) == maximum
+    assert _completion_minute(after) > maximum
 
 
 def test_missing_regular_minute_excludes_whole_symbol_day():

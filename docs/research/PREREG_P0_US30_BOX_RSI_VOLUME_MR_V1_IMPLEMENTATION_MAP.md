@@ -13,3 +13,11 @@
 
 성과 로더는 `research_load(... purpose="performance", track=TRACK_INTRADAY, market="US")`만
 사용한다. 실행기는 OOS grant를 받지 않으며 결과 envelope에 `blind_oos_opened=false`를 기록한다.
+
+## 결과 후 독립 리뷰 교정
+
+PR #117 독립 리뷰에서 정본 5분봉 timestamp가 봉 **시작**을 가리키는데도 신호 허용 구간을
+그 값에 직접 적용한 오류를 발견했다. 사전등록 §3.1의 “10:30~15:30 ET의 완료봉”을 실행하기
+위해 `start_label + 5분`을 완료 시각으로 비교한다. 이는 임계값·신호 정의 변경이 아니라 기존
+문면의 실행 교정이며, 성과 확인 뒤 발견됐으므로 결과를 재생성하고 `execution_audit`에 공개한다.
+blind OOS는 계속 닫는다.

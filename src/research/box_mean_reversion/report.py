@@ -1,7 +1,8 @@
 """박스권 평균회귀 development 결과 Markdown 렌더러."""
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 
 def render(result: Mapping[str, Any]) -> str:
@@ -45,8 +46,10 @@ def render(result: Mapping[str, Any]) -> str:
         "",
         "## 데이터 품질",
         "",
-        f"- incomplete symbol-days: `{defects['incomplete_symbol_days']}/"
-        f"{defects['total_symbol_days']} = {defects['incomplete_symbol_day_ratio']:.6%}`",
+        (
+            f"- incomplete symbol-days: `{defects['incomplete_symbol_days']}/"
+            f"{defects['total_symbol_days']} = {defects['incomplete_symbol_day_ratio']:.6%}`"
+        ),
         f"- new conflicts: `{defects['new_conflicts']}`",
         f"- major defects: `{defects['major_defects']}`",
         "",
@@ -57,5 +60,14 @@ def render(result: Mapping[str, Any]) -> str:
         "- 이 결과는 Paper·실거래 승격이 아니다.",
         "- 결과 후 임계값이나 규칙을 수정하지 않았다.",
         "",
+        "## 실행 감사",
+        "",
     ]
+    lines.extend(
+        f"- {item['phase']}: `{item['issue']}` → `{item['resolution']}`; "
+        f"성과 사전열람={item['performance_values_inspected_before_fix']}, "
+        f"전략 규칙 변경={item['strategy_rules_changed']}"
+        for item in result.get("execution_audit", [])
+    )
+    lines.append("")
     return "\n".join(lines)

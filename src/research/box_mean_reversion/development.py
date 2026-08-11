@@ -5,10 +5,11 @@ import hashlib
 import json
 import math
 from collections import Counter, defaultdict
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from src.research.box_mean_reversion.contract import (
     PREREG_JSON_SHA256,
@@ -17,7 +18,12 @@ from src.research.box_mean_reversion.contract import (
     fold_boundaries,
     load_contract,
 )
-from src.research.box_mean_reversion.indicators import ema, exact_median, wilder_atr, wilder_rsi
+from src.research.box_mean_reversion.indicators import (
+    ema,
+    exact_median,
+    wilder_atr,
+    wilder_rsi,
+)
 from src.research.box_mean_reversion.loading import complete_regular_5m, load_symbol_day
 from src.research.orb.identity import require_identity, verify_snapshot_identity
 from src.research.orb.simulator import detect_data_defects
@@ -61,6 +67,11 @@ def _minute(bar: Any) -> int:
     return bar.ts_exchange.hour * 60 + bar.ts_exchange.minute
 
 
+def _completion_minute(bar: Any) -> int:
+    """Return the completed-bar minute for canonical start-labelled 5m bars."""
+    return _minute(bar) + 5
+
+
 def detect_candidate(symbol: str, day: date, bars: Sequence[Any], contract: Mapping[str, Any]
                      ) -> tuple[Candidate | None, Counter[str]]:
     signal = contract["signal"]
@@ -78,7 +89,7 @@ def detect_candidate(symbol: str, day: date, bars: Sequence[Any], contract: Mapp
     slope_n = int(signal["ema_slope_lookback_bars"])
     start = max(box_n, vol_n, int(signal["ema_period"]), 14, slope_n)
     for i in range(start, len(bars) - 1):
-        minute = _minute(bars[i])
+        minute = _completion_minute(bars[i])
         if not (int(eligibility["minimum_signal_minute_et"]) <= minute
                 <= int(eligibility["maximum_signal_minute_et"])):
             continue
@@ -134,9 +145,7 @@ def detect_candidate(symbol: str, day: date, bars: Sequence[Any], contract: Mapp
 def close_candidate(candidate: Candidate, bars: Sequence[Any], contract: Mapping[str, Any]
                     ) -> tuple[datetime, float, str]:
     max_bars = int(contract["exit"]["maximum_holding_bars"])
-    held = 0
-    for bar in bars[candidate.entry_index:]:
-        held += 1
+    for held, bar in enumerate(bars[candidate.entry_index:], start=1):
         open_ = float(bar.open)
         if open_ <= candidate.stop:
             return bar.ts_utc, open_, "stop_gap"
@@ -340,6 +349,14 @@ def run(snapshot_path: str, raw_root: str) -> dict[str, Any]:
         "exclusions": dict(sorted(exclusions.items())),
         "filters": dict(sorted(filters.items())),
         "portfolio_skips": dict(sorted(skipped.items())),
+        "execution_audit": [{
+            "phase": "post_result_independent_review",
+            "issue": "signal_window_compared_against_start_label_instead_of_completion_time",
+            "resolution": "compare_canonical_5m_start_label_plus_5_minutes",
+            "performance_values_inspected_before_fix": True,
+            "strategy_rules_changed": False,
+            "result_regenerated": True,
+        }],
         "trades_sha256": hashlib.sha256(canonical_json_bytes({
             "trades": [{**asdict(t), "day": t.day.isoformat(),
                         "signal_ts": t.signal_ts.isoformat(), "entry_ts": t.entry_ts.isoformat(),
