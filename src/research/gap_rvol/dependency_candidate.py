@@ -37,6 +37,11 @@ from src.research.gap_rvol.windows import minute_of_day, regular_close_minute_ch
 SCHEMA = "gap-rvol-d9-toss-dependency-candidate/v1"
 PROBE_FILE_SHA256 = "7d27367c20f4d43444a1f622ef4331f07c1bb666529cae54227165e5ce9e1717"
 EXPECTED_AVAILABLE_COUNT = 265
+FROZEN_CANDIDATE_MANIFEST_FILE_SHA256 = (
+    "df17f90a8ad6cf491399e04d8f7f5d0390a4146069c29da085481cdb4b1c0f3b"
+)
+EXPECTED_CANDIDATE_ROLE_COUNTS = {"rvol_15m_lookback": EXPECTED_AVAILABLE_COUNT}
+EXPECTED_ELIGIBLE_DEPENDENCY_COUNT = 0
 
 
 @dataclass(frozen=True, order=True)
@@ -266,6 +271,8 @@ def verify_dependency_candidate_identity(
     with open(manifest_path, "rb") as handle:
         payload = handle.read()
     manifest_file_sha = hashlib.sha256(payload).hexdigest()
+    if manifest_file_sha != FROZEN_CANDIDATE_MANIFEST_FILE_SHA256:
+        raise ValueError("dependency candidate manifest file hash mismatch")
     manifest = json.loads(payload)
     if manifest.get("schema") != SCHEMA:
         raise ValueError("unexpected dependency candidate manifest schema")
@@ -275,6 +282,48 @@ def verify_dependency_candidate_identity(
         raise ValueError("dependency candidate probe identity mismatch")
     if int(manifest.get("target_count", -1)) != EXPECTED_AVAILABLE_COUNT:
         raise ValueError("dependency candidate target count mismatch")
+    if manifest.get("role_counts") != EXPECTED_CANDIDATE_ROLE_COUNTS:
+        raise ValueError("dependency candidate role counts mismatch")
+    targets = manifest.get("targets")
+    if not isinstance(targets, list):
+        raise TypeError("dependency candidate targets must be a list")
+    role_counts: Counter[str] = Counter()
+    eligible: set[tuple[str, str]] = set()
+    all_targets: set[tuple[str, str]] = set()
+    for item in targets:
+        key = (str(item["symbol"]), str(item["day"]))
+        if key in all_targets:
+            raise ValueError("dependency candidate target set is not unique")
+        all_targets.add(key)
+        roles = tuple(map(str, item.get("roles", ())))
+        if not roles:
+            raise ValueError("dependency candidate target has no roles")
+        role_passes = {
+            "prior_regular_close": item.get("has_usable_regular_close") is True,
+            "rvol_15m_lookback": item.get("has_complete_rvol_window") is True,
+        }
+        unknown = set(roles) - set(role_passes)
+        if unknown:
+            raise ValueError(f"unknown dependency roles: {sorted(unknown)}")
+        role_counts.update(roles)
+        recomputed_eligible = all(role_passes[role] for role in roles)
+        if item.get("eligible_dependency") is not recomputed_eligible:
+            raise ValueError(
+                "dependency candidate stored eligibility disagrees with role inputs"
+            )
+        if recomputed_eligible:
+            eligible.add(key)
+    if len(all_targets) != EXPECTED_AVAILABLE_COUNT:
+        raise ValueError("dependency candidate target set is not unique")
+    if dict(sorted(role_counts.items())) != EXPECTED_CANDIDATE_ROLE_COUNTS:
+        raise ValueError("dependency candidate target roles disagree with role counts")
+    ineligible = all_targets - eligible
+    if len(eligible) != EXPECTED_ELIGIBLE_DEPENDENCY_COUNT:
+        raise ValueError("dependency candidate eligible set is not frozen")
+    if int(manifest.get("eligible_dependency_count", -1)) != len(eligible):
+        raise ValueError("dependency candidate eligible count mismatch")
+    if int(manifest.get("ineligible_dependency_count", -1)) != len(ineligible):
+        raise ValueError("dependency candidate ineligible count mismatch")
     actual_data = data_content_sha256_path(candidate_db)
     if actual_data != manifest["repair_db_data_content_sha256"]:
         raise ValueError("dependency candidate DB content hash mismatch")
@@ -283,16 +332,6 @@ def verify_dependency_candidate_identity(
         raise ValueError("dependency candidate raw content hash mismatch")
     if int(raw["content_file_count"]) != int(manifest["raw_content_file_count"]):
         raise ValueError("dependency candidate raw file count mismatch")
-    all_targets = {
-        (str(item["symbol"]), str(item["day"])) for item in manifest["targets"]
-    }
-    eligible = {
-        (str(item["symbol"]), str(item["day"]))
-        for item in manifest["targets"] if item["eligible_dependency"] is True
-    }
-    ineligible = all_targets - eligible
-    if len(all_targets) != EXPECTED_AVAILABLE_COUNT:
-        raise ValueError("dependency candidate target set is not unique")
     con = sqlite3.connect(f"file:{candidate_db}?mode=ro", uri=True)
     try:
         if con.execute("PRAGMA integrity_check").fetchone()[0] != "ok":

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import date
 from pathlib import Path
 
@@ -14,6 +16,7 @@ from src.research.gap_rvol.dependency_candidate import (
     manifest_bytes,
     render_dependency_candidate_manifest,
     summarize_dependency_collection,
+    verify_dependency_candidate_identity,
 )
 from src.research.gap_rvol.dependency_overlay import dependency_overlay_loader
 from src.research.gap_rvol.dependency_repair import load_frozen_dependency_plan
@@ -171,3 +174,71 @@ def test_tracked_dependency_candidate_is_exact_and_scope_closed_when_present():
     assert manifest["scope"]["performance_computed"] is False
     md = path.with_suffix(".md")
     assert render_dependency_candidate_manifest(manifest) == md.read_text(encoding="utf-8")
+
+
+def _tampered_manifest(tmp_path: Path, mutate) -> Path:
+    tracked = Path(
+        "docs/research/MANIFEST_P0_US30_GAP_RVOL_D9_TOSS_DEPENDENCY_CANDIDATE.json"
+    )
+    manifest = json.loads(tracked.read_text(encoding="utf-8"))
+    mutate(manifest)
+    path = tmp_path / "candidate.json"
+    path.write_bytes(manifest_bytes(manifest))
+    return path
+
+
+def test_dependency_candidate_identity_rejects_manifest_file_tampering(tmp_path):
+    path = _tampered_manifest(
+        tmp_path,
+        lambda manifest: manifest["targets"][0].__setitem__(
+            "eligible_dependency", True
+        ),
+    )
+    with pytest.raises(ValueError, match="manifest file hash mismatch"):
+        verify_dependency_candidate_identity(
+            manifest_path=str(path),
+            candidate_db="not-read.sqlite",
+            candidate_raw_root="not-read-raw",
+        )
+
+
+def test_dependency_candidate_identity_recomputes_role_eligibility(
+    tmp_path, monkeypatch
+):
+    path = _tampered_manifest(
+        tmp_path,
+        lambda manifest: manifest["targets"][0].__setitem__(
+            "eligible_dependency", True
+        ),
+    )
+    monkeypatch.setattr(
+        "src.research.gap_rvol.dependency_candidate."
+        "FROZEN_CANDIDATE_MANIFEST_FILE_SHA256",
+        hashlib.sha256(path.read_bytes()).hexdigest(),
+    )
+    with pytest.raises(ValueError, match="stored eligibility disagrees"):
+        verify_dependency_candidate_identity(
+            manifest_path=str(path),
+            candidate_db="not-read.sqlite",
+            candidate_raw_root="not-read-raw",
+        )
+
+
+def test_dependency_candidate_identity_reconciles_aggregate_counts(
+    tmp_path, monkeypatch
+):
+    path = _tampered_manifest(
+        tmp_path,
+        lambda manifest: manifest.__setitem__("eligible_dependency_count", 1),
+    )
+    monkeypatch.setattr(
+        "src.research.gap_rvol.dependency_candidate."
+        "FROZEN_CANDIDATE_MANIFEST_FILE_SHA256",
+        hashlib.sha256(path.read_bytes()).hexdigest(),
+    )
+    with pytest.raises(ValueError, match="eligible count mismatch"):
+        verify_dependency_candidate_identity(
+            manifest_path=str(path),
+            candidate_db="not-read.sqlite",
+            candidate_raw_root="not-read-raw",
+        )
