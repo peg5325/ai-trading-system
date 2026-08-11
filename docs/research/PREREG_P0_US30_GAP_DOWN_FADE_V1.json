@@ -1,0 +1,117 @@
+{
+  "schema": "p0-us30-gap-down-fade-prereg/v1",
+  "version": "1.0",
+  "issue": 120,
+  "strategy_id": "p0-us30-gap-down-fade-v1",
+  "scope": "development-only",
+  "prior_results_examined": [
+    "ORB development INCONCLUSIVE_DATA",
+    "Gap+RVOL development INCONCLUSIVE_DATA",
+    "box RSI volume mean-reversion development NO_SELECTION",
+    "afternoon continuation development NO_SELECTION"
+  ],
+  "data_identity": {
+    "intraday_snapshot_basename": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+    "intraday_snapshot_file_sha256": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+    "intraday_snapshot_content_sha256": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+    "intraday_manifest_data_sha256": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+    "raw_content_sha256": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+    "daily_manifest_path": "docs/research/P0_US30_DAILY_10Y_MANIFEST.json",
+    "daily_data_content_sha256": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
+    "daily_row_count": 76690
+  },
+  "universe": [
+    "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV", "XLI", "XLY",
+    "XLU", "SMH", "AAPL", "MSFT", "NVDA", "AMD", "AVGO", "AMZN", "META", "GOOGL",
+    "TSLA", "MU", "NFLX", "CRM", "PLTR", "VST", "TQQQ", "SQQQ", "SOXL", "SOXS"
+  ],
+  "exposure_families": {
+    "QQQ_FAMILY": ["QQQ", "TQQQ", "SQQQ"],
+    "SOX_FAMILY": ["SMH", "SOXL", "SOXS"]
+  },
+  "windows": {
+    "development_data_start": "2023-04-20",
+    "development_eval_start": "2023-05-18",
+    "development_eval_end": "2026-01-20",
+    "blind_oos_start": "2026-01-21",
+    "blind_oos_end": "2026-07-21",
+    "fold_block_trading_days": 63
+  },
+  "eligibility": {
+    "intraday_source_interval": "1m",
+    "daily_source_interval": "1d",
+    "decision_interval": "5m",
+    "tradable_session": "REGULAR",
+    "require_complete_regular_1m_grid": true,
+    "require_exact_previous_trading_day_daily_close": true,
+    "opening_start_minute_et": 570,
+    "opening_end_exclusive_minute_et": 600,
+    "signal_start_minute_et": 600,
+    "signal_end_minute_et": 780,
+    "max_trades_per_symbol_day": 1,
+    "direction": "LONG",
+    "overnight": false
+  },
+  "signal": {
+    "gap_return_lte": -0.015,
+    "opening_selloff_return_lte": -0.005,
+    "opening_volume_lookback_complete_days": 20,
+    "opening_volume_min_median_multiple": 1.25,
+    "opening_min_rsi_lte": 30.0,
+    "rsi_period": 5,
+    "vwap_cross": "previous_close_lte_previous_vwap_and_current_close_gt_current_vwap",
+    "recovery_rsi_rising": true,
+    "higher_low_lookback_bars": 3,
+    "signal_volume_lookback_bars": 20,
+    "signal_volume_min_median_multiple": 1.0,
+    "atr_period": 14,
+    "entry": "next_complete_5m_bar_open"
+  },
+  "exit": {
+    "stop_atr_below_session_low": 0.25,
+    "target_r_multiple": 1.5,
+    "same_bar_collision": "stop_first",
+    "gap_through": "fill_at_open",
+    "time_exit": "last_complete_regular_5m_close",
+    "eod_flat": true
+  },
+  "portfolio": {
+    "initial_capital": 100000.0,
+    "risk_fraction_per_trade": 0.005,
+    "notional_cap_fraction_per_trade": 0.20,
+    "max_positions": 5,
+    "max_positions_per_exposure_family": 1,
+    "same_timestamp_rank": ["gap_magnitude_desc", "opening_volume_multiple_desc", "symbol_asc"],
+    "equity_base": "fixed_initial_capital"
+  },
+  "costs": {
+    "round_trip_pct_points": {"low": 0.14, "official": 0.34, "stress": 0.68},
+    "basis": "entry_and_exit_notional_half_each"
+  },
+  "development_gate": {
+    "D1_min_trades": 300,
+    "D2_min_trading_days": 200,
+    "D3_official_expectancy_gt": 0.0,
+    "D4_official_profit_factor_gte": 1.2,
+    "D5_official_mdd_lte": 0.10,
+    "D6_min_positive_folds": 7,
+    "D7_stress_cumulative_net_gte": 0.0,
+    "D9_max_incomplete_symbol_day_ratio": 0.05,
+    "D9_max_missing_previous_close_ratio": 0.0,
+    "D9_max_new_conflicts": 0
+  },
+  "indicator_conventions": {
+    "vwap": "cumulative sum(typical_price_times_volume)/cumulative volume from REGULAR open through current completed bar; typical=(high+low+close)/3",
+    "rsi": "Wilder RMA gains/losses, seeded by simple mean of first period changes; zero loss means 100 and zero gain/loss means 50",
+    "atr": "Wilder RMA seeded by simple mean of first 14 true ranges",
+    "median": "exact; even sample uses mean of middle two"
+  },
+  "discipline": {
+    "primary_specs": 1,
+    "blind_oos_opened": false,
+    "sensitivity_specs": 0,
+    "result_driven_revision_allowed": false,
+    "live_paper_order_risk_config_changes": false,
+    "external_provider_used": false
+  }
+}

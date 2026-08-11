@@ -70,7 +70,9 @@ def test_package_has_no_runner_result_or_oos_unlock_artifact():
     assert D9_DEPENDENCY_PROBE.is_file()
     allowed_scripts = {
         "audit_gap_rvol_d9.py",
+        "audit_gap_rvol_d9_dependency_overlay.py",
         "audit_gap_rvol_d9_overlay.py",
+        "collect_gap_rvol_d9_dependency_candidates.py",
         "collect_gap_rvol_d9_repair_candidates.py",
         "plan_gap_rvol_d9_dependencies.py",
         "probe_gap_rvol_d9_dependencies.py",
