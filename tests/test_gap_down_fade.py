@@ -175,9 +175,31 @@ def test_close_candidate_is_stop_first_on_collision():
         signal_ts=bars[0].ts_utc, entry_ts=bars[0].ts_utc, entry_price=100,
         stop=99, target=101, gap_return=-.02, opening_volume_multiple=1.5,
     )
-    _, price, reason = close_candidate(candidate, bars)
+    exit_ts, price, reason = close_candidate(candidate, bars)
+    assert exit_ts == bars[0].ts_utc + timedelta(minutes=5)
     assert price == 99
     assert reason == "stop_first"
+
+
+def test_close_candidate_gap_through_exits_at_bar_open():
+    start = datetime(2025, 6, 3, 13, 0, tzinfo=ET)
+    bars = [bar5(start, open_=98, high=100, low=97, close=99)]
+    candidate = Candidate(
+        symbol="AAPL",
+        day=date(2025, 6, 3),
+        entry_index=0,
+        signal_ts=bars[0].ts_utc - timedelta(minutes=5),
+        entry_ts=bars[0].ts_utc,
+        entry_price=100,
+        stop=99,
+        target=102,
+        gap_return=-0.02,
+        opening_volume_multiple=1.5,
+    )
+    exit_ts, price, reason = close_candidate(candidate, bars)
+    assert exit_ts == bars[0].ts_utc
+    assert price == 98
+    assert reason == "stop_gap"
 
 
 def test_gate_rejects_bad_economics_even_when_data_passes():
@@ -275,4 +297,57 @@ def test_allocate_enforces_exposure_family_at_same_entry_time():
         contract,
     )
     assert [trade.symbol for trade in trades] == ["QQQ"]
+    assert skipped["family_cap"] == 1
+
+
+def test_allocate_keeps_intrabar_exit_open_for_same_bar_entry():
+    contract = load_contract()
+    day = date(2025, 6, 3)
+    start = datetime(2025, 6, 3, 13, 0, tzinfo=ET)
+    first_bars = [
+        bar5(start, open_=100, high=100.5, low=99.5, close=100),
+        bar5(
+            start + timedelta(minutes=5),
+            open_=100,
+            high=100.5,
+            low=97.5,
+            close=98,
+        ),
+    ]
+    second_bars = [
+        bar5(
+            start + timedelta(minutes=5),
+            open_=100,
+            high=100.5,
+            low=99.5,
+            close=100,
+        )
+    ]
+    first = Candidate(
+        symbol="QQQ",
+        day=day,
+        entry_index=0,
+        signal_ts=first_bars[0].ts_utc - timedelta(minutes=5),
+        entry_ts=first_bars[0].ts_utc,
+        entry_price=100,
+        stop=98,
+        target=103,
+        gap_return=-0.03,
+        opening_volume_multiple=2.0,
+    )
+    second = Candidate(
+        symbol="TQQQ",
+        day=day,
+        entry_index=0,
+        signal_ts=second_bars[0].ts_utc - timedelta(minutes=5),
+        entry_ts=second_bars[0].ts_utc,
+        entry_price=100,
+        stop=98,
+        target=103,
+        gap_return=-0.02,
+        opening_volume_multiple=1.5,
+    )
+    trades, skipped = _allocate(((first, first_bars), (second, second_bars)), contract)
+    assert [trade.symbol for trade in trades] == ["QQQ"]
+    assert trades[0].exit_ts == start + timedelta(minutes=10)
     assert skipped["family_cap"] == 1

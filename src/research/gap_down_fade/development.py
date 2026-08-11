@@ -206,11 +206,15 @@ def close_candidate(candidate: Candidate, bars: Sequence[Any]) -> tuple[datetime
         stop_hit = float(bar.low) <= candidate.stop
         target_hit = float(bar.high) >= candidate.target
         if stop_hit:
-            return bar.ts_utc, candidate.stop, "stop_first" if target_hit else "stop"
+            return (
+                bar.ts_utc + timedelta(minutes=5),
+                candidate.stop,
+                "stop_first" if target_hit else "stop",
+            )
         if target_hit:
-            return bar.ts_utc, candidate.target, "target"
+            return bar.ts_utc + timedelta(minutes=5), candidate.target, "target"
     last = bars[-1]
-    return last.ts_utc, float(last.close), "eod"
+    return last.ts_utc + timedelta(minutes=5), float(last.close), "eod"
 
 
 def _family(symbol: str, contract: Mapping[str, Any]) -> str | None:

@@ -63,6 +63,7 @@ def render(result: Mapping[str, Any]) -> str:
         "- 2026-01-21~2026-07-21 blind OOS는 로드하지 않았다.",
         "- 외부 공급자, Paper/실거래, 주문·위험·config 변경은 없었다.",
         f"- 결과 payload SHA-256: `{result['payload_sha256']}`",
+        "- payload SHA-256은 해당 해시 필드를 넣기 전 canonical payload에 대해 계산했다.",
         "",
         "## 실행 감사",
         "",
