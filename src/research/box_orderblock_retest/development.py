@@ -1011,6 +1011,16 @@ def run_development(
         "economic_gates": economic_gates,
         "verdict": verdict,
         "promotion_allowed": False,
+        "execution_audit": [
+            {
+                "phase": "post_result_artifact_reproduction_test",
+                "issue": "markdown_used_python_mapping_repr_with_key_type_and_order_drift",
+                "resolution": "canonical_sorted_json_for_inline_mapping_rendering",
+                "performance_values_inspected_before_fix": True,
+                "strategy_rules_changed": False,
+                "result_regenerated": True,
+            }
+        ],
     }
     result["payload_sha256"] = hashlib.sha256(canonical_json_bytes(result)).hexdigest()
     return result

@@ -340,7 +340,7 @@ def test_loader_is_development_bounded_and_has_no_grant(monkeypatch) -> None:
     assert "execution_grant" not in kwargs and "unlock" not in kwargs
 
 
-def test_official_runner_has_no_unlock_import_and_no_result_exists() -> None:
+def test_official_runner_has_no_unlock_import() -> None:
     path = Path("scripts/run_box_orderblock_retest_development.py")
     tree = ast.parse(path.read_text(encoding="utf-8"))
     imports = {
@@ -350,6 +350,3 @@ def test_official_runner_has_no_unlock_import_and_no_result_exists() -> None:
         for alias in node.names
     }
     assert not any("oos_unlock" in name for name in imports)
-    assert not Path(
-        "docs/research/RESULT_P0_US30_BOX_ORDERBLOCK_RETEST_DEVELOPMENT.json"
-    ).exists()

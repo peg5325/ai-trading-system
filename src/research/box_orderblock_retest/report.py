@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -14,6 +15,10 @@ def _number(value: Any, digits: int = 6) -> str:
     if isinstance(value, int):
         return f"{value:,}"
     return f"{float(value):.{digits}f}"
+
+
+def _inline(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
 def render_markdown(result: Mapping[str, Any]) -> str:
@@ -73,16 +78,17 @@ def render_markdown(result: Mapping[str, Any]) -> str:
             f"{_number(metrics['max_drawdown_pct'])}% |"
         )
     lines.extend(["", "## 데이터·후보 감사", ""])
-    lines.append(f"- signal audit: `{result['signal_audit']}`")
+    lines.append(f"- signal audit: `{_inline(result['signal_audit'])}`")
     for arm_name in ("base", "primary"):
         audit = result["arms"][arm_name]["candidate_audit"]
         lines.append(
             f"- {arm_name}: prepared={audit['prepared_candidates']}, "
             f"excluded={audit['data_exclusions']}, "
             f"rate={audit['data_exclusion_rate']:.6%}, "
-            f"boundary={audit['boundary_skips']}, filters={audit['strategy_filters']}"
+            f"boundary={audit['boundary_skips']}, "
+            f"filters={_inline(audit['strategy_filters'])}"
         )
-    lines.append(f"- canonical defects: `{result['defects']}`")
+    lines.append(f"- canonical defects: `{_inline(result['defects'])}`")
     lines.extend(["", "## Turnover·비용·보유 감사", ""])
     for arm_name in ("base", "primary", "partial"):
         official = result["arms"][arm_name]["cost_levels"]["official"]
@@ -93,7 +99,7 @@ def render_markdown(result: Mapping[str, Any]) -> str:
             f"hold_mean={official['holding_days_mean']:.6f}, "
             f"hold_median={official['holding_days_median']:.6f}, "
             f"max_loss_streak={official['max_consecutive_losses']}, "
-            f"exits={result['arms'][arm_name]['exit_reasons']}"
+            f"exits={_inline(result['arms'][arm_name]['exit_reasons'])}"
         )
     lines.extend(["", "## 게이트", "", "### 데이터", ""])
     for name, passed in result["data_gates"].items():

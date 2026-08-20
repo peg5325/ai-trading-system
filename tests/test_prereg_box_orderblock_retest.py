@@ -110,7 +110,7 @@ def test_execution_risk_costs_and_verdicts_are_frozen() -> None:
     }
 
 
-def test_source_hashes_match_and_no_result_exists() -> None:
+def test_source_hashes_match() -> None:
     contract = _contract()
     for container, hash_key, path_key in (
         (contract["evidence_boundary"], "ledger_sha256", "ledger_path"),
@@ -118,9 +118,6 @@ def test_source_hashes_match_and_no_result_exists() -> None:
     ):
         path = ROOT / container[path_key]
         assert hashlib.sha256(path.read_bytes()).hexdigest() == container[hash_key]
-    assert not (
-        ROOT / "docs/research/RESULT_P0_US30_BOX_ORDERBLOCK_RETEST_DEVELOPMENT.json"
-    ).exists()
 
 
 def test_fold_boundaries_and_data_quality_denominator_are_exact() -> None:
