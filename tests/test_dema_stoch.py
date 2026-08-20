@@ -240,6 +240,38 @@ def test_complete_regular_day_does_not_require_a_post_session_frontier():
     assert defects == ()
 
 
+def test_identical_duplicate_minute_is_deduplicated():
+    candles = _regular_1m_day()
+    duplicate = candles[100]
+    bars, defects = complete_regular_5m(
+        candles + (duplicate,), date(2024, 8, 5), "SPY"
+    )
+    assert len(bars) == 78
+    assert defects == ()
+
+
+def test_conflicting_duplicate_minute_fails_closed():
+    candles = _regular_1m_day()
+    original = candles[100]
+    conflicting = Candle.from_moment(
+        symbol=original.symbol,
+        interval=original.interval,
+        moment=original.ts_exchange,
+        o=original.open,
+        h=original.high + 1,
+        low=original.low,
+        c=original.close,
+        v=original.volume,
+        currency=original.currency,
+        adjusted=original.adjusted,
+    )
+    bars, defects = complete_regular_5m(
+        candles + (conflicting,), date(2024, 8, 5), "SPY"
+    )
+    assert bars == ()
+    assert defects == ("duplicate_timestamp_value_conflict",)
+
+
 def test_review_evidence_is_bound_to_stable_pr_129_comment():
     validate_review_evidence_url(
         "https://github.com/peg5325/ai-trading-system/pull/129"

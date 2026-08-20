@@ -1,7 +1,9 @@
 # P0-US30 DEMA/Stochastic — OOS identity 접근 정정서
 
-상태: **APPEND-ONLY POST-RESULT ERRATUM**  
-대상: `PREREG_P0_US30_DEMA_STOCH_MOMENTUM_V1.{md,json}` / PR #129  
+상태: **APPEND-ONLY POST-RESULT ERRATUM**
+
+대상: `PREREG_P0_US30_DEMA_STOCH_MOMENTUM_V1.{md,json}` / PR #129
+
 발견 단계: 결과 커밋 후, 병합 전 최신 독립 감사
 
 ## 발견 사실
