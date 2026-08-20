@@ -66,7 +66,17 @@ def test_primary_owns_verdict_and_diagnostics_cannot_replace_it() -> None:
     partial = contract["arms"]["partial_exit_sensitivity"]
     assert partial["candidate_and_entry_set"] == "identical to primary"
     assert partial["same_day_stop_and_target"] == (
-        "assume full stop occurs first"
+        "assume full stop occurs first even when open is at or above target"
+    )
+    assert partial["daily_priority"][:3] == [
+        "gap_stop_for_current_active_stop",
+        "if_low_lte_stop_and_max_open_high_gte_target_assume_full_stop_first",
+        "otherwise_intraday_stop",
+    ]
+    assert partial["daily_priority"].index(
+        "if_low_lte_stop_and_max_open_high_gte_target_assume_full_stop_first"
+    ) < partial["daily_priority"].index(
+        "if_open_gte_target_fill_half_at_fixed_target_price"
     )
     assert partial["target_gap_fill"] == (
         "conservative fixed target price, not favorable open"

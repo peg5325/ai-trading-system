@@ -101,16 +101,16 @@
       "time_exit": "same fifth-held-day close as primary",
       "daily_priority": [
         "gap_stop_for_current_active_stop",
-        "if_open_gte_target_and_no_gap_stop_fill_half_at_target_price",
-        "if_same_bar_low_lte_stop_and_high_gte_target_assume_full_stop_first",
-        "otherwise_intraday_stop_before_target",
-        "target_half_exit",
+        "if_low_lte_stop_and_max_open_high_gte_target_assume_full_stop_first",
+        "otherwise_intraday_stop",
+        "if_open_gte_target_fill_half_at_fixed_target_price",
+        "otherwise_if_high_gte_target_fill_half_at_fixed_target_price",
         "time_exit"
       ],
       "target_gap_fill": "conservative fixed target price, not favorable open",
       "breakeven_gap_fill": "next-day open when open_lte_entry, otherwise entry when low_lte_entry",
       "target_on_time_exit_day": "sell half at target then sell remaining half at same-day close when stop was not touched",
-      "same_day_stop_and_target": "assume full stop occurs first",
+      "same_day_stop_and_target": "assume full stop occurs first even when open is at or above target",
       "promotion_authority": false
     }
   },

@@ -85,11 +85,13 @@ Primary와 후보·진입·초기 stop이 동일하다. target은 `entry+initial
 고정 target 가격에 청산한다. 유리한 gap open 가격을 사용하지 않는다. 나머지 stop은 다음
 거래일부터 entry로 이동한다.
 
-일별 우선순위는 `현재 stop gap → stop/target 동시 접촉 시 전량 stop → intraday stop → target
-절반청산 → time exit`다. open이 target 이상이고 stop gap이 아니면 절반을 target 고정 가격에
-청산한다. BE 활성일 open이 entry 이하면 open에, 아니면 low가 entry 이하일 때 entry에 청산한다.
+일별 우선순위는 `현재 stop gap → stop/target 동시 접촉 시 전량 stop → intraday stop → open/high
+target 절반청산 → time exit`다. `low<=stop`이고 `max(open,high)>=target`이면 open이 target 이상이어도
+target은 없었던 것으로 하고 전량 stop 처리한다. stop에 닿지 않은 경우에만 open 또는 high가 target
+이상이면 절반을 target 고정 가격에 청산한다. BE 활성일 open이 entry 이하면 open에, 아니면 low가
+entry 이하일 때 entry에 청산한다.
 5번째 날 target만 닿으면 절반을 target에, 나머지를 같은 날 close에 청산한다. 같은 날 stop과
-target이 모두 닿으면 target은 없었던 것으로 하고 전량 stop 처리한다.
+target이 모두 닿으면 시가 위치와 무관하게 target은 없었던 것으로 하고 전량 stop 처리한다.
 
 ## 7. fold와 판정
 
