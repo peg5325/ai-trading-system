@@ -1019,6 +1019,14 @@ def run_development(
                 "performance_values_inspected_before_fix": True,
                 "strategy_rules_changed": False,
                 "result_regenerated": True,
+            },
+            {
+                "phase": "second_post_result_artifact_reproduction_test",
+                "issue": "markdown_gate_iteration_used_insertion_order_before_sorted_json_reload",
+                "resolution": "sorted_data_and_economic_gate_rendering",
+                "performance_values_inspected_before_fix": True,
+                "strategy_rules_changed": False,
+                "result_regenerated": True,
             }
         ],
     }

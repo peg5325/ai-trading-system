@@ -102,10 +102,10 @@ def render_markdown(result: Mapping[str, Any]) -> str:
             f"exits={_inline(result['arms'][arm_name]['exit_reasons'])}"
         )
     lines.extend(["", "## 게이트", "", "### 데이터", ""])
-    for name, passed in result["data_gates"].items():
+    for name, passed in sorted(result["data_gates"].items()):
         lines.append(f"- {name}: **{'PASS' if passed else 'FAIL'}**")
     lines.extend(["", "### 경제·강건성", ""])
-    for name, passed in result["economic_gates"].items():
+    for name, passed in sorted(result["economic_gates"].items()):
         lines.append(f"- {name}: **{'PASS' if passed else 'FAIL'}**")
     lines.extend(
         [
