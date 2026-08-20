@@ -76,7 +76,11 @@
     "unused_slots_remain_cash": true,
     "baseline": "equal_all_same_regime_same_week",
     "baseline_position_entry_notional_usd": 6250,
-    "baseline_positions": 8
+    "baseline_positions": 8,
+    "baseline_invests_all_eight_when_regime_on": true,
+    "baseline_independent_of_primary_eligible_count": true,
+    "comparison_week_set": "identical-primary-sensitivity-equal-all",
+    "any_required_symbol_entry_or_exit_defect": "exclude-same-whole-week-from-all-portfolios"
   },
   "costs_round_trip_pct_points": {
     "low": 0.14,
@@ -85,10 +89,36 @@
     "allocation": "half on entry notional and half on exit notional"
   },
   "evaluation": {
+    "development_calendar_days": 2347,
     "chronological_folds": 10,
     "random_split": false,
+    "fold_partition_algorithm": "front-loaded-remainder-contiguous-SPY-trading-days",
+    "fold_widths": [235, 235, 235, 235, 235, 235, 235, 234, 234, 234],
+    "fold_boundaries": [
+      {"fold": 1, "start": "2016-03-18", "end": "2017-02-22"},
+      {"fold": 2, "start": "2017-02-23", "end": "2018-01-29"},
+      {"fold": 3, "start": "2018-01-30", "end": "2019-01-04"},
+      {"fold": 4, "start": "2019-01-07", "end": "2019-12-10"},
+      {"fold": 5, "start": "2019-12-11", "end": "2020-11-13"},
+      {"fold": 6, "start": "2020-11-16", "end": "2021-10-21"},
+      {"fold": 7, "start": "2021-10-22", "end": "2022-09-28"},
+      {"fold": 8, "start": "2022-09-29", "end": "2023-09-05"},
+      {"fold": 9, "start": "2023-09-06", "end": "2024-08-09"},
+      {"fold": 10, "start": "2024-08-12", "end": "2025-07-18"}
+    ],
     "fold_entry_and_exit_must_both_be_inside": true,
     "fold_positions_start_empty": true,
+    "week_taxonomy": {
+      "warmup": "indicator inputs not ready; counted separately and excluded from DQ denominator",
+      "boundary": "signal or execution path crosses development or fold boundary; counted separately and excluded from DQ denominator",
+      "valid": "post-warmup non-boundary week with complete valid signal, entry and exit inputs for SPY and all eight ETFs",
+      "invalid": "post-warmup non-boundary scheduled week with any missing or invalid required input",
+      "regime_off": "valid cash week",
+      "no_primary_eligible": "valid cash week for primary while equal-all still follows the regime rule",
+      "invalid_rate_numerator": "invalid_weeks",
+      "invalid_rate_denominator": "valid_weeks+invalid_weeks",
+      "inclusive_threshold": true
+    },
     "primary_gates": {
       "min_completed_position_episodes": 300,
       "official_net_expectancy_gt": 0,
@@ -105,7 +135,8 @@
       "invalid_or_skipped_signal_week_rate_lte": 0.05,
       "identity_and_boundaries_match": true,
       "current_execution_blind_oos_closed": true,
-      "all_eight_required": true
+      "all_eight_required": true,
+      "comparison_week_set_identical": true
     },
     "verdicts": {
       "data_gate_failure": "INCONCLUSIVE_DATA",

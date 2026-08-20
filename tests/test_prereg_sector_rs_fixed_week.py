@@ -90,3 +90,41 @@ def test_verdicts_are_exploratory_and_result_artifacts_do_not_exist() -> None:
     assert "blind OOS 개봉은 이 PR에서 하지 않는다" in MD_PATH.read_text(
         encoding="utf-8"
     )
+
+
+def test_fold_partition_week_taxonomy_and_baseline_are_frozen() -> None:
+    contract = _load()
+    evaluation = contract["evaluation"]
+    assert evaluation["development_calendar_days"] == 2347
+    assert evaluation["fold_partition_algorithm"] == (
+        "front-loaded-remainder-contiguous-SPY-trading-days"
+    )
+    assert evaluation["fold_widths"] == [235] * 7 + [234] * 3
+    assert evaluation["fold_boundaries"] == [
+        {"fold": 1, "start": "2016-03-18", "end": "2017-02-22"},
+        {"fold": 2, "start": "2017-02-23", "end": "2018-01-29"},
+        {"fold": 3, "start": "2018-01-30", "end": "2019-01-04"},
+        {"fold": 4, "start": "2019-01-07", "end": "2019-12-10"},
+        {"fold": 5, "start": "2019-12-11", "end": "2020-11-13"},
+        {"fold": 6, "start": "2020-11-16", "end": "2021-10-21"},
+        {"fold": 7, "start": "2021-10-22", "end": "2022-09-28"},
+        {"fold": 8, "start": "2022-09-29", "end": "2023-09-05"},
+        {"fold": 9, "start": "2023-09-06", "end": "2024-08-09"},
+        {"fold": 10, "start": "2024-08-12", "end": "2025-07-18"},
+    ]
+    taxonomy = evaluation["week_taxonomy"]
+    assert taxonomy["invalid_rate_numerator"] == "invalid_weeks"
+    assert taxonomy["invalid_rate_denominator"] == "valid_weeks+invalid_weeks"
+    assert taxonomy["inclusive_threshold"] is True
+    assert "excluded from DQ denominator" in taxonomy["warmup"]
+    assert "excluded from DQ denominator" in taxonomy["boundary"]
+
+    portfolio = contract["portfolio"]
+    assert portfolio["baseline_invests_all_eight_when_regime_on"] is True
+    assert portfolio["baseline_independent_of_primary_eligible_count"] is True
+    assert portfolio["comparison_week_set"] == (
+        "identical-primary-sensitivity-equal-all"
+    )
+    assert portfolio["any_required_symbol_entry_or_exit_defect"] == (
+        "exclude-same-whole-week-from-all-portfolios"
+    )

@@ -70,16 +70,33 @@ Primary와 sensitivity 각각:
 - 진입 또는 예정 청산 OHLC가 없거나 비정상이면 해당 주 전체를 제외한다.
 - 매도 체결을 매수보다 먼저 처리한다.
 
-동일 regime baseline은 8개 ETF에 각각 USD 6,250을 같은 entry/exit 시각으로 보유한다. 이를 통해
-시장 노출이 아니라 선택의 증분 가치를 비교한다.
+동일 regime baseline은 regime-on인 모든 유효 주에 primary eligible 수와 무관하게 8개 ETF
+전부를 각각 USD 6,250으로 같은 entry/exit 시각에 보유한다. SPY 또는 8개 중 하나라도 신호·진입·
+청산에 필요한 봉이 없거나 비정상이면 primary·sensitivity·equal-all 모두에서 같은 주 전체를
+제외한다. 비교 표본을 동일하게 유지해 시장 노출이 아니라 선택의 증분 가치를 비교한다.
 
 ## 6. 비용·fold·보고
 
 왕복 비용은 0.14/0.34/0.68%p이고 entry/exit 실제 notional에 절반씩 적용한다.
 
-SPY development 거래일을 가능한 균등한 10개 연속 fold로 나눈다. 각 fold는 빈 포지션으로
-시작하며 entry와 exit가 모두 fold 안에 있는 episode만 포함한다. 지표 warm-up은 fold 이전
-development 데이터 사용을 허용한다.
+SPY development 2,347거래일을 10개 연속 fold로 나눈다. `divmod(2347,10)`의 나머지 7일을
+앞 fold부터 하나씩 배분해 폭을 `[235,235,235,235,235,235,235,234,234,234]`로 고정한다.
+
+| fold | start | end |
+|---:|---|---|
+| 1 | 2016-03-18 | 2017-02-22 |
+| 2 | 2017-02-23 | 2018-01-29 |
+| 3 | 2018-01-30 | 2019-01-04 |
+| 4 | 2019-01-07 | 2019-12-10 |
+| 5 | 2019-12-11 | 2020-11-13 |
+| 6 | 2020-11-16 | 2021-10-21 |
+| 7 | 2021-10-22 | 2022-09-28 |
+| 8 | 2022-09-29 | 2023-09-05 |
+| 9 | 2023-09-06 | 2024-08-09 |
+| 10 | 2024-08-12 | 2025-07-18 |
+
+각 fold는 빈 포지션으로 시작하며 entry와 exit가 모두 fold 안에 있는 episode만 포함한다. 지표
+warm-up은 fold 이전 development 데이터 사용을 허용한다.
 
 primary·sensitivity·equal-all에 대해 episode 수, gross/비용별 PnL·expectancy·PF·승률,
 turnover·cost drag, mark-to-market MDD, fold 초과성과, 종목/진입주 기여도, 보유일 분포와
@@ -87,12 +104,24 @@ turnover·cost drag, mark-to-market MDD, fold 초과성과, 종목/진입주 기
 
 ## 7. 판정 게이트
 
+주 분류와 제외율을 다음처럼 고정한다.
+
+- `warmup`: 지표 입력 미준비. 별도 집계하고 DQ 분모에서 제외한다.
+- `boundary`: 신호 또는 체결 경로가 development/fold 경계를 넘음. 별도 집계하고 DQ 분모에서
+  제외한다.
+- `valid`: warm-up 이후·비경계이며 SPY+8 ETF의 신호/진입/청산 입력이 완전·정상인 주.
+- `invalid`: warm-up 이후·비경계 예약 주에서 필요한 입력 하나라도 결측/비정상인 주.
+- regime-off는 유효 현금 주다. primary eligible이 0인 주도 primary에는 유효 현금 주이며,
+  equal-all은 regime-on 규칙대로 8종목을 보유한다.
+- `invalid_rate = invalid_weeks / (valid_weeks + invalid_weeks)`. 5%는 포함 통과다.
+
 데이터 게이트:
 
 - 제외 신호 주 비율 `<=5%`
 - manifest/full receipt/development hash·구간 일치
 - 교정 실행의 blind OOS 접근 0
 - 8개 ETF 입력 완전성
+- primary·sensitivity·equal-all 비교 주 집합 동일
 
 Primary 경제·강건성 게이트는 전부 통과해야 한다.
 
