@@ -60,14 +60,23 @@ def test_primary_owns_verdict_and_diagnostics_cannot_replace_it() -> None:
     contract = _contract()
     assert contract["arms"]["primary"] == "order_block_retest_fixed5"
     assert contract["arms"]["base_diagnostic"]["promotion_authority"] is False
+    assert "broad diagnostic only" in contract["arms"]["base_diagnostic"][
+        "comparison_interpretation"
+    ]
     partial = contract["arms"]["partial_exit_sensitivity"]
     assert partial["candidate_and_entry_set"] == "identical to primary"
     assert partial["same_day_stop_and_target"] == (
         "assume full stop occurs first"
     )
+    assert partial["target_gap_fill"] == (
+        "conservative fixed target price, not favorable open"
+    )
+    assert partial["target_on_time_exit_day"] == (
+        "sell half at target then sell remaining half at same-day close when stop was not touched"
+    )
     assert partial["promotion_authority"] is False
     assert contract["evaluation"]["multiple_arm_policy"] == (
-        "primary alone owns verdict; base and partial are fixed diagnostics"
+        "primary alone owns verdict; base and partial are fixed diagnostics; base is not an incremental-value gate"
     )
 
 
@@ -99,3 +108,28 @@ def test_source_hashes_match_and_no_result_or_implementation_exists() -> None:
     assert not (
         ROOT / "docs/research/RESULT_P0_US30_BOX_ORDERBLOCK_RETEST_DEVELOPMENT.json"
     ).exists()
+
+
+def test_fold_boundaries_and_data_quality_denominator_are_exact() -> None:
+    evaluation = _contract()["evaluation"]
+    assert evaluation["fold_widths"] == [235] * 7 + [234] * 3
+    assert evaluation["fold_boundaries"] == [
+        {"fold": 1, "start": "2016-03-18", "end": "2017-02-22"},
+        {"fold": 2, "start": "2017-02-23", "end": "2018-01-29"},
+        {"fold": 3, "start": "2018-01-30", "end": "2019-01-04"},
+        {"fold": 4, "start": "2019-01-07", "end": "2019-12-10"},
+        {"fold": 5, "start": "2019-12-11", "end": "2020-11-13"},
+        {"fold": 6, "start": "2020-11-16", "end": "2021-10-21"},
+        {"fold": 7, "start": "2021-10-22", "end": "2022-09-28"},
+        {"fold": 8, "start": "2022-09-29", "end": "2023-09-05"},
+        {"fold": 9, "start": "2023-09-06", "end": "2024-08-09"},
+        {"fold": 10, "start": "2024-08-12", "end": "2025-07-18"},
+    ]
+    taxonomy = evaluation["data_quality_taxonomy"]
+    assert taxonomy["numerator"] == "data_exclusions"
+    assert taxonomy["denominator"] == "prepared_candidates+data_exclusions"
+    assert taxonomy["inclusive_threshold"] is True
+    assert "excluded from denominator" in taxonomy["warmup"]
+    assert "excluded from denominator" in taxonomy[
+        "development_or_fold_boundary"
+    ]

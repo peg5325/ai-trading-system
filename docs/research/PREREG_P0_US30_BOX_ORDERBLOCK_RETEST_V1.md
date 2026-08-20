@@ -76,19 +76,50 @@ primary를 대신해 승격할 수 없다.
 ### Base diagnostic
 
 박스·추세·거래량·변동성 축소 돌파까지만 요구하고 `t+1 open` 진입, stop은
-`box_high-1.00×ATR20_pre`, 5거래일 보유다. 오더블록 필터의 증분 가치를 비교할 뿐 승격 권한은 없다.
+`box_high-1.00×ATR20_pre`, 5거래일 보유다. 표본·진입 시각·stop이 primary와 다르므로 오더블록의
+인과적 증분가치를 증명하는 gate로 사용하지 않는다. 넓은 맥락의 진단 수치일 뿐 승격 권한은 없다.
 
 ### Partial-exit sensitivity
 
-Primary와 후보·진입·초기 stop이 동일하다. +1R 도달 시 50%를 청산하고 나머지 stop을 다음
-거래일부터 entry로 이동한다. 같은 날 stop과 +1R이 모두 닿으면 전량 stop이 먼저 발생한 것으로
-처리한다. 나머지는 primary와 같은 5번째 거래일 close에 청산한다.
+Primary와 후보·진입·초기 stop이 동일하다. target은 `entry+initial_R`이고 +1R 도달 시 50%를
+고정 target 가격에 청산한다. 유리한 gap open 가격을 사용하지 않는다. 나머지 stop은 다음
+거래일부터 entry로 이동한다.
+
+일별 우선순위는 `현재 stop gap → stop/target 동시 접촉 시 전량 stop → intraday stop → target
+절반청산 → time exit`다. open이 target 이상이고 stop gap이 아니면 절반을 target 고정 가격에
+청산한다. BE 활성일 open이 entry 이하면 open에, 아니면 low가 entry 이하일 때 entry에 청산한다.
+5번째 날 target만 닿으면 절반을 target에, 나머지를 같은 날 close에 청산한다. 같은 날 stop과
+target이 모두 닿으면 target은 없었던 것으로 하고 전량 stop 처리한다.
 
 ## 7. fold와 판정
 
 SPY development 2,347거래일을 기존 정본과 동일한 front-loaded remainder 방식의 10개 연속 fold로
-나눈다. 각 fold는 빈 포지션으로 시작하고 entry와 exit가 모두 fold 안인 거래만 포함한다. 지표
-warm-up은 fold 이전 development 데이터를 사용할 수 있다.
+나눈다. 폭은 `[235,235,235,235,235,235,235,234,234,234]`이며 경계는 다음과 같다.
+
+| fold | start | end |
+|---:|---|---|
+| 1 | 2016-03-18 | 2017-02-22 |
+| 2 | 2017-02-23 | 2018-01-29 |
+| 3 | 2018-01-30 | 2019-01-04 |
+| 4 | 2019-01-07 | 2019-12-10 |
+| 5 | 2019-12-11 | 2020-11-13 |
+| 6 | 2020-11-16 | 2021-10-21 |
+| 7 | 2021-10-22 | 2022-09-28 |
+| 8 | 2022-09-29 | 2023-09-05 |
+| 9 | 2023-09-06 | 2024-08-09 |
+| 10 | 2024-08-12 | 2025-07-18 |
+
+각 fold는 빈 포지션으로 시작하고 entry와 exit가 모두 fold 안인 거래만 포함한다. 지표 warm-up은
+fold 이전 development 데이터를 사용할 수 있다.
+
+DQ 분류는 다음과 같다.
+
+- warmup과 development/fold boundary skip은 별도 집계하며 분모에서 제외
+- breakout·order-block·retest 부재와 pre-entry invalidation은 전략 필터이며 분모에서 제외
+- `prepared_candidate`: portfolio 배정 전까지 신호·체결 전제조건을 만족한 경로
+- `data_exclusion`: 준비된 경로에 필요한 decision/entry/holding/exit 봉이 결측·비정상
+- capacity·중복 symbol·quantity<1은 portfolio skip이며 분모에서 제외
+- `data_exclusion_rate = data_exclusions / (prepared_candidates + data_exclusions)`, 5% 포함 통과
 
 데이터 게이트:
 
@@ -104,12 +135,11 @@ Primary는 다음을 모두 통과해야 한다.
 - 양수 fold `>=7/10`
 - official MDD 절댓값 `<=10%`
 - official 순손익이 양수일 때 최대 종목 기여 `<=35%`, 최대 진입일 기여 `<=20%`
-- official expectancy per initial R가 base보다 큼
 - partial-exit sensitivity official expectancy `>0`
 
 판정은 `INCONCLUSIVE_DATA`, `EXPLORATORY_NO_SELECTION`,
 `EXPLORATORY_GO_REQUIRES_FRESH_VALIDATION` 중 하나다. Base와 partial 결과로 primary를 사후 교체하지
-않는다.
+않으며 base는 primary의 증분가치 gate가 아니다.
 
 ## 8. 결과 전 필수 테스트
 

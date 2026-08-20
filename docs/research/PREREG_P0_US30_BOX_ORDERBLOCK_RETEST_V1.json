@@ -89,14 +89,27 @@
       "signal": "box+trend+volume+contraction breakout without order-block requirement",
       "entry": "t+1 open",
       "initial_stop": "box_high_minus_1.00_atr20_pre",
-      "promotion_authority": false
+      "promotion_authority": false,
+      "comparison_interpretation": "broad diagnostic only; different sample entry and stop prevent causal order-block attribution"
     },
     "partial_exit_sensitivity": {
       "id": "order_block_retest_half_1r_breakeven",
       "candidate_and_entry_set": "identical to primary",
       "first_exit": "sell 50 percent at entry_plus_1R",
+      "target_price": "entry_plus_initial_R",
       "remainder_stop": "entry price, active from next trading day after first exit",
       "time_exit": "same fifth-held-day close as primary",
+      "daily_priority": [
+        "gap_stop_for_current_active_stop",
+        "if_open_gte_target_and_no_gap_stop_fill_half_at_target_price",
+        "if_same_bar_low_lte_stop_and_high_gte_target_assume_full_stop_first",
+        "otherwise_intraday_stop_before_target",
+        "target_half_exit",
+        "time_exit"
+      ],
+      "target_gap_fill": "conservative fixed target price, not favorable open",
+      "breakeven_gap_fill": "next-day open when open_lte_entry, otherwise entry when low_lte_entry",
+      "target_on_time_exit_day": "sell half at target then sell remaining half at same-day close when stop was not touched",
       "same_day_stop_and_target": "assume full stop occurs first",
       "promotion_authority": false
     }
@@ -137,6 +150,18 @@
     "chronological_folds": 10,
     "fold_partition_algorithm": "front-loaded-remainder-contiguous-SPY-trading-days",
     "fold_widths": [235, 235, 235, 235, 235, 235, 235, 234, 234, 234],
+    "fold_boundaries": [
+      {"fold": 1, "start": "2016-03-18", "end": "2017-02-22"},
+      {"fold": 2, "start": "2017-02-23", "end": "2018-01-29"},
+      {"fold": 3, "start": "2018-01-30", "end": "2019-01-04"},
+      {"fold": 4, "start": "2019-01-07", "end": "2019-12-10"},
+      {"fold": 5, "start": "2019-12-11", "end": "2020-11-13"},
+      {"fold": 6, "start": "2020-11-16", "end": "2021-10-21"},
+      {"fold": 7, "start": "2021-10-22", "end": "2022-09-28"},
+      {"fold": 8, "start": "2022-09-29", "end": "2023-09-05"},
+      {"fold": 9, "start": "2023-09-06", "end": "2024-08-09"},
+      {"fold": 10, "start": "2024-08-12", "end": "2025-07-18"}
+    ],
     "fold_entry_and_exit_must_both_be_inside": true,
     "fold_positions_start_empty": true,
     "warmup_allowed_from_prior_development": true,
@@ -150,8 +175,18 @@
       "official_max_drawdown_abs_pct_lte": 10,
       "max_symbol_contribution_lte": 0.35,
       "max_entry_day_contribution_lte": 0.20,
-      "official_expectancy_per_r_gt_base": true,
       "partial_exit_sensitivity_official_expectancy_gt": 0
+    },
+    "data_quality_taxonomy": {
+      "warmup": "indicator inputs not ready; counted separately and excluded from denominator",
+      "development_or_fold_boundary": "entry or exit cannot fit inside boundary; counted separately and excluded from denominator",
+      "strategy_filter": "no breakout, no order-block, no retest, or pre-entry invalidation; not a prepared candidate and excluded from denominator",
+      "prepared_candidate": "all signal and execution prerequisites available before portfolio allocation",
+      "data_exclusion": "prepared signal path with missing or invalid required decision, entry, holding, or exit bar",
+      "portfolio_skip": "capacity, duplicate-symbol, or quantity_lt_one; excluded from DQ denominator",
+      "numerator": "data_exclusions",
+      "denominator": "prepared_candidates+data_exclusions",
+      "inclusive_threshold": true
     },
     "data_gates": {
       "data_exclusion_rate_lte": 0.05,
@@ -160,7 +195,7 @@
       "new_conflicts_eq": 0,
       "major_defects_eq": 0
     },
-    "multiple_arm_policy": "primary alone owns verdict; base and partial are fixed diagnostics",
+    "multiple_arm_policy": "primary alone owns verdict; base and partial are fixed diagnostics; base is not an incremental-value gate",
     "verdicts": {
       "data_gate_failure": "INCONCLUSIVE_DATA",
       "economic_gate_failure": "EXPLORATORY_NO_SELECTION",
