@@ -1,0 +1,168 @@
+{
+  "schema": "p0_sector_rs_fixed_week_prereg/v1",
+  "version": "1.0",
+  "status": "FROZEN_BEFORE_THIS_STRATEGY_RESULTS",
+  "issue": 138,
+  "strategy_id": "p0_sector_rs_fixed_week_v1",
+  "authorized_scope": "user-approved issue #138",
+  "adaptation_disclosure": {
+    "prior_strategy_result_examined": true,
+    "prior_result_path": "docs/research/RESULT_P0_SECTOR_ETF_WEEKLY_MOMENTUM_DEVELOPMENT.json",
+    "prior_result_verdict": "NO_SELECTION",
+    "current_strategy_results_examined": false,
+    "same_development_data_is_exploratory_only": true,
+    "blind_oos_or_paper_promotion_allowed": false
+  },
+  "evidence_boundary": {
+    "ledger_path": "docs/research/STRATEGY_EVIDENCE_LEDGER_2026-08-20.json",
+    "ledger_sha256": "b8a225dbe1c53943b6fe51787db719a505021c85ce3121cfe5985f8e168e4a1f",
+    "selected_strategy_before_prereg": null
+  },
+  "data": {
+    "universe_path": "config/universe_p0_us30.yaml",
+    "symbols": ["SMH", "XLE", "XLF", "XLI", "XLK", "XLU", "XLV", "XLY"],
+    "calendar_symbol": "SPY",
+    "interval": "1d",
+    "market": "US",
+    "manifest_path": "docs/research/P0_US30_DAILY_10Y_MANIFEST.json",
+    "manifest_file_sha256": "d742fde6acef3dc76e388b838796a8170bf24da45be79938a860f1045ea09ad3",
+    "full_data_content_sha256": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
+    "development_data_content_sha256": "96151eeb277528e1b8167e7c8c531155640cd52973c0c2f646bd23ed11018a7a",
+    "development_rows": 69130,
+    "development_start": "2016-03-18",
+    "development_end_inclusive": "2025-07-18",
+    "blind_oos_start": "2025-07-21",
+    "blind_oos_end_inclusive": "2026-07-21",
+    "track": "swing",
+    "full_identity_policy": "tracked-manifest-receipt",
+    "live_hash_policy": "development-end-bounded-only"
+  },
+  "signal": {
+    "schedule": "last completed trading day of each ISO week",
+    "skip_recent_trading_days": 5,
+    "primary_lookbacks": [63, 126],
+    "primary_score": "0.5*ret63_skip5+0.5*ret126_skip5",
+    "sensitivity_score": "ret126_skip5",
+    "return_definition": "close_t_minus_5/close_t_minus_lookback-1",
+    "market_regime": "spy_close_t_gt_sma200_t",
+    "absolute_momentum": "score_gt_0",
+    "ranking": ["score_desc", "symbol_asc"],
+    "primary_top_n": 3,
+    "sensitivity_top_n": 3,
+    "all_eight_required_for_signal": true,
+    "lookahead_policy": "all signal inputs complete at or before signal close"
+  },
+  "execution": {
+    "direction": "long_only",
+    "entry": "first trading day of next ISO week open",
+    "exit": "earlier of entry ISO week final trading day close or fifth held trading day close",
+    "max_holding_trading_days": 5,
+    "cross_iso_week_carry": false,
+    "entry_week_rebalance": false,
+    "stop": null,
+    "target": null,
+    "scale_in": false,
+    "averaging_down": false,
+    "missing_entry_or_exit": "exclude-whole-week-fail-closed",
+    "sell_before_buy": true
+  },
+  "portfolio": {
+    "initial_capital_usd": 100000,
+    "gross_target_notional_usd": 50000,
+    "primary_position_entry_notional_usd": 16666.666666666668,
+    "primary_max_positions": 3,
+    "fractional_shares_research_only": true,
+    "cash_when_regime_off": true,
+    "unused_slots_remain_cash": true,
+    "baseline": "equal_all_same_regime_same_week",
+    "baseline_position_entry_notional_usd": 6250,
+    "baseline_positions": 8,
+    "baseline_invests_all_eight_when_regime_on": true,
+    "baseline_independent_of_primary_eligible_count": true,
+    "comparison_week_set": "identical-primary-sensitivity-equal-all",
+    "any_required_symbol_entry_or_exit_defect": "exclude-same-whole-week-from-all-portfolios"
+  },
+  "costs_round_trip_pct_points": {
+    "low": 0.14,
+    "official": 0.34,
+    "stress": 0.68,
+    "allocation": "half on entry notional and half on exit notional"
+  },
+  "evaluation": {
+    "development_calendar_days": 2347,
+    "chronological_folds": 10,
+    "random_split": false,
+    "fold_partition_algorithm": "front-loaded-remainder-contiguous-SPY-trading-days",
+    "fold_widths": [235, 235, 235, 235, 235, 235, 235, 234, 234, 234],
+    "fold_boundaries": [
+      {"fold": 1, "start": "2016-03-18", "end": "2017-02-22"},
+      {"fold": 2, "start": "2017-02-23", "end": "2018-01-29"},
+      {"fold": 3, "start": "2018-01-30", "end": "2019-01-04"},
+      {"fold": 4, "start": "2019-01-07", "end": "2019-12-10"},
+      {"fold": 5, "start": "2019-12-11", "end": "2020-11-13"},
+      {"fold": 6, "start": "2020-11-16", "end": "2021-10-21"},
+      {"fold": 7, "start": "2021-10-22", "end": "2022-09-28"},
+      {"fold": 8, "start": "2022-09-29", "end": "2023-09-05"},
+      {"fold": 9, "start": "2023-09-06", "end": "2024-08-09"},
+      {"fold": 10, "start": "2024-08-12", "end": "2025-07-18"}
+    ],
+    "fold_entry_and_exit_must_both_be_inside": true,
+    "fold_positions_start_empty": true,
+    "week_taxonomy": {
+      "warmup": "indicator inputs not ready; counted separately and excluded from DQ denominator",
+      "boundary": "signal or execution path crosses development or fold boundary; counted separately and excluded from DQ denominator",
+      "valid": "post-warmup non-boundary week with complete valid signal, entry and exit inputs for SPY and all eight ETFs",
+      "invalid": "post-warmup non-boundary scheduled week with any missing or invalid required input",
+      "regime_off": "valid cash week",
+      "no_primary_eligible": "valid cash week for primary while equal-all still follows the regime rule",
+      "invalid_rate_numerator": "invalid_weeks",
+      "invalid_rate_denominator": "valid_weeks+invalid_weeks",
+      "inclusive_threshold": true
+    },
+    "primary_gates": {
+      "min_completed_position_episodes": 300,
+      "official_net_expectancy_gt": 0,
+      "official_profit_factor_gte": 1.2,
+      "stress_total_net_pnl_gte": 0,
+      "official_positive_excess_folds_gte": 7,
+      "official_max_drawdown_abs_pct_lte": 10,
+      "official_total_net_pnl_gt_equal_all": true,
+      "max_symbol_contribution_lte": 0.5,
+      "max_entry_week_contribution_lte": 0.2,
+      "sensitivity_official_total_net_pnl_gt": 0
+    },
+    "data_gates": {
+      "invalid_or_skipped_signal_week_rate_lte": 0.05,
+      "identity_and_boundaries_match": true,
+      "current_execution_blind_oos_closed": true,
+      "all_eight_required": true,
+      "comparison_week_set_identical": true
+    },
+    "verdicts": {
+      "data_gate_failure": "INCONCLUSIVE_DATA",
+      "economic_gate_failure": "EXPLORATORY_NO_SELECTION",
+      "all_pass": "EXPLORATORY_GO_REQUIRES_FRESH_VALIDATION"
+    }
+  },
+  "reporting": [
+    "completed position episodes",
+    "gross low official stress PnL expectancy PF win rate",
+    "entry and exit turnover plus cost drag",
+    "mark-to-market MDD and consecutive losses",
+    "10-fold primary minus equal-all excess",
+    "symbol and entry-week contribution",
+    "holding-days distribution and holiday-shortened weeks",
+    "invalid week and identity audit",
+    "primary and sensitivity results"
+  ],
+  "discipline": {
+    "implementation_or_result_in_this_pr": false,
+    "blind_oos_opened": false,
+    "oos_grant_allowed": false,
+    "paper_or_live_promotion_allowed": false,
+    "parameter_tuning_after_result": false,
+    "external_provider_used": false,
+    "positive_result_requires": "fresh user-approved preregistration on untouched forward data"
+  },
+  "revision_policy": "no post-result amendment except append-only data-invalidating erratum"
+}
