@@ -14,7 +14,7 @@ def _contract() -> dict:
 
 def test_adaptive_scope_is_exploratory_and_oos_stays_closed() -> None:
     contract = _contract()
-    assert contract["version"] == "1.1"
+    assert contract["version"] == "1.2"
     assert contract["status"] == "FROZEN_BEFORE_THIS_STRATEGY_RESULTS"
     disclosure = contract["adaptation_disclosure"]
     assert disclosure["prior_box_and_breakout_results_examined"] is True
@@ -99,6 +99,9 @@ def test_execution_risk_costs_and_verdicts_are_frozen() -> None:
     assert execution["stop_precedes_time_exit"] is True
     assert contract["portfolio"]["risk_budget_usd"] == 500
     assert contract["portfolio"]["max_positions"] == 5
+    assert contract["portfolio"]["partial_exit_fractional_shares_research_only"] is True
+    assert "exactly 50 percent" in contract["portfolio"]["partial_exit_quantity"]
+    assert execution["entry_lte_initial_stop"].startswith("skip")
     assert contract["costs_round_trip_pct_points"]["official"] == 0.34
     assert contract["evaluation"]["verdicts"] == {
         "data_gate_failure": "INCONCLUSIVE_DATA",
@@ -167,6 +170,6 @@ def test_indicator_conventions_and_pre_result_revision_are_frozen() -> None:
     assert "never reach back before t-20" in indicators["volume_median20"]
     assert indicators["missing_or_invalid_daily_bar"].startswith("break segment")
     revision = contract["revision_history"][-1]
-    assert revision["version"] == "1.1"
-    assert revision["timing"] == "before implementation and before any strategy result"
+    assert revision["version"] == "1.2"
+    assert "before signal simulator" in revision["timing"]
     assert revision["go_easier"] is False

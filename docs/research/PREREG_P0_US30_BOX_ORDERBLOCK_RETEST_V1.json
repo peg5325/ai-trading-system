@@ -1,6 +1,6 @@
 {
   "schema": "p0_us30_box_orderblock_retest_prereg/v1",
-  "version": "1.1",
+  "version": "1.2",
   "status": "FROZEN_BEFORE_THIS_STRATEGY_RESULTS",
   "issue": 140,
   "strategy_id": "p0_us30_box_orderblock_retest_v1",
@@ -134,6 +134,7 @@
     "intraday_stop_fill": "stop_if_low_lte_stop_after_open_check",
     "stop_precedes_time_exit": true,
     "same_day_entry_and_stop": "entry at open then stop is active",
+    "entry_lte_initial_stop": "skip as strategy-invalid before portfolio allocation",
     "scale_in": false,
     "averaging_down": false,
     "missing_entry_holding_or_exit_bar": "exclude-candidate-fail-closed"
@@ -147,7 +148,9 @@
     "quantity_lt_one": "skip",
     "duplicate_symbol_positions": false,
     "same_timestamp_rank": ["breakout_atr_desc", "volume_ratio_desc", "symbol_asc"],
-    "fixed_initial_capital_sizing": true
+    "fixed_initial_capital_sizing": true,
+    "partial_exit_fractional_shares_research_only": true,
+    "partial_exit_quantity": "exactly 50 percent of initial quantity, including half share when initial quantity is odd"
   },
   "costs_round_trip_pct_points": {
     "low": 0.14,
@@ -246,6 +249,16 @@
       ],
       "go_easier": false,
       "reason": "remove implementation discretion without inspecting performance"
+    },
+    {
+      "version": "1.2",
+      "timing": "after contract-loader scaffold but before signal simulator and before any strategy result",
+      "changes": [
+        "exact 50 percent fractional partial exit for odd whole-share entry quantity",
+        "entry less than or equal to initial stop is a strategy-invalid skip"
+      ],
+      "go_easier": false,
+      "reason": "remove execution ambiguity without inspecting performance"
     }
   ]
 }

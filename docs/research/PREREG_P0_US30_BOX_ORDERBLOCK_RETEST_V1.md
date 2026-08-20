@@ -1,4 +1,4 @@
-# 사전등록 — P0-US30 일봉 박스 돌파 + 오더블록 리테스트 v1.1
+# 사전등록 — P0-US30 일봉 박스 돌파 + 오더블록 리테스트 v1.2
 
 상태: **FROZEN BEFORE THIS STRATEGY RESULTS** · 이슈 #140
 
@@ -80,6 +80,8 @@ primary를 대신해 승격할 수 없다.
 - 초기자본 USD 100,000, 최대 5포지션
 - 거래당 최대 USD 10,000, 초기 위험예산 USD 500
 - `qty=floor(min(10000/entry,500/(entry-stop)))`; 1주 미만이면 skip
+- `entry<=initial_stop`이면 portfolio 배정 전 전략 무효 skip
+- partial arm의 50%는 초기 whole-share qty의 정확한 절반이며 홀수 qty의 0.5주 청산을 연구 계산에서 허용
 - 물타기·추가매수·scale-in 없음
 - 왕복 비용 0.14/0.34/0.68%p, 실제 entry/exit notional에 절반씩 적용
 
@@ -184,3 +186,5 @@ Primary는 다음을 모두 통과해야 한다.
 
 - **v1.1 — 구현·성과 실행 전:** ATR/EMA/SMA/median 준비·산식, 결측 reset, arm별 DQ 합성
   규칙을 명시했다. 결과를 보지 않은 구현 재량 제거이며 GO를 쉽게 하는 변경은 없다.
+- **v1.2 — contract/loader 골격 후, 신호 simulator·성과 실행 전:** 홀수 qty의 exact 50%
+  fractional partial exit와 `entry<=stop` 전략 무효 skip을 명시했다. 결과 미열람·GO 비완화다.
