@@ -55,7 +55,7 @@
     "atr_pre_windows": "ATR5 and ATR20 use only t-5:t-1 and t-20:t-1 true ranges",
     "ema50": "alpha=2/(50+1), seed first valid close, not-ready until 50 consecutive valid bars, includes close_t",
     "spy_sma200": "arithmetic mean of 200 consecutive valid SPY closes through t",
-    "volume_median20": "ordinary median of previous 20 positive volumes; average the two middle values",
+    "volume_median20": "ordinary median of the fixed t-20:t-1 bars; all 20 volumes must be positive and non-missing; average the two middle values; never reach back before t-20",
     "missing_or_invalid_daily_bar": "break segment and reset all rolling and EMA state",
     "exchange_holidays": "do not break continuity; use consecutive SPY trading days"
   },

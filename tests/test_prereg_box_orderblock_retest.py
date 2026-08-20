@@ -160,6 +160,11 @@ def test_indicator_conventions_and_pre_result_revision_are_frozen() -> None:
     )
     assert "not-ready until 50 consecutive valid bars" in indicators["ema50"]
     assert "200 consecutive valid SPY closes" in indicators["spy_sma200"]
+    assert "fixed t-20:t-1 bars" in indicators["volume_median20"]
+    assert "all 20 volumes must be positive and non-missing" in indicators[
+        "volume_median20"
+    ]
+    assert "never reach back before t-20" in indicators["volume_median20"]
     assert indicators["missing_or_invalid_daily_bar"].startswith("break segment")
     revision = contract["revision_history"][-1]
     assert revision["version"] == "1.1"

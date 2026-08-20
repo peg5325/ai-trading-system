@@ -48,7 +48,8 @@ primary를 대신해 승격할 수 없다.
 - ATR5/20: TR의 단순 산술평균이며 신호일을 제외한 `t-5~t-1`, `t-20~t-1`
 - EMA50: `alpha=2/51`, 첫 유효 close seed, 50개 연속 유효봉 전 not-ready, `close_t` 포함
 - SPY SMA200: `t`까지 200개 연속 유효 close의 산술평균
-- volume median20: 이전 20개 양수 volume의 통상 중앙값(짝수는 가운데 둘 평균)
+- volume median20: 고정 `t-20~t-1` 20개 volume의 통상 중앙값(짝수는 가운데 둘 평균). 20개가
+  모두 양수·비결측이어야 하며 결측을 건너뛰어 `t-20` 이전까지 거슬러 올라가지 않는다.
 - 결측·비정상 일봉은 segment를 끊고 rolling/EMA 상태를 모두 초기화한다. 거래소 휴일은 SPY
   거래일 연속성에 포함되므로 segment를 끊지 않는다.
 
