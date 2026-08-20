@@ -104,6 +104,8 @@ _ALLOWED_SWING_TRACK = {
     os.path.join("src", "research", "sector_weekly_momentum", "loading.py"),
     # 결과 전에 잠긴 52주 고점 상대강도 연구. 동일하게 swing 경계만 허용한다.
     os.path.join("src", "research", "high52_rs_breakout", "loading.py"),
+    # 결과 전에 잠긴 박스/오더블록 일봉 연구. 동일하게 swing 경계만 허용한다.
+    os.path.join("src", "research", "box_orderblock_retest", "loading.py"),
 }
 
 # §6.2 primary/sensitivity 공용 결정봉 스펙(5분·min_bars=1) — 계약값과 동일(§contract.py 로

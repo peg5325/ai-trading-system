@@ -14,6 +14,7 @@ def _contract() -> dict:
 
 def test_adaptive_scope_is_exploratory_and_oos_stays_closed() -> None:
     contract = _contract()
+    assert contract["version"] == "1.2"
     assert contract["status"] == "FROZEN_BEFORE_THIS_STRATEGY_RESULTS"
     disclosure = contract["adaptation_disclosure"]
     assert disclosure["prior_box_and_breakout_results_examined"] is True
@@ -98,6 +99,9 @@ def test_execution_risk_costs_and_verdicts_are_frozen() -> None:
     assert execution["stop_precedes_time_exit"] is True
     assert contract["portfolio"]["risk_budget_usd"] == 500
     assert contract["portfolio"]["max_positions"] == 5
+    assert contract["portfolio"]["partial_exit_fractional_shares_research_only"] is True
+    assert "exactly 50 percent" in contract["portfolio"]["partial_exit_quantity"]
+    assert execution["entry_lte_initial_stop"].startswith("skip")
     assert contract["costs_round_trip_pct_points"]["official"] == 0.34
     assert contract["evaluation"]["verdicts"] == {
         "data_gate_failure": "INCONCLUSIVE_DATA",
@@ -106,7 +110,7 @@ def test_execution_risk_costs_and_verdicts_are_frozen() -> None:
     }
 
 
-def test_source_hashes_match_and_no_result_or_implementation_exists() -> None:
+def test_source_hashes_match() -> None:
     contract = _contract()
     for container, hash_key, path_key in (
         (contract["evidence_boundary"], "ledger_sha256", "ledger_path"),
@@ -114,10 +118,6 @@ def test_source_hashes_match_and_no_result_or_implementation_exists() -> None:
     ):
         path = ROOT / container[path_key]
         assert hashlib.sha256(path.read_bytes()).hexdigest() == container[hash_key]
-    assert not (ROOT / "src/research/box_orderblock_retest").exists()
-    assert not (
-        ROOT / "docs/research/RESULT_P0_US30_BOX_ORDERBLOCK_RETEST_DEVELOPMENT.json"
-    ).exists()
 
 
 def test_fold_boundaries_and_data_quality_denominator_are_exact() -> None:
@@ -143,3 +143,29 @@ def test_fold_boundaries_and_data_quality_denominator_are_exact() -> None:
     assert "excluded from denominator" in taxonomy[
         "development_or_fold_boundary"
     ]
+    assert taxonomy["arm_rates"] == (
+        "compute primary and base separately; partial shares primary candidates"
+    )
+    assert taxonomy["gate_rate"] == "max(primary_rate,base_rate)"
+
+
+def test_indicator_conventions_and_pre_result_revision_are_frozen() -> None:
+    contract = _contract()
+    indicators = contract["indicator_conventions"]
+    assert indicators["true_range"].startswith("max(high-low")
+    assert indicators["atr"] == "simple arithmetic mean of true range"
+    assert indicators["atr_pre_windows"] == (
+        "ATR5 and ATR20 use only t-5:t-1 and t-20:t-1 true ranges"
+    )
+    assert "not-ready until 50 consecutive valid bars" in indicators["ema50"]
+    assert "200 consecutive valid SPY closes" in indicators["spy_sma200"]
+    assert "fixed t-20:t-1 bars" in indicators["volume_median20"]
+    assert "all 20 volumes must be positive and non-missing" in indicators[
+        "volume_median20"
+    ]
+    assert "never reach back before t-20" in indicators["volume_median20"]
+    assert indicators["missing_or_invalid_daily_bar"].startswith("break segment")
+    revision = contract["revision_history"][-1]
+    assert revision["version"] == "1.2"
+    assert "before signal simulator" in revision["timing"]
+    assert revision["go_easier"] is False
