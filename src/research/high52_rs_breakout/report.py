@@ -24,13 +24,21 @@ def render_markdown(result: dict[str, Any]) -> str:
     add(f"- strategy: `{result['strategy_id']}`")
     add(f"- contract SHA-256: `{result['contract_sha256']}`")
     add(f"- daily data SHA-256: `{result['data_content_sha256']}`")
+    add(f"- payload SHA-256: `{result['payload_sha256']}`")
     window = result["development_window"]
     add(
         f"- development: {window['start']}~{window['end_inclusive']} "
         f"({window['calendar_days']:,} SPY 거래일)"
     )
     add(f"- symbols: {result['symbol_count']} (레버리지·인버스 제외)")
-    add(f"- blind OOS opened: `{result['blind_oos_opened']}`")
+    add(f"- blind OOS OHLCV touched historically: `{result['blind_oos_opened']}`")
+    add(f"- blind OOS performance accessed: `{result['blind_oos_performance_accessed']}`")
+    add(
+        "- corrected execution touched blind OOS OHLCV: "
+        f"`{result['current_execution_blind_oos_ohlcv_accessed']}`"
+    )
+    add(f"- prereg compliance: `{result['prereg_compliance']}`")
+    add(f"- erratum: `{result['erratum_path']}`")
     add("")
     add("## 1. 비용별 결과")
     add("")
@@ -92,6 +100,11 @@ def render_markdown(result: dict[str, Any]) -> str:
     for name, passed in result["economic_gates"].items():
         add(f"- {name}: **{'PASS' if passed else 'FAIL'}**")
     add("")
+    add("### 거버넌스 게이트")
+    add("")
+    for name, passed in result["governance_gates"].items():
+        add(f"- {name}: **{'PASS' if passed else 'FAIL'}**")
+    add("")
     add("## 4. Primary 시간 블록")
     add("")
     add("| fold | start | end | trades | official net | positive |")
@@ -140,7 +153,21 @@ def render_markdown(result: dict[str, Any]) -> str:
     add(
         "이 결과는 고정 P0 26종목의 development-only 판정이다. `DEVELOPMENT_GO`도 blind OOS, "
         "Paper 또는 실거래 승인을 뜻하지 않는다. `NO_SELECTION`은 사전 고정 게이트 실패이며 "
-        "규칙을 결과에 맞춰 수정하지 않는다."
+        "규칙을 결과에 맞춰 수정하지 않는다. 경제 게이트가 모두 통과하더라도 역사적 OOS identity "
+        "접촉이 있으면 `REQUIRES_NEW_PREREG`로 차단한다."
+    )
+    add("")
+    add("### 병합 전 실행 감사")
+    add("")
+    add(f"- 결함: `{result['execution_audit']['issue']}`")
+    add(f"- 수정: `{result['execution_audit']['fix']}`")
+    add(
+        "- 전략 규칙 변경: "
+        f"`{str(result['execution_audit']['strategy_rules_changed']).lower()}`"
+    )
+    add(
+        "- 결과 재생성: "
+        f"`{str(result['execution_audit']['result_regenerated']).lower()}`"
     )
     add("")
     return "\n".join(lines)

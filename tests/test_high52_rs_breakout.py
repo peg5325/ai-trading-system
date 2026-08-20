@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import inspect
+import json
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
-from src.models import Candle, ET, SESSION_REGULAR
+from src.models import ET, SESSION_REGULAR, Candle
 from src.research.high52_rs_breakout.contract import canonical_json_bytes, load_contract
 from src.research.high52_rs_breakout.development import (
     Candidate,
@@ -17,6 +20,7 @@ from src.research.high52_rs_breakout.development import (
     costed_pnl,
     is_signal,
     prepare_candidates,
+    select_verdict,
     simulate,
     summarize,
 )
@@ -396,6 +400,19 @@ def test_data_exclusion_rate_boundary_is_inclusive():
     assert prepared.data_exclusion_rate == pytest.approx(0.05)
 
 
+def test_historical_oos_identity_touch_blocks_positive_promotion():
+    assert select_verdict(
+        data_gates={"DQ": True},
+        economic_gates={"D": True},
+        historical_oos_identity_touch=True,
+    ) == "REQUIRES_NEW_PREREG"
+    assert select_verdict(
+        data_gates={"DQ": True},
+        economic_gates={"D": False},
+        historical_oos_identity_touch=True,
+    ) == "NO_SELECTION"
+
+
 def test_development_loader_uses_swing_half_open_range_without_grant(monkeypatch):
     calls = []
 
@@ -434,7 +451,21 @@ def test_json_and_markdown_are_deterministic():
             "calendar_days": 2,
         },
         "symbol_count": 1,
-        "blind_oos_opened": False,
+        "blind_oos_opened": True,
+        "blind_oos_performance_accessed": False,
+        "current_execution_blind_oos_ohlcv_accessed": False,
+        "prereg_compliance": "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM",
+        "erratum_path": "docs/research/ERRATUM.md",
+        "payload_sha256": "abc",
+        "execution_audit": {
+            "issue": "daily_identity_hash_scanned_blind_oos_ohlcv",
+            "fix": "development_bounded_hash",
+            "strategy_rules_changed": False,
+            "result_regenerated": True,
+        },
+        "governance_gates": {
+            "G0_positive_promotion_requires_pristine_prereg": False
+        },
         "specs": {
             name: {
                 "gross": _minimal_metrics(),
@@ -469,6 +500,20 @@ def test_json_and_markdown_are_deterministic():
     }
     assert canonical_json_bytes(result) == canonical_json_bytes(result)
     assert render_markdown(result) == render_markdown(result)
+
+
+def test_tracked_result_payload_and_markdown_are_reproducible():
+    json_path = Path(
+        "docs/research/RESULT_P0_US30_HIGH52_RS_BREAKOUT_DEVELOPMENT.json"
+    )
+    md_path = Path(
+        "docs/research/RESULT_P0_US30_HIGH52_RS_BREAKOUT_DEVELOPMENT.md"
+    )
+    result = json.loads(json_path.read_text(encoding="utf-8"))
+    expected = result.pop("payload_sha256")
+    assert hashlib.sha256(canonical_json_bytes(result)).hexdigest() == expected
+    result["payload_sha256"] = expected
+    assert render_markdown(result) == md_path.read_text(encoding="utf-8")
 
 
 def _minimal_metrics():

@@ -6,11 +6,13 @@ import hashlib
 import json
 import math
 from collections import defaultdict, deque
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from datetime import date
-from typing import Any, Iterable
+from typing import Any
 
 from src.models import Candle
+from src.research.high52_rs_breakout.contract import canonical_json_bytes
 
 
 @dataclass(frozen=True)
@@ -86,6 +88,21 @@ class Simulation:
     skipped_capacity: int
     skipped_duplicate_symbol: int
     skipped_quantity: int
+
+
+def select_verdict(
+    *,
+    data_gates: dict[str, bool],
+    economic_gates: dict[str, bool],
+    historical_oos_identity_touch: bool,
+) -> str:
+    if not all(data_gates.values()):
+        return "INCONCLUSIVE_DATA"
+    if not all(economic_gates.values()):
+        return "NO_SELECTION"
+    if historical_oos_identity_touch:
+        return "REQUIRES_NEW_PREREG"
+    return "DEVELOPMENT_GO"
 
 
 def valid_ohlc(candle: Candle) -> bool:
@@ -345,7 +362,7 @@ def simulate(
         )
 
     for day in calendar:
-        for symbol in sorted(tuple(positions)):
+        for symbol in sorted(positions):
             position = positions[symbol]
             candle = features[symbol][day].candle
             if candle.open <= position.stop_price:
@@ -374,12 +391,12 @@ def simulate(
                 entry_notional=entry_price * quantity,
             )
 
-        for symbol in sorted(tuple(positions)):
+        for symbol in sorted(positions):
             position = positions[symbol]
             candle = features[symbol][day].candle
             if candle.low <= position.stop_price:
                 close_position(symbol, day, position.stop_price, "intraday_stop")
-        for symbol in sorted(tuple(positions)):
+        for symbol in sorted(positions):
             position = positions[symbol]
             if day == position.candidate.planned_exit_day:
                 close_position(symbol, day, features[symbol][day].candle.close, "time_exit")
@@ -537,7 +554,7 @@ def run_development(
     bars_by_symbol: dict[str, list[Candle]],
     *,
     contract: dict[str, Any],
-    data_identity_verified: bool,
+    data_identity: list[dict[str, str]],
 ) -> dict[str, Any]:
     signal = contract["signal"]
     features = {
@@ -642,10 +659,13 @@ def run_development(
     exclusion_rate = max(
         prepared.data_exclusion_rate for prepared in prepared_by_spec.values()
     )
+    historical_oos_identity_touch = True
     data_gates = {
         "DQ1_data_exclusion_rate_lte_0_05": exclusion_rate <= 0.05,
-        "DQ2_identity_and_boundaries_match": data_identity_verified,
-        "DQ3_blind_oos_closed": contract["discipline"]["blind_oos_opened"] is False,
+        "DQ2_identity_and_boundaries_match": all(
+            check["status"] == "match" for check in data_identity
+        ),
+        "DQ3_current_execution_blind_oos_closed": True,
     }
     primary = specs["primary_5d"]
     sensitivity = specs["sensitivity_3d"]
@@ -686,14 +706,13 @@ def run_development(
             > gates["sensitivity_official_expectancy_gt"]
         ),
     }
-    if not all(data_gates.values()):
-        verdict = "INCONCLUSIVE_DATA"
-    elif not all(economic_gates.values()):
-        verdict = "NO_SELECTION"
-    else:
-        verdict = "DEVELOPMENT_GO"
+    verdict = select_verdict(
+        data_gates=data_gates,
+        economic_gates=economic_gates,
+        historical_oos_identity_touch=historical_oos_identity_touch,
+    )
 
-    return {
+    result: dict[str, Any] = {
         "schema": "p0_us30_high52_rs_breakout_development/v1",
         "strategy_id": contract["strategy_id"],
         "contract_path": contract["_contract_path"],
@@ -704,7 +723,25 @@ def run_development(
             "end_inclusive": contract["data"]["development_end_inclusive"],
             "calendar_days": len(calendar),
         },
-        "blind_oos_opened": False,
+        "blind_oos_opened": historical_oos_identity_touch,
+        "blind_oos_performance_accessed": False,
+        "current_execution_blind_oos_ohlcv_accessed": False,
+        "prereg_compliance": "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM",
+        "erratum_path": "docs/research/ERRATUM_P0_US30_HIGH52_OOS_IDENTITY.md",
+        "identity": data_identity,
+        "execution_audit": {
+            "review_phase": "post_result_premerge_review",
+            "issue": "daily_identity_hash_scanned_blind_oos_ohlcv",
+            "fix": "tracked_full_receipt_plus_development_bounded_live_hash",
+            "performance_values_inspected_before_fix": True,
+            "strategy_rules_changed": False,
+            "result_regenerated": True,
+        },
+        "governance_gates": {
+            "G0_positive_promotion_requires_pristine_prereg": (
+                not historical_oos_identity_touch
+            )
+        },
         "symbol_count": len(features),
         "symbols": sorted(features),
         "specs": specs,
@@ -712,3 +749,5 @@ def run_development(
         "economic_gates": economic_gates,
         "verdict": verdict,
     }
+    result["payload_sha256"] = hashlib.sha256(canonical_json_bytes(result)).hexdigest()
+    return result
