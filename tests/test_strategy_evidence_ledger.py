@@ -114,7 +114,7 @@ def test_no_entry_is_promotable_and_h4_claim_is_present() -> None:
         "open_blind_oos": False,
         "start_paper": False,
         "next_research": (
-            "new preregistration on a distinct low-turnover 5-trading-day hypothesis"
+            "new user-approved preregistered plan with a D9-valid data boundary"
         ),
     }
     assert {entry["promotion_status"] for entry in ledger["entries"]} <= {
