@@ -83,6 +83,22 @@ class Simulation:
     skipped_quantity: int
 
 
+def select_verdict(
+    *,
+    data_gates: dict[str, bool],
+    economic_gates: dict[str, bool],
+    historical_oos_identity_touch: bool,
+) -> str:
+    """Apply scientific-governance caps after ordinary data/economic gates."""
+    if not all(data_gates.values()):
+        return "INCONCLUSIVE_DATA"
+    if not all(economic_gates.values()):
+        return "NO_SELECTION"
+    if historical_oos_identity_touch:
+        return "REQUIRES_NEW_PREREG"
+    return "DEVELOPMENT_GO"
+
+
 def build_features(bars: Iterable[Candle], atr_period: int = 14) -> dict[date, FeatureBar]:
     ordered = sorted(bars, key=lambda candle: candle.ts_utc)
     true_ranges: deque[float] = deque(maxlen=atr_period)
@@ -222,6 +238,7 @@ def _valid_execution_bar(candle: Candle) -> bool:
         min(candle.open, candle.high, candle.low, candle.close) > 0
         and candle.high >= max(candle.open, candle.close)
         and candle.low <= min(candle.open, candle.close)
+        and candle.high > candle.low
     )
 
 
@@ -555,12 +572,13 @@ def run_development(
     exclusion_rate = max(
         prepared.data_exclusion_rate for prepared in prepared_by_spec.values()
     )
+    historical_oos_identity_touch = True
     dq = {
         "DQ1_data_exclusion_rate_lte_0_05": exclusion_rate <= 0.05,
         "DQ2_identity_and_boundaries_match": all(
             check["status"] == "match" for check in data_identity
         ),
-        "DQ3_blind_oos_closed": True,
+        "DQ3_current_execution_blind_oos_closed": True,
     }
     primary = specs["primary_3d"]
     sensitivity = specs["sensitivity_1d"]
@@ -598,12 +616,11 @@ def run_development(
             > gates_cfg["sensitivity_official_expectancy_gt"]
         ),
     }
-    if not all(dq.values()):
-        verdict = "INCONCLUSIVE_DATA"
-    elif not all(economic.values()):
-        verdict = "NO_SELECTION"
-    else:
-        verdict = "DEVELOPMENT_GO"
+    verdict = select_verdict(
+        data_gates=dq,
+        economic_gates=economic,
+        historical_oos_identity_touch=historical_oos_identity_touch,
+    )
 
     result: dict[str, Any] = {
         "schema": "p0_us30_close_pressure_reversal_development/v1",
@@ -616,7 +633,7 @@ def run_development(
             "end_inclusive": contract["data"]["development_end_inclusive"],
             "calendar_days": len(calendar),
         },
-        "blind_oos_opened": True,
+        "blind_oos_opened": historical_oos_identity_touch,
         "blind_oos_performance_accessed": False,
         "current_execution_blind_oos_ohlcv_accessed": False,
         "prereg_compliance": "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM",
@@ -631,6 +648,11 @@ def run_development(
             "performance_values_inspected_before_fix": True,
             "strategy_rules_changed": False,
             "result_regenerated": True,
+        },
+        "governance_gates": {
+            "G0_positive_promotion_requires_pristine_prereg": (
+                not historical_oos_identity_touch
+            )
         },
         "symbol_count": len(features),
         "symbols": sorted(features),

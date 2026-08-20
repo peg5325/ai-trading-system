@@ -23,6 +23,7 @@ from src.research.close_pressure_reversal.development import (
     costed_pnl,
     is_signal,
     prepare_candidates,
+    select_verdict,
     simulate,
     summarize,
 )
@@ -154,6 +155,40 @@ def test_missing_holding_bar_is_counted_fail_closed():
     assert prepared.data_exclusions == 1
     assert prepared.data_exclusion_rate == 1
     assert prepared.data_exclusion_reasons == {"missing_holding_bar": 1}
+
+
+def test_zero_range_execution_bar_is_excluded_fail_closed():
+    d0, d1, d2 = date(2024, 1, 2), date(2024, 1, 3), date(2024, 1, 4)
+    signal = _candle("A", d0, high=103, low=98, close=98.5)
+    zero_range = _candle(
+        "A", d1, open_=100, high=100, low=100, close=100
+    )
+    features = {
+        "A": {
+            d0: FeatureBar(d0, signal, 2, -0.015, 0.1, 2),
+            d1: FeatureBar(d1, zero_range, 2, 0.0, None, 0.0),
+            d2: _feature(_candle("A", d2)),
+        }
+    }
+    prepared = prepare_candidates(
+        features, (d0, d1, d2), holding_days=2, contract=_contract()
+    )
+    assert prepared.candidates == ()
+    assert prepared.data_exclusions == 1
+    assert prepared.data_exclusion_reasons == {"invalid_execution_bar": 1}
+
+
+def test_historical_oos_identity_touch_blocks_positive_promotion():
+    assert select_verdict(
+        data_gates={"DQ": True},
+        economic_gates={"D": True},
+        historical_oos_identity_touch=True,
+    ) == "REQUIRES_NEW_PREREG"
+    assert select_verdict(
+        data_gates={"DQ": True},
+        economic_gates={"D": False},
+        historical_oos_identity_touch=True,
+    ) == "NO_SELECTION"
 
 
 def _candidate(symbol: str, d0: date, d1: date, d3: date, *, score: float = 1) -> Candidate:
@@ -370,6 +405,9 @@ def test_json_and_markdown_rendering_are_deterministic():
             "fix": "development_bounded_hash",
             "strategy_rules_changed": False,
             "result_regenerated": True,
+        },
+        "governance_gates": {
+            "G0_positive_promotion_requires_pristine_prereg": False
         },
         "specs": {
             name: {

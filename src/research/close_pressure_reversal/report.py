@@ -96,6 +96,11 @@ def render_markdown(result: dict[str, Any]) -> str:
     for name, passed in result["economic_gates"].items():
         add(f"- {name}: **{'PASS' if passed else 'FAIL'}**")
     add("")
+    add("### 거버넌스 게이트")
+    add("")
+    for name, passed in result["governance_gates"].items():
+        add(f"- {name}: **{'PASS' if passed else 'FAIL'}**")
+    add("")
     add("## 4. 시간 블록")
     add("")
     add("| fold | start | end | trades | official net | positive |")
@@ -135,7 +140,8 @@ def render_markdown(result: dict[str, Any]) -> str:
     add(
         "이 결과는 고정 P0 26종목의 development-only 판정이다. `DEVELOPMENT_GO`도 blind OOS, "
         "Paper 또는 실거래 승인을 뜻하지 않는다. `NO_SELECTION`은 사전 고정 경제 게이트 실패이며 "
-        "규칙을 결과에 맞춰 수정하지 않는다."
+        "규칙을 결과에 맞춰 수정하지 않는다. 경제 게이트가 모두 통과하더라도 역사적 OOS identity "
+        "접촉이 있으면 `REQUIRES_NEW_PREREG`로 차단한다."
     )
     add("")
     add("### 병합 전 실행 감사")
