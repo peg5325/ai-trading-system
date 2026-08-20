@@ -15,10 +15,6 @@ from src.models import Candle
 from src.research.box_orderblock_retest.contract import canonical_json_bytes
 
 
-class DataDefectError(ValueError):
-    """Raised for duplicate or contradictory canonical daily inputs."""
-
-
 @dataclass(frozen=True)
 class FeatureBar:
     day: date
@@ -42,6 +38,8 @@ class BreakoutSignal:
     atr20_pre: float
     breakout_atr: float
     volume_ratio: float
+    box_width_fraction: float
+    atr_contraction_ratio: float
     has_order_block: bool
     zone_low: float | None
     zone_high: float | None
@@ -148,13 +146,15 @@ def build_features(
     bars: Sequence[Candle], calendar: Sequence[date]
 ) -> tuple[dict[date, FeatureBar], Counter[str]]:
     by_day: dict[date, Candle] = {}
+    conflict_days: set[date] = set()
     defects: Counter[str] = Counter()
     for candle in bars:
         day = candle.ts_exchange.date()
         previous = by_day.get(day)
         if previous is not None:
             if previous != candle:
-                raise DataDefectError(f"duplicate daily value conflict: {candle.symbol} {day}")
+                defects["duplicate_value_conflict"] += 1
+                conflict_days.add(day)
             continue
         by_day[day] = candle
 
@@ -167,10 +167,13 @@ def build_features(
     closes: deque[float] = deque(maxlen=200)
     for day in calendar:
         candle = by_day.get(day)
-        if candle is None or not valid_ohlc(candle) or candle.volume <= 0:
-            if candle is None:
+        conflict = day in conflict_days
+        if conflict:
+            candle = None
+        if candle is None or not valid_ohlc(candle):
+            if candle is None and not conflict:
                 defects["missing_daily_bar"] += 1
-            else:
+            elif candle is not None:
                 defects["invalid_daily_bar"] += 1
             previous_close = None
             ema50 = None
@@ -179,6 +182,9 @@ def build_features(
             prior_bars.clear()
             closes.clear()
             continue
+
+        if candle.volume <= 0:
+            defects["nonpositive_volume"] += 1
 
         atr5_pre = (
             sum(tuple(true_ranges)[-5:]) / 5 if len(true_ranges) >= 5 else None
@@ -281,8 +287,27 @@ def breakout_signal(
         breakout_atr=(candle.close - current.box_high) / current.atr20_pre,
         volume_ratio=candle.volume / current.volume_median20,
         has_order_block=has_order_block,
+        box_width_fraction=current.box_width_fraction,
+        atr_contraction_ratio=current.atr5_pre / current.atr20_pre,
         zone_low=previous_candle.close if has_order_block else None,
         zone_high=previous_candle.open if has_order_block else None,
+    )
+
+
+def _breakout_inputs_ready(
+    current: FeatureBar, previous: FeatureBar | None, spy: FeatureBar | None
+) -> bool:
+    return not (
+        previous is None
+        or spy is None
+        or current.atr5_pre is None
+        or current.atr20_pre is None
+        or current.ema50 is None
+        or current.box_high is None
+        or current.box_low is None
+        or current.box_width_fraction is None
+        or current.volume_median20 is None
+        or spy.sma200 is None
     )
 
 
@@ -290,24 +315,32 @@ def find_signals(
     features: Mapping[str, Mapping[date, FeatureBar]],
     calendar: Sequence[date],
     contract: Mapping[str, Any],
-) -> tuple[BreakoutSignal, ...]:
+) -> tuple[tuple[BreakoutSignal, ...], Counter[str]]:
     spy = features["SPY"]
     signals: list[BreakoutSignal] = []
+    audit: Counter[str] = Counter()
     for symbol in sorted(features):
         symbol_features = features[symbol]
         for index, day in enumerate(calendar):
             if index == 0 or day not in symbol_features:
                 continue
+            previous = symbol_features.get(calendar[index - 1])
+            spy_feature = spy.get(day)
+            if not _breakout_inputs_ready(symbol_features[day], previous, spy_feature):
+                audit["warmup_not_ready"] += 1
+                continue
             signal = breakout_signal(
                 symbol=symbol,
                 current=symbol_features[day],
-                previous=symbol_features.get(calendar[index - 1]),
-                spy=spy.get(day),
+                previous=previous,
+                spy=spy_feature,
                 contract=contract,
             )
             if signal is not None:
                 signals.append(signal)
-    return tuple(sorted(signals, key=lambda item: (item.day, item.symbol)))
+            else:
+                audit["breakout_filter_rejection"] += 1
+    return tuple(sorted(signals, key=lambda item: (item.day, item.symbol))), audit
 
 
 def _required_features(
@@ -593,6 +626,12 @@ def episode_net_pnl(episode: Episode, round_trip_pct_points: float) -> float:
     return episode.gross_pnl - entry_cost - exit_cost
 
 
+def profit_factor_pass(value: float | str | None, threshold: float) -> bool:
+    return value == "Infinity" or (
+        value is not None and float(value) >= threshold
+    )
+
+
 def summarize(
     episodes: Sequence[Episode],
     features: Mapping[str, Mapping[date, FeatureBar]],
@@ -609,11 +648,15 @@ def summarize(
     realized_by_day: dict[date, float] = defaultdict(float)
     costs_by_day: dict[date, float] = defaultdict(float)
     rate = cost_pct_points / 100.0 / 2.0
+    entry_turnover = 0.0
+    exit_turnover = 0.0
     for episode, pnl in zip(episodes, pnls):
         by_symbol[episode.symbol] += pnl
         by_entry_day[episode.entry_day.isoformat()] += pnl
+        entry_turnover += episode.entry_notional
         costs_by_day[episode.entry_day] += episode.entry_notional * rate
         for leg in episode.exits:
+            exit_turnover += leg.price * leg.quantity
             realized_by_day[leg.day] += leg.quantity * (
                 leg.price - episode.entry_price
             )
@@ -646,6 +689,19 @@ def summarize(
         equity_curve.append({"day": day.isoformat(), "equity": equity})
 
     total = sum(pnls)
+    max_consecutive_losses = 0
+    current_losses = 0
+    for pnl in pnls:
+        if pnl < 0:
+            current_losses += 1
+            max_consecutive_losses = max(max_consecutive_losses, current_losses)
+        else:
+            current_losses = 0
+    day_index = {day: index for index, day in enumerate(calendar)}
+    holding_days = [
+        day_index[episode.exit_day] - day_index[episode.entry_day] + 1
+        for episode in episodes
+    ]
     max_symbol = max(by_symbol.values(), default=0.0) / total if total > 0 else None
     max_day = max(by_entry_day.values(), default=0.0) / total if total > 0 else None
     return {
@@ -653,7 +709,9 @@ def summarize(
         "trading_days_with_trade": len({item.entry_day for item in episodes}),
         "cumulative_net_pnl": total,
         "net_expectancy": total / len(episodes) if episodes else 0.0,
-        "profit_factor": gains / losses if losses else None,
+        "profit_factor": (
+            gains / losses if losses else "Infinity" if gains > 0 else None
+        ),
         "win_rate": sum(value > 0 for value in pnls) / len(pnls) if pnls else 0.0,
         "expectancy_per_initial_r": (
             sum(
@@ -666,6 +724,17 @@ def summarize(
             else 0.0
         ),
         "max_drawdown_pct": mdd * 100.0,
+        "max_consecutive_losses": max_consecutive_losses,
+        "holding_days_mean": (
+            sum(holding_days) / len(holding_days) if holding_days else 0.0
+        ),
+        "holding_days_median": (
+            statistics.median(holding_days) if holding_days else 0.0
+        ),
+        "entry_turnover_notional": entry_turnover,
+        "exit_turnover_notional": exit_turnover,
+        "total_turnover_notional": entry_turnover + exit_turnover,
+        "total_cost": (entry_turnover + exit_turnover) * rate,
         "max_symbol_contribution": max_symbol,
         "max_entry_day_contribution": max_day,
         "net_pnl_by_symbol": dict(sorted(by_symbol.items())),
@@ -794,7 +863,7 @@ def run_development(
         built, defects = build_features(bars, spy_days)
         features[symbol] = built
         defect_counts.update(defects)
-    signals = find_signals(features, spy_days, contract)
+    signals, signal_filter_audit = find_signals(features, spy_days, contract)
     prepared = prepare_arms(signals, features, spy_days)
     arms = {
         "base": evaluate_arm(
@@ -826,6 +895,7 @@ def run_development(
             "data_exclusion_rate": prepared[name].data_exclusion_rate,
             "boundary_skips": prepared[name].boundary_skips,
             "strategy_filters": dict(prepared[name].strategy_filters),
+            "warmup_not_ready": signal_filter_audit["warmup_not_ready"],
         }
     arms["partial"]["candidate_audit"] = {
         **arms["primary"]["candidate_audit"],
@@ -855,8 +925,9 @@ def run_development(
         "D2_min_trading_days": official["trading_days_with_trade"]
         >= int(gates["min_trading_days_with_trade"]),
         "D3_official_expectancy_gt_0": official["net_expectancy"] > 0,
-        "D4_official_pf_gte_1_20": pf is not None
-        and pf >= float(gates["official_profit_factor_gte"]),
+        "D4_official_pf_gte_1_20": profit_factor_pass(
+            pf, float(gates["official_profit_factor_gte"])
+        ),
         "D5_stress_net_gte_0": stress["cumulative_net_pnl"] >= 0,
         "D6_positive_folds_gte_7": arms["primary"]["positive_folds_official"]
         >= int(gates["official_positive_folds_gte"]),
@@ -879,6 +950,7 @@ def run_development(
         if not all(economic_gates.values())
         else "EXPLORATORY_GO_REQUIRES_FRESH_VALIDATION"
     )
+    calendar_index = {day: index for index, day in enumerate(spy_days)}
     result: dict[str, Any] = {
         "schema": "p0_us30_box_orderblock_retest_development/v1",
         "strategy_id": contract["strategy_id"],
@@ -896,6 +968,43 @@ def run_development(
         },
         "identity": list(identity),
         "signal_count": len(signals),
+        "signal_audit": {
+            "warmup_not_ready": signal_filter_audit["warmup_not_ready"],
+            "breakout_filter_rejection": signal_filter_audit[
+                "breakout_filter_rejection"
+            ],
+            "breakout_signals": len(signals),
+            "order_block_signals": sum(item.has_order_block for item in signals),
+            "mean_box_width_fraction": (
+                sum(item.box_width_fraction for item in signals) / len(signals)
+                if signals
+                else 0.0
+            ),
+            "mean_atr_contraction_ratio": (
+                sum(item.atr_contraction_ratio for item in signals) / len(signals)
+                if signals
+                else 0.0
+            ),
+            "mean_breakout_atr": (
+                sum(item.breakout_atr for item in signals) / len(signals)
+                if signals
+                else 0.0
+            ),
+            "mean_volume_ratio": (
+                sum(item.volume_ratio for item in signals) / len(signals)
+                if signals
+                else 0.0
+            ),
+            "retest_delay_days": dict(
+                sorted(
+                    Counter(
+                        calendar_index[item.confirmation_day]
+                        - calendar_index[item.signal_day]
+                        for item in prepared["primary"].candidates
+                    ).items()
+                )
+            ),
+        },
         "defects": dict(sorted(defect_counts.items())),
         "arms": arms,
         "data_gates": data_gates,

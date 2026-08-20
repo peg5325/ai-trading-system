@@ -23,7 +23,9 @@ from src.research.box_orderblock_retest.development import (
     build_features,
     episode_net_pnl,
     prepare_arms,
+    profit_factor_pass,
     simulate,
+    summarize,
 )
 from src.research.box_orderblock_retest.loading import load_development_bars
 
@@ -125,7 +127,7 @@ def test_features_use_previous_fixed_windows_and_volume_does_not_reach_back() ->
     broken[210] = _candle("SPY", calendar[210], volume=0)
     reset, _ = build_features(broken, calendar)
     assert reset[calendar[219]].volume_median20 is None
-    assert reset[calendar[219]].ema50 is None
+    assert reset[calendar[219]].ema50 is not None
 
 
 def test_breakout_and_bullish_order_block_are_exact() -> None:
@@ -176,7 +178,9 @@ def test_primary_uses_first_confirmed_retest_and_next_open() -> None:
     features["A"][days[2]] = _feature(
         _candle("A", days[2], open_=100.5, high=102, low=99, close=101)
     )
-    signal = BreakoutSignal("A", days[0], 100, 95, 2, 1, 2, True, 98, 100)
+    signal = BreakoutSignal(
+        "A", days[0], 100, 95, 2, 1, 2, 0.05, 0.5, True, 98, 100
+    )
     prepared = prepare_arms((signal,), features, days)
     primary = prepared["primary"].candidates[0]
     assert primary.confirmation_day == days[2]
@@ -191,7 +195,9 @@ def test_pre_entry_close_below_zone_invalidates_without_data_exclusion() -> None
     features["A"][days[1]] = _feature(
         _candle("A", days[1], open_=99, high=100, low=96, close=97)
     )
-    signal = BreakoutSignal("A", days[0], 100, 95, 2, 1, 2, True, 98, 100)
+    signal = BreakoutSignal(
+        "A", days[0], 100, 95, 2, 1, 2, 0.05, 0.5, True, 98, 100
+    )
     prepared = prepare_arms((signal,), features, days)["primary"]
     assert prepared.candidates == ()
     assert prepared.data_exclusions == 0
@@ -273,6 +279,42 @@ def test_round_trip_cost_uses_actual_entry_and_partial_exit_notional() -> None:
     gross = episode.gross_pnl
     expected_cost = (300 + 105 * 1.5 + 102 * 1.5) * 0.0034 / 2
     assert episode_net_pnl(episode, 0.34) == pytest.approx(gross - expected_cost)
+
+
+def test_all_win_profit_factor_is_unbounded_and_passes_gate() -> None:
+    days = (date(2024, 1, 2), date(2024, 1, 3))
+    features = _candidate_features(days)
+    episode = Episode(
+        arm="primary",
+        symbol="A",
+        signal_day=days[0],
+        confirmation_day=days[0],
+        entry_day=days[0],
+        planned_exit_day=days[1],
+        entry_price=100,
+        initial_stop=95,
+        quantity=10,
+        initial_risk_cash=50,
+        exits=(ExitLeg(days[1], 105, 10, "time_exit"),),
+    )
+    metrics = summarize(
+        (episode,), features, days, cost_pct_points=0, initial_capital=1000
+    )
+    assert metrics["profit_factor"] == "Infinity"
+    assert metrics["max_consecutive_losses"] == 0
+    assert metrics["holding_days_mean"] == 2
+    assert metrics["entry_turnover_notional"] == 1000
+    assert profit_factor_pass(metrics["profit_factor"], 1.2)
+    assert not profit_factor_pass(None, 1.2)
+
+
+def test_conflicting_duplicate_is_audited_instead_of_raising() -> None:
+    day = date(2024, 1, 2)
+    first = _candle("A", day, close=100)
+    conflict = _candle("A", day, close=101, high=102)
+    features, defects = build_features((first, conflict), (day,))
+    assert features == {}
+    assert defects["duplicate_value_conflict"] == 1
 
 
 def test_loader_is_development_bounded_and_has_no_grant(monkeypatch) -> None:
