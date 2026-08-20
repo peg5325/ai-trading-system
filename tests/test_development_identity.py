@@ -86,3 +86,38 @@ def test_live_daily_identity_is_bounded_to_development_end(tmp_path, monkeypatch
     )
     assert all(check["status"] == "match" for check in checks)
     assert seen_as_of == ["2026-01-20"]
+
+
+def test_daily_only_identity_uses_receipt_and_development_boundary(tmp_path):
+    manifest = tmp_path / "daily.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "data_content_sha256": "full",
+                "summary": {"total_rows": 100},
+            }
+        ),
+        encoding="utf-8",
+    )
+    seen_as_of: list[str] = []
+
+    def builder(*_args, **kwargs):
+        seen_as_of.append(kwargs["as_of"])
+        return {
+            "data_content_sha256": "development",
+            "summary": {"total_rows": 80},
+        }
+
+    checks = development_identity.verify_daily_identity(
+        daily_db_path="unused.sqlite",
+        universe_yaml="unused.yaml",
+        daily_manifest_path=str(manifest),
+        expected_daily_full_content="full",
+        expected_daily_full_rows=100,
+        development_end="2025-07-18",
+        expected_daily_development_content="development",
+        expected_daily_development_rows=80,
+        daily_manifest_builder=builder,
+    )
+    assert all(check["status"] == "match" for check in checks)
+    assert seen_as_of == ["2025-07-18"]
