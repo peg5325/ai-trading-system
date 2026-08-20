@@ -301,6 +301,11 @@ def _gate(
     return {"items": items, "failed": failed, "verdict": verdict}
 
 
+def count_new_conflicts(exclusions: Mapping[str, int]) -> int:
+    """Count only value-disagreeing duplicate timestamps as data conflicts."""
+    return int(exclusions.get("duplicate_timestamp_value_conflict", 0))
+
+
 def canonical_json_bytes(value: Mapping[str, Any]) -> bytes:
     return json.dumps(
         value,
@@ -381,11 +386,7 @@ def run(
         "incomplete_symbol_days": len(incomplete),
         "total_symbol_days": total_symbol_days,
         "incomplete_symbol_day_ratio": len(incomplete) / total_symbol_days,
-        "new_conflicts": sum(
-            count
-            for reason, count in exclusions.items()
-            if reason == "duplicate_regular_minute"
-        ),
+        "new_conflicts": count_new_conflicts(exclusions),
         "major_defects": len(major),
     }
     result: dict[str, Any] = {

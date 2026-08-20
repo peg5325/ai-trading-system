@@ -21,8 +21,10 @@ from src.research.dema_stoch.contract import (
 from src.research.dema_stoch.development import (
     Candidate,
     Trade,
+    _gate,
     allocate,
     candidates_in_segment,
+    count_new_conflicts,
     cross_side,
     trade_pnl,
 )
@@ -270,6 +272,32 @@ def test_conflicting_duplicate_minute_fails_closed():
     )
     assert bars == ()
     assert defects == ("duplicate_timestamp_value_conflict",)
+
+
+def test_duplicate_value_conflict_is_counted_and_fails_d9():
+    contract = load_contract()
+    defects = {
+        "incomplete_symbol_day_ratio": 0.0,
+        "new_conflicts": count_new_conflicts(
+            {"duplicate_timestamp_value_conflict": 1}
+        ),
+        "major_defects": 0,
+    }
+    sufficient = {
+        "trade_count": 300,
+        "trading_days_with_trade": 200,
+        "net_expectancy": 1.0,
+        "profit_factor": 2.0,
+        "mdd": 0.0,
+        "positive_folds": 10,
+        "cumulative_net_pnl": 1.0,
+    }
+    gate = _gate(
+        {"official": sufficient, "stress": sufficient}, defects, contract
+    )
+    assert defects["new_conflicts"] == 1
+    assert gate["items"]["D9"] is False
+    assert gate["verdict"] == "INCONCLUSIVE_DATA"
 
 
 def test_review_evidence_is_bound_to_stable_pr_129_comment():
