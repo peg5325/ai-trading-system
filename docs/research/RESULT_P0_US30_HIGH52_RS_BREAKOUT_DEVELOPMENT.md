@@ -4,9 +4,14 @@
 - strategy: `p0_us30_high52_rs_breakout_v1`
 - contract SHA-256: `bed89e4de237c04754ed6ee8638bf2ccca69a32e0d9c10a25ac46adfb8b79c52`
 - daily data SHA-256: `756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772`
+- payload SHA-256: `5b2bb3f4cc66df91e44e49f0715cf48be35e0a9f2fa14df54f02549d32153d58`
 - development: 2016-03-18~2025-07-18 (2,347 SPY 거래일)
 - symbols: 26 (레버리지·인버스 제외)
-- blind OOS opened: `False`
+- blind OOS OHLCV touched historically: `True`
+- blind OOS performance accessed: `False`
+- corrected execution touched blind OOS OHLCV: `False`
+- prereg compliance: `DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM`
+- erratum: `docs/research/ERRATUM_P0_US30_HIGH52_OOS_IDENTITY.md`
 
 ## 1. 비용별 결과
 
@@ -41,7 +46,7 @@
 
 - DQ1_data_exclusion_rate_lte_0_05: **PASS**
 - DQ2_identity_and_boundaries_match: **PASS**
-- DQ3_blind_oos_closed: **PASS**
+- DQ3_current_execution_blind_oos_closed: **PASS**
 
 ### 경제·강건성 게이트
 
@@ -53,6 +58,10 @@
 - D6_mdd_abs_lte_10pct: **PASS**
 - D7_concentration: **FAIL**
 - D8_sensitivity_expectancy_gt_0: **PASS**
+
+### 거버넌스 게이트
+
+- G0_positive_promotion_requires_pristine_prereg: **FAIL**
 
 ## 4. Primary 시간 블록
 
@@ -132,4 +141,11 @@
 
 ## 6. 판정 범위
 
-이 결과는 고정 P0 26종목의 development-only 판정이다. `DEVELOPMENT_GO`도 blind OOS, Paper 또는 실거래 승인을 뜻하지 않는다. `NO_SELECTION`은 사전 고정 게이트 실패이며 규칙을 결과에 맞춰 수정하지 않는다.
+이 결과는 고정 P0 26종목의 development-only 판정이다. `DEVELOPMENT_GO`도 blind OOS, Paper 또는 실거래 승인을 뜻하지 않는다. `NO_SELECTION`은 사전 고정 게이트 실패이며 규칙을 결과에 맞춰 수정하지 않는다. 경제 게이트가 모두 통과하더라도 역사적 OOS identity 접촉이 있으면 `REQUIRES_NEW_PREREG`로 차단한다.
+
+### 병합 전 실행 감사
+
+- 결함: `daily_identity_hash_scanned_blind_oos_ohlcv`
+- 수정: `tracked_full_receipt_plus_development_bounded_live_hash`
+- 전략 규칙 변경: `false`
+- 결과 재생성: `true`
