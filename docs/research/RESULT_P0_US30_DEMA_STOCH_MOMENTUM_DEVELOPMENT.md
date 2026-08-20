@@ -1,7 +1,7 @@
 # P0-US30 DEMA(60) + Stochastic %D(60) development 결과
 
-> scope: **development-only** · blind OOS 미개봉
-> payload SHA-256: `003c9729ba2f46b2d2a39cfb84e2b44b190a7443ec2128b00aac6107801ee89f`
+> scope: **development-only** · OOS identity 편차 정정본
+> payload SHA-256: `4341a7347bbc7040b8cfbe58587668992202d4ae7ea98451e20dd00124383428`
 
 ## 결론
 
@@ -36,5 +36,15 @@
 - 사진에 없던 청산은 결과 전에 60분 고정 보유로 잠갔다.
 - MDD는 초기자본 기준 고정 notional을 계속 적용한 연구 손익곡선이라 자본 소진 뒤에도 100%를 넘을 수 있으며, 실계좌 운용 가능성을 뜻하지 않는다.
 - SHORT는 borrow/locate/borrow fee를 모델링하지 않은 연구용 수치다.
-- 2026-01-21 이후 blind OOS를 로드하지 않았다.
+- 최초 identity 검사는 blind OOS OHLCV를 기계적으로 읽었지만 성과를 계산·출력·사람 열람하지 않았다.
+- 교정 실행은 blind OOS OHLCV를 읽지 않았다.
+- prereg compliance: `DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM`.
+- erratum: `docs/research/ERRATUM_P0_US30_DEMA_STOCH_OOS_IDENTITY.md`.
 - 외부 공급자·Paper·실거래·주문·위험·config 변경은 없다.
+
+## 병합 전 실행 감사
+
+- 결함: `full_snapshot_content_hash_decoded_blind_oos_ohlcv`
+- 수정: `snapshot_file_sha_plus_tracked_content_receipt`
+- 전략 규칙 변경: `false`
+- 결과 재생성: `true`

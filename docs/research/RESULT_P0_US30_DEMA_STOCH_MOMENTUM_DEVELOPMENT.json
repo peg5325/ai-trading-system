@@ -1,6 +1,8 @@
 {
-  "blind_oos_opened": false,
+  "blind_oos_opened": true,
+  "blind_oos_performance_accessed": false,
   "candidate_count_before_portfolio": 4121,
+  "current_execution_blind_oos_ohlcv_accessed": false,
   "defects": {
     "incomplete_symbol_day_ratio": 0.03651741293532338,
     "incomplete_symbol_days": 734,
@@ -12,8 +14,17 @@
     "LONG": 2031,
     "SHORT": 1684
   },
+  "erratum_path": "docs/research/ERRATUM_P0_US30_DEMA_STOCH_OOS_IDENTITY.md",
   "exclusions": {
     "incomplete_regular_1m_grid": 734
+  },
+  "execution_audit": {
+    "fix": "snapshot_file_sha_plus_tracked_content_receipt",
+    "issue": "full_snapshot_content_hash_decoded_blind_oos_ohlcv",
+    "performance_values_inspected_before_fix": true,
+    "result_regenerated": true,
+    "review_phase": "post_result_premerge_review",
+    "strategy_rules_changed": false
   },
   "external_provider_used": false,
   "gate": {
@@ -44,25 +55,31 @@
       "status": "match"
     },
     {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "name": "snapshot_receipt_file",
+      "status": "match"
+    },
+    {
       "actual": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
       "expected": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
-      "name": "snapshot_content",
+      "name": "snapshot_content_receipt",
       "status": "match"
     },
     {
       "actual": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
       "expected": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
-      "name": "manifest_data",
+      "name": "manifest_data_receipt",
       "status": "match"
     },
     {
       "actual": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
       "expected": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
-      "name": "raw_content",
+      "name": "raw_content_index",
       "status": "match"
     }
   ],
-  "payload_sha256": "003c9729ba2f46b2d2a39cfb84e2b44b190a7443ec2128b00aac6107801ee89f",
+  "payload_sha256": "4341a7347bbc7040b8cfbe58587668992202d4ae7ea98451e20dd00124383428",
   "portfolio_skips": {
     "qty_lt_1": 23,
     "slot_cap": 383
@@ -71,8 +88,9 @@
     "json_sha256": "ba9fd2c0335eaecca63d3fe69c11efd8c8eba9e9d4795eed5448e0ef61843692",
     "md_sha256": "453bc6f9fcfdd4e7df7c03fc62d44ff31c0690276fd4b67e3921d36a3d3c9379"
   },
-  "producer_commit": "36db7e7182834a99da02a44651d5b3860e8f6fc7",
-  "review_evidence_url": "https://github.com/peg5325/ai-trading-system/pull/129#issuecomment-5248482682",
+  "prereg_compliance": "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM",
+  "producer_commit": "d159472d007df899eff0f304724f73fdfd65bf63",
+  "review_evidence_url": "https://github.com/peg5325/ai-trading-system/pull/129#issuecomment-5349802155",
   "schema": "p0-us30-dema-stoch-momentum-development/v1",
   "scope": "development-only",
   "short_borrow_modeled": false,

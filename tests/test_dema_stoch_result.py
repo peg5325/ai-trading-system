@@ -27,7 +27,7 @@ def test_tracked_result_has_deterministic_payload_and_report():
     expected_hash = payload.pop("payload_sha256")
     assert hashlib.sha256(canonical_json_bytes(payload)).hexdigest() == expected_hash
     assert expected_hash == (
-        "003c9729ba2f46b2d2a39cfb84e2b44b190a7443ec2128b00aac6107801ee89f"
+        "4341a7347bbc7040b8cfbe58587668992202d4ae7ea98451e20dd00124383428"
     )
     assert RESULT_MD.read_text(encoding="utf-8") == render_report(result)
 
@@ -35,11 +35,11 @@ def test_tracked_result_has_deterministic_payload_and_report():
 def test_tracked_result_is_bound_to_reviewed_development_scope():
     result = _result()
     assert result["producer_commit"] == (
-        "36db7e7182834a99da02a44651d5b3860e8f6fc7"
+        "d159472d007df899eff0f304724f73fdfd65bf63"
     )
     assert result["review_evidence_url"] == (
         "https://github.com/peg5325/ai-trading-system/pull/129"
-        "#issuecomment-5248482682"
+        "#issuecomment-5349802155"
     )
     assert result["scope"] == "development-only"
     assert result["window"] == {
