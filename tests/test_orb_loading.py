@@ -100,6 +100,8 @@ _ALLOWED_SWING_TRACK = {
     # 결과 전에 잠긴 일봉 단기반전 연구. swing OOS 경계를 명시적으로 사용하며,
     # unlock/execution_grant 및 coverage purpose 면제는 받지 않는다.
     os.path.join("src", "research", "close_pressure_reversal", "loading.py"),
+    # 결과 전에 잠긴 일봉 섹터 모멘텀 연구. 동일하게 swing 경계만 허용한다.
+    os.path.join("src", "research", "sector_weekly_momentum", "loading.py"),
 }
 
 # §6.2 primary/sensitivity 공용 결정봉 스펙(5분·min_bars=1) — 계약값과 동일(§contract.py 로
@@ -758,8 +760,9 @@ def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
     """AST: `src/`·`scripts/`·`analysis/`(R4-8 — `tests/test_oos_guard_wiring.py` 의
     `SCAN_DIRS` 와 동일 범위) 전역의 `research_load` 호출은 `execution_grant`/legacy `unlock`
     인자를 절대 넘기지 않고,
-    `track` 은 기본적으로 `TRACK_INTRADAY`, 좁은 파일 allowlist 에서만 `TRACK_SWING` 상수여야
-    하며(문자열 `"swing"` 변조는 계속 차단), `purpose` 는 리터럴 `"performance"`(또는 allowlist
+    `track` 은 기본적으로 반드시 `TRACK_INTRADAY` 상수여야 하며, 결과 전에 잠긴 두 일봉 연구
+    로더만 정확한 파일 경로로 `TRACK_SWING`을 허용한다(임의 `OOSUnlock` 주입·문자열
+    `track="swing"` 변조는 계속 차단). `purpose` 는 리터럴 `"performance"`(또는 allowlist
     파일에 한해 `"coverage"`)여야 한다(R5-4). 판정 로직은 `_research_load_offenders_in_tree`
     (R4-5/R5-4 — 아래 증명 fixture 와 공유).
 

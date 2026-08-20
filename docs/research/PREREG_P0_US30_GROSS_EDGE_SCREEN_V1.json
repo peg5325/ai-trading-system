@@ -1,0 +1,86 @@
+{
+  "schema": "p0_us30_gross_edge_screen_prereg_v1",
+  "version": "1.0",
+  "status": "FROZEN_BEFORE_RESULTS",
+  "issue": 124,
+  "results_examined": false,
+  "strategy_id": "p0_us30_gross_edge_screen_v1",
+  "data_identity": {
+    "snapshot_basename": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+    "snapshot_file_sha256": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+    "snapshot_content_sha256": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+    "manifest_data_sha256": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+    "raw_content_sha256": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+    "collection_run_id": "p0-us30-1m-20260721-r82",
+    "manifest_path": "docs/research/P0_US30_ORB_CLEAN_1M_MANIFEST.json",
+    "hash_mismatch_policy": "fail_closed"
+  },
+  "universe": [
+    "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV", "XLI", "XLY",
+    "XLU", "SMH", "AAPL", "MSFT", "NVDA", "AMD", "AVGO", "AMZN", "META", "GOOGL",
+    "TSLA", "MU", "NFLX", "CRM", "PLTR", "VST", "TQQQ", "SQQQ", "SOXL", "SOXS"
+  ],
+  "windows": {
+    "development_eval_start": "2023-05-18",
+    "development_eval_end": "2026-01-20",
+    "development_eval_trading_days": 670,
+    "blind_oos_start": "2026-01-21",
+    "blind_oos_end": "2026-07-21",
+    "blind_oos_access": "forbidden"
+  },
+  "folds": {
+    "source": "docs/research/PREREG_P0_US30_ORB_V1.json",
+    "count": 10,
+    "minimum_positive": 7
+  },
+  "execution": {
+    "session": "REGULAR",
+    "unit": "symbol_day",
+    "max_trades_per_candidate_symbol_day": 1,
+    "position_sizing": "unit_notional",
+    "exit_et": "15:55",
+    "exit_price": "open",
+    "exclude_current_early_close": true,
+    "zero_signal": "no_trade",
+    "gross_return_pct_points": "direction * (exit / entry - 1) * 100"
+  },
+  "candidates": [
+    {"id": "gap_continuation", "signal": "open_0930_minus_previous_regular_close", "signal_known_et": "09:30", "entry_et": "09:35", "direction": "same"},
+    {"id": "gap_reversal", "signal": "open_0930_minus_previous_regular_close", "signal_known_et": "09:30", "entry_et": "09:35", "direction": "opposite"},
+    {"id": "opening_30m_continuation", "signal": "close_0959_minus_open_0930", "signal_known_et": "10:00", "entry_et": "10:00", "direction": "same"},
+    {"id": "opening_30m_reversal", "signal": "close_0959_minus_open_0930", "signal_known_et": "10:00", "entry_et": "10:00", "direction": "opposite"},
+    {"id": "first_hour_continuation", "signal": "close_1029_minus_open_0930", "signal_known_et": "10:30", "entry_et": "10:30", "direction": "same"},
+    {"id": "first_hour_reversal", "signal": "close_1029_minus_open_0930", "signal_known_et": "10:30", "entry_et": "10:30", "direction": "opposite"},
+    {"id": "morning_continuation", "signal": "close_1159_minus_open_0930", "signal_known_et": "12:00", "entry_et": "12:00", "direction": "same"},
+    {"id": "morning_reversal", "signal": "close_1159_minus_open_0930", "signal_known_et": "12:00", "entry_et": "12:00", "direction": "opposite"}
+  ],
+  "statistics": {
+    "independent_unit": "trading_day",
+    "daily_aggregation": "equal_weight_arithmetic_mean_across_symbols",
+    "effect_size": "arithmetic_mean_daily_gross_return_pct_points",
+    "significance": "exact_one_sided_binomial_sign_test_positive",
+    "zero_day_policy": "remove",
+    "multiple_testing": "bonferroni_8",
+    "alpha_adjusted": 0.05
+  },
+  "gross_edge_gate": {
+    "min_trades": 536,
+    "min_trading_days": 322,
+    "mean_gross_gt_pct_points": 0.0,
+    "min_positive_folds": 7,
+    "adjusted_p_lt": 0.05
+  },
+  "cost_hurdles_pct_points": {
+    "published_floor": 0.204,
+    "conservative": 0.34,
+    "stress": 0.68
+  },
+  "verdicts": {
+    "SHORTLIST": "one or more gross_edge_pass candidates survive conservative cost",
+    "GROSS_EDGE_NOT_ECONOMIC": "one or more gross_edge_pass candidates but none survive conservative cost",
+    "NO_GROSS_EDGE": "no candidate passes all gross-edge gates",
+    "INCONCLUSIVE_DATA": "identity, window, required data, or determinism defect prevents judgement"
+  },
+  "automatic_oos_or_paper_approval": false,
+  "revision_policy": "no post-result amendment except transparent data-invalidating erratum"
+}

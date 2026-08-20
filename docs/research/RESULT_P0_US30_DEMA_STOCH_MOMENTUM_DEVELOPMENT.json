@@ -1,0 +1,312 @@
+{
+  "blind_oos_opened": true,
+  "blind_oos_performance_accessed": false,
+  "candidate_count_before_portfolio": 4121,
+  "current_execution_blind_oos_ohlcv_accessed": false,
+  "defects": {
+    "incomplete_symbol_day_ratio": 0.03651741293532338,
+    "incomplete_symbol_days": 734,
+    "major_defects": 0,
+    "new_conflicts": 0,
+    "total_symbol_days": 20100
+  },
+  "direction_counts": {
+    "LONG": 2031,
+    "SHORT": 1684
+  },
+  "erratum_path": "docs/research/ERRATUM_P0_US30_DEMA_STOCH_OOS_IDENTITY.md",
+  "exclusions": {
+    "incomplete_regular_1m_grid": 734
+  },
+  "execution_audit": {
+    "fix": "snapshot_file_sha_plus_tracked_content_receipt",
+    "issue": "full_snapshot_content_hash_decoded_blind_oos_ohlcv",
+    "performance_values_inspected_before_fix": true,
+    "result_regenerated": true,
+    "review_phase": "post_result_premerge_review",
+    "strategy_rules_changed": false
+  },
+  "external_provider_used": false,
+  "gate": {
+    "failed": [
+      "D3",
+      "D4",
+      "D5",
+      "D6",
+      "D7"
+    ],
+    "items": {
+      "D1": true,
+      "D2": true,
+      "D3": false,
+      "D4": false,
+      "D5": false,
+      "D6": false,
+      "D7": false,
+      "D9": true
+    },
+    "verdict": "NO_SELECTION"
+  },
+  "identity": [
+    {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "name": "snapshot_file",
+      "status": "match"
+    },
+    {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "name": "snapshot_receipt_file",
+      "status": "match"
+    },
+    {
+      "actual": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "expected": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "name": "snapshot_content_receipt",
+      "status": "match"
+    },
+    {
+      "actual": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "expected": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "name": "manifest_data_receipt",
+      "status": "match"
+    },
+    {
+      "actual": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "expected": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "name": "raw_content_index",
+      "status": "match"
+    }
+  ],
+  "payload_sha256": "4341a7347bbc7040b8cfbe58587668992202d4ae7ea98451e20dd00124383428",
+  "portfolio_skips": {
+    "qty_lt_1": 23,
+    "slot_cap": 383
+  },
+  "prereg": {
+    "json_sha256": "ba9fd2c0335eaecca63d3fe69c11efd8c8eba9e9d4795eed5448e0ef61843692",
+    "md_sha256": "453bc6f9fcfdd4e7df7c03fc62d44ff31c0690276fd4b67e3921d36a3d3c9379"
+  },
+  "prereg_compliance": "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM",
+  "producer_commit": "d159472d007df899eff0f304724f73fdfd65bf63",
+  "review_evidence_url": "https://github.com/peg5325/ai-trading-system/pull/129#issuecomment-5349802155",
+  "schema": "p0-us30-dema-stoch-momentum-development/v1",
+  "scope": "development-only",
+  "short_borrow_modeled": false,
+  "source_image_sha256": "81ca0e337b02ff1059ba40d89941e5e53d3ac79f78470d7cf3f663a1b094f5df",
+  "stats": {
+    "combined": {
+      "low": {
+        "cumulative_net_pnl": -89133.46457691099,
+        "fold_pnl": {
+          "F01": -13182.19717454099,
+          "F02": -8862.07728522701,
+          "F03": -9878.471246255018,
+          "F04": -9030.96269855104,
+          "F05": -7952.516711575014,
+          "F06": -11381.651786880948,
+          "F07": -11487.180044173972,
+          "F08": -2604.534099213015,
+          "F09": -7939.215413203978,
+          "F10": -6814.658117290012
+        },
+        "mdd": 0.9017481575069242,
+        "net_expectancy": -23.99285722124118,
+        "positive_folds": 0,
+        "profit_factor": 0.6643695465496068,
+        "trade_count": 3715,
+        "trading_days_with_trade": 647,
+        "win_rate": 0.37200538358008073
+      },
+      "official": {
+        "cumulative_net_pnl": -236702.91152964125,
+        "fold_pnl": {
+          "F01": -36447.86383817101,
+          "F02": -22804.438049837016,
+          "F03": -22949.257440905007,
+          "F04": -21653.56879648105,
+          "F05": -21018.81151382501,
+          "F06": -25859.520496710917,
+          "F07": -25774.327592993974,
+          "F08": -16119.547683803023,
+          "F09": -23468.93797492396,
+          "F10": -20606.63814199001
+        },
+        "mdd": 2.3670291152964102,
+        "net_expectancy": -63.71545397836911,
+        "positive_folds": 0,
+        "profit_factor": 0.3581859395891475,
+        "trade_count": 3715,
+        "trading_days_with_trade": 647,
+        "win_rate": 0.23930013458950203
+      },
+      "stress": {
+        "cumulative_net_pnl": -487570.9713492816,
+        "fold_pnl": {
+          "F01": -75999.49716634207,
+          "F02": -46506.45134967403,
+          "F03": -45169.59397181004,
+          "F04": -43111.99916296205,
+          "F05": -43231.51267765005,
+          "F06": -50471.897303422,
+          "F07": -50062.47842598799,
+          "F08": -39095.07077760602,
+          "F09": -49869.466329847965,
+          "F10": -44053.00418397998
+        },
+        "mdd": 4.875709713492822,
+        "net_expectancy": -131.2438684654863,
+        "positive_folds": 0,
+        "profit_factor": 0.15121332022460338,
+        "trade_count": 3715,
+        "trading_days_with_trade": 647,
+        "win_rate": 0.13351278600269179
+      }
+    },
+    "long": {
+      "low": {
+        "cumulative_net_pnl": -45243.000884876965,
+        "fold_pnl": {
+          "F01": -8101.500479866001,
+          "F02": -4802.348383434012,
+          "F03": -6640.737909045009,
+          "F04": -4270.190607575024,
+          "F05": -2473.89917172502,
+          "F06": -6473.3854091369985,
+          "F07": -5183.427469797982,
+          "F08": 1248.7996030019974,
+          "F09": -4478.218003398971,
+          "F10": -4068.093053899994
+        },
+        "mdd": 0.46482708858185784,
+        "net_expectancy": -22.276219047206776,
+        "positive_folds": 1,
+        "profit_factor": 0.6767003656636353,
+        "trade_count": 2031,
+        "trading_days_with_trade": 603,
+        "win_rate": 0.38158542589857214
+      },
+      "official": {
+        "cumulative_net_pnl": -125905.39284898696,
+        "fold_pnl": {
+          "F01": -21410.899108246012,
+          "F02": -12940.104474054013,
+          "F03": -13407.563793395004,
+          "F04": -10692.980689825024,
+          "F05": -9836.540488475017,
+          "F06": -13674.433465047001,
+          "F07": -12715.98874093798,
+          "F08": -6623.791764138003,
+          "F09": -12979.159193968972,
+          "F10": -11623.931130899995
+        },
+        "mdd": 1.2607013686540696,
+        "net_expectancy": -61.991823165429324,
+        "positive_folds": 0,
+        "profit_factor": 0.3579134989114987,
+        "trade_count": 2031,
+        "trading_days_with_trade": 603,
+        "win_rate": 0.23830625307730183
+      },
+      "stress": {
+        "cumulative_net_pnl": -263031.4591879741,
+        "fold_pnl": {
+          "F01": -44036.876776492005,
+          "F02": -26774.289828108023,
+          "F03": -24911.16779679,
+          "F04": -21611.723829650025,
+          "F05": -22353.030726950008,
+          "F06": -25916.215160093998,
+          "F07": -25521.34290187599,
+          "F08": -20007.197088276007,
+          "F09": -27430.759217937968,
+          "F10": -24468.85586180001
+        },
+        "mdd": 2.6303145918797397,
+        "net_expectancy": -129.50835016640772,
+        "positive_folds": 0,
+        "profit_factor": 0.1460788285553366,
+        "trade_count": 2031,
+        "trading_days_with_trade": 603,
+        "win_rate": 0.13392417528311176
+      }
+    },
+    "short": {
+      "low": {
+        "cumulative_net_pnl": -43890.46369203398,
+        "fold_pnl": {
+          "F01": -5080.69669467498,
+          "F02": -4059.7289017929947,
+          "F03": -3237.733337210012,
+          "F04": -4760.772090976016,
+          "F05": -5478.61753985,
+          "F06": -4908.266377743944,
+          "F07": -6303.752574375984,
+          "F08": -3853.333702215012,
+          "F09": -3460.9974098050097,
+          "F10": -2746.5650633900195
+        },
+        "mdd": 0.4420768308854964,
+        "net_expectancy": -26.063220719735146,
+        "positive_folds": 0,
+        "profit_factor": 0.6506339130836637,
+        "trade_count": 1684,
+        "trading_days_with_trade": 565,
+        "win_rate": 0.36045130641330164
+      },
+      "official": {
+        "cumulative_net_pnl": -110797.51868065415,
+        "fold_pnl": {
+          "F01": -15036.964729924986,
+          "F02": -9864.333575782992,
+          "F03": -9541.693647510017,
+          "F04": -10960.588106656025,
+          "F05": -11182.271025350003,
+          "F06": -12185.087031663945,
+          "F07": -13058.338852055984,
+          "F08": -9495.755919665007,
+          "F09": -10489.778780955005,
+          "F10": -8982.70701109002
+        },
+        "mdd": 1.1079751868065395,
+        "net_expectancy": -65.79425099801315,
+        "positive_folds": 0,
+        "profit_factor": 0.35849524861101967,
+        "trade_count": 1684,
+        "trading_days_with_trade": 565,
+        "win_rate": 0.24049881235154394
+      },
+      "stress": {
+        "cumulative_net_pnl": -224539.51216130817,
+        "fold_pnl": {
+          "F01": -31962.620389850006,
+          "F02": -19732.161521565984,
+          "F03": -20258.426175020006,
+          "F04": -21500.27533331202,
+          "F05": -20878.481950699996,
+          "F06": -24555.682143327933,
+          "F07": -24541.135524111985,
+          "F08": -19087.873689330023,
+          "F09": -22438.707111910015,
+          "F10": -19584.148322180023
+        },
+        "mdd": 2.2453951216130794,
+        "net_expectancy": -133.3370024710856,
+        "positive_folds": 0,
+        "profit_factor": 0.1571500170931411,
+        "trade_count": 1684,
+        "trading_days_with_trade": 565,
+        "win_rate": 0.1330166270783848
+      }
+    }
+  },
+  "strategy_id": "p0-us30-dema60-stoch60d3-momentum-v1",
+  "trade_count": 3715,
+  "trades_sha256": "af760275d5ac331bc91a6f381a25741d9dfbdd1da0a30576d81fff0799abe4b9",
+  "window": {
+    "end": "2026-01-20",
+    "start": "2023-05-18",
+    "trading_days": 670
+  }
+}
