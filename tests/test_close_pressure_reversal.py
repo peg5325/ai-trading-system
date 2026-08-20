@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import hashlib
 import inspect
+import json
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
-from src.models import Candle, ET, SESSION_REGULAR
-from src.research.close_pressure_reversal.contract import canonical_json_bytes, load_contract
+from src.models import ET, SESSION_REGULAR, Candle
+from src.research.close_pressure_reversal.contract import (
+    canonical_json_bytes,
+    load_contract,
+)
 from src.research.close_pressure_reversal.development import (
     Candidate,
     FeatureBar,
@@ -20,7 +26,10 @@ from src.research.close_pressure_reversal.development import (
     simulate,
     summarize,
 )
-from src.research.close_pressure_reversal.loading import load_development_bars, official_symbols
+from src.research.close_pressure_reversal.loading import (
+    load_development_bars,
+    official_symbols,
+)
 from src.research.close_pressure_reversal.report import render_markdown
 
 
@@ -350,7 +359,18 @@ def test_json_and_markdown_rendering_are_deterministic():
         "data_content_sha256": "b",
         "development_window": {"start": "2024-01-01", "end_inclusive": "2024-01-02", "calendar_days": 2},
         "symbol_count": 1,
-        "blind_oos_opened": False,
+        "blind_oos_opened": True,
+        "blind_oos_performance_accessed": False,
+        "current_execution_blind_oos_ohlcv_accessed": False,
+        "prereg_compliance": "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM",
+        "erratum_path": "docs/research/ERRATUM.md",
+        "payload_sha256": "abc",
+        "execution_audit": {
+            "issue": "daily_identity_hash_scanned_blind_oos_ohlcv",
+            "fix": "development_bounded_hash",
+            "strategy_rules_changed": False,
+            "result_regenerated": True,
+        },
         "specs": {
             name: {
                 "gross": _minimal_metrics(),
@@ -370,6 +390,20 @@ def test_json_and_markdown_rendering_are_deterministic():
     }
     assert canonical_json_bytes(result) == canonical_json_bytes(result)
     assert render_markdown(result) == render_markdown(result)
+
+
+def test_tracked_result_payload_and_markdown_are_reproducible():
+    json_path = Path(
+        "docs/research/RESULT_P0_US30_CLOSE_PRESSURE_REVERSAL_DEVELOPMENT.json"
+    )
+    md_path = Path(
+        "docs/research/RESULT_P0_US30_CLOSE_PRESSURE_REVERSAL_DEVELOPMENT.md"
+    )
+    result = json.loads(json_path.read_text(encoding="utf-8"))
+    expected = result.pop("payload_sha256")
+    assert hashlib.sha256(canonical_json_bytes(result)).hexdigest() == expected
+    result["payload_sha256"] = expected
+    assert render_markdown(result) == md_path.read_text(encoding="utf-8")
 
 
 def _minimal_metrics():

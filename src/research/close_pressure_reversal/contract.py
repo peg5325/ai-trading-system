@@ -7,7 +7,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-
 STRATEGY_ID = "p0_us30_close_pressure_reversal_v1"
 DEFAULT_CONTRACT_PATH = Path(
     "docs/research/PREREG_P0_US30_CLOSE_PRESSURE_REVERSAL_V1.json"

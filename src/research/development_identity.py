@@ -70,6 +70,58 @@ def verify_intraday_identity(
     ]
 
 
+def verify_daily_identity(
+    *,
+    daily_db_path: str,
+    universe_yaml: str,
+    daily_manifest_path: str,
+    expected_daily_full_content: str,
+    expected_daily_full_rows: int,
+    development_end: str,
+    expected_daily_development_content: str,
+    expected_daily_development_rows: int,
+    daily_manifest_builder: Callable[..., Mapping[str, Any]] = build_manifest,
+) -> list[dict[str, str]]:
+    """Authenticate daily history while scanning live OHLCV only through development."""
+    daily_manifest_receipt = _read_json(daily_manifest_path)
+    checks = [
+        _check(
+            "daily_full_manifest_receipt",
+            expected_daily_full_content,
+            str(daily_manifest_receipt["data_content_sha256"]),
+        ),
+        _check(
+            "daily_full_rows_receipt",
+            str(expected_daily_full_rows),
+            str(daily_manifest_receipt["summary"]["total_rows"]),
+        ),
+    ]
+    daily_development = daily_manifest_builder(
+        daily_db_path,
+        universe_yaml,
+        collection_params={},
+        collection_code_commit=None,
+        generated_at_utc="identity-check",
+        as_of=development_end,
+        collection_completed_through=development_end,
+    )
+    checks.extend(
+        [
+            _check(
+                "daily_development_content",
+                expected_daily_development_content,
+                str(daily_development["data_content_sha256"]),
+            ),
+            _check(
+                "daily_development_rows",
+                str(expected_daily_development_rows),
+                str(daily_development["summary"]["total_rows"]),
+            ),
+        ]
+    )
+    return checks
+
+
 def verify_development_identity(
     *,
     snapshot_path: str,
@@ -97,7 +149,6 @@ def verify_development_identity(
     is checked from its tracked receipt, while the live DB content scan stops at
     ``development_end``.
     """
-    daily_manifest_receipt = _read_json(daily_manifest_path)
     checks = verify_intraday_identity(
         snapshot_path=snapshot_path,
         raw_root=raw_root,
@@ -109,40 +160,16 @@ def verify_development_identity(
         expected_raw_content=expected_raw_content,
     )
     checks.extend(
-        [
-            _check(
-                "daily_full_manifest_receipt",
-                expected_daily_full_content,
-                str(daily_manifest_receipt["data_content_sha256"]),
-            ),
-            _check(
-                "daily_full_rows_receipt",
-                str(expected_daily_full_rows),
-                str(daily_manifest_receipt["summary"]["total_rows"]),
-            ),
-        ]
-    )
-    daily_development = daily_manifest_builder(
-        daily_db_path,
-        universe_yaml,
-        collection_params={},
-        collection_code_commit=None,
-        generated_at_utc="identity-check",
-        as_of=development_end,
-        collection_completed_through=development_end,
-    )
-    checks.extend(
-        [
-            _check(
-                "daily_development_content",
-                expected_daily_development_content,
-                str(daily_development["data_content_sha256"]),
-            ),
-            _check(
-                "daily_development_rows",
-                str(expected_daily_development_rows),
-                str(daily_development["summary"]["total_rows"]),
-            ),
-        ]
+        verify_daily_identity(
+            daily_db_path=daily_db_path,
+            universe_yaml=universe_yaml,
+            daily_manifest_path=daily_manifest_path,
+            expected_daily_full_content=expected_daily_full_content,
+            expected_daily_full_rows=expected_daily_full_rows,
+            development_end=development_end,
+            expected_daily_development_content=expected_daily_development_content,
+            expected_daily_development_rows=expected_daily_development_rows,
+            daily_manifest_builder=daily_manifest_builder,
+        )
     )
     return checks

@@ -11,17 +11,23 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.history.daily_manifest import build_manifest  # noqa: E402
-from src.research.close_pressure_reversal.contract import (  # noqa: E402
+from src.research.close_pressure_reversal.contract import (
     canonical_json_bytes,
     load_contract,
 )
-from src.research.close_pressure_reversal.development import run_development  # noqa: E402
-from src.research.close_pressure_reversal.loading import (  # noqa: E402
+from src.research.close_pressure_reversal.development import run_development
+from src.research.close_pressure_reversal.loading import (
     load_development_bars,
     official_symbols,
 )
-from src.research.close_pressure_reversal.report import render_markdown  # noqa: E402
+from src.research.close_pressure_reversal.report import render_markdown
+from src.research.development_identity import verify_daily_identity
+
+EXPECTED_DAILY_FULL_ROWS = 76_690
+EXPECTED_DAILY_DEVELOPMENT_CONTENT = (
+    "96151eeb277528e1b8167e7c8c531155640cd52973c0c2f646bd23ed11018a7a"
+)
+EXPECTED_DAILY_DEVELOPMENT_ROWS = 69_130
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -43,18 +49,15 @@ def main(argv: list[str] | None = None) -> int:
     contract = load_contract(args.contract)
     data = contract["data"]
 
-    current_manifest = build_manifest(
-        args.db,
-        data["universe_path"],
-        collection_params={},
-        collection_code_commit=None,
-        generated_at_utc="identity-check-not-result",
-        as_of=data["blind_oos_end_inclusive"],
-    )
-    identity_verified = bool(
-        current_manifest["data_content_sha256"] == data["data_content_sha256"]
-        and current_manifest["summary"]["verdict_counts"] == {"OK": 30}
-        and current_manifest["summary"]["bars_beyond_as_of_total"] == 0
+    identity = verify_daily_identity(
+        daily_db_path=args.db,
+        universe_yaml=data["universe_path"],
+        daily_manifest_path=data["manifest_path"],
+        expected_daily_full_content=data["data_content_sha256"],
+        expected_daily_full_rows=EXPECTED_DAILY_FULL_ROWS,
+        development_end=data["development_end_inclusive"],
+        expected_daily_development_content=EXPECTED_DAILY_DEVELOPMENT_CONTENT,
+        expected_daily_development_rows=EXPECTED_DAILY_DEVELOPMENT_ROWS,
     )
 
     symbols = official_symbols(data["universe_path"])
@@ -69,12 +72,22 @@ def main(argv: list[str] | None = None) -> int:
     result = run_development(
         bars,
         contract=contract,
-        data_identity_verified=identity_verified,
+        data_identity=identity,
     )
 
     Path(args.out_json).write_bytes(canonical_json_bytes(result))
     Path(args.out_md).write_text(render_markdown(result), encoding="utf-8")
-    print(json.dumps({"verdict": result["verdict"], "blind_oos_opened": False}))
+    print(
+        json.dumps(
+            {
+                "verdict": result["verdict"],
+                "blind_oos_opened": result["blind_oos_opened"],
+                "current_execution_blind_oos_ohlcv_accessed": result[
+                    "current_execution_blind_oos_ohlcv_accessed"
+                ],
+            }
+        )
+    )
     return 0
 
 

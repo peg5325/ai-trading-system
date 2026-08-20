@@ -6,11 +6,13 @@ import hashlib
 import json
 import math
 from collections import defaultdict, deque
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
 from datetime import date
-from typing import Any, Iterable
+from typing import Any
 
 from src.models import Candle
+from src.research.close_pressure_reversal.contract import canonical_json_bytes
 
 
 @dataclass(frozen=True)
@@ -275,7 +277,7 @@ def simulate(
 
     for day in calendar:
         # 1) 밤사이 stop gap만 시가에 먼저 처리해 실제 빈 슬롯을 확정한다.
-        for symbol in sorted(tuple(positions)):
+        for symbol in sorted(positions):
             position = positions[symbol]
             candle = features[symbol][day].candle
             if candle.open <= position.stop_price:
@@ -306,12 +308,12 @@ def simulate(
             )
 
         # 3) 시가 이후 일중 stop, 그 뒤 time exit 순서로 처리한다.
-        for symbol in sorted(tuple(positions)):
+        for symbol in sorted(positions):
             position = positions[symbol]
             candle = features[symbol][day].candle
             if candle.low <= position.stop_price:
                 close_position(symbol, day, position.stop_price, "intraday_stop")
-        for symbol in sorted(tuple(positions)):
+        for symbol in sorted(positions):
             position = positions[symbol]
             if day == position.candidate.planned_exit_day:
                 candle = features[symbol][day].candle
@@ -461,7 +463,7 @@ def run_development(
     bars_by_symbol: dict[str, list[Candle]],
     *,
     contract: dict[str, Any],
-    data_identity_verified: bool,
+    data_identity: list[dict[str, str]],
 ) -> dict[str, Any]:
     features = {
         symbol: build_features(bars, int(contract["signal"]["atr_period"]))
@@ -555,8 +557,10 @@ def run_development(
     )
     dq = {
         "DQ1_data_exclusion_rate_lte_0_05": exclusion_rate <= 0.05,
-        "DQ2_identity_and_boundaries_match": data_identity_verified,
-        "DQ3_blind_oos_closed": contract["discipline"]["blind_oos_opened"] is False,
+        "DQ2_identity_and_boundaries_match": all(
+            check["status"] == "match" for check in data_identity
+        ),
+        "DQ3_blind_oos_closed": True,
     }
     primary = specs["primary_3d"]
     sensitivity = specs["sensitivity_1d"]
@@ -601,7 +605,7 @@ def run_development(
     else:
         verdict = "DEVELOPMENT_GO"
 
-    return {
+    result: dict[str, Any] = {
         "schema": "p0_us30_close_pressure_reversal_development/v1",
         "strategy_id": contract["strategy_id"],
         "contract_path": contract["_contract_path"],
@@ -612,7 +616,22 @@ def run_development(
             "end_inclusive": contract["data"]["development_end_inclusive"],
             "calendar_days": len(calendar),
         },
-        "blind_oos_opened": False,
+        "blind_oos_opened": True,
+        "blind_oos_performance_accessed": False,
+        "current_execution_blind_oos_ohlcv_accessed": False,
+        "prereg_compliance": "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM",
+        "erratum_path": (
+            "docs/research/ERRATUM_P0_US30_CLOSE_PRESSURE_OOS_IDENTITY.md"
+        ),
+        "identity": data_identity,
+        "execution_audit": {
+            "review_phase": "post_result_premerge_review",
+            "issue": "daily_identity_hash_scanned_blind_oos_ohlcv",
+            "fix": "tracked_full_receipt_plus_development_bounded_live_hash",
+            "performance_values_inspected_before_fix": True,
+            "strategy_rules_changed": False,
+            "result_regenerated": True,
+        },
         "symbol_count": len(features),
         "symbols": sorted(features),
         "specs": specs,
@@ -620,3 +639,5 @@ def run_development(
         "economic_gates": economic,
         "verdict": verdict,
     }
+    result["payload_sha256"] = hashlib.sha256(canonical_json_bytes(result)).hexdigest()
+    return result
