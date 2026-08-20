@@ -1,0 +1,150 @@
+# P0-US30 장 마감 과잉압력 반전 Development 결과
+
+- verdict: **NO_SELECTION**
+- strategy: `p0_us30_close_pressure_reversal_v1`
+- contract SHA-256: `91cbccc35abe211f64356a088aa222dc6fe28f94a0c8f2c3af8152e8fc20aeb6`
+- daily data SHA-256: `756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772`
+- payload SHA-256: `ecca1adfcaae5539b1b2e7e7da1bca3f1f6a603e20be93e518ea75843b6ed8da`
+- development: 2016-03-18~2025-07-18 (2,347 SPY 거래일)
+- symbols: 26 (레버리지·인버스 제외)
+- blind OOS OHLCV touched historically: `True`
+- blind OOS performance accessed: `False`
+- corrected execution touched blind OOS OHLCV: `False`
+- prereg compliance: `DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM`
+- erratum: `docs/research/ERRATUM_P0_US30_CLOSE_PRESSURE_OOS_IDENTITY.md`
+
+## 1. 비용별 결과
+
+| spec | cost | trades | total net | expectancy | PF | win rate | MDD | max loss streak |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| primary_3d | gross | 2,717 | 49742.465201 | 18.307864 | 1.161860 | 0.526316 | -10.188071% | 20 |
+| primary_3d | low | 2,717 | 15235.423843 | 5.607443 | 1.047004 | 0.503865 | -14.927206% | 20 |
+| primary_3d | official | 2,717 | -34060.349525 | -12.536014 | 0.902575 | 0.472948 | -42.444532% | 20 |
+| primary_3d | stress | 2,717 | -117863.164251 | -43.379891 | 0.702646 | 0.424365 | -117.509644% | 20 |
+| sensitivity_1d | gross | 4,086 | 21474.337759 | 5.255589 | 1.088829 | 0.524963 | -10.026335% | 17 |
+| sensitivity_1d | low | 4,086 | -30185.863387 | -7.387632 | 0.887136 | 0.487763 | -38.197488% | 20 |
+| sensitivity_1d | official | 4,086 | -103986.150739 | -25.449376 | 0.662344 | 0.427802 | -108.018268% | 23 |
+| sensitivity_1d | stress | 4,086 | -229446.639237 | -56.154341 | 0.406067 | 0.340920 | -228.015651% | 26 |
+
+## 2. 데이터·실행 감사
+
+| spec | qualifying | prepared | data excluded | exclusion rate | capacity skip | duplicate skip | trade digest |
+|---|---:|---:|---:|---:|---:|---:|---|
+| primary_3d | 6,976 | 6,972 | 0 | 0.0000% | 4,064 | 191 | `bbb3df63fe2c44be…` |
+| sensitivity_1d | 6,976 | 6,973 | 0 | 0.0000% | 2,887 | 0 | `a8211b251c071a03…` |
+
+### 보유·청산 감사
+
+| spec | boundary skip | quantity skip | mean hold | median hold | gap stop | intraday stop | time exit |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| primary_3d | 4 | 0 | 2.831064 | 3 | 87 | 474 | 2,156 |
+| sensitivity_1d | 3 | 0 | 1.000000 | 1 | 0 | 147 | 3,939 |
+
+## 3. 게이트
+
+### 데이터 게이트
+
+- DQ1_data_exclusion_rate_lte_0_05: **PASS**
+- DQ2_identity_and_boundaries_match: **PASS**
+- DQ3_current_execution_blind_oos_closed: **PASS**
+
+### 경제·강건성 게이트
+
+- D1_min_trades: **PASS**
+- D2_official_expectancy_gt_0: **FAIL**
+- D3_official_pf_gte_1_20: **FAIL**
+- D4_stress_total_net_pnl_gte_0: **FAIL**
+- D5_positive_folds_gte_7: **FAIL**
+- D6_mdd_abs_lte_10pct: **FAIL**
+- D7_concentration: **FAIL**
+- D8_sensitivity_expectancy_gt_0: **FAIL**
+
+### 거버넌스 게이트
+
+- G0_positive_promotion_requires_pristine_prereg: **FAIL**
+
+## 4. 시간 블록
+
+| fold | start | end | trades | official net | positive |
+|---:|---|---|---:|---:|:---:|
+| 1 | 2016-03-18 | 2017-02-22 | 224 | -514.808998 | N |
+| 2 | 2017-02-23 | 2018-01-29 | 229 | -332.376875 | N |
+| 3 | 2018-01-30 | 2019-01-04 | 278 | -16159.687474 | N |
+| 4 | 2019-01-07 | 2019-12-10 | 244 | -5044.864269 | N |
+| 5 | 2019-12-11 | 2020-11-13 | 299 | -3764.435573 | N |
+| 6 | 2020-11-16 | 2021-10-21 | 299 | 4943.700590 | Y |
+| 7 | 2021-10-22 | 2022-09-28 | 277 | -18940.481270 | N |
+| 8 | 2022-09-29 | 2023-09-05 | 270 | 10655.357270 | Y |
+| 9 | 2023-09-06 | 2024-08-09 | 291 | 5236.609788 | Y |
+| 10 | 2024-08-12 | 2025-07-18 | 277 | -12252.234055 | N |
+
+## 5. 공식 비용 기여도
+
+### 종목별
+
+| symbol | net PnL |
+|---|---:|
+| AAPL | 2486.902830 |
+| AMD | 2552.290454 |
+| AMZN | 1339.451710 |
+| AVGO | -3185.324066 |
+| CRM | -7195.377218 |
+| DIA | -2797.579849 |
+| GOOGL | 687.885387 |
+| IWM | -3933.109781 |
+| META | 3450.735107 |
+| MSFT | 443.520173 |
+| MU | -5784.001585 |
+| NFLX | 2314.186944 |
+| NVDA | 4314.890441 |
+| PLTR | 4078.324653 |
+| QQQ | 736.905758 |
+| SMH | -1965.377078 |
+| SPY | -2203.128229 |
+| TSLA | -2767.033813 |
+| VST | -261.475584 |
+| XLE | -4839.374361 |
+| XLF | -4580.992634 |
+| XLI | -4935.357431 |
+| XLK | -393.241837 |
+| XLU | -8196.507761 |
+| XLV | -2433.947509 |
+| XLY | -993.614247 |
+
+### 진입일별 상위 절대 기여 20일
+
+| entry day | net PnL |
+|---|---:|
+| 2023-01-31 | 4747.437846 |
+| 2023-05-24 | 4220.437132 |
+| 2016-04-20 | 4068.042137 |
+| 2022-02-24 | 3969.928960 |
+| 2020-06-29 | 3512.307098 |
+| 2020-03-04 | -2615.317123 |
+| 2024-04-25 | 2528.438075 |
+| 2022-04-21 | -2436.002384 |
+| 2022-06-28 | -2400.609354 |
+| 2019-01-30 | 2283.608384 |
+| 2020-02-27 | -2247.242038 |
+| 2022-10-21 | 2219.223004 |
+| 2022-01-20 | -2175.144968 |
+| 2021-01-15 | 2145.612171 |
+| 2020-03-10 | -2135.134533 |
+| 2020-11-23 | 2132.466504 |
+| 2025-01-08 | -2127.536206 |
+| 2023-03-03 | 2114.472914 |
+| 2022-02-18 | -2094.329741 |
+| 2022-11-02 | -2079.771029 |
+
+전체 일별 equity는 동형 JSON의 `daily_equity`에 보존한다.
+
+## 6. 판정 범위
+
+이 결과는 고정 P0 26종목의 development-only 판정이다. `DEVELOPMENT_GO`도 blind OOS, Paper 또는 실거래 승인을 뜻하지 않는다. `NO_SELECTION`은 사전 고정 경제 게이트 실패이며 규칙을 결과에 맞춰 수정하지 않는다. 경제 게이트가 모두 통과하더라도 역사적 OOS identity 접촉이 있으면 `REQUIRES_NEW_PREREG`로 차단한다.
+
+### 병합 전 실행 감사
+
+- 결함: `daily_identity_hash_scanned_blind_oos_ohlcv`
+- 수정: `tracked_full_receipt_plus_development_bounded_live_hash`
+- 전략 규칙 변경: `false`
+- 결과 재생성: `true`

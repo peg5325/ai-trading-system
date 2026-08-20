@@ -1,0 +1,142 @@
+{
+  "schema": "p0-us30-dema-stoch-momentum-prereg/v1",
+  "strategy_id": "p0-us30-dema60-stoch60d3-momentum-v1",
+  "scope": "development-only",
+  "market": "US",
+  "side": "long-and-short",
+  "decision_bar_minutes": 5,
+  "source_image_sha256": "81ca0e337b02ff1059ba40d89941e5e53d3ac79f78470d7cf3f663a1b094f5df",
+  "universe": [
+    "SPY", "QQQ", "IWM", "DIA", "XLK", "XLF", "XLE", "XLV", "XLI", "XLY",
+    "XLU", "SMH", "AAPL", "MSFT", "NVDA", "AMD", "AVGO", "AMZN", "META",
+    "GOOGL", "TSLA", "MU", "NFLX", "CRM", "PLTR", "VST", "TQQQ", "SQQQ",
+    "SOXL", "SOXS"
+  ],
+  "data_identity": {
+    "snapshot_basename": "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite",
+    "snapshot_file_sha256": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+    "snapshot_content_sha256": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+    "manifest_data_sha256": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+    "raw_content_sha256": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+    "collection_run_id": "p0-us30-1m-20260721-r82",
+    "as_of": "2026-07-21",
+    "allowed_sessions": ["PRE", "REGULAR", "POST"]
+  },
+  "windows": {
+    "development_data_start": "2023-04-20",
+    "development_data_end": "2026-01-20",
+    "development_eval_start": "2023-05-18",
+    "development_eval_end": "2026-01-20",
+    "blind_oos_start": "2026-01-21",
+    "blind_oos_end": "2026-07-21",
+    "blind_oos_policy": "locked-and-not-read",
+    "fold_block_trading_days": 63,
+    "fold_anchor": "end",
+    "fold_remainder": "earliest-fold"
+  },
+  "eligibility": {
+    "session": "REGULAR",
+    "require_complete_regular_session_1m_grid": true,
+    "duplicate_timestamp_policy": "identical-deduplicate-conflict-fail-closed",
+    "indicator_reset_after_incomplete_symbol_day": true,
+    "minimum_complete_5m_bars_after_reset": 63,
+    "one_trade_per_symbol_day": true,
+    "latest_signal_rule": "signal bar plus next entry bar plus 12 held bars must fit before regular close"
+  },
+  "signal": {
+    "dema_period": 60,
+    "stochastic_k_period": 60,
+    "stochastic_k_smoothing": 1,
+    "stochastic_d_smoothing": 3,
+    "centerline": 50.0,
+    "long": [
+      "previous_close_lte_previous_dema",
+      "current_close_gt_current_dema",
+      "current_close_gt_current_open",
+      "previous_stoch_d_lte_50",
+      "current_stoch_d_gt_50"
+    ],
+    "short": [
+      "previous_close_gte_previous_dema",
+      "current_close_lt_current_dema",
+      "current_close_lt_current_open",
+      "previous_stoch_d_gte_50",
+      "current_stoch_d_lt_50"
+    ],
+    "entry": "next-complete-5m-bar-open",
+    "same_bar_dema_and_stoch_cross_required": true
+  },
+  "indicator_conventions": {
+    "ema": "alpha=2/(period+1); seed=first complete 5m close after start/reset",
+    "dema": "2*EMA60(close)-EMA60(EMA60(close)); second EMA uses the complete first-EMA series",
+    "stochastic_raw_k": "100*(close-lowest_low_60)/(highest_high_60-lowest_low_60); zero range is not-ready",
+    "stochastic_k_smoothing": "SMA1 (identity)",
+    "stochastic_d": "SMA3 of ready raw %K values",
+    "feature_timing": "all signal features use information through signal-bar close only"
+  },
+  "exit": {
+    "holding_bars": 12,
+    "time_exit": "twelfth-held-5m-bar-close",
+    "eod": "last-complete-regular-5m-bar-close",
+    "stop_loss": null,
+    "profit_target": null,
+    "overnight": false,
+    "reason": "source image defines entries but no exits; fixed 60-minute hold avoids result-driven stop/target invention"
+  },
+  "portfolio": {
+    "initial_capital": 100000.0,
+    "notional_cap_fraction_per_trade": 0.20,
+    "max_positions": 5,
+    "same_timestamp_rank": [
+      "absolute_close_minus_dema_fraction_desc",
+      "absolute_stoch_d_minus_50_desc",
+      "symbol_asc"
+    ],
+    "equity_sizing": "fixed-initial-capital",
+    "short_borrow_model": "not-modeled; short results are research-only and reported separately"
+  },
+  "costs": {
+    "round_trip_pct_points": {"low": 0.14, "official": 0.34, "stress": 0.68},
+    "entry_exit_allocation": [0.5, 0.5],
+    "basis": "entry-and-exit-notional"
+  },
+  "development_gate": {
+    "primary": "combined-long-and-short",
+    "D1_min_trades": 300,
+    "D2_min_trading_days": 200,
+    "D3_official_expectancy_gt": 0.0,
+    "D4_official_profit_factor_gte": 1.2,
+    "D5_official_mdd_lte": 0.10,
+    "D6_min_positive_folds": 7,
+    "D7_stress_cumulative_net_gte": 0.0,
+    "D9_max_incomplete_symbol_day_ratio": 0.05,
+    "D9_max_new_conflicts": 0
+  },
+  "verdicts": {
+    "all_gates_pass": "GO_CANDIDATE",
+    "D9_fail": "INCONCLUSIVE_DATA",
+    "other_gate_fail": "NO_SELECTION",
+    "identity_or_procedure_fail": "NOT_RUN"
+  },
+  "reporting": {
+    "required_slices": ["combined", "long", "short"],
+    "required_cost_levels": ["low", "official", "stress"],
+    "short_borrow_caveat_required": true
+  },
+  "discipline": {
+    "primary_specs": 1,
+    "parameter_tuning_after_result": false,
+    "blind_oos_opened": false,
+    "paper_or_live_promotion": false,
+    "external_provider_used": false
+  },
+  "revision_history": [
+    {
+      "version": "v1.1",
+      "timing": "before implementation commit and before any result run",
+      "change": "minimum complete 5m bars after reset corrected from 62 to 63",
+      "reason": "raw K60 needs 60 bars, D3 needs 62 bars, and a centerline cross needs both previous and current ready D values",
+      "go_easier": false
+    }
+  ]
+}

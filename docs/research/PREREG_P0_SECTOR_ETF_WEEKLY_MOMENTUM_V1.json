@@ -1,0 +1,108 @@
+{
+  "schema": "p0_sector_etf_weekly_momentum_prereg/v1",
+  "status": "PREREGISTERED_RESULTS_UNSEEN",
+  "strategy_id": "p0_sector_etf_weekly_momentum_v1",
+  "data": {
+    "universe_path": "config/universe_p0_us30.yaml",
+    "universe_class": "sector_etf",
+    "expected_symbols": ["SMH", "XLE", "XLF", "XLI", "XLK", "XLU", "XLV", "XLY"],
+    "expected_symbol_count": 8,
+    "manifest_path": "docs/research/P0_US30_DAILY_10Y_MANIFEST.json",
+    "data_content_sha256": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
+    "interval": "1d",
+    "market": "US",
+    "development_start": "2016-03-18",
+    "development_end_inclusive": "2025-07-18",
+    "performance_load_end_exclusive_et": "2025-07-21T00:00:00-04:00",
+    "blind_oos_start": "2025-07-21",
+    "blind_oos_end_inclusive": "2026-07-21",
+    "track": "swing",
+    "calendar_symbol": "SPY"
+  },
+  "schedule": {
+    "signal_day": "last_spy_trading_day_of_iso_week",
+    "trade_day": "next_spy_trading_day",
+    "signal_price": "completed_close",
+    "trade_price": "open",
+    "sell_before_buy": true,
+    "development_end_liquidation": "last_development_close"
+  },
+  "signal": {
+    "skip_recent_trading_days": 5,
+    "primary_lookbacks": [63, 126],
+    "primary_score": "0.5*ret63_skip5+0.5*ret126_skip5",
+    "sensitivity_score": "ret126_skip5",
+    "return_definition": "close_t_minus_5/close_t_minus_lookback-1",
+    "market_regime": "spy_close_gt_sma200",
+    "absolute_momentum": "score_gt_0",
+    "ranking": ["score_desc", "symbol_asc"],
+    "top_n": 2,
+    "all_eight_required_for_signal": true
+  },
+  "portfolio": {
+    "direction": "long_only",
+    "initial_capital_usd": 100000,
+    "gross_target_notional_usd": 50000,
+    "selected_position_entry_notional_usd": 25000,
+    "selected_max_positions": 2,
+    "equal_all_position_entry_notional_usd": 6250,
+    "fractional_shares_research_only": true,
+    "retained_positions_are_not_resized": true,
+    "scale_in": false,
+    "averaging_down": false,
+    "stop": null,
+    "target": null,
+    "cash_when_regime_off": true
+  },
+  "costs_round_trip_pct_points": {
+    "low": 0.14,
+    "official": 0.34,
+    "stress": 0.68
+  },
+  "cost_application": {
+    "one_way_rate": "round_trip_rate/2",
+    "entry": "one_way_rate_times_entry_notional",
+    "exit": "one_way_rate_times_exit_notional",
+    "retained_position": "zero_turnover_zero_cost"
+  },
+  "baseline": {
+    "name": "equal_all_same_regime",
+    "symbols": "all_eight_sector_etfs",
+    "entry_notional_per_symbol_usd": 6250,
+    "same_schedule_regime_and_costs": true,
+    "retained_positions_are_not_resized": true,
+    "spy_buy_hold_report_only": true
+  },
+  "evaluation": {
+    "chronological_folds": 10,
+    "random_split": false,
+    "invalid_or_skipped_signal_week_rate_lte": 0.05,
+    "primary_gates": {
+      "min_completed_position_episodes": 100,
+      "official_net_expectancy_gt": 0,
+      "official_profit_factor_gte": 1.2,
+      "stress_total_net_pnl_gte": 0,
+      "official_positive_excess_folds_gte": 7,
+      "official_max_drawdown_abs_pct_lte": 15,
+      "official_total_net_pnl_gt_equal_all": true,
+      "max_symbol_contribution_lte": 0.5,
+      "sensitivity_official_total_net_pnl_gt": 0
+    },
+    "verdicts": {
+      "data_gate_failure": "INCONCLUSIVE_DATA",
+      "economic_gate_failure": "NO_SELECTION",
+      "all_pass": "DEVELOPMENT_GO"
+    }
+  },
+  "discipline": {
+    "blind_oos_opened": false,
+    "oos_grant_allowed": false,
+    "result_driven_revision_allowed": false,
+    "invalidation_only": [
+      "look_ahead",
+      "blind_oos_contamination",
+      "wrong_data_identity",
+      "pnl_turnover_or_execution_contract_bug"
+    ]
+  }
+}
