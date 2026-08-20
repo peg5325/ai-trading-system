@@ -1,0 +1,190 @@
+{
+  "schema": "p0_us30_box_orderblock_retest_prereg/v1",
+  "version": "1.0",
+  "status": "FROZEN_BEFORE_THIS_STRATEGY_RESULTS",
+  "issue": 140,
+  "strategy_id": "p0_us30_box_orderblock_retest_v1",
+  "adaptation_disclosure": {
+    "prior_box_and_breakout_results_examined": true,
+    "video_inspiration": "https://www.youtube.com/watch?v=-Tp2fhvVVGM",
+    "exact_video_replication_claimed": false,
+    "current_strategy_results_examined": false,
+    "same_development_data_is_exploratory_only": true,
+    "blind_oos_or_paper_promotion_allowed": false
+  },
+  "evidence_boundary": {
+    "ledger_path": "docs/research/STRATEGY_EVIDENCE_LEDGER_2026-08-20.json",
+    "ledger_sha256": "b8a225dbe1c53943b6fe51787db719a505021c85ce3121cfe5985f8e168e4a1f",
+    "selected_strategy_before_prereg": null
+  },
+  "data": {
+    "universe_path": "config/universe_p0_us30.yaml",
+    "excluded_classes": ["leveraged_etf", "inverse_etf"],
+    "official_symbol_count": 26,
+    "calendar_symbol": "SPY",
+    "interval": "1d",
+    "market": "US",
+    "manifest_path": "docs/research/P0_US30_DAILY_10Y_MANIFEST.json",
+    "manifest_file_sha256": "d742fde6acef3dc76e388b838796a8170bf24da45be79938a860f1045ea09ad3",
+    "full_data_content_sha256": "756e5bd7cd4cc393dc18f88792a2f56b83a02ca45f28afb3633b139abac07772",
+    "development_data_content_sha256": "96151eeb277528e1b8167e7c8c531155640cd52973c0c2f646bd23ed11018a7a",
+    "development_rows": 69130,
+    "development_start": "2016-03-18",
+    "development_end_inclusive": "2025-07-18",
+    "blind_oos_start": "2025-07-21",
+    "blind_oos_end_inclusive": "2026-07-21",
+    "track": "swing",
+    "full_identity_policy": "tracked-manifest-receipt",
+    "live_hash_policy": "development-end-bounded-only"
+  },
+  "box": {
+    "lookback_trading_days": 20,
+    "window": "t-20 through t-1 inclusive",
+    "box_high": "max(high[t-20:t-1])",
+    "box_low": "min(low[t-20:t-1])",
+    "max_width_fraction_of_previous_close": 0.12,
+    "atr_fast_period": 5,
+    "atr_slow_period": 20,
+    "atr_window_ends": "t-1",
+    "volatility_contraction": "atr5_pre_lte_0.80_times_atr20_pre"
+  },
+  "breakout": {
+    "market_regime": "spy_close_t_gt_sma200_t",
+    "symbol_trend": "close_t_gt_ema50_t",
+    "bullish_candle": "close_t_gt_open_t",
+    "minimum_breakout": "close_t_gt_box_high_plus_0.10_atr20_pre",
+    "maximum_extension": "close_t_lte_box_high_plus_1.00_atr20_pre",
+    "volume_reference": "median(volume[t-20:t-1])",
+    "minimum_volume_ratio": 1.5,
+    "zero_or_missing_volume": "not-ready",
+    "ranking": ["breakout_atr_desc", "volume_ratio_desc", "symbol_asc"]
+  },
+  "order_block": {
+    "source_candle": "t-1",
+    "source_must_be_bearish": "close_t_minus_1_lt_open_t_minus_1",
+    "bullish_body_engulfing": [
+      "open_t_lte_close_t_minus_1",
+      "close_t_gte_open_t_minus_1"
+    ],
+    "zone_low": "close_t_minus_1",
+    "zone_high": "open_t_minus_1",
+    "retest_search_days": 3,
+    "retest_first_match": true,
+    "retest_zone_intersection": [
+      "low_r_lte_zone_high",
+      "high_r_gte_zone_low"
+    ],
+    "retest_confirmation": [
+      "close_r_gte_box_high",
+      "close_r_gt_open_r"
+    ],
+    "pre_entry_invalidation": "any close below zone_low before confirmed retest",
+    "entry": "next trading day open after first confirmed retest",
+    "initial_stop": "zone_low_minus_0.10_atr20_pre"
+  },
+  "arms": {
+    "primary": "order_block_retest_fixed5",
+    "base_diagnostic": {
+      "id": "immediate_box_breakout_fixed5",
+      "signal": "box+trend+volume+contraction breakout without order-block requirement",
+      "entry": "t+1 open",
+      "initial_stop": "box_high_minus_1.00_atr20_pre",
+      "promotion_authority": false
+    },
+    "partial_exit_sensitivity": {
+      "id": "order_block_retest_half_1r_breakeven",
+      "candidate_and_entry_set": "identical to primary",
+      "first_exit": "sell 50 percent at entry_plus_1R",
+      "remainder_stop": "entry price, active from next trading day after first exit",
+      "time_exit": "same fifth-held-day close as primary",
+      "same_day_stop_and_target": "assume full stop occurs first",
+      "promotion_authority": false
+    }
+  },
+  "execution": {
+    "direction": "long_only",
+    "primary_time_exit": "fifth held trading day close",
+    "entry_day_counts_as_holding_day_one": true,
+    "max_holding_trading_days": 5,
+    "gap_stop_fill": "holding_day_open_if_open_lte_stop",
+    "intraday_stop_fill": "stop_if_low_lte_stop_after_open_check",
+    "stop_precedes_time_exit": true,
+    "same_day_entry_and_stop": "entry at open then stop is active",
+    "scale_in": false,
+    "averaging_down": false,
+    "missing_entry_holding_or_exit_bar": "exclude-candidate-fail-closed"
+  },
+  "portfolio": {
+    "initial_capital_usd": 100000,
+    "max_positions": 5,
+    "max_entry_notional_usd": 10000,
+    "risk_budget_usd": 500,
+    "quantity": "floor(min(10000/entry_open,500/(entry_open-initial_stop)))",
+    "quantity_lt_one": "skip",
+    "duplicate_symbol_positions": false,
+    "same_timestamp_rank": ["breakout_atr_desc", "volume_ratio_desc", "symbol_asc"],
+    "fixed_initial_capital_sizing": true
+  },
+  "costs_round_trip_pct_points": {
+    "low": 0.14,
+    "official": 0.34,
+    "stress": 0.68,
+    "allocation": "half rate on each actual entry and exit notional",
+    "partial_exit_cost": "charged on each actual partial exit notional"
+  },
+  "evaluation": {
+    "development_calendar_days": 2347,
+    "chronological_folds": 10,
+    "fold_partition_algorithm": "front-loaded-remainder-contiguous-SPY-trading-days",
+    "fold_widths": [235, 235, 235, 235, 235, 235, 235, 234, 234, 234],
+    "fold_entry_and_exit_must_both_be_inside": true,
+    "fold_positions_start_empty": true,
+    "warmup_allowed_from_prior_development": true,
+    "primary_gates": {
+      "min_trades": 100,
+      "min_trading_days_with_trade": 75,
+      "official_expectancy_gt": 0,
+      "official_profit_factor_gte": 1.2,
+      "stress_cumulative_net_pnl_gte": 0,
+      "official_positive_folds_gte": 7,
+      "official_max_drawdown_abs_pct_lte": 10,
+      "max_symbol_contribution_lte": 0.35,
+      "max_entry_day_contribution_lte": 0.20,
+      "official_expectancy_per_r_gt_base": true,
+      "partial_exit_sensitivity_official_expectancy_gt": 0
+    },
+    "data_gates": {
+      "data_exclusion_rate_lte": 0.05,
+      "identity_and_boundaries_match": true,
+      "current_execution_blind_oos_closed": true,
+      "new_conflicts_eq": 0,
+      "major_defects_eq": 0
+    },
+    "multiple_arm_policy": "primary alone owns verdict; base and partial are fixed diagnostics",
+    "verdicts": {
+      "data_gate_failure": "INCONCLUSIVE_DATA",
+      "economic_gate_failure": "EXPLORATORY_NO_SELECTION",
+      "all_pass": "EXPLORATORY_GO_REQUIRES_FRESH_VALIDATION"
+    }
+  },
+  "reporting": [
+    "candidate and trade counts per arm",
+    "gross low official stress PnL expectancy PF win rate",
+    "expectancy per initial R",
+    "turnover costs MDD and consecutive losses",
+    "10-fold net PnL and positive folds",
+    "symbol and entry-day contribution",
+    "exit reasons and holding days",
+    "box width ATR volume retest and order-block audits",
+    "data exclusion identity and conflict audits"
+  ],
+  "discipline": {
+    "blind_oos_opened": false,
+    "oos_grant_allowed": false,
+    "paper_or_live_promotion_allowed": false,
+    "external_provider_used": false,
+    "parameter_tuning_after_result": false,
+    "positive_result_requires": "fresh user-approved preregistration on untouched forward data"
+  },
+  "revision_policy": "no post-result amendment except append-only data-invalidating erratum"
+}
