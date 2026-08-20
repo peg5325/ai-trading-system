@@ -22,11 +22,14 @@ from src.research.dema_stoch.contract import (
 )
 from src.research.dema_stoch.indicators import dema, stochastic_d
 from src.research.dema_stoch.loading import complete_regular_5m, load_symbol_day
+from src.research.development_identity import verify_intraday_identity
 from src.research.gap_rvol.simulator import detect_data_defects
-from src.research.orb.identity import require_identity, verify_snapshot_identity
 
 RESULT_SCHEMA = "p0-us30-dema-stoch-momentum-development/v1"
 TRACKED_MANIFEST = "docs/research/P0_US30_ORB_CLEAN_1M_MANIFEST.json"
+TRACKED_SNAPSHOT_RECEIPT = (
+    "docs/research/P0_US30_ORB_CLEAN_SNAPSHOT_RECEIPT.json"
+)
 
 
 @dataclass(frozen=True)
@@ -316,13 +319,17 @@ def run(
     review_evidence_url: str,
 ) -> dict[str, Any]:
     contract = load_contract()
-    identity = verify_snapshot_identity(
-        contract=contract,
+    expected_identity = contract["data_identity"]
+    identity = verify_intraday_identity(
         snapshot_path=snapshot_path,
         raw_root=raw_root,
-        manifest_path=TRACKED_MANIFEST,
+        intraday_manifest_path=TRACKED_MANIFEST,
+        snapshot_receipt_path=TRACKED_SNAPSHOT_RECEIPT,
+        expected_snapshot_file=str(expected_identity["snapshot_file_sha256"]),
+        expected_snapshot_content=str(expected_identity["snapshot_content_sha256"]),
+        expected_intraday_manifest=str(expected_identity["manifest_data_sha256"]),
+        expected_raw_content=str(expected_identity["raw_content_sha256"]),
     )
-    require_identity(identity)
     data_days = development_data_days(contract)
     eval_days = development_eval_days(contract)
     eval_set = set(eval_days)
@@ -385,7 +392,13 @@ def run(
         "schema": RESULT_SCHEMA,
         "strategy_id": contract["strategy_id"],
         "scope": "development-only",
-        "blind_oos_opened": False,
+        "blind_oos_opened": True,
+        "blind_oos_performance_accessed": False,
+        "current_execution_blind_oos_ohlcv_accessed": False,
+        "prereg_compliance": "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM",
+        "erratum_path": (
+            "docs/research/ERRATUM_P0_US30_DEMA_STOCH_OOS_IDENTITY.md"
+        ),
         "external_provider_used": False,
         "short_borrow_modeled": False,
         "producer_commit": producer_commit,
@@ -395,7 +408,15 @@ def run(
             "json_sha256": PREREG_JSON_SHA256,
             "md_sha256": PREREG_MD_SHA256,
         },
-        "identity": [asdict(check) for check in identity.checks],
+        "identity": identity,
+        "execution_audit": {
+            "review_phase": "post_result_premerge_review",
+            "issue": "full_snapshot_content_hash_decoded_blind_oos_ohlcv",
+            "fix": "snapshot_file_sha_plus_tracked_content_receipt",
+            "performance_values_inspected_before_fix": True,
+            "strategy_rules_changed": False,
+            "result_regenerated": True,
+        },
         "window": {
             "start": eval_days[0].isoformat(),
             "end": eval_days[-1].isoformat(),

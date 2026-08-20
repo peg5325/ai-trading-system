@@ -10,7 +10,7 @@ def render_report(result: Mapping[str, Any]) -> str:
     lines = [
         "# P0-US30 DEMA(60) + Stochastic %D(60) development 결과",
         "",
-        "> scope: **development-only** · blind OOS 미개봉",
+        "> scope: **development-only** · OOS identity 편차 정정본",
         f"> payload SHA-256: `{result['payload_sha256']}`",
         "",
         "## 결론",
@@ -71,8 +71,27 @@ def render_report(result: Mapping[str, Any]) -> str:
             "자본 소진 뒤에도 100%를 넘을 수 있으며, 실계좌 운용 가능성을 뜻하지 않는다."
         ),
         "- SHORT는 borrow/locate/borrow fee를 모델링하지 않은 연구용 수치다.",
-        "- 2026-01-21 이후 blind OOS를 로드하지 않았다.",
+        (
+            "- 최초 identity 검사는 blind OOS OHLCV를 기계적으로 읽었지만 성과를 "
+            "계산·출력·사람 열람하지 않았다."
+        ),
+        "- 교정 실행은 blind OOS OHLCV를 읽지 않았다.",
+        f"- prereg compliance: `{result['prereg_compliance']}`.",
+        f"- erratum: `{result['erratum_path']}`.",
         "- 외부 공급자·Paper·실거래·주문·위험·config 변경은 없다.",
+        "",
+        "## 병합 전 실행 감사",
+        "",
+        f"- 결함: `{result['execution_audit']['issue']}`",
+        f"- 수정: `{result['execution_audit']['fix']}`",
+        (
+            "- 전략 규칙 변경: "
+            f"`{str(result['execution_audit']['strategy_rules_changed']).lower()}`"
+        ),
+        (
+            "- 결과 재생성: "
+            f"`{str(result['execution_audit']['result_regenerated']).lower()}`"
+        ),
         "",
     ])
     return "\n".join(lines)

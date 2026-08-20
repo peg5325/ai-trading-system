@@ -47,9 +47,23 @@ def test_tracked_result_is_bound_to_reviewed_development_scope():
         "end": "2026-01-20",
         "trading_days": 670,
     }
-    assert result["blind_oos_opened"] is False
+    assert result["blind_oos_opened"] is True
+    assert result["blind_oos_performance_accessed"] is False
+    assert result["current_execution_blind_oos_ohlcv_accessed"] is False
+    assert result["prereg_compliance"] == (
+        "DEVIATION_ACCEPTED_BY_APPEND_ONLY_ERRATUM"
+    )
     assert result["external_provider_used"] is False
+    assert {check["name"] for check in result["identity"]} == {
+        "snapshot_file",
+        "snapshot_receipt_file",
+        "snapshot_content_receipt",
+        "manifest_data_receipt",
+        "raw_content_index",
+    }
     assert all(check["status"] == "match" for check in result["identity"])
+    assert result["execution_audit"]["strategy_rules_changed"] is False
+    assert result["execution_audit"]["result_regenerated"] is True
 
 
 def test_tracked_result_preserves_no_selection_evidence():
