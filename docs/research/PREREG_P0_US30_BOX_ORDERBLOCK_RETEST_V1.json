@@ -1,6 +1,6 @@
 {
   "schema": "p0_us30_box_orderblock_retest_prereg/v1",
-  "version": "1.0",
+  "version": "1.1",
   "status": "FROZEN_BEFORE_THIS_STRATEGY_RESULTS",
   "issue": 140,
   "strategy_id": "p0_us30_box_orderblock_retest_v1",
@@ -47,6 +47,17 @@
     "atr_slow_period": 20,
     "atr_window_ends": "t-1",
     "volatility_contraction": "atr5_pre_lte_0.80_times_atr20_pre"
+  },
+  "indicator_conventions": {
+    "valid_daily_ohlc": "all prices positive; high_gte_max_open_close; low_lte_min_open_close; high_gt_low",
+    "true_range": "max(high-low,abs(high-previous_close),abs(low-previous_close))",
+    "atr": "simple arithmetic mean of true range",
+    "atr_pre_windows": "ATR5 and ATR20 use only t-5:t-1 and t-20:t-1 true ranges",
+    "ema50": "alpha=2/(50+1), seed first valid close, not-ready until 50 consecutive valid bars, includes close_t",
+    "spy_sma200": "arithmetic mean of 200 consecutive valid SPY closes through t",
+    "volume_median20": "ordinary median of previous 20 positive volumes; average the two middle values",
+    "missing_or_invalid_daily_bar": "break segment and reset all rolling and EMA state",
+    "exchange_holidays": "do not break continuity; use consecutive SPY trading days"
   },
   "breakout": {
     "market_regime": "spy_close_t_gt_sma200_t",
@@ -186,7 +197,9 @@
       "portfolio_skip": "capacity, duplicate-symbol, or quantity_lt_one; excluded from DQ denominator",
       "numerator": "data_exclusions",
       "denominator": "prepared_candidates+data_exclusions",
-      "inclusive_threshold": true
+      "inclusive_threshold": true,
+      "arm_rates": "compute primary and base separately; partial shares primary candidates",
+      "gate_rate": "max(primary_rate,base_rate)"
     },
     "data_gates": {
       "data_exclusion_rate_lte": 0.05,
@@ -221,5 +234,18 @@
     "parameter_tuning_after_result": false,
     "positive_result_requires": "fresh user-approved preregistration on untouched forward data"
   },
-  "revision_policy": "no post-result amendment except append-only data-invalidating erratum"
+  "revision_policy": "no post-result amendment except append-only data-invalidating erratum",
+  "revision_history": [
+    {
+      "version": "1.1",
+      "timing": "before implementation and before any strategy result",
+      "changes": [
+        "indicator readiness and exact ATR/EMA/SMA/median formulas",
+        "missing-invalid reset semantics",
+        "per-arm DQ rate and max-rate gate"
+      ],
+      "go_easier": false,
+      "reason": "remove implementation discretion without inspecting performance"
+    }
+  ]
 }

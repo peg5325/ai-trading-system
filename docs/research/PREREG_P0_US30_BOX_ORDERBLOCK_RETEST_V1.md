@@ -1,4 +1,4 @@
-# 사전등록 — P0-US30 일봉 박스 돌파 + 오더블록 리테스트 v1.0
+# 사전등록 — P0-US30 일봉 박스 돌파 + 오더블록 리테스트 v1.1
 
 상태: **FROZEN BEFORE THIS STRATEGY RESULTS** · 이슈 #140
 
@@ -40,6 +40,17 @@ primary를 대신해 승격할 수 없다.
 - volume이 0·결측이면 not-ready
 
 동시 후보 순위는 `돌파폭/ATR` 내림차순 → volume ratio 내림차순 → symbol 오름차순이다.
+
+지표 계산 관례:
+
+- 유효 OHLC: 전 가격 양수, `high>=max(open,close)`, `low<=min(open,close)`, `high>low`
+- TR: `max(high-low, |high-prev_close|, |low-prev_close|)`
+- ATR5/20: TR의 단순 산술평균이며 신호일을 제외한 `t-5~t-1`, `t-20~t-1`
+- EMA50: `alpha=2/51`, 첫 유효 close seed, 50개 연속 유효봉 전 not-ready, `close_t` 포함
+- SPY SMA200: `t`까지 200개 연속 유효 close의 산술평균
+- volume median20: 이전 20개 양수 volume의 통상 중앙값(짝수는 가운데 둘 평균)
+- 결측·비정상 일봉은 segment를 끊고 rolling/EMA 상태를 모두 초기화한다. 거래소 휴일은 SPY
+  거래일 연속성에 포함되므로 segment를 끊지 않는다.
 
 ## 4. 오더블록과 리테스트
 
@@ -122,6 +133,8 @@ DQ 분류는 다음과 같다.
 - `data_exclusion`: 준비된 경로에 필요한 decision/entry/holding/exit 봉이 결측·비정상
 - capacity·중복 symbol·quantity<1은 portfolio skip이며 분모에서 제외
 - `data_exclusion_rate = data_exclusions / (prepared_candidates + data_exclusions)`, 5% 포함 통과
+- primary와 base의 제외율을 각각 계산하고, partial은 primary 후보를 공유한다. DQ gate에는
+  `max(primary_rate, base_rate)`를 사용한다.
 
 데이터 게이트:
 
@@ -165,3 +178,8 @@ Primary는 다음을 모두 통과해야 한다.
 
 결과 후 box 길이·폭·ATR·추세·거래량·engulfing·retest·stop·보유일·arm·비용·게이트를 바꾸지 않는다.
 데이터·look-ahead·체결·손익 무효화 결함만 append-only ERRATUM으로 교정할 수 있다.
+
+## 개정 이력
+
+- **v1.1 — 구현·성과 실행 전:** ATR/EMA/SMA/median 준비·산식, 결측 reset, arm별 DQ 합성
+  규칙을 명시했다. 결과를 보지 않은 구현 재량 제거이며 GO를 쉽게 하는 변경은 없다.

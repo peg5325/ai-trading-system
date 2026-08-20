@@ -14,6 +14,7 @@ def _contract() -> dict:
 
 def test_adaptive_scope_is_exploratory_and_oos_stays_closed() -> None:
     contract = _contract()
+    assert contract["version"] == "1.1"
     assert contract["status"] == "FROZEN_BEFORE_THIS_STRATEGY_RESULTS"
     disclosure = contract["adaptation_disclosure"]
     assert disclosure["prior_box_and_breakout_results_examined"] is True
@@ -143,3 +144,24 @@ def test_fold_boundaries_and_data_quality_denominator_are_exact() -> None:
     assert "excluded from denominator" in taxonomy[
         "development_or_fold_boundary"
     ]
+    assert taxonomy["arm_rates"] == (
+        "compute primary and base separately; partial shares primary candidates"
+    )
+    assert taxonomy["gate_rate"] == "max(primary_rate,base_rate)"
+
+
+def test_indicator_conventions_and_pre_result_revision_are_frozen() -> None:
+    contract = _contract()
+    indicators = contract["indicator_conventions"]
+    assert indicators["true_range"].startswith("max(high-low")
+    assert indicators["atr"] == "simple arithmetic mean of true range"
+    assert indicators["atr_pre_windows"] == (
+        "ATR5 and ATR20 use only t-5:t-1 and t-20:t-1 true ranges"
+    )
+    assert "not-ready until 50 consecutive valid bars" in indicators["ema50"]
+    assert "200 consecutive valid SPY closes" in indicators["spy_sma200"]
+    assert indicators["missing_or_invalid_daily_bar"].startswith("break segment")
+    revision = contract["revision_history"][-1]
+    assert revision["version"] == "1.1"
+    assert revision["timing"] == "before implementation and before any strategy result"
+    assert revision["go_easier"] is False
