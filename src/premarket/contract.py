@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -16,6 +17,7 @@ INPUT_SCHEMA = "premarket-input/v1"
 CONFIG_SCHEMA = "premarket-config/v1"
 SNAPSHOT_SCHEMA = "premarket-snapshot/v1"
 ALLOWED_SOURCE_KINDS = frozenset({"MARKET", "NEWS", "MACRO", "FILING"})
+ALLOWED_SOURCE_STATUSES = frozenset({"OK", "ERROR", "UNAVAILABLE"})
 ALLOWED_REGIMES = frozenset({"RISK_ON", "RISK_OFF", "UNCERTAIN"})
 SCORE_FIELDS = (
     "catalyst_score",
@@ -45,12 +47,14 @@ def _require(mapping: Mapping[str, Any], name: str, expected_type: type) -> Any:
         raise ValueError(f"missing required field: {name}")
     value = mapping[name]
     if not isinstance(value, expected_type):
-        raise ValueError(f"{name} must be {expected_type.__name__}")
+        raise TypeError(f"{name} must be {expected_type.__name__}")
     return value
 
 
 def _nonempty(value: Any, name: str) -> str:
-    text = str(value).strip()
+    if not isinstance(value, str):
+        raise TypeError(f"{name} must be a string")
+    text = value.strip()
     if not text:
         raise ValueError(f"{name} must be non-empty")
     return text
@@ -65,7 +69,7 @@ def _sha(value: Any, name: str) -> str:
 
 def _url(value: Any, name: str) -> str:
     text = _nonempty(value, name)
-    if not (text.startswith("https://") or text.startswith("http://")):
+    if not text.startswith(("https://", "http://")):
         raise ValueError(f"{name} must be an http(s) evidence URL")
     return text
 
@@ -86,10 +90,10 @@ class PremarketConfig:
     freeze_offset_minutes: int
 
     @classmethod
-    def from_mapping(cls, raw: Mapping[str, Any]) -> "PremarketConfig":
+    def from_mapping(cls, raw: Mapping[str, Any]) -> PremarketConfig:
         if raw.get("schema") != CONFIG_SCHEMA:
             raise ValueError(f"config schema must be {CONFIG_SCHEMA}")
-        required = tuple(sorted({_nonempty(v, "required_source_kinds") .upper()
+        required = tuple(sorted({_nonempty(v, "required_source_kinds").upper()
                                  for v in _require(raw, "required_source_kinds", list)}))
         if not required or not set(required).issubset(ALLOWED_SOURCE_KINDS):
             raise ValueError("required_source_kinds contains an unsupported kind")
@@ -136,7 +140,7 @@ def load_config(path: str | Path) -> PremarketConfig:
     with open(config_path, encoding="utf-8") as stream:
         raw = yaml.safe_load(stream)
     if not isinstance(raw, dict):
-        raise ValueError("config root must be an object")
+        raise TypeError("config root must be an object")
     universe_path = raw.get("universe_path")
     if universe_path:
         universe_file = (config_path.parent / str(universe_path)).resolve()
@@ -179,7 +183,7 @@ def normalize_input(raw: Mapping[str, Any]) -> dict:
     sources: list[dict] = []
     for item in _require(raw, "sources", list):
         if not isinstance(item, dict):
-            raise ValueError("each source must be an object")
+            raise TypeError("each source must be an object")
         kind = _nonempty(item.get("kind"), "source.kind").upper()
         if kind not in ALLOWED_SOURCE_KINDS:
             raise ValueError(f"unsupported source kind: {kind}")
@@ -193,6 +197,8 @@ def normalize_input(raw: Mapping[str, Any]) -> dict:
             "source_url": _url(item.get("source_url"), "source.source_url"),
             "content_sha256": _sha(item.get("content_sha256"), "source.content_sha256"),
         }
+        if source["status"] not in ALLOWED_SOURCE_STATUSES:
+            raise ValueError(f"unsupported source status: {source['status']}")
         for field in ("observed_at", "available_at", "ingested_at"):
             parse_iso(source[field])
         sources.append(source)
@@ -200,7 +206,7 @@ def normalize_input(raw: Mapping[str, Any]) -> dict:
     events: list[dict] = []
     for item in _require(raw, "events", list):
         if not isinstance(item, dict):
-            raise ValueError("each event must be an object")
+            raise TypeError("each event must be an object")
         event = {
             "event_id": _nonempty(item.get("event_id"), "event.event_id"),
             "source_id": _nonempty(item.get("source_id"), "event.source_id"),
@@ -222,7 +228,7 @@ def normalize_input(raw: Mapping[str, Any]) -> dict:
     candidates: list[dict] = []
     for item in _require(raw, "candidates", list):
         if not isinstance(item, dict):
-            raise ValueError("each candidate must be an object")
+            raise TypeError("each candidate must be an object")
         candidate = {
             "symbol": _nonempty(item.get("symbol"), "candidate.symbol").upper(),
             "strategy_template_id": (
@@ -297,6 +303,17 @@ def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
         defects.add("CONFLICTING_SOURCE_REVISION")
 
     freshness = timedelta(minutes=config.source_freshness_minutes)
+
+    def source_usable(source_id: str, *, prefix: str) -> None:
+        source = source_by_id.get(source_id)
+        if source is None:
+            defects.add(f"UNKNOWN_{prefix}_SOURCE")
+            return
+        if source["status"] != "OK":
+            defects.add(f"UNHEALTHY_{prefix}_SOURCE")
+        if as_of - parse_iso(source["observed_at"]) > freshness:
+            defects.add(f"STALE_{prefix}_SOURCE")
+
     for kind in config.required_source_kinds:
         matching = [s for s in source_by_id.values() if s["kind"] == kind and s["status"] == "OK"]
         if not matching:
@@ -312,6 +329,8 @@ def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
         event_by_id.setdefault(eid, event)
         if event["source_id"] not in source_by_id:
             defects.add("UNKNOWN_EVENT_SOURCE")
+        else:
+            source_usable(event["source_id"], prefix="EVENT")
         published, available, ingested = (
             parse_iso(event[field]) for field in ("published_at", "available_at", "ingested_at")
         )
@@ -333,8 +352,10 @@ def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
             defects.add("INVALID_CANDIDATE_TIME_ORDER")
         if not set(candidate["evidence_event_ids"]).issubset(known_events):
             defects.add("UNKNOWN_CANDIDATE_EVENT")
-        if not candidate["source_ids"] or not set(candidate["source_ids"]).issubset(source_by_id):
+        if not candidate["source_ids"]:
             defects.add("UNKNOWN_CANDIDATE_SOURCE")
+        for source_id in candidate["source_ids"]:
+            source_usable(source_id, prefix="CANDIDATE")
         if config.allowed_symbols and symbol not in config.allowed_symbols:
             defects.add("SYMBOL_OUTSIDE_ALLOWED_UNIVERSE")
         for event_id in candidate["evidence_event_ids"]:
@@ -346,8 +367,10 @@ def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
         defects.add("FUTURE_REGIME_EVIDENCE")
     if parse_iso(regime["ingested_at"]) < parse_iso(regime["available_at"]):
         defects.add("INVALID_REGIME_TIME_ORDER")
-    if not regime["source_ids"] or not set(regime["source_ids"]).issubset(source_by_id):
+    if not regime["source_ids"]:
         defects.add("UNKNOWN_REGIME_SOURCE")
+    for source_id in regime["source_ids"]:
+        source_usable(source_id, prefix="REGIME")
     return sorted(defects)
 
 

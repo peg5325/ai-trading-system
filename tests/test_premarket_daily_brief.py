@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import copy
 import json
-import os
 import subprocess
 import sys
 from datetime import date
@@ -12,7 +11,12 @@ import pytest
 
 from src.premarket.contract import PremarketConfig, build_snapshot
 from src.premarket.planner import build_daily_brief
-from src.premarket.report import json_bytes, render_markdown, write_immutable
+from src.premarket.report import (
+    json_bytes,
+    render_markdown,
+    write_immutable,
+    write_immutable_pair,
+)
 from src.premarket.schedule import build_premarket_schedule
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -191,6 +195,34 @@ def test_quality_and_regime_fail_closed(mutate, reason):
     assert result["brief"]["status"] == "NO_TRADE"
     assert reason in result["brief"]["reason_codes"]
     assert result["brief"]["orders"] == []
+    if reason.startswith("MARKET_REGIME_"):
+        assert result["brief"]["watchlist"] == []
+
+
+def test_uncertain_regime_does_not_publish_long_watchlist():
+    data = _input()
+    data["market_regime"]["label"] = "UNCERTAIN"
+    result = build_daily_brief(data, schedule=_schedule(), config=_config(approved=("orb-v1",)))
+    assert result["brief"]["status"] == "NO_TRADE"
+    assert result["brief"]["watchlist"] == []
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda data: data["sources"][0].pop("source_id"),
+        lambda data: data["events"][0].pop("event_id"),
+        lambda data: data["candidates"][0].pop("symbol"),
+        lambda data: data["candidates"][0].update(source_ids=[None]),
+        lambda data: data["candidates"][0].update(evidence_event_ids=[None]),
+        lambda data: data["market_regime"].update(source_ids=[None]),
+    ],
+)
+def test_missing_or_non_string_identity_never_becomes_literal_none(mutate):
+    data = _input()
+    mutate(data)
+    with pytest.raises(TypeError, match="must be a string"):
+        build_daily_brief(data, schedule=_schedule(), config=_config(approved=("orb-v1",)))
 
 
 def test_conflicting_revision_fails_closed():
@@ -228,6 +260,55 @@ def test_universe_source_and_event_symbol_links_fail_closed():
     assert "SYMBOL_OUTSIDE_ALLOWED_UNIVERSE" in reasons
     assert "UNKNOWN_CANDIDATE_SOURCE" in reasons
     assert "CANDIDATE_EVENT_SYMBOL_MISMATCH" in reasons
+
+
+def test_used_unhealthy_source_fails_closed_even_if_kind_has_another_healthy_source():
+    data = _input()
+    failed = copy.deepcopy(data["sources"][1])
+    failed.update(source_id="news-failed", status="ERROR", content_sha256="f" * 64)
+    data["sources"].append(failed)
+    data["events"][0]["source_id"] = "news-failed"
+    result = build_daily_brief(data, schedule=_schedule(), config=_config(approved=("orb-v1",)))
+    assert result["brief"]["status"] == "NO_TRADE"
+    assert "UNHEALTHY_EVENT_SOURCE" in result["brief"]["reason_codes"]
+    assert result["brief"]["orders"] == []
+    assert result["brief"]["executable"] is False
+    assert result["brief"]["promotion_allowed"] is False
+
+
+@pytest.mark.parametrize(
+    ("consumer", "reason"),
+    [
+        ("event", "STALE_EVENT_SOURCE"),
+        ("candidate", "STALE_CANDIDATE_SOURCE"),
+        ("regime", "STALE_REGIME_SOURCE"),
+    ],
+)
+def test_each_used_source_must_be_fresh_even_if_required_kinds_are_healthy(consumer, reason):
+    data = _input()
+    stale = {
+        "source_id": "optional-stale",
+        "kind": "FILING",
+        "status": "OK",
+        "observed_at": "2026-03-09T08:00:00Z",
+        "available_at": "2026-03-09T08:00:01Z",
+        "ingested_at": "2026-03-09T08:00:02Z",
+        "source_url": "https://evidence.invalid/filing/stale",
+        "content_sha256": "f" * 64,
+    }
+    data["sources"].append(stale)
+    if consumer == "event":
+        data["events"][0]["source_id"] = "optional-stale"
+    elif consumer == "candidate":
+        data["candidates"][0]["source_ids"].append("optional-stale")
+    else:
+        data["market_regime"]["source_ids"] = ["optional-stale"]
+    result = build_daily_brief(data, schedule=_schedule(), config=_config(approved=("orb-v1",)))
+    assert result["brief"]["status"] == "NO_TRADE"
+    assert reason in result["brief"]["reason_codes"]
+    assert result["brief"]["orders"] == []
+    assert result["brief"]["executable"] is False
+    assert result["brief"]["promotion_allowed"] is False
 
 
 def test_identical_duplicate_candidate_is_deduplicated():
@@ -280,6 +361,15 @@ def test_immutable_write_is_idempotent_and_refuses_changed_content(tmp_path):
     with pytest.raises(FileExistsError, match="immutable artifact differs"):
         write_immutable(target, b"changed\n")
     assert not (tmp_path / "result.json.partial").exists()
+
+
+def test_pair_preflight_does_not_create_first_when_second_conflicts(tmp_path):
+    first = tmp_path / "brief.json"
+    second = tmp_path / "brief.md"
+    second.write_bytes(b"old")
+    with pytest.raises(FileExistsError, match="immutable artifact differs"):
+        write_immutable_pair((first, b"new-json"), (second, b"new-md"))
+    assert not first.exists()
 
 
 def test_cli_end_to_end_is_deterministic_and_default_no_trade(tmp_path):

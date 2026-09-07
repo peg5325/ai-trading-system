@@ -30,7 +30,8 @@ CLI는 네트워크에 접속하지 않고 `premarket-input/v1` 로컬 JSON만 �
 
 - 방향은 `LONG_OR_CASH`뿐이다. SHORT은 v1 범위 밖이다.
 - 후보는 P0-US30 정본 안에서만 허용하며 inverse ETF는 경제적 숏 노출이므로 제외한다.
-- required source 누락/비정상/오래됨, 시간 역전, 미래 정보, ID 불명, 상충 revision은 fail-closed.
+- required source뿐 아니라 event/candidate/regime이 실제 참조한 source도 각각 `OK`이고 최신이어야
+  하며, 누락/비정상/오래됨, 시간 역전, 미래 정보, ID 불명, 상충 revision은 fail-closed.
 - 데이터 품질이 정상이고 regime이 `RISK_ON`일 때만 점수를 매긴다.
 - 유동성 및 catalyst 최소치를 통과한 후보를 고정 가중합으로 정렬하고 symbol로 tie-break한다.
 - 승인 strategy template이 하나 이상 있는 경우에도 상태는 `SHADOW_READY`일 뿐이며

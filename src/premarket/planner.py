@@ -1,9 +1,15 @@
 """Deterministic LONG/CASH-only shadow watchlist planner."""
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
-from src.premarket.contract import PremarketConfig, SCORE_FIELDS, build_snapshot, sha256_payload
+from src.premarket.contract import (
+    SCORE_FIELDS,
+    PremarketConfig,
+    build_snapshot,
+    sha256_payload,
+)
 from src.premarket.schedule import PremarketSchedule
 
 BRIEF_SCHEMA = "premarket-daily-brief/v1"
@@ -26,7 +32,7 @@ def build_daily_brief(data: Mapping[str, Any], *, schedule: PremarketSchedule,
 
     event_by_id = {item["event_id"]: item for item in normalized["events"]}
     ranked: list[dict] = []
-    if not defects:
+    if not defects and regime == "RISK_ON":
         for candidate in normalized["candidates"]:
             if candidate["liquidity_score"] < config.min_liquidity_score:
                 continue

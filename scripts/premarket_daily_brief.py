@@ -10,10 +10,14 @@ from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.premarket.contract import load_config  # noqa: E402
-from src.premarket.planner import build_daily_brief  # noqa: E402
-from src.premarket.report import json_bytes, render_markdown, write_immutable  # noqa: E402
-from src.premarket.schedule import build_premarket_schedule  # noqa: E402
+from src.premarket.contract import load_config
+from src.premarket.planner import build_daily_brief
+from src.premarket.report import (
+    json_bytes,
+    render_markdown,
+    write_immutable_pair,
+)
+from src.premarket.schedule import build_premarket_schedule
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -36,8 +40,10 @@ def main(argv: list[str] | None = None) -> int:
         freeze_offset_minutes=config.freeze_offset_minutes,
     )
     result = build_daily_brief(data, schedule=schedule, config=config)
-    write_immutable(args.out_json, json_bytes(result))
-    write_immutable(args.out_markdown, render_markdown(result).encode("utf-8"))
+    write_immutable_pair(
+        (args.out_json, json_bytes(result)),
+        (args.out_markdown, render_markdown(result).encode("utf-8")),
+    )
     print(json.dumps({
         "status": result["brief"]["status"],
         "run_id": result["brief"]["run_id"],

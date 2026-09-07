@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 
 def json_bytes(value: Mapping[str, Any]) -> bytes:
@@ -44,7 +45,8 @@ def render_markdown(result: Mapping[str, Any]) -> str:
         "| ---: | --- | ---: | --- | --- |",
     ]
     for rank, item in enumerate(brief["watchlist"], start=1):
-        links = "<br>".join(evidence["source_url"] for evidence in item["evidence"])
+        links = "<br>".join(_markdown_cell(evidence["source_url"])
+                            for evidence in item["evidence"])
         lines.append(
             f"| {rank} | {item['symbol']} | {item['score']:.6f} | "
             f"{item['strategy_template_id'] or '-'} "
@@ -62,6 +64,10 @@ def render_markdown(result: Mapping[str, Any]) -> str:
         "",
     ])
     return "\n".join(lines)
+
+
+def _markdown_cell(value: Any) -> str:
+    return str(value).replace("|", "%7C").replace("\r", " ").replace("\n", " ")
 
 
 def write_immutable(path: str | Path, content: bytes) -> None:
@@ -92,3 +98,21 @@ def write_immutable(path: str | Path, content: bytes) -> None:
         if os.path.exists(partial):
             os.remove(partial)
         raise
+
+
+def write_immutable_pair(first: tuple[str | Path, bytes],
+                         second: tuple[str | Path, bytes]) -> None:
+    """Preflight both outputs before either write, then persist idempotently.
+
+    A process crash between writes is recoverable because the completed first
+    file must be byte-identical on retry.  A pre-existing conflicting sibling is
+    rejected before any new file is created.
+    """
+    for path, content in (first, second):
+        target = os.path.abspath(os.fspath(path))
+        if os.path.exists(target):
+            with open(target, "rb") as stream:
+                if stream.read() != content:
+                    raise FileExistsError(f"immutable artifact differs: {target}")
+    write_immutable(*first)
+    write_immutable(*second)
