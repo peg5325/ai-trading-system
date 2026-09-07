@@ -207,6 +207,9 @@ def normalize_input(raw: Mapping[str, Any]) -> dict:
     for item in _require(raw, "events", list):
         if not isinstance(item, dict):
             raise TypeError("each event must be an object")
+        symbols_raw = item.get("symbols", [])
+        if not isinstance(symbols_raw, list):
+            raise TypeError("event.symbols must be a list")
         event = {
             "event_id": _nonempty(item.get("event_id"), "event.event_id"),
             "source_id": _nonempty(item.get("source_id"), "event.source_id"),
@@ -215,8 +218,7 @@ def normalize_input(raw: Mapping[str, Any]) -> dict:
             "ingested_at": _nonempty(item.get("ingested_at"), "event.ingested_at"),
             "source_url": _url(item.get("source_url"), "event.source_url"),
             "content_sha256": _sha(item.get("content_sha256"), "event.content_sha256"),
-            "symbols": sorted({_nonempty(v, "event.symbols").upper()
-                               for v in item.get("symbols", [])}),
+            "symbols": sorted({_nonempty(v, "event.symbols").upper() for v in symbols_raw}),
             "sentiment": float(item.get("sentiment", 0.0)),
         }
         if not -1.0 <= event["sentiment"] <= 1.0:
@@ -229,6 +231,12 @@ def normalize_input(raw: Mapping[str, Any]) -> dict:
     for item in _require(raw, "candidates", list):
         if not isinstance(item, dict):
             raise TypeError("each candidate must be an object")
+        evidence_ids_raw = item.get("evidence_event_ids", [])
+        source_ids_raw = item.get("source_ids", [])
+        if not isinstance(evidence_ids_raw, list):
+            raise TypeError("candidate.evidence_event_ids must be a list")
+        if not isinstance(source_ids_raw, list):
+            raise TypeError("candidate.source_ids must be a list")
         candidate = {
             "symbol": _nonempty(item.get("symbol"), "candidate.symbol").upper(),
             "strategy_template_id": (
@@ -237,10 +245,10 @@ def normalize_input(raw: Mapping[str, Any]) -> dict:
             ),
             "available_at": _nonempty(item.get("available_at"), "candidate.available_at"),
             "ingested_at": _nonempty(item.get("ingested_at"), "candidate.ingested_at"),
-            "evidence_event_ids": sorted({_nonempty(v, "candidate.evidence_event_ids")
-                                          for v in item.get("evidence_event_ids", [])}),
-            "source_ids": sorted({_nonempty(v, "candidate.source_ids")
-                                  for v in item.get("source_ids", [])}),
+            "evidence_event_ids": sorted({
+                _nonempty(v, "candidate.evidence_event_ids") for v in evidence_ids_raw
+            }),
+            "source_ids": sorted({_nonempty(v, "candidate.source_ids") for v in source_ids_raw}),
         }
         for field in SCORE_FIELDS:
             candidate[field] = float(item.get(field, -1.0))
@@ -252,12 +260,16 @@ def normalize_input(raw: Mapping[str, Any]) -> dict:
         candidates.append(candidate)
 
     regime_raw = _require(raw, "market_regime", dict)
+    regime_source_ids = regime_raw.get("source_ids", [])
+    if not isinstance(regime_source_ids, list):
+        raise TypeError("market_regime.source_ids must be a list")
     regime = {
         "label": _nonempty(regime_raw.get("label"), "market_regime.label").upper(),
         "available_at": _nonempty(regime_raw.get("available_at"), "market_regime.available_at"),
         "ingested_at": _nonempty(regime_raw.get("ingested_at"), "market_regime.ingested_at"),
-        "source_ids": sorted({_nonempty(v, "market_regime.source_ids")
-                              for v in regime_raw.get("source_ids", [])}),
+        "source_ids": sorted({
+            _nonempty(v, "market_regime.source_ids") for v in regime_source_ids
+        }),
     }
     if regime["label"] not in ALLOWED_REGIMES:
         raise ValueError(f"market_regime.label must be one of {sorted(ALLOWED_REGIMES)}")
@@ -352,6 +364,8 @@ def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
             defects.add("INVALID_CANDIDATE_TIME_ORDER")
         if not set(candidate["evidence_event_ids"]).issubset(known_events):
             defects.add("UNKNOWN_CANDIDATE_EVENT")
+        if not candidate["evidence_event_ids"]:
+            defects.add("MISSING_CANDIDATE_EVENT")
         if not candidate["source_ids"]:
             defects.add("UNKNOWN_CANDIDATE_SOURCE")
         for source_id in candidate["source_ids"]:

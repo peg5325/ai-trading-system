@@ -318,6 +318,32 @@ def test_identical_duplicate_candidate_is_deduplicated():
     assert [item["symbol"] for item in result["brief"]["watchlist"]] == ["AAPL", "MSFT"]
 
 
+def test_one_candidate_missing_event_join_fails_entire_run_closed():
+    data = _input()
+    data["candidates"][1].pop("evidence_event_ids")
+    result = build_daily_brief(data, schedule=_schedule(), config=_config(approved=("orb-v1",)))
+    assert result["brief"]["status"] == "NO_TRADE"
+    assert result["brief"]["watchlist"] == []
+    assert "MISSING_CANDIDATE_EVENT" in result["brief"]["reason_codes"]
+    assert result["brief"]["orders"] == []
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda data: data["events"][0].update(symbols="AAPL"),
+        lambda data: data["candidates"][0].update(evidence_event_ids="event-aapl"),
+        lambda data: data["candidates"][0].update(source_ids="market-primary"),
+        lambda data: data["market_regime"].update(source_ids="market-primary"),
+    ],
+)
+def test_identity_collections_must_be_lists(mutate):
+    data = _input()
+    mutate(data)
+    with pytest.raises(TypeError, match="must be a list"):
+        build_daily_brief(data, schedule=_schedule(), config=_config(approved=("orb-v1",)))
+
+
 def test_snapshot_and_rank_are_input_order_invariant():
     first = _input()
     second = copy.deepcopy(first)
