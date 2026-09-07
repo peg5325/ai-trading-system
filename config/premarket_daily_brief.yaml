@@ -1,0 +1,28 @@
+schema: premarket-config/v1
+required_source_kinds:
+  - MARKET
+  - NEWS
+source_freshness_minutes: 180
+primary_offset_minutes: 90
+verification_offset_minutes: 30
+freeze_offset_minutes: 20
+max_candidates: 3
+min_liquidity_score: 0.50
+min_catalyst_score: 0.00
+universe_path: universe_p0_us30.yaml
+
+# LONG_WATCH가 사실상 숏 익스포저가 되지 않게 inverse ETF는 v1에서 제외한다.
+excluded_universe_classes:
+  - inverse_etf
+
+# Empty by design. A later, separately reviewed PR may add a preregistered and
+# validated template. Until then every brief remains NO_TRADE even if it shows
+# useful LONG_WATCH candidates.
+approved_strategy_templates: []
+
+weights:
+  catalyst_score: 0.30
+  trend_score: 0.25
+  relative_strength_score: 0.20
+  volume_score: 0.15
+  liquidity_score: 0.10
