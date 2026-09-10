@@ -23,8 +23,10 @@ CLI는 네트워크에 접속하지 않고 `premarket-input/v1` 로컬 JSON만 �
 - candidate: 종목, 선택적 strategy template ID, 5개 고정 점수, source/event ID 조인
 - market regime: `RISK_ON`, `RISK_OFF`, `UNCERTAIN`과 근거 source ID
 
-실제 뉴스·거시지표·공시 공급자 adapter와 자격증명은 다음 PR 범위다. 공급자 추가 전에는
-별도 라이선스·재현성·point-in-time 의미를 검토한다.
+실제 뉴스·거시지표·공시 수집은 별도 `premarket-provider-bundle/v1` 계층에서 수행한다.
+해당 bundle은 후보 점수와 market regime을 만들지 않으므로 Daily Brief에 직접 입력할 수 없다.
+후속 정규화 단계가 source/event 조인과 MARKET 근거를 완성해야 한다. 세부 계약은
+`PREMARKET_EVIDENCE_PROVIDER_CONTRACT.md`를 따른다.
 
 ## 판정 계약
 

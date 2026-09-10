@@ -1,0 +1,51 @@
+schema: premarket-provider-config/v1
+
+http:
+  allowed_hosts:
+    - api.marketaux.com
+    - data.sec.gov
+    - api.stlouisfed.org
+  timeout_seconds: 10
+  max_response_bytes: 2000000
+  max_retries: 2
+  retry_backoff_seconds: 1
+
+marketaux:
+  enabled: true
+  base_url: https://api.marketaux.com/v1/news/all
+  # Project hard cap. Never raise above 60 without a separately reviewed change.
+  daily_limit: 60
+  lookback_minutes: 180
+  max_articles: 3
+
+sec_edgar:
+  enabled: true
+  base_url: https://data.sec.gov/submissions
+  # Deliberately stricter than the SEC fair-access ceiling.
+  requests_per_second: 2
+  forms: [8-K, 10-Q, 10-K]
+  symbol_ciks:
+    AAPL: "0000320193"
+    AMD: "0000002488"
+    AMZN: "0001018724"
+    AVGO: "0001730168"
+    CRM: "0001108524"
+    GOOGL: "0001652044"
+    META: "0001326801"
+    MSFT: "0000789019"
+    MU: "0000723125"
+    NFLX: "0001065280"
+    NVDA: "0001045810"
+    PLTR: "0001321655"
+    TSLA: "0001318605"
+    VST: "0001692819"
+
+fred:
+  enabled: true
+  base_url: https://api.stlouisfed.org/fred/series/observations
+  # Fixed allowlist: additions change the evidence contract and require review.
+  series:
+    - {series_id: VIXCLS, label: "CBOE Volatility Index close"}
+    - {series_id: DGS10, label: "10-Year Treasury constant maturity rate"}
+    - {series_id: DFF, label: "Effective federal funds rate"}
+    - {series_id: BAMLH0A0HYM2, label: "US high-yield option-adjusted spread"}
