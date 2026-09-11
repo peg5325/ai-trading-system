@@ -39,6 +39,7 @@ class HttpPolicy:
     max_response_bytes: int
     max_retries: int
     retry_backoff_seconds: float
+    max_retry_after_seconds: float = 30.0
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,7 @@ class MarketauxConfig:
     daily_limit: int
     lookback_minutes: int
     max_articles: int
+    max_pages_by_stage: dict[str, int]
 
 
 @dataclass(frozen=True)
@@ -63,12 +65,14 @@ class SecEdgarConfig:
 class FredSeries:
     series_id: str
     label: str
+    max_age_days: int = 7
 
 
 @dataclass(frozen=True)
 class FredConfig:
     enabled: bool
     base_url: str
+    release_dates_url: str
     series: tuple[FredSeries, ...]
 
 
@@ -93,15 +97,30 @@ class ProviderConfig:
             max_response_bytes=int(_positive(http.get("max_response_bytes", 2_000_000), "http.max_response_bytes")),
             max_retries=max(0, int(http.get("max_retries", 2))),
             retry_backoff_seconds=max(0.0, float(http.get("retry_backoff_seconds", 1))),
+            max_retry_after_seconds=_positive(
+                http.get("max_retry_after_seconds", 30),
+                "http.max_retry_after_seconds",
+            ),
         )
 
         marketaux = _mapping(raw.get("marketaux"), "marketaux")
+        pages_raw = _mapping(
+            marketaux.get("max_pages_by_stage", {"PRIMARY": 30, "VERIFICATION": 20, "FREEZE": 10}),
+            "marketaux.max_pages_by_stage",
+        )
+        pages_by_stage = {
+            stage: int(_positive(pages_raw.get(stage), f"marketaux.max_pages_by_stage.{stage}"))
+            for stage in ("PRIMARY", "VERIFICATION", "FREEZE")
+        }
+        if sum(pages_by_stage.values()) > 60:
+            raise ValueError("Marketaux stage page caps must sum to at most 60")
         marketaux_config = MarketauxConfig(
             enabled=bool(marketaux.get("enabled", True)),
             base_url=_https_url(marketaux.get("base_url"), "marketaux.base_url"),
             daily_limit=int(_positive(marketaux.get("daily_limit", 60), "marketaux.daily_limit")),
             lookback_minutes=int(_positive(marketaux.get("lookback_minutes", 180), "marketaux.lookback_minutes")),
             max_articles=int(_positive(marketaux.get("max_articles", 3), "marketaux.max_articles")),
+            max_pages_by_stage=pages_by_stage,
         )
         if marketaux_config.daily_limit > 60:
             raise ValueError("marketaux.daily_limit cannot exceed the hard cap of 60")
@@ -133,12 +152,26 @@ class ProviderConfig:
             label = str(row.get("label", "")).strip()
             if not series_id or not label:
                 raise ValueError("fred series_id and label must be non-empty")
-            series_items.append(FredSeries(series_id=series_id, label=label))
+            series_items.append(FredSeries(
+                series_id=series_id,
+                label=label,
+                max_age_days=int(_positive(
+                    row.get("max_age_days", 7),
+                    "fred.series.max_age_days",
+                )),
+            ))
         if len({item.series_id for item in series_items}) != len(series_items):
             raise ValueError("fred series IDs must be unique")
         fred_config = FredConfig(
             enabled=bool(fred.get("enabled", True)),
             base_url=_https_url(fred.get("base_url"), "fred.base_url"),
+            release_dates_url=_https_url(
+                fred.get(
+                    "release_dates_url",
+                    "https://api.stlouisfed.org/fred/releases/dates",
+                ),
+                "fred.release_dates_url",
+            ),
             series=tuple(sorted(series_items, key=lambda item: item.series_id)),
         )
         if not fred_config.series:

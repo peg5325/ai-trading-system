@@ -48,7 +48,12 @@ def build_provider_bundle(
         trading_day=context.trading_day,
         as_of=as_of,
         symbols=tuple(sorted({symbol.strip().upper() for symbol in context.symbols if symbol.strip()})),
+        stage=context.stage.strip().upper(),
+        schedule=context.schedule,
+        policy_config_sha256=context.policy_config_sha256,
     )
+    if normalized_context.stage not in {"PRIMARY", "VERIFICATION", "FREEZE"}:
+        raise ValueError("unsupported collection stage")
     collected = []
     for provider in providers:
         try:
@@ -85,6 +90,9 @@ def build_provider_bundle(
         "schema": "premarket-provider-bundle/v1",
         "trading_day": normalized_context.trading_day.isoformat(),
         "as_of": normalized_context.as_of,
+        "stage": normalized_context.stage,
+        "schedule": normalized_context.schedule,
+        "policy_config_sha256": normalized_context.policy_config_sha256,
         "symbols": list(normalized_context.symbols),
         "collection_status": "OK" if not defects else "FAIL_CLOSED",
         "collection_defects": defects,
@@ -98,6 +106,19 @@ def build_provider_bundle(
         "providers": collected,
         "raw_manifest": raw_store.manifest(),
     }
+    identity = {
+        "as_of": payload["as_of"],
+        "policy_config_sha256": payload["policy_config_sha256"],
+        "providers": [item["provider"] for item in collected],
+        "raw_content_sha256": payload["raw_manifest"]["raw_content_sha256"],
+        "stage": payload["stage"],
+        "symbols": payload["symbols"],
+        "trading_day": payload["trading_day"],
+    }
+    payload["run_id"] = (
+        f"premarket-evidence-{payload['trading_day']}-"
+        f"{payload['stage'].lower()}-{payload_sha256(identity)[:12]}"
+    )
     payload["artifact_sha256"] = payload_sha256(payload)
     return payload
 

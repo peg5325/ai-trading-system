@@ -9,6 +9,7 @@ http:
   max_response_bytes: 2000000
   max_retries: 2
   retry_backoff_seconds: 1
+  max_retry_after_seconds: 30
 
 marketaux:
   enabled: true
@@ -17,6 +18,11 @@ marketaux:
   daily_limit: 60
   lookback_minutes: 180
   max_articles: 3
+  # Together these cannot exceed the project 60/day hard cap.
+  max_pages_by_stage:
+    PRIMARY: 30
+    VERIFICATION: 20
+    FREEZE: 10
 
 sec_edgar:
   enabled: true
@@ -43,9 +49,14 @@ sec_edgar:
 fred:
   enabled: true
   base_url: https://api.stlouisfed.org/fred/series/observations
+  release_dates_url: https://api.stlouisfed.org/fred/releases/dates
   # Fixed allowlist: additions change the evidence contract and require review.
   series:
-    - {series_id: VIXCLS, label: "CBOE Volatility Index close"}
-    - {series_id: DGS10, label: "10-Year Treasury constant maturity rate"}
-    - {series_id: DFF, label: "Effective federal funds rate"}
-    - {series_id: BAMLH0A0HYM2, label: "US high-yield option-adjusted spread"}
+    - {series_id: VIXCLS, label: "CBOE Volatility Index close", max_age_days: 7}
+    - {series_id: DGS10, label: "10-Year Treasury constant maturity rate", max_age_days: 7}
+    - {series_id: DFF, label: "Effective federal funds rate", max_age_days: 7}
+    - {series_id: DTWEXBGS, label: "Trade Weighted U.S. Dollar Index", max_age_days: 7}
+    - {series_id: CPIAUCSL, label: "Consumer Price Index", max_age_days: 45}
+    - {series_id: PAYEMS, label: "All Employees, Total Nonfarm", max_age_days: 45}
+    - {series_id: UNRATE, label: "Unemployment Rate", max_age_days: 45}
+    - {series_id: ICSA, label: "Initial Claims", max_age_days: 14}

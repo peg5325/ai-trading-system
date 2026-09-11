@@ -30,11 +30,13 @@ class RawEvidenceStore:
         *,
         provider: str,
         resource: str,
-        collected_at: str,
+        requested_at: str,
+        received_at: str,
         request_url: str,
         status_code: int,
         content_type: str,
         body: bytes,
+        retry_delay_seconds: float | None = None,
     ) -> dict[str, Any]:
         body_sha = hashlib.sha256(body).hexdigest()
         provider_part = _safe_component(provider)
@@ -46,8 +48,8 @@ class RawEvidenceStore:
             "schema": "premarket-provider-receipt/v1",
             "provider": provider,
             "resource": resource,
-            "requested_at": collected_at,
-            "received_at": collected_at,
+            "requested_at": requested_at,
+            "received_at": received_at,
             "request_url": request_url,
             "status_code": int(status_code),
             "content_type": content_type.split(";", 1)[0].strip().lower(),
@@ -55,6 +57,8 @@ class RawEvidenceStore:
             "body_bytes": len(body),
             "raw_rel_path": rel_path.as_posix(),
         }
+        if retry_delay_seconds is not None:
+            receipt["retry_delay_seconds"] = float(retry_delay_seconds)
         receipt_id = hashlib.sha256(_canonical_bytes(receipt)).hexdigest()
         receipt["receipt_id"] = receipt_id
         receipt_rel = Path("receipts") / receipt_id[:2] / f"{receipt_id}.json"

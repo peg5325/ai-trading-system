@@ -51,6 +51,7 @@ class SecEdgarProvider:
         if not self.user_agent or "@" not in self.user_agent:
             return unavailable(self.provider, self.kind, self.config.base_url, context.as_of, "SEC_USER_AGENT_MISSING_OR_UNIDENTIFIABLE")
         targets = [(symbol, self.config.symbol_ciks[symbol]) for symbol in context.symbols if symbol in self.config.symbol_ciks]
+        unmapped = sorted(set(context.symbols) - set(self.config.symbol_ciks))
         receipts: list[dict[str, Any]] = []
         items: list[dict[str, Any]] = []
         errors: list[str] = []
@@ -66,7 +67,6 @@ class SecEdgarProvider:
                     headers={"User-Agent": self.user_agent, "Accept-Encoding": "gzip, deflate"},
                     provider=self.provider,
                     resource=f"submissions-{symbol}",
-                    collected_at=context.as_of,
                     raw_store=raw_store,
                 )
                 receipts.append(receipt)
@@ -91,7 +91,14 @@ class SecEdgarProvider:
                 form_text = str(form).upper()
                 if form_text not in self.config.forms:
                     continue
-                accepted_at = _iso_utc(str(accepted))
+                try:
+                    accepted_at = _iso_utc(str(accepted))
+                except ValueError:
+                    errors.append(f"{symbol}:SEC_ACCEPTANCE_TIME_INVALID")
+                    continue
+                if not accepted_at:
+                    errors.append(f"{symbol}:SEC_ACCEPTANCE_TIME_MISSING")
+                    continue
                 if accepted_at and accepted_at > context.as_of:
                     continue
                 accession_text = str(accession)
@@ -113,4 +120,15 @@ class SecEdgarProvider:
                 items.append(safe)
         status = "ERROR" if errors else "OK"
         error_code = ";".join(sorted(errors)) or None
-        return result(self.provider, self.kind, status, self.config.base_url, context.as_of, items, receipts, error_code)
+        output = result(
+            self.provider,
+            self.kind,
+            status,
+            self.config.base_url,
+            context.as_of,
+            items,
+            receipts,
+            error_code,
+        )
+        output["unmapped_symbols"] = unmapped
+        return output

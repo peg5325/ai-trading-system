@@ -5,6 +5,8 @@ import hashlib
 import json
 from typing import Any
 
+from src.premarket.schedule import iso_z, parse_iso
+
 
 def canonical_bytes(value: Any) -> bytes:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8")
@@ -30,7 +32,20 @@ def result(
 ) -> dict[str, Any]:
     receipt_hashes = sorted(receipt["body_sha256"] for receipt in receipts)
     content_sha = payload_sha256(receipt_hashes)
-    observed = max((str(item.get("published_at") or item.get("accepted_at") or item.get("observation_date") or as_of) for item in items), default=as_of)
+    received_at = max(
+        (str(receipt["received_at"]) for receipt in receipts),
+        default=None,
+    )
+    observed_candidates: list[str] = []
+    for item in items:
+        value = item.get("published_at") or item.get("accepted_at")
+        if not value:
+            continue
+        try:
+            observed_candidates.append(iso_z(parse_iso(str(value))))
+        except (TypeError, ValueError):
+            continue
+    observed = max(observed_candidates, default=received_at)
     return {
         "provider": provider,
         "kind": kind,
@@ -40,8 +55,8 @@ def result(
             "kind": kind,
             "status": status,
             "observed_at": observed,
-            "available_at": as_of,
-            "ingested_at": as_of,
+            "available_at": received_at,
+            "ingested_at": received_at,
             "source_url": source_url,
             "content_sha256": content_sha,
         },
