@@ -748,6 +748,80 @@ def test_cli_dry_run_validates_without_network_or_artifacts(tmp_path, monkeypatc
     assert not output.exists()
 
 
+def test_raw_receipt_rejects_unsanitized_url_and_reversed_clock(tmp_path):
+    store = RawEvidenceStore(tmp_path / "raw")
+    common = {
+        "provider": "test",
+        "resource": "test",
+        "requested_at": "2026-09-09T12:00:00Z",
+        "received_at": "2026-09-09T12:00:01Z",
+        "status_code": 200,
+        "content_type": "application/json",
+        "body": b"{}",
+    }
+    with pytest.raises(ValueError, match="sanitized HTTPS"):
+        store.emit(request_url="https://example.com/x?api_key=secret", **common)
+    with pytest.raises(ValueError, match="cannot precede"):
+        store.emit(
+            request_url="https://example.com/x",
+            **dict(common, received_at="2026-09-09T11:59:59Z"),
+        )
+
+
+def test_fred_release_calendar_paginates_to_completion(tmp_path):
+    release_offsets: list[int] = []
+
+    def handler(request):
+        if request.url.path.endswith("/releases/dates"):
+            offset = int(request.url.params["offset"])
+            release_offsets.append(offset)
+            if offset == 0:
+                rows = [
+                    {
+                        "release_id": index,
+                        "release_name": f"Old {index}",
+                        "date": "2026-09-08",
+                    }
+                    for index in range(1000)
+                ]
+            else:
+                rows = [{
+                    "release_id": 9999,
+                    "release_name": "Today",
+                    "date": "2026-09-09",
+                }]
+            return httpx.Response(200, json={
+                "count": 1001,
+                "offset": offset,
+                "limit": 1000,
+                "release_dates": rows,
+            })
+        return httpx.Response(200, json={
+            "observations": [{"date": "2026-09-08", "value": "4.0"}],
+        })
+
+    raw_store = RawEvidenceStore(tmp_path / "raw")
+    client = BoundedHttpClient(
+        HttpPolicy(
+            ("api.marketaux.com", "data.sec.gov", "api.stlouisfed.org"),
+            5,
+            1_000_000,
+            1,
+            0,
+        ),
+        transport=httpx.MockTransport(handler),
+        sleep=lambda _seconds: None,
+        clock=lambda: FIXED_NOW,
+    )
+    result = FredProvider(_config().fred, client, api_key="fred").collect(
+        _context(), raw_store
+    )
+    client.close()
+    assert result["status"] == "OK"
+    assert release_offsets == [0, 1000]
+    assert sum(item["item_type"] == "MACRO_RELEASE" for item in result["items"]) == 1
+
+
 def test_bundle_contains_no_candidates_regime_or_order_payload(tmp_path):
     bundle = build_provider_bundle(
         _context(),

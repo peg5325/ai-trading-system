@@ -89,7 +89,7 @@ class BoundedHttpClient:
                     self._sleep(self.policy.retry_backoff_seconds * (2**attempt))
                     continue
                 code = "HTTP_TIMEOUT" if isinstance(error, httpx.TimeoutException) else "HTTP_REQUEST_FAILED"
-                raise HttpCollectionError(code) from error
+                raise HttpCollectionError(code) from None
             received_at = self._clock()
             if received_at < requested_at:
                 raise HttpCollectionError("HTTP_CLOCK_MOVED_BACKWARD")

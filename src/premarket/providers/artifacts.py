@@ -7,6 +7,9 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
+
+from src.premarket.schedule import parse_iso
 
 
 def _canonical_bytes(value: Any) -> bytes:
@@ -38,6 +41,13 @@ class RawEvidenceStore:
         body: bytes,
         retry_delay_seconds: float | None = None,
     ) -> dict[str, Any]:
+        requested = parse_iso(requested_at)
+        received = parse_iso(received_at)
+        if received < requested:
+            raise ValueError("received_at cannot precede requested_at")
+        parsed_url = urlsplit(request_url)
+        if parsed_url.scheme != "https" or parsed_url.query or parsed_url.fragment:
+            raise ValueError("raw receipt URL must be sanitized HTTPS without query or fragment")
         body_sha = hashlib.sha256(body).hexdigest()
         provider_part = _safe_component(provider)
         resource_part = _safe_component(resource)
