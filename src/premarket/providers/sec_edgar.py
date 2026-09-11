@@ -75,7 +75,11 @@ class SecEdgarProvider:
                     receipts.append(error.receipt)
                 errors.append(f"{symbol}:{error.code}")
                 continue
-            recent = payload.get("filings", {}).get("recent", {})
+            filings = payload.get("filings")
+            if not isinstance(filings, dict):
+                errors.append(f"{symbol}:SEC_FILINGS_NOT_OBJECT")
+                continue
+            recent = filings.get("recent", {})
             if not isinstance(recent, dict):
                 errors.append(f"{symbol}:SEC_RECENT_NOT_OBJECT")
                 continue

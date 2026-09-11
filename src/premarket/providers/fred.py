@@ -113,6 +113,7 @@ class FredProvider:
     ) -> None:
         page_size = 1000
         complete = False
+        previous_oldest: date | None = None
         for offset in range(0, 5000, page_size):
             params = {
                 "api_key": self.api_key,
@@ -158,7 +159,27 @@ class FredProvider:
             ):
                 errors.append("FRED_RELEASE_META_MISMATCH")
                 return
-            self._append_release_rows(context, release_rows, items, errors)
+            release_dates = self._append_release_rows(
+                context,
+                release_rows,
+                items,
+                errors,
+            )
+            if release_dates != sorted(release_dates, reverse=True):
+                errors.append("FRED_RELEASE_DATES_NOT_DESCENDING")
+                return
+            if (
+                previous_oldest is not None
+                and release_dates
+                and release_dates[0] > previous_oldest
+            ):
+                errors.append("FRED_RELEASE_PAGE_ORDER_MISMATCH")
+                return
+            if release_dates:
+                previous_oldest = release_dates[-1]
+                if previous_oldest < context.trading_day:
+                    complete = True
+                    break
             if offset + len(release_rows) >= count:
                 complete = True
                 break
@@ -171,7 +192,8 @@ class FredProvider:
         release_rows: list[Any],
         items: list[dict[str, Any]],
         errors: list[str],
-    ) -> None:
+    ) -> list[date]:
+        parsed_dates: list[date] = []
         for row in release_rows:
             if not isinstance(row, dict):
                 errors.append("FRED_RELEASE_DATE_NOT_OBJECT")
@@ -184,6 +206,7 @@ class FredProvider:
             except ValueError:
                 errors.append("FRED_RELEASE_DATE_INVALID")
                 continue
+            parsed_dates.append(parsed_release_date)
             if parsed_release_date != context.trading_day:
                 continue
             if not release_id or not release_name:
@@ -201,3 +224,4 @@ class FredProvider:
             }
             safe["content_sha256"] = payload_sha256(safe)
             items.append(safe)
+        return parsed_dates

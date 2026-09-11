@@ -69,7 +69,7 @@ def build_provider_bundle(
                     [],
                     "INVALID_PROVIDER_RESULT",
                 )
-        except (OSError, RuntimeError, TypeError, ValueError) as error:
+        except Exception as error:  # noqa: BLE001 - provider boundary must fail closed
             item = result(
                 provider.provider,
                 provider.kind,

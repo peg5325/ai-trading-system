@@ -168,7 +168,7 @@ def main(
         (receipt_path, json_bytes(sanitized_receipt)),
     )
     print(json.dumps(sanitized_receipt, ensure_ascii=False, sort_keys=True))
-    return 0
+    return 0 if bundle["collection_status"] == "OK" else 2
 
 
 if __name__ == "__main__":

@@ -120,9 +120,6 @@ class MarketauxProvider:
         complete = False
         expected_found: int | None = None
         for page in range(1, max_pages + 1):
-            if not self.quota.reserve(limit=self.config.daily_limit):
-                errors.append("MARKETAUX_INCOMPLETE_QUOTA")
-                break
             try:
                 payload, receipt = self.http.get_json(
                     self.config.base_url,
@@ -130,12 +127,19 @@ class MarketauxProvider:
                     provider=self.provider,
                     resource=f"news-all-page-{page}",
                     raw_store=raw_store,
+                    before_attempt=lambda: self.quota.reserve(
+                        limit=self.config.daily_limit
+                    ),
                 )
                 receipts.append(receipt)
             except HttpCollectionError as error:
                 if error.receipt:
                     receipts.append(error.receipt)
-                errors.append(error.code)
+                errors.append(
+                    "MARKETAUX_INCOMPLETE_QUOTA"
+                    if error.code == "HTTP_REQUEST_BUDGET_EXHAUSTED"
+                    else error.code
+                )
                 break
             rows = payload.get("data", [])
             meta = payload.get("meta")

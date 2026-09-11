@@ -16,7 +16,11 @@ from src.premarket.providers.collector import (
 )
 from src.premarket.providers.config import ProviderConfig
 from src.premarket.providers.fred import FredProvider
-from src.premarket.providers.http import BoundedHttpClient, HttpPolicy
+from src.premarket.providers.http import (
+    BoundedHttpClient,
+    HttpCollectionError,
+    HttpPolicy,
+)
 from src.premarket.providers.marketaux import MarketauxProvider, QuotaLedger
 from src.premarket.providers.schedule_gate import validate_collection_window
 from src.premarket.providers.sec_edgar import SecEdgarProvider
@@ -502,9 +506,9 @@ def test_collector_cli_without_credentials_makes_fail_closed_artifact(tmp_path, 
         "SEC_USER_AGENT", "SEC_EDGAR_USER_AGENT", "FRED_API_KEY",
     ):
         monkeypatch.delenv(key, raising=False)
-    assert collector_main(args, clock=lambda: FIXED_NOW) == 0
+    assert collector_main(args, clock=lambda: FIXED_NOW) == 2
     before = output.read_bytes()
-    assert collector_main(args, clock=lambda: FIXED_NOW) == 0
+    assert collector_main(args, clock=lambda: FIXED_NOW) == 2
 
     assert output.read_bytes() == before
     assert receipt.exists()
@@ -572,6 +576,69 @@ def test_retry_after_is_honored_and_capped(tmp_path):
     ]
     retry_receipt = next(item for item in receipts if item["status_code"] == 429)
     assert retry_receipt["retry_delay_seconds"] == 5.0
+
+
+def test_marketaux_quota_counts_every_http_retry_attempt(tmp_path):
+    attempts = 0
+
+    def handler(_request):
+        nonlocal attempts
+        attempts += 1
+        if attempts < 3:
+            return httpx.Response(503, json={"retry": True})
+        return httpx.Response(200, json={
+            "meta": {"found": 0, "returned": 0, "limit": 3, "page": 1},
+            "data": [],
+        })
+
+    config = _config()
+    http = BoundedHttpClient(
+        replace(config.http, max_retries=2, retry_backoff_seconds=0),
+        transport=httpx.MockTransport(handler),
+        sleep=lambda _seconds: None,
+        clock=lambda: FIXED_NOW,
+    )
+    quota = _quota(tmp_path / "quota")
+    result = MarketauxProvider(
+        config.marketaux,
+        http,
+        quota,
+        token="token",
+    ).collect(_context(), RawEvidenceStore(tmp_path / "raw"))
+    http.close()
+    ledger = json.loads(
+        (tmp_path / "quota" / "marketaux-2026-09-09.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert result["status"] == "OK"
+    assert attempts == 3
+    assert ledger["used"] == 3
+
+
+def test_exhausted_retry_does_not_record_unapplied_delay(tmp_path):
+    client = BoundedHttpClient(
+        HttpPolicy(("api.marketaux.com",), 5, 50_000, 0, 1, 30),
+        transport=httpx.MockTransport(
+            lambda _request: httpx.Response(
+                429,
+                headers={"Retry-After": "20"},
+                json={},
+            )
+        ),
+        clock=lambda: FIXED_NOW,
+    )
+    raw_store = RawEvidenceStore(tmp_path / "raw")
+    with pytest.raises(HttpCollectionError) as captured:
+        client.get_json(
+            "https://api.marketaux.com/v1/news/all",
+            params=None,
+            provider="marketaux",
+            resource="news",
+            raw_store=raw_store,
+        )
+    client.close()
+    assert "retry_delay_seconds" not in captured.value.receipt
 
 
 def test_quota_uses_actual_utc_day_across_research_trading_days(tmp_path):
@@ -779,8 +846,8 @@ def test_fred_release_calendar_paginates_to_completion(tmp_path):
                 rows = [
                     {
                         "release_id": index,
-                        "release_name": f"Old {index}",
-                        "date": "2026-09-08",
+                        "release_name": f"Future {index}",
+                        "date": "2026-09-10",
                     }
                     for index in range(1000)
                 ]
@@ -820,6 +887,63 @@ def test_fred_release_calendar_paginates_to_completion(tmp_path):
     assert result["status"] == "OK"
     assert release_offsets == [0, 1000]
     assert sum(item["item_type"] == "MACRO_RELEASE" for item in result["items"]) == 1
+
+
+def test_fred_release_scan_stops_after_descending_dates_pass_target(tmp_path):
+    release_offsets: list[int] = []
+
+    def handler(request):
+        if request.url.path.endswith("/releases/dates"):
+            offset = int(request.url.params["offset"])
+            release_offsets.append(offset)
+            rows = [{
+                "release_id": index + 1,
+                "release_name": f"Past {index}",
+                "date": "2026-09-08",
+            } for index in range(1000)]
+            return httpx.Response(200, json={
+                "count": 6000,
+                "offset": offset,
+                "limit": 1000,
+                "release_dates": rows,
+            })
+        return httpx.Response(200, json={
+            "observations": [{"date": "2026-09-08", "value": "4.0"}],
+        })
+
+    raw_store = RawEvidenceStore(tmp_path / "raw")
+    client = BoundedHttpClient(
+        replace(_config().http, max_response_bytes=2_000_000),
+        transport=httpx.MockTransport(handler),
+        sleep=lambda _seconds: None,
+        clock=lambda: FIXED_NOW,
+    )
+    result = FredProvider(_config().fred, client, api_key="fred").collect(
+        _context(), raw_store
+    )
+    client.close()
+    assert result["status"] == "OK"
+    assert release_offsets == [0]
+
+
+def test_malformed_sec_root_is_captured_by_provider_boundary(tmp_path):
+    client, raw_store = _http(
+        lambda _request: httpx.Response(200, json={"filings": []}),
+        tmp_path,
+    )
+    bundle = build_provider_bundle(
+        _context(),
+        [SecEdgarProvider(
+            _config().sec_edgar,
+            client,
+            user_agent="Research contact@example.com",
+            sleep=lambda _seconds: None,
+        )],
+        raw_store,
+    )
+    client.close()
+    assert bundle["collection_status"] == "FAIL_CLOSED"
+    assert bundle["providers"][0]["error_code"] == "AAPL:SEC_FILINGS_NOT_OBJECT"
 
 
 def test_bundle_contains_no_candidates_regime_or_order_payload(tmp_path):

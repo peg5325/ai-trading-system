@@ -64,6 +64,7 @@ class BoundedHttpClient:
         resource: str,
         raw_store: RawEvidenceStore,
         headers: Mapping[str, str] | None = None,
+        before_attempt: Callable[[], bool] | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         parsed = urlsplit(url)
         if parsed.scheme != "https":
@@ -72,6 +73,8 @@ class BoundedHttpClient:
             raise ValueError(f"host not allowed: {parsed.hostname}")
         safe_url = sanitize_url(url)
         for attempt in range(self.policy.max_retries + 1):
+            if before_attempt is not None and not before_attempt():
+                raise HttpCollectionError("HTTP_REQUEST_BUDGET_EXHAUSTED")
             requested_at = self._clock()
             try:
                 with self._client.stream("GET", url, params=params, headers=headers) as response:
@@ -99,6 +102,10 @@ class BoundedHttpClient:
                 attempt=attempt,
                 received_at=received_at,
             )
+            will_retry = (
+                status_code in _RETRYABLE
+                and attempt < self.policy.max_retries
+            )
             receipt = raw_store.emit(
                 provider=provider,
                 resource=resource,
@@ -108,9 +115,9 @@ class BoundedHttpClient:
                 status_code=status_code,
                 content_type=content_type,
                 body=body,
-                retry_delay_seconds=retry_delay if status_code in _RETRYABLE else None,
+                retry_delay_seconds=retry_delay if will_retry else None,
             )
-            if status_code in _RETRYABLE and attempt < self.policy.max_retries:
+            if will_retry:
                 self._sleep(retry_delay)
                 continue
             if not 200 <= status_code < 300:
