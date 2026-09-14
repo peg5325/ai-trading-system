@@ -66,6 +66,7 @@ class FredSeries:
     series_id: str
     label: str
     max_age_days: int = 7
+    freshness_reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -152,13 +153,20 @@ class ProviderConfig:
             label = str(row.get("label", "")).strip()
             if not series_id or not label:
                 raise ValueError("fred series_id and label must be non-empty")
+            max_age_days = int(_positive(
+                row.get("max_age_days", 7),
+                "fred.series.max_age_days",
+            ))
+            freshness_reason = str(row.get("freshness_reason", "")).strip()
+            if max_age_days > 7 and not freshness_reason:
+                raise ValueError(
+                    "fred series with max_age_days > 7 requires freshness_reason"
+                )
             series_items.append(FredSeries(
                 series_id=series_id,
                 label=label,
-                max_age_days=int(_positive(
-                    row.get("max_age_days", 7),
-                    "fred.series.max_age_days",
-                )),
+                max_age_days=max_age_days,
+                freshness_reason=freshness_reason,
             ))
         if len({item.series_id for item in series_items}) != len(series_items):
             raise ValueError("fred series IDs must be unique")

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import httpx
 import pytest
+import yaml
 
 from scripts.collect_premarket_evidence import main as collector_main
 from src.premarket.providers.artifacts import RawEvidenceStore
@@ -804,6 +805,25 @@ def test_production_dollar_index_freshness_covers_h10_release_cadence():
     }
 
     assert max_age_by_series["DTWEXBGS"] == 14
+    assert all(
+        series.freshness_reason
+        for series in config.fred.series
+        if series.max_age_days > 7
+    )
+
+
+def test_fred_extended_freshness_requires_a_reason():
+    raw = yaml.safe_load(
+        (ROOT / "config" / "premarket_providers.yaml").read_text(encoding="utf-8")
+    )
+    target = next(
+        item for item in raw["fred"]["series"]
+        if item["series_id"] == "DTWEXBGS"
+    )
+    target.pop("freshness_reason")
+
+    with pytest.raises(ValueError, match="requires freshness_reason"):
+        ProviderConfig.from_mapping(raw)
 
 
 def test_schedule_gate_rejects_holiday_wrong_cutoff_and_late_execution():

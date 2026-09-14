@@ -27,7 +27,8 @@ Daily Brief에 입력할 수 있다. 특히 이 PR은 Daily Brief가 요구하�
   그 결과 필수 series에 유효값이 없으면 missing으로 fail-closed한다. 다른 비수치·NaN·무한대는
   invalid로 fail-closed한다. 필수 series가 비거나 series별 freshness를 넘으면 fail-closed다.
   freshness는 달력일 기준이며, `DTWEXBGS`는 H.10의 묶음 발표 주기와 긴 주말을 포함하도록
-  14일, 그 외 일별 시장 series는 7일을 사용한다.
+  14일, 그 외 일별 시장 series는 7일을 사용한다. 7일을 초과하는 series 설정에는
+  `freshness_reason`을 의무화하며, 각 산출 item에는 관측 나이·허용 일수·근거를 함께 남긴다.
 
 자격증명이 하나라도 없으면 해당 provider는 네트워크를 호출하지 않고 `UNAVAILABLE`을 남긴다.
 하나 이상의 provider가 `OK`가 아니면 bundle은 `FAIL_CLOSED`다.

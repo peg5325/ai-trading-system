@@ -57,8 +57,23 @@ fred:
     - {series_id: DFF, label: "Effective federal funds rate", max_age_days: 7}
     # H.10 publishes batches of daily values; the latest observation can be
     # 10 calendar days old before the next normal release after a long weekend.
-    - {series_id: DTWEXBGS, label: "Trade Weighted U.S. Dollar Index", max_age_days: 14}
-    - {series_id: CPIAUCSL, label: "Consumer Price Index", max_age_days: 45}
-    - {series_id: PAYEMS, label: "All Employees, Total Nonfarm", max_age_days: 45}
-    - {series_id: UNRATE, label: "Unemployment Rate", max_age_days: 45}
-    - {series_id: ICSA, label: "Initial Claims", max_age_days: 14}
+    - series_id: DTWEXBGS
+      label: "Trade Weighted U.S. Dollar Index"
+      max_age_days: 14
+      freshness_reason: "H.10 batches daily observations on a delayed release cadence"
+    - series_id: CPIAUCSL
+      label: "Consumer Price Index"
+      max_age_days: 45
+      freshness_reason: "monthly release cadence"
+    - series_id: PAYEMS
+      label: "All Employees, Total Nonfarm"
+      max_age_days: 45
+      freshness_reason: "monthly release cadence"
+    - series_id: UNRATE
+      label: "Unemployment Rate"
+      max_age_days: 45
+      freshness_reason: "monthly release cadence"
+    - series_id: ICSA
+      label: "Initial Claims"
+      max_age_days: 14
+      freshness_reason: "weekly release cadence"
