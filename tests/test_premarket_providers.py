@@ -796,6 +796,10 @@ def test_fred_skips_documented_missing_sentinel_when_valid_observation_exists(
     dgs10 = next(item for item in result["items"] if item.get("series_id") == "DGS10")
     assert dgs10["observation_date"] == "2026-09-08"
     assert dgs10["value"] == "4.80"
+    assert dgs10["freshness_basis"] == "calendar_days"
+    assert dgs10["freshness_observation_age_days"] == 1
+    assert dgs10["freshness_max_age_days"] == 7
+    assert dgs10["freshness_reason"] == "default seven-day freshness"
 
 
 def test_production_dollar_index_freshness_covers_h10_release_cadence():
