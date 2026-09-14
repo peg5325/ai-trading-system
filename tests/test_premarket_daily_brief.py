@@ -22,7 +22,12 @@ from src.premarket.schedule import build_premarket_schedule
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _config(*, approved: tuple[str, ...] = ()) -> PremarketConfig:
+def _config(
+    *,
+    approved: tuple[str, ...] = (),
+    approved_short: tuple[str, ...] = (),
+    min_catalyst_score: float = 0.0,
+) -> PremarketConfig:
     return PremarketConfig.from_mapping({
         "schema": "premarket-config/v1",
         "required_source_kinds": ["MARKET", "NEWS"],
@@ -32,8 +37,9 @@ def _config(*, approved: tuple[str, ...] = ()) -> PremarketConfig:
         "freeze_offset_minutes": 20,
         "max_candidates": 3,
         "min_liquidity_score": 0.5,
-        "min_catalyst_score": 0.0,
+        "min_catalyst_score": min_catalyst_score,
         "approved_strategy_templates": list(approved),
+        "approved_short_strategy_templates": list(approved_short),
         "allowed_symbols": ["AAPL", "MSFT", "AAA", "BBB", "CCC", "DDD"],
         "excluded_universe_classes": ["inverse_etf"],
         "weights": {
@@ -139,6 +145,22 @@ def _schedule():
     return build_premarket_schedule(date(2026, 3, 9))
 
 
+def _short_input() -> dict:
+    data = _input()
+    data["market_regime"]["label"] = "RISK_OFF"
+    data["candidates"][0].update(
+        catalyst_score=-0.9,
+        trend_score=0.2,
+        relative_strength_score=0.3,
+    )
+    data["candidates"][1].update(
+        catalyst_score=-0.6,
+        trend_score=0.3,
+        relative_strength_score=0.2,
+    )
+    return data
+
+
 def test_schedule_is_dst_safe_and_exchange_relative():
     winter = build_premarket_schedule(date(2026, 3, 6))
     summer = build_premarket_schedule(date(2026, 3, 9))
@@ -175,6 +197,57 @@ def test_approved_template_only_changes_shadow_status_not_execution_authority():
     assert result["brief"]["promotion_allowed"] is False
 
 
+def test_risk_off_publishes_ranked_short_watchlist_but_defaults_to_cash():
+    result = build_daily_brief(_short_input(), schedule=_schedule(), config=_config())
+
+    assert result["schema"] == "premarket-daily-brief/v2"
+    assert result["brief"]["schema"] == "premarket-daily-brief/v2"
+    assert result["brief"]["status"] == "NO_TRADE"
+    assert result["brief"]["direction_policy"] == "LONG_SHORT_OR_CASH"
+    assert result["brief"]["reason_codes"] == ["NO_APPROVED_STRATEGY_TEMPLATE"]
+    assert [item["symbol"] for item in result["brief"]["watchlist"]] == ["AAPL", "MSFT"]
+    assert {item["bias"] for item in result["brief"]["watchlist"]} == {"SHORT_WATCH"}
+    assert result["brief"]["watchlist"][0]["score"] == pytest.approx(0.82)
+    assert result["brief"]["orders"] == []
+
+
+def test_long_template_approval_never_authorizes_short_shadow_readiness():
+    result = build_daily_brief(
+        _short_input(),
+        schedule=_schedule(),
+        config=_config(approved=("orb-v1",)),
+    )
+
+    assert result["brief"]["status"] == "NO_TRADE"
+    assert all(
+        item["strategy_template_approved"] is False
+        for item in result["brief"]["watchlist"]
+    )
+
+
+def test_short_template_approval_only_changes_shadow_status_not_order_authority():
+    result = build_daily_brief(
+        _short_input(),
+        schedule=_schedule(),
+        config=_config(approved_short=("orb-v1",)),
+    )
+
+    assert result["brief"]["status"] == "SHADOW_READY"
+    assert result["brief"]["orders"] == []
+    assert result["brief"]["executable"] is False
+    assert result["brief"]["promotion_allowed"] is False
+
+
+def test_risk_off_never_turns_positive_catalyst_into_a_short_candidate():
+    data = _input()
+    data["market_regime"]["label"] = "RISK_OFF"
+    result = build_daily_brief(data, schedule=_schedule(), config=_config())
+
+    assert result["brief"]["status"] == "NO_TRADE"
+    assert result["brief"]["watchlist"] == []
+    assert result["brief"]["reason_codes"] == ["NO_ELIGIBLE_CANDIDATE"]
+
+
 @pytest.mark.parametrize(
     ("mutate", "reason"),
     [
@@ -185,7 +258,6 @@ def test_approved_template_only_changes_shadow_status_not_execution_authority():
          "FUTURE_EVENT_EVIDENCE"),
         (lambda data: data["candidates"][0].update(evidence_event_ids=["missing"]),
          "UNKNOWN_CANDIDATE_EVENT"),
-        (lambda data: data["market_regime"].update(label="RISK_OFF"), "MARKET_REGIME_RISK_OFF"),
     ],
 )
 def test_quality_and_regime_fail_closed(mutate, reason):
@@ -379,6 +451,12 @@ def test_markdown_contains_hash_urls_and_read_only_boundary():
     assert "https://evidence.invalid/news/aapl" in rendered
     assert "주문 생성: **0건**" in rendered
 
+    short_rendered = render_markdown(
+        build_daily_brief(_short_input(), schedule=_schedule(), config=_config())
+    )
+    assert "SHORT_WATCH" in short_rendered
+    assert "직접 공매도 주문" in short_rendered
+
 
 def test_immutable_write_is_idempotent_and_refuses_changed_content(tmp_path):
     target = tmp_path / "result.json"
@@ -448,3 +526,9 @@ def test_config_validation_rejects_weights_or_more_than_three_candidates():
     raw["max_candidates"] = 4
     with pytest.raises(ValueError, match="between 1 and 3"):
         PremarketConfig.from_mapping(raw)
+
+
+@pytest.mark.parametrize("threshold", [-0.01, 1.01])
+def test_config_rejects_catalyst_threshold_outside_symmetric_range(threshold):
+    with pytest.raises(ValueError, match="min_catalyst_score must be in"):
+        _config(min_catalyst_score=threshold)

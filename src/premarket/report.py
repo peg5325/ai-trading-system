@@ -39,27 +39,28 @@ def render_markdown(result: Mapping[str, Any]) -> str:
         f"- reason codes: `{json.dumps(brief['reason_codes'], ensure_ascii=False)}`",
         "- 주문 생성: **0건** (이 산출물은 주문 권한이 없다)",
         "",
-        "## LONG_WATCH 후보 (최대 3)",
+        "## 방향별 WATCH 후보 (최대 3)",
         "",
-        "| 순위 | 종목 | 점수 | 승인 전략 | 증거 URL |",
-        "| ---: | --- | ---: | --- | --- |",
+        "| 순위 | 종목 | 방향 | 점수 | 승인 전략 | 증거 URL |",
+        "| ---: | --- | --- | ---: | --- | --- |",
     ]
     for rank, item in enumerate(brief["watchlist"], start=1):
         links = "<br>".join(_markdown_cell(evidence["source_url"])
                             for evidence in item["evidence"])
         lines.append(
-            f"| {rank} | {item['symbol']} | {item['score']:.6f} | "
+            f"| {rank} | {item['symbol']} | {item['bias']} | {item['score']:.6f} | "
             f"{item['strategy_template_id'] or '-'} "
             f"({'approved' if item['strategy_template_approved'] else 'not approved'}) | {links} |"
         )
     if not brief["watchlist"]:
-        lines.append("| - | - | - | - | - |")
+        lines.append("| - | - | - | - | - | - |")
     lines.extend([
         "",
         "## 안전 경계",
         "",
-        "- 실제 뉴스/지표 API 수집은 이 PR 범위 밖이다. 입력은 정규화된 로컬 artifact만 받는다.",
-        "- SHORT 판단, 주문, 브로커, 실계좌, 자동 승격은 구현하지 않았다.",
+        "- 이 Daily Brief 실행은 외부 API를 호출하지 않고 정규화된 로컬 artifact만 받는다.",
+        "- SHORT_WATCH는 방향 관찰 라벨일 뿐이며 직접 공매도 주문, borrow 확인, 브로커 실행을 하지 않는다.",
+        "- inverse ETF는 이중 방향 해석을 막기 위해 후보군에서 계속 제외한다.",
         "- 누락·지연·충돌·미래 정보 또는 승인 전략 부재 시 `NO_TRADE`로 닫힌다.",
         "",
     ])

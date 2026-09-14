@@ -82,6 +82,7 @@ class PremarketConfig:
     min_liquidity_score: float
     min_catalyst_score: float
     approved_strategy_templates: tuple[str, ...]
+    approved_short_strategy_templates: tuple[str, ...]
     allowed_symbols: tuple[str, ...]
     excluded_universe_classes: tuple[str, ...]
     weights: dict[str, float]
@@ -107,15 +108,25 @@ class PremarketConfig:
         freshness = int(raw.get("source_freshness_minutes", 180))
         if freshness <= 0:
             raise ValueError("source_freshness_minutes must be positive")
+        min_liquidity_score = float(raw.get("min_liquidity_score", 0.5))
+        if not 0.0 <= min_liquidity_score <= 1.0:
+            raise ValueError("min_liquidity_score must be in [0,1]")
+        min_catalyst_score = float(raw.get("min_catalyst_score", 0.0))
+        if not 0.0 <= min_catalyst_score <= 1.0:
+            raise ValueError("min_catalyst_score must be in [0,1]")
         return cls(
             required_source_kinds=required,
             source_freshness_minutes=freshness,
             max_candidates=max_candidates,
-            min_liquidity_score=float(raw.get("min_liquidity_score", 0.5)),
-            min_catalyst_score=float(raw.get("min_catalyst_score", 0.0)),
+            min_liquidity_score=min_liquidity_score,
+            min_catalyst_score=min_catalyst_score,
             approved_strategy_templates=tuple(sorted({
                 _nonempty(v, "approved_strategy_templates")
                 for v in raw.get("approved_strategy_templates", [])
+            })),
+            approved_short_strategy_templates=tuple(sorted({
+                _nonempty(v, "approved_short_strategy_templates")
+                for v in raw.get("approved_short_strategy_templates", [])
             })),
             allowed_symbols=tuple(sorted({
                 _nonempty(v, "allowed_symbols").upper()

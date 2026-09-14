@@ -1,4 +1,4 @@
-"""Deterministic LONG/CASH-only shadow watchlist planner."""
+"""Deterministic LONG/SHORT/CASH shadow watchlist planner."""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -12,11 +12,35 @@ from src.premarket.contract import (
 )
 from src.premarket.schedule import PremarketSchedule
 
-BRIEF_SCHEMA = "premarket-daily-brief/v1"
+BRIEF_SCHEMA = "premarket-daily-brief/v2"
 
 
-def _score(candidate: Mapping[str, Any], config: PremarketConfig) -> float:
-    return sum(float(candidate[field]) * config.weights[field] for field in SCORE_FIELDS)
+def _directional_score(
+    candidate: Mapping[str, Any],
+    config: PremarketConfig,
+    bias: str,
+) -> float:
+    components = {field: float(candidate[field]) for field in SCORE_FIELDS}
+    if bias == "SHORT_WATCH":
+        components["catalyst_score"] = -components["catalyst_score"]
+        components["trend_score"] = 1.0 - components["trend_score"]
+        components["relative_strength_score"] = (
+            1.0 - components["relative_strength_score"]
+        )
+    return sum(components[field] * config.weights[field] for field in SCORE_FIELDS)
+
+
+def _bias_for_regime(regime: str) -> str | None:
+    return {
+        "RISK_ON": "LONG_WATCH",
+        "RISK_OFF": "SHORT_WATCH",
+    }.get(regime)
+
+
+def _approved_templates(config: PremarketConfig, bias: str) -> tuple[str, ...]:
+    if bias == "SHORT_WATCH":
+        return config.approved_short_strategy_templates
+    return config.approved_strategy_templates
 
 
 def build_daily_brief(data: Mapping[str, Any], *, schedule: PremarketSchedule,
@@ -26,28 +50,33 @@ def build_daily_brief(data: Mapping[str, Any], *, schedule: PremarketSchedule,
     normalized = snapshot["payload"]["input"]
     defects = list(snapshot["payload"]["quality_defects"])
     regime = normalized["market_regime"]["label"]
+    bias = _bias_for_regime(regime)
     reasons = list(defects)
-    if regime != "RISK_ON":
+    if bias is None:
         reasons.append(f"MARKET_REGIME_{regime}")
 
     event_by_id = {item["event_id"]: item for item in normalized["events"]}
     ranked: list[dict] = []
-    if not defects and regime == "RISK_ON":
+    if not defects and bias is not None:
+        approved_templates = _approved_templates(config, bias)
         for candidate in normalized["candidates"]:
             if candidate["liquidity_score"] < config.min_liquidity_score:
                 continue
-            if candidate["catalyst_score"] <= config.min_catalyst_score:
+            catalyst = float(candidate["catalyst_score"])
+            if bias == "LONG_WATCH" and catalyst <= config.min_catalyst_score:
+                continue
+            if bias == "SHORT_WATCH" and catalyst >= -config.min_catalyst_score:
                 continue
             evidence = [event_by_id[eid] for eid in candidate["evidence_event_ids"]]
             if not evidence:
                 continue
             ranked.append({
                 "symbol": candidate["symbol"],
-                "bias": "LONG_WATCH",
-                "score": round(_score(candidate, config), 12),
+                "bias": bias,
+                "score": round(_directional_score(candidate, config, bias), 12),
                 "strategy_template_id": candidate["strategy_template_id"],
                 "strategy_template_approved": (
-                    candidate["strategy_template_id"] in config.approved_strategy_templates
+                    candidate["strategy_template_id"] in approved_templates
                 ),
                 "evidence": [{
                     "event_id": item["event_id"],
@@ -60,11 +89,11 @@ def build_daily_brief(data: Mapping[str, Any], *, schedule: PremarketSchedule,
     watchlist = ranked[:config.max_candidates]
     approved = [item for item in watchlist if item["strategy_template_approved"]]
 
-    if not defects and regime == "RISK_ON" and approved:
+    if not defects and bias is not None and approved:
         status = "SHADOW_READY"
     else:
         status = "NO_TRADE"
-        if not defects and regime == "RISK_ON" and not approved:
+        if not defects and bias is not None and watchlist and not approved:
             reasons.append("NO_APPROVED_STRATEGY_TEMPLATE")
         if not watchlist and not defects:
             reasons.append("NO_ELIGIBLE_CANDIDATE")
@@ -77,7 +106,7 @@ def build_daily_brief(data: Mapping[str, Any], *, schedule: PremarketSchedule,
         "as_of": normalized["as_of"],
         "expires_at": schedule.freeze_utc,
         "status": status,
-        "direction_policy": "LONG_OR_CASH",
+        "direction_policy": "LONG_SHORT_OR_CASH",
         "execution_mode": "READ_ONLY_SHADOW",
         "executable": False,
         "promotion_allowed": False,

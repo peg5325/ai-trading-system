@@ -11,14 +11,15 @@ min_liquidity_score: 0.50
 min_catalyst_score: 0.00
 universe_path: universe_p0_us30.yaml
 
-# LONG_WATCH가 사실상 숏 익스포저가 되지 않게 inverse ETF는 v1에서 제외한다.
+# 직접 LONG/SHORT 방향과 inverse ETF 방향이 중첩되지 않게 제외한다.
 excluded_universe_classes:
   - inverse_etf
 
-# Empty by design. A later, separately reviewed PR may add a preregistered and
-# validated template. Until then every brief remains NO_TRADE even if it shows
-# useful LONG_WATCH candidates.
+# LONG allowlist. Empty by design until a preregistered template is validated.
+# Until then every brief remains NO_TRADE even if it shows useful WATCH candidates.
 approved_strategy_templates: []
+# 숏 가능 전략은 롱 승인에서 상속하지 않고 별도로 승인한다.
+approved_short_strategy_templates: []
 
 weights:
   catalyst_score: 0.30
