@@ -1,4 +1,4 @@
-"""Deterministic LONG/CASH-only shadow watchlist planner."""
+"""Deterministic LONG/SHORT/CASH shadow watchlist planner."""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -12,7 +12,7 @@ from src.premarket.contract import (
 )
 from src.premarket.schedule import PremarketSchedule
 
-BRIEF_SCHEMA = "premarket-daily-brief/v1"
+BRIEF_SCHEMA = "premarket-daily-brief/v2"
 
 
 def _directional_score(

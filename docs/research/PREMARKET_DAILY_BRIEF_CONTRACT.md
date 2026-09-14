@@ -1,10 +1,14 @@
-# 장전 Daily Brief v1 계약 (read-only shadow)
+# 장전 Daily Brief v2 계약 (read-only shadow)
 
 ## 목적
 
 미국장 개장 전에 정규화된 point-in-time 증거를 읽어 최대 3개의 `LONG_WATCH` 또는
 `SHORT_WATCH` 후보와 현금 대기인 `NO_TRADE`를 결정론적으로 만든다. 이 산출물은 조사와
 일지 작성용이며 주문 권한이 없다.
+
+v2는 v1의 `LONG_OR_CASH` 출력을 조용히 확장하지 않고, `SHORT_WATCH`와
+`LONG_SHORT_OR_CASH`를 새 출력 스키마 `premarket-daily-brief/v2`로 명시한다.
+입력 `premarket-input/v1`과 설정 `premarket-config/v1`은 변경하지 않는다.
 
 ## 시간 계약
 

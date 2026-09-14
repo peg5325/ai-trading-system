@@ -200,6 +200,8 @@ def test_approved_template_only_changes_shadow_status_not_execution_authority():
 def test_risk_off_publishes_ranked_short_watchlist_but_defaults_to_cash():
     result = build_daily_brief(_short_input(), schedule=_schedule(), config=_config())
 
+    assert result["schema"] == "premarket-daily-brief/v2"
+    assert result["brief"]["schema"] == "premarket-daily-brief/v2"
     assert result["brief"]["status"] == "NO_TRADE"
     assert result["brief"]["direction_policy"] == "LONG_SHORT_OR_CASH"
     assert result["brief"]["reason_codes"] == ["NO_APPROVED_STRATEGY_TEMPLATE"]
