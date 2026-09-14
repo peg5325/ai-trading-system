@@ -64,9 +64,14 @@ class FredProvider:
                 if not isinstance(row, dict):
                     errors.append(f"{series.series_id}:FRED_OBSERVATION_NOT_OBJECT")
                     continue
+                raw_value = str(row.get("value", "")).strip()
+                # FRED documents a single period as its null/missing sentinel.
+                # It is an expected calendar gap, not malformed numeric data.
+                if raw_value == ".":
+                    continue
                 try:
                     observation_day = date.fromisoformat(str(row.get("date", "")))
-                    value = Decimal(str(row.get("value", "")))
+                    value = Decimal(raw_value)
                 except (InvalidOperation, ValueError):
                     errors.append(f"{series.series_id}:FRED_OBSERVATION_INVALID")
                     continue

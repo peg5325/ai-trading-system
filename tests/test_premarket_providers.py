@@ -14,7 +14,7 @@ from src.premarket.providers.collector import (
     CollectionContext,
     build_provider_bundle,
 )
-from src.premarket.providers.config import ProviderConfig
+from src.premarket.providers.config import ProviderConfig, load_provider_config
 from src.premarket.providers.fred import FredProvider
 from src.premarket.providers.http import (
     BoundedHttpClient,
@@ -744,6 +744,7 @@ def test_marketaux_page_cap_cannot_report_incomplete_result_ok(tmp_path):
     ("observation", "expected"),
     [
         (None, "FRED_OBSERVATION_MISSING"),
+        ({"date": "2026-09-08", "value": "."}, "FRED_OBSERVATION_MISSING"),
         ({"date": "2026-08-01", "value": "4.0"}, "FRED_OBSERVATION_STALE"),
         ({"date": "2026-09-08", "value": "NaN"}, "FRED_OBSERVATION_INVALID"),
     ],
@@ -766,6 +767,43 @@ def test_fred_required_series_missing_stale_or_invalid_is_error(
     client.close()
     assert result["status"] == "ERROR"
     assert expected in result["error_code"]
+    if observation is not None and observation.get("value") == ".":
+        assert "FRED_OBSERVATION_INVALID" not in result["error_code"]
+
+
+def test_fred_skips_documented_missing_sentinel_when_valid_observation_exists(
+    tmp_path,
+):
+    def handler(request):
+        if request.url.path.endswith("/releases/dates"):
+            return httpx.Response(200, json={
+                "count": 0, "offset": 0, "limit": 1000, "release_dates": [],
+            })
+        series_id = request.url.params["series_id"]
+        observations = [{"date": "2026-09-08", "value": "4.80"}]
+        if series_id == "DGS10":
+            observations.append({"date": "2026-09-09", "value": "."})
+        return httpx.Response(200, json={"observations": observations})
+
+    client, raw_store = _http(handler, tmp_path)
+    result = FredProvider(_config().fred, client, api_key="fred").collect(
+        _context(), raw_store
+    )
+    client.close()
+
+    assert result["status"] == "OK"
+    dgs10 = next(item for item in result["items"] if item.get("series_id") == "DGS10")
+    assert dgs10["observation_date"] == "2026-09-08"
+    assert dgs10["value"] == "4.80"
+
+
+def test_production_dollar_index_freshness_covers_h10_release_cadence():
+    config = load_provider_config(ROOT / "config" / "premarket_providers.yaml")
+    max_age_by_series = {
+        series.series_id: series.max_age_days for series in config.fred.series
+    }
+
+    assert max_age_by_series["DTWEXBGS"] == 14
 
 
 def test_schedule_gate_rejects_holiday_wrong_cutoff_and_late_execution():

@@ -55,7 +55,9 @@ fred:
     - {series_id: VIXCLS, label: "CBOE Volatility Index close", max_age_days: 7}
     - {series_id: DGS10, label: "10-Year Treasury constant maturity rate", max_age_days: 7}
     - {series_id: DFF, label: "Effective federal funds rate", max_age_days: 7}
-    - {series_id: DTWEXBGS, label: "Trade Weighted U.S. Dollar Index", max_age_days: 7}
+    # H.10 publishes batches of daily values; the latest observation can be
+    # 10 calendar days old before the next normal release after a long weekend.
+    - {series_id: DTWEXBGS, label: "Trade Weighted U.S. Dollar Index", max_age_days: 14}
     - {series_id: CPIAUCSL, label: "Consumer Price Index", max_age_days: 45}
     - {series_id: PAYEMS, label: "All Employees, Total Nonfarm", max_age_days: 45}
     - {series_id: UNRATE, label: "Unemployment Rate", max_age_days: 45}
