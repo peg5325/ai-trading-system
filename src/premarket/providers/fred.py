@@ -64,9 +64,14 @@ class FredProvider:
                 if not isinstance(row, dict):
                     errors.append(f"{series.series_id}:FRED_OBSERVATION_NOT_OBJECT")
                     continue
+                raw_value = str(row.get("value", "")).strip()
+                # FRED documents a single period as its null/missing sentinel.
+                # It is an expected calendar gap, not malformed numeric data.
+                if raw_value == ".":
+                    continue
                 try:
                     observation_day = date.fromisoformat(str(row.get("date", "")))
-                    value = Decimal(str(row.get("value", "")))
+                    value = Decimal(raw_value)
                 except (InvalidOperation, ValueError):
                     errors.append(f"{series.series_id}:FRED_OBSERVATION_INVALID")
                     continue
@@ -80,7 +85,8 @@ class FredProvider:
                 continue
             row = max(eligible, key=lambda item: str(item.get("date", "")))
             observation_day = date.fromisoformat(str(row["date"]))
-            if (context.trading_day - observation_day).days > series.max_age_days:
+            observation_age_days = (context.trading_day - observation_day).days
+            if observation_age_days > series.max_age_days:
                 errors.append(f"{series.series_id}:FRED_OBSERVATION_STALE")
                 continue
             safe = {
@@ -93,6 +99,12 @@ class FredProvider:
                 "realtime_start": str(row.get("realtime_start", payload.get("realtime_start", vintage_day))),
                 "realtime_end": str(row.get("realtime_end", payload.get("realtime_end", vintage_day))),
                 "retrieved_as_of": context.as_of,
+                "freshness_basis": "calendar_days",
+                "freshness_max_age_days": series.max_age_days,
+                "freshness_observation_age_days": observation_age_days,
+                "freshness_reason": (
+                    series.freshness_reason or "default seven-day freshness"
+                ),
                 "source_url": f"https://fred.stlouisfed.org/series/{series.series_id}",
             }
             safe["content_sha256"] = payload_sha256(safe)

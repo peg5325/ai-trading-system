@@ -23,7 +23,12 @@ Daily Brief에 입력할 수 있다. 특히 이 PR은 Daily Brief가 요구하�
   기본 속도는 2 req/sec다.
 - FRED/ALFRED: `FRED_API_KEY`가 있을 때만 고정 series allowlist와 당일 release calendar를
   호출한다. `realtime_start`와 `realtime_end`를 collection `as_of` 날짜로 고정하고 observation의
-  realtime 범위를 보존한다. 필수 series가 비거나 series별 freshness를 넘으면 fail-closed다.
+  realtime 범위를 보존한다. FRED가 공식 결측값으로 사용하는 `.`은 유효 관측 후보에서 제외하며,
+  그 결과 필수 series에 유효값이 없으면 missing으로 fail-closed한다. 다른 비수치·NaN·무한대는
+  invalid로 fail-closed한다. 필수 series가 비거나 series별 freshness를 넘으면 fail-closed다.
+  freshness는 달력일 기준이며, `DTWEXBGS`는 H.10의 묶음 발표 주기와 긴 주말을 포함하도록
+  14일, 그 외 일별 시장 series는 7일을 사용한다. 7일을 초과하는 series 설정에는
+  `freshness_reason`을 의무화하며, 각 산출 item에는 관측 나이·허용 일수·근거를 함께 남긴다.
 
 자격증명이 하나라도 없으면 해당 provider는 네트워크를 호출하지 않고 `UNAVAILABLE`을 남긴다.
 하나 이상의 provider가 `OK`가 아니면 bundle은 `FAIL_CLOSED`다.
@@ -61,4 +66,5 @@ CLI는 기존 NYSE 캘린더로 거래일과 PRIMARY/VERIFICATION/FREEZE 실행�
 - SEC EDGAR API documentation: `https://www.sec.gov/search-filings/edgar-application-programming-interfaces`
 - SEC fair access policy: `https://www.sec.gov/about/webmaster-frequently-asked-questions`
 - FRED observations API: `https://fred.stlouisfed.org/docs/api/fred/series_observations.html`
+- FRED v2 missing-value contract: `https://fred.stlouisfed.org/docs/api/fred/v2/release_observations.html`
 - FRED real-time periods: `https://fred.stlouisfed.org/docs/api/fred/realtime_period.html`
