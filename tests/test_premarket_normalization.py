@@ -1,0 +1,524 @@
+from __future__ import annotations
+
+import json
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+
+from src.history.exchange_calendar import is_trading_day
+from src.history.raw_snapshot import RawSnapshotStore
+from src.models import Candle
+from src.premarket.contract import PremarketConfig, quality_defects
+from src.premarket.market_snapshot import (
+    MarketSnapshotPolicy,
+    build_market_bundle,
+)
+from src.premarket.normalizer import normalize_bundles
+from src.premarket.planner import build_daily_brief
+from src.premarket.schedule import build_premarket_schedule
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _config() -> PremarketConfig:
+    return PremarketConfig.from_mapping({
+        "schema": "premarket-config/v1",
+        "required_source_kinds": ["MARKET", "NEWS"],
+        "source_freshness_minutes": 180,
+        "primary_offset_minutes": 90,
+        "verification_offset_minutes": 30,
+        "freeze_offset_minutes": 20,
+        "max_candidates": 3,
+        "min_liquidity_score": 0.0,
+        "min_catalyst_score": 0.0,
+        "approved_strategy_templates": [],
+        "approved_short_strategy_templates": [],
+        "allowed_symbols": ["SPY", "QQQ", "AAPL", "MSFT"],
+        "excluded_universe_classes": ["inverse_etf"],
+        "weights": {
+            "catalyst_score": 0.30,
+            "trend_score": 0.25,
+            "relative_strength_score": 0.20,
+            "volume_score": 0.15,
+            "liquidity_score": 0.10,
+        },
+    })
+
+
+def _iso(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _provider_bundle(*, vix: float = 24.99) -> dict:
+    as_of = "2026-03-09T12:00:00Z"
+    return {
+        "schema": "premarket-provider-bundle/v1",
+        "artifact_sha256": "a" * 64,
+        "collection_status": "OK",
+        "collection_defects": [],
+        "trading_day": "2026-03-09",
+        "stage": "PRIMARY",
+        "as_of": as_of,
+        "symbols": ["SPY", "QQQ", "AAPL", "MSFT"],
+        "providers": [
+            {
+                "provider": "marketaux",
+                "kind": "NEWS",
+                "status": "OK",
+                "source": {
+                    "source_id": "news-src",
+                    "kind": "NEWS",
+                    "status": "OK",
+                    "source_url": "https://api.marketaux.com/v1/news/all",
+                    "content_sha256": "b" * 64,
+                },
+                "items": [
+                    {
+                        "item_id": "news:aapl:1",
+                        "item_type": "NEWS",
+                        "published_at": "2026-03-09T11:30:00Z",
+                        "source_url": "https://publisher.invalid/aapl",
+                        "content_sha256": "c" * 64,
+                        "symbols": ["AAPL"],
+                        "sentiment": 0.5,
+                    },
+                    {
+                        "item_id": "news:aapl:2",
+                        "item_type": "NEWS",
+                        "published_at": "2026-03-09T11:40:00Z",
+                        "source_url": "https://publisher.invalid/aapl-2",
+                        "content_sha256": "d" * 64,
+                        "symbols": ["AAPL"],
+                        "sentiment": -0.1,
+                    },
+                    {
+                        "item_id": "news:msft:1",
+                        "item_type": "NEWS",
+                        "published_at": "2026-03-09T11:35:00Z",
+                        "source_url": "https://publisher.invalid/msft",
+                        "content_sha256": "e" * 64,
+                        "symbols": ["MSFT"],
+                        "sentiment": 0.2,
+                    },
+                ],
+            },
+            {
+                "provider": "sec-edgar",
+                "kind": "FILING",
+                "status": "OK",
+                "source": {
+                    "source_id": "filing-src",
+                    "kind": "FILING",
+                    "status": "OK",
+                    "source_url": "https://data.sec.gov/submissions",
+                    "content_sha256": "f" * 64,
+                },
+                "items": [
+                    {
+                        "item_id": "sec:msft:recent",
+                        "item_type": "FILING",
+                        "accepted_at": "2026-03-09T10:00:00Z",
+                        "form": "8-K",
+                        "source_url": "https://sec.invalid/msft",
+                        "content_sha256": "1" * 64,
+                        "symbols": ["MSFT"],
+                    },
+                    {
+                        "item_id": "sec:aapl:old",
+                        "item_type": "FILING",
+                        "accepted_at": "2026-03-07T10:00:00Z",
+                        "form": "8-K",
+                        "source_url": "https://sec.invalid/aapl-old",
+                        "content_sha256": "2" * 64,
+                        "symbols": ["AAPL"],
+                    },
+                ],
+            },
+            {
+                "provider": "fred-alfred",
+                "kind": "MACRO",
+                "status": "OK",
+                "source": {
+                    "source_id": "fred-src",
+                    "kind": "MACRO",
+                    "status": "OK",
+                    "source_url": "https://api.stlouisfed.org/fred/series/observations",
+                    "content_sha256": "3" * 64,
+                },
+                "items": [
+                    {
+                        "item_id": "fred:VIXCLS",
+                        "item_type": "MACRO",
+                        "series_id": "VIXCLS",
+                        "observation_date": "2026-03-06",
+                        "value": str(vix),
+                    }
+                ],
+            },
+        ],
+    }
+
+
+def _daily(symbol: str, *, close_last: float = 101.0, below_sma: bool = False) -> list[dict]:
+    out = []
+    start = date(2025, 5, 12)
+    day = start
+    idx = 0
+    while len(out) < 200:
+        if not is_trading_day(day):
+            day += timedelta(days=1)
+            continue
+        close = 100.0
+        if len(out) == 199:
+            close = 80.0 if below_sma else close_last
+        out.append({
+            "symbol": symbol,
+            "interval": "1d",
+            "ts_utc": f"{day.isoformat()}T21:00:00Z",
+            "ts_exchange": f"{day.isoformat()}T16:00:00-05:00",
+            "exchange_date": day.isoformat(),
+            "session": "REGULAR",
+            "open": close,
+            "high": close,
+            "low": close,
+            "close": close,
+            "volume": 1_000_000 + idx,
+            "currency": "USD",
+            "adjusted": True,
+            "market": "US",
+        })
+        idx += 1
+        day += timedelta(days=1)
+    return out
+
+
+def _minute(symbol: str, *, latest: float = 110.0, volume_last: float = 200.0) -> list[dict]:
+    start = datetime(2026, 3, 9, 9, 30, tzinfo=timezone.utc)
+    rows = []
+    for idx in range(120):
+        ts = start + timedelta(minutes=idx)
+        close = latest - (119 - idx) * 0.1
+        rows.append({
+            "symbol": symbol,
+            "interval": "1m",
+            "ts_utc": _iso(ts),
+            "ts_exchange": _iso(ts),
+            "exchange_date": "2026-03-09",
+            "session": "PRE",
+            "open": close,
+            "high": close,
+            "low": close,
+            "close": close,
+            "volume": volume_last if idx >= 115 else 100.0,
+            "currency": "USD",
+            "adjusted": True,
+            "market": "US",
+        })
+    return rows
+
+
+def _market_bundle(*, vix: float = 24.99, below_sma: bool = False) -> dict:
+    symbols = []
+    for idx, symbol in enumerate(["SPY", "QQQ", "AAPL", "MSFT"]):
+        symbols.append({
+            "symbol": symbol,
+            "status": "OK",
+            "defects": [],
+            "candles_1m": _minute(symbol, latest=110 + idx, volume_last=200 + idx),
+            "candles_1d": _daily(symbol, close_last=101 + idx, below_sma=below_sma and symbol in {"SPY", "QQQ"}),
+        })
+    bundle = {
+        "schema": "premarket-market-bundle/v1",
+        "trading_day": "2026-03-09",
+        "stage": "PRIMARY",
+        "as_of": "2026-03-09T12:00:00Z",
+        "generated_at": "2026-03-09T12:00:30Z",
+        "provider_bundle_sha256": "a" * 64,
+        "collection_status": "OK",
+        "collection_defects": [],
+        "raw_manifest": {"raw_content_sha256": "4" * 64},
+        "request_receipts": [],
+        "symbols": symbols,
+    }
+    bundle["artifact_sha256"] = "5" * 64
+    return bundle
+
+
+def test_normalizer_builds_v2_scores_and_default_no_trade() -> None:
+    normalized = normalize_bundles(_provider_bundle(), _market_bundle())
+    assert normalized["schema"] == "premarket-input/v2"
+    assert normalized["stage"] == "PRIMARY"
+    aapl = next(item for item in normalized["candidates"] if item["symbol"] == "AAPL")
+    assert aapl["strategy_template_id"] is None
+    assert aapl["catalyst_score"] == pytest.approx(0.2)
+    assert aapl["trend_score"] in {0.0, 0.5, 1.0}
+    assert aapl["volume_score"] == 0.9
+    assert 0.0 <= aapl["relative_strength_score"] <= 1.0
+    assert 0.0 <= aapl["liquidity_score"] <= 1.0
+    assert normalized["market_regime"]["label"] == "RISK_ON"
+
+    schedule = build_premarket_schedule(date(2026, 3, 9))
+    brief = build_daily_brief(normalized, schedule=schedule, config=_config())
+    assert brief["brief"]["status"] == "NO_TRADE"
+    assert brief["brief"]["orders"] == []
+    assert brief["brief"]["reason_codes"] == ["NO_APPROVED_STRATEGY_TEMPLATE"]
+
+
+@pytest.mark.parametrize(
+    ("vix", "below_sma", "expected"),
+    [
+        (25.0, False, "UNCERTAIN"),
+        (30.0, False, "RISK_OFF"),
+        (24.0, True, "RISK_OFF"),
+    ],
+)
+def test_regime_boundaries(vix: float, below_sma: bool, expected: str) -> None:
+    normalized = normalize_bundles(
+        _provider_bundle(vix=vix),
+        _market_bundle(vix=vix, below_sma=below_sma),
+    )
+    assert normalized["market_regime"]["label"] == expected
+
+
+def test_v2_allows_ingestion_after_as_of_but_not_after_generated_at() -> None:
+    normalized = normalize_bundles(_provider_bundle(), _market_bundle())
+    normalized["sources"][0]["ingested_at"] = "2026-03-09T12:00:20Z"
+    schedule = build_premarket_schedule(date(2026, 3, 9))
+    assert "FUTURE_SOURCE_EVIDENCE" not in quality_defects(normalized, schedule, _config())
+    normalized["sources"][0]["ingested_at"] = "2026-03-09T12:00:31Z"
+    assert "FUTURE_SOURCE_EVIDENCE" in quality_defects(normalized, schedule, _config())
+
+
+def test_v2_stage_windows_are_exact_and_stage_specific() -> None:
+    schedule = build_premarket_schedule(date(2026, 3, 9))
+    normalized = normalize_bundles(_provider_bundle(), _market_bundle())
+    assert quality_defects(normalized, schedule, _config()) == []
+
+    late_primary = dict(normalized)
+    late_primary["generated_at"] = schedule.verification_utc
+    assert "GENERATED_AFTER_STAGE_WINDOW" in quality_defects(
+        late_primary, schedule, _config()
+    )
+
+    freeze_provider = _provider_bundle()
+    freeze_provider["stage"] = "FREEZE"
+    freeze_provider["as_of"] = schedule.freeze_utc
+    freeze_market = _market_bundle()
+    freeze_market["stage"] = "FREEZE"
+    freeze_market["as_of"] = schedule.freeze_utc
+    freeze_market["generated_at"] = "2026-03-09T13:20:00Z"
+    freeze = normalize_bundles(freeze_provider, freeze_market)
+    assert "GENERATED_AFTER_STAGE_WINDOW" not in quality_defects(
+        freeze, schedule, _config()
+    )
+    freeze["generated_at"] = schedule.market_open_utc
+    assert "GENERATED_AFTER_STAGE_WINDOW" in quality_defects(
+        freeze, schedule, _config()
+    )
+
+    wrong_as_of = dict(normalized)
+    wrong_as_of["as_of"] = "2026-03-09T12:01:00Z"
+    assert "STAGE_AS_OF_MISMATCH" in quality_defects(wrong_as_of, schedule, _config())
+
+
+def test_failed_market_bundle_still_normalizes_to_auditable_no_trade() -> None:
+    market = _market_bundle()
+    market["collection_status"] = "FAIL_CLOSED"
+    market["collection_defects"] = ["FUTURE_OR_INCOMPLETE_1M_CANDLE:AAPL"]
+    normalized = normalize_bundles(_provider_bundle(), market)
+    assert normalized["candidates"] == []
+    assert normalized["market_regime"]["label"] == "UNCERTAIN"
+    assert normalized["provenance"]["fail_closed_defects"] == [
+        "FUTURE_OR_INCOMPLETE_1M_CANDLE:AAPL"
+    ]
+    schedule = build_premarket_schedule(date(2026, 3, 9))
+    brief = build_daily_brief(normalized, schedule=schedule, config=_config())
+    assert brief["brief"]["status"] == "NO_TRADE"
+    assert "MISSING_OR_UNHEALTHY_MARKET_SOURCE" in brief["brief"]["reason_codes"]
+
+
+def test_percentile_ties_are_average_rank_and_order_invariant() -> None:
+    market = _market_bundle()
+    for item in market["symbols"]:
+        if item["symbol"] in {"AAPL", "MSFT"}:
+            for row in item["candles_1m"]:
+                row["close"] = 110.0
+            for row in item["candles_1d"]:
+                row["close"] = 100.0
+    first = normalize_bundles(_provider_bundle(), market)
+    market["symbols"].reverse()
+    second = normalize_bundles(_provider_bundle(), market)
+    assert first["artifact_sha256"] == second["artifact_sha256"]
+    scores = {
+        item["symbol"]: item["relative_strength_score"]
+        for item in first["candidates"]
+        if item["symbol"] in {"AAPL", "MSFT"}
+    }
+    assert scores["AAPL"] == scores["MSFT"]
+
+
+class _FakeProvider:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str, int, str | None]] = []
+
+    def fetch_page(self, symbol, interval, count=200, before=None, *, raw_sink=None):
+        self.calls.append((symbol, interval, count, before))
+        if raw_sink is not None:
+            raw_sink(
+                symbol=symbol,
+                interval=interval,
+                before=before,
+                requested_at="2026-03-09T12:00:00Z",
+                received_at="2026-03-09T12:00:01Z",
+                source="toss",
+                payload={"candles": [{"safe": True}], "nextBefore": None},
+            )
+        base = datetime(2026, 3, 9, 9, 0, tzinfo=timezone.utc)
+        if interval == "1m":
+            candles = [
+                Candle.from_moment(
+                    symbol=symbol,
+                    interval="1m",
+                    moment=base + timedelta(minutes=idx),
+                    o=1,
+                    h=1,
+                    low=1,
+                    c=1,
+                    v=1,
+                    currency="USD",
+                    adjusted=True,
+                )
+                for idx in range(121)
+            ]
+            candles.append(Candle.from_moment(
+                symbol=symbol,
+                interval="1m",
+                moment=datetime(2026, 3, 9, 12, 0, tzinfo=timezone.utc),
+                o=1,
+                h=1,
+                low=1,
+                c=1,
+                v=1,
+                currency="USD",
+                adjusted=True,
+            ))
+        else:
+            candles = [
+                Candle.from_moment(
+                    symbol=symbol,
+                    interval="1d",
+                    moment=datetime(2026, 3, 6, 21, 0, tzinfo=timezone.utc) - timedelta(days=idx),
+                    o=1,
+                    h=1,
+                    low=1,
+                    c=1,
+                    v=1,
+                    currency="USD",
+                    adjusted=True,
+                )
+                for idx in range(200)
+            ]
+        return candles, None
+
+
+class _FutureProvider(_FakeProvider):
+    def fetch_page(self, symbol, interval, count=200, before=None, *, raw_sink=None):
+        candles, cursor = super().fetch_page(
+            symbol, interval, count=count, before=before, raw_sink=raw_sink
+        )
+        if interval == "1m":
+            candles.append(Candle.from_moment(
+                symbol=symbol,
+                interval="1m",
+                moment=datetime(2026, 3, 9, 12, 1, tzinfo=timezone.utc),
+                o=1,
+                h=1,
+                low=1,
+                c=1,
+                v=1,
+                currency="USD",
+                adjusted=True,
+            ))
+        else:
+            candles.append(Candle.from_moment(
+                symbol=symbol,
+                interval="1d",
+                moment=datetime(2026, 3, 10, 21, 0, tzinfo=timezone.utc),
+                o=1,
+                h=1,
+                low=1,
+                c=1,
+                v=1,
+                currency="USD",
+                adjusted=True,
+            ))
+        return candles, cursor
+
+
+def test_market_snapshot_uses_before_cutoff_preserves_raw_and_clips_incomplete(tmp_path: Path) -> None:
+    provider = _FakeProvider()
+    sleeps: list[float] = []
+    bundle = build_market_bundle(
+        _provider_bundle(),
+        raw_root=tmp_path / "raw",
+        config_path=ROOT / "config" / "premarket_daily_brief.yaml",
+        provider=provider,
+        policy=MarketSnapshotPolicy(max_pages_1m=1, max_pages_1d=1),
+        sleep=sleeps.append,
+        clock=lambda: datetime(2026, 3, 9, 12, 0, 30, tzinfo=timezone.utc),
+    )
+    assert all(call[3] == "2026-03-09T12:00:00Z" for call in provider.calls)
+    assert all(call[2] <= 200 for call in provider.calls)
+    assert sleeps == [0.4] * (len(provider.calls) - 1)
+    assert all("received_at" in item and "requested_at" in item for item in bundle["request_receipts"])
+    assert bundle["raw_manifest"]["content_file_count"] >= 1
+    spy = next(item for item in bundle["symbols"] if item["symbol"] == "SPY")
+    assert len(spy["candles_1m"]) == 121
+    assert spy["defects"] == []
+    assert spy["excluded_boundary_counts"]["forming_1m_exact_as_of"] == 1
+    assert spy["excluded_boundary_counts"]["incomplete_1m_at_or_before_as_of"] == 1
+    assert bundle["collection_status"] == "OK"
+    raw_payload = RawSnapshotStore(str(tmp_path / "raw")).read_payload(
+        bundle["request_receipts"][0]["rel_path"]
+    )
+    assert "Authorization" not in json.dumps(raw_payload)
+
+
+def test_market_snapshot_rejects_actual_future_rows_not_boundary_rows(tmp_path: Path) -> None:
+    bundle = build_market_bundle(
+        _provider_bundle(),
+        raw_root=tmp_path / "raw",
+        config_path=ROOT / "config" / "premarket_daily_brief.yaml",
+        provider=_FutureProvider(),
+        policy=MarketSnapshotPolicy(max_pages_1m=1, max_pages_1d=1, request_spacing_seconds=0),
+        sleep=lambda _seconds: None,
+        clock=lambda: datetime(2026, 3, 9, 12, 0, 30, tzinfo=timezone.utc),
+    )
+    spy = next(item for item in bundle["symbols"] if item["symbol"] == "SPY")
+    assert bundle["collection_status"] == "FAIL_CLOSED"
+    assert "FUTURE_OR_INCOMPLETE_1M_CANDLE" in spy["defects"]
+    assert "FUTURE_OR_INCOMPLETE_1D_CANDLE" in spy["defects"]
+    assert spy["excluded_boundary_counts"]["forming_1m_exact_as_of"] == 1
+    assert spy["excluded_boundary_counts"]["daily_on_trading_day"] == 0
+
+
+def test_no_db_order_broker_or_forward_imports_in_new_premarket_surface() -> None:
+    paths = [
+        ROOT / "src" / "premarket" / "market_snapshot.py",
+        ROOT / "src" / "premarket" / "normalizer.py",
+        ROOT / "scripts" / "collect_premarket_market.py",
+        ROOT / "scripts" / "normalize_premarket_input.py",
+    ]
+    source = "\n".join(path.read_text(encoding="utf-8") for path in paths)
+    forbidden = (
+        "market_history.sqlite",
+        "src.order",
+        "src.live",
+        "src.broker",
+        "forward_return",
+        "compute_forward",
+        "submit_order",
+        "place_order",
+    )
+    assert {token for token in forbidden if token in source} == set()

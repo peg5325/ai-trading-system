@@ -28,9 +28,13 @@
 - 일봉은 거래소 날짜가 `trading_day`보다 이전인 완결 봉만 허용한다.
 - 종목별 1분봉은 최소 120개, 일봉은 최소 20개를 요구한다. SPY와 QQQ는 regime용 완결
   일봉 200개를 요구한다.
-- 페이지 수와 요청 간격을 제한하고, 모든 원시 Toss payload를 `RawSnapshotStore`에 parse 전에
-  보존한다.
-- 캔들 충돌·부족·미래 봉·심볼 누락은 성공으로 축소하지 않고 bundle defect로 남긴다.
+- 페이지 수를 제한하고 요청 사이 0.4초 간격을 적용하며, 모든 원시 Toss payload를
+  `RawSnapshotStore`에 parse 전에 보존한다.
+- Toss가 cutoff와 같은 시각의 형성 중 1분봉 또는 해당 거래일의 미완성 일봉을 포함하는 것은
+  공급자 경계 의미로 인정한다. 이 두 종류는 계산에서 제외하고 제외 행수를 감사 필드에 남긴다.
+- cutoff보다 실제로 뒤인 1분봉, trading day보다 뒤인 일봉, cursor 역행·정체, 캔들 충돌·부족,
+  심볼 누락은 bundle defect로 남긴다.
+- 5분봉은 별도 구현을 만들지 않고 `src.bars.resample.resample_1m`의 canonical 경로를 사용한다.
 - canonical `data/market_history.sqlite`는 읽거나 쓰지 않는다. 9월 장전 시점과 7월 고정 DB를
   섞지 않는다.
 
@@ -38,6 +42,7 @@
 
 - `as_of`: stage의 증거 cutoff. 이 시각보다 뒤에 관측되거나 공개된 정보는 금지한다.
 - `generated_at`: 실제 수집·정규화가 끝난 시각. `as_of` 이상이고 해당 stage 실행창 안이어야 한다.
+  PRIMARY는 VERIFICATION 전, VERIFICATION은 FREEZE 전, FREEZE는 정규장 개장 전에 끝나야 한다.
 - source/event/candidate/regime의 `observed_at`·`available_at`은 `as_of` 이하여야 한다.
 - `ingested_at`은 `available_at` 이상, `generated_at` 이하여야 한다. 네트워크 응답이 cutoff 뒤에
   도착하는 정상 live 수집을 미래정보로 오인하지 않는다.
@@ -53,6 +58,9 @@
   없으므로 sentiment는 0이다.
 - MACRO와 release calendar는 regime source/context이며 종목 catalyst로 변환하지 않는다.
 - 동일 event ID의 상충 revision, 허용 종목 밖 symbol, source join 실패는 fail-closed다.
+- Daily Brief source freshness는 기본 180분을 유지하되, FILING source는 이 계약의 24시간
+  lookback과 동일한 1,440분을 사용한다. 종류별 override는 config에 명시하고, 미지정 kind는
+  기본값을 상속한다.
 
 ## 후보 점수
 
@@ -106,4 +114,3 @@ event source를 참조한다.
 - regime 3상태와 VIX 경계값 25/30.
 - LONG/SHORT 별도 승인과 주문 0건 불변.
 - 실제 2026-09-15 PRIMARY/VERIFICATION/FREEZE bundle을 각각 재현하고 코드·JSON·문서 정합 확인.
-

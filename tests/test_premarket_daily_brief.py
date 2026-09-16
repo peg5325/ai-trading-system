@@ -27,11 +27,13 @@ def _config(
     approved: tuple[str, ...] = (),
     approved_short: tuple[str, ...] = (),
     min_catalyst_score: float = 0.0,
+    freshness_by_kind: dict[str, int] | None = None,
 ) -> PremarketConfig:
     return PremarketConfig.from_mapping({
         "schema": "premarket-config/v1",
         "required_source_kinds": ["MARKET", "NEWS"],
         "source_freshness_minutes": 180,
+        "source_freshness_minutes_by_kind": freshness_by_kind or {},
         "primary_offset_minutes": 90,
         "verification_offset_minutes": 30,
         "freeze_offset_minutes": 20,
@@ -360,12 +362,12 @@ def test_each_used_source_must_be_fresh_even_if_required_kinds_are_healthy(consu
     data = _input()
     stale = {
         "source_id": "optional-stale",
-        "kind": "FILING",
+        "kind": "MACRO",
         "status": "OK",
         "observed_at": "2026-03-09T08:00:00Z",
         "available_at": "2026-03-09T08:00:01Z",
         "ingested_at": "2026-03-09T08:00:02Z",
-        "source_url": "https://evidence.invalid/filing/stale",
+        "source_url": "https://evidence.invalid/macro/stale",
         "content_sha256": "f" * 64,
     }
     data["sources"].append(stale)
@@ -381,6 +383,75 @@ def test_each_used_source_must_be_fresh_even_if_required_kinds_are_healthy(consu
     assert result["brief"]["orders"] == []
     assert result["brief"]["executable"] is False
     assert result["brief"]["promotion_allowed"] is False
+
+
+def test_filing_source_uses_kind_specific_24h_freshness_override():
+    data = _input()
+    filing = {
+        "source_id": "filing-recent",
+        "kind": "FILING",
+        "status": "OK",
+        "observed_at": "2026-03-08T13:00:01Z",
+        "available_at": "2026-03-08T13:00:01Z",
+        "ingested_at": "2026-03-09T12:00:01Z",
+        "source_url": "https://evidence.invalid/filing/recent",
+        "content_sha256": "f" * 64,
+    }
+    event = copy.deepcopy(data["events"][0])
+    event.update(
+        event_id="filing-event",
+        source_id="filing-recent",
+        published_at="2026-03-08T13:00:01Z",
+        available_at="2026-03-08T13:00:01Z",
+        ingested_at="2026-03-09T12:00:01Z",
+        sentiment=0.0,
+        content_sha256="e" * 64,
+    )
+    data["sources"].append(filing)
+    data["events"] = [event]
+    data["candidates"][0]["source_ids"] = ["market-primary", "filing-recent"]
+    data["candidates"][0]["evidence_event_ids"] = ["filing-event"]
+    data["candidates"] = [data["candidates"][0]]
+
+    result = build_daily_brief(
+        data,
+        schedule=_schedule(),
+        config=_config(freshness_by_kind={"FILING": 1440}),
+    )
+    assert "STALE_EVENT_SOURCE" not in result["brief"]["reason_codes"]
+    assert "STALE_CANDIDATE_SOURCE" not in result["brief"]["reason_codes"]
+
+    filing["observed_at"] = "2026-03-08T11:59:59Z"
+    result = build_daily_brief(
+        data,
+        schedule=_schedule(),
+        config=_config(freshness_by_kind={"FILING": 1440}),
+    )
+    assert "STALE_EVENT_SOURCE" in result["brief"]["reason_codes"]
+
+
+def test_news_source_still_uses_global_180m_freshness():
+    data = _input()
+    data["sources"][1]["observed_at"] = "2026-03-09T08:59:59Z"
+    result = build_daily_brief(data, schedule=_schedule(), config=_config())
+    assert "STALE_NEWS_SOURCE" in result["brief"]["reason_codes"]
+
+
+def test_kind_specific_freshness_override_validation():
+    raw = {
+        "schema": "premarket-config/v1",
+        "required_source_kinds": ["MARKET"],
+        "source_freshness_minutes_by_kind": {"UNKNOWN": 1440},
+        "weights": {name: 0.2 for name in (
+            "catalyst_score", "trend_score", "relative_strength_score",
+            "volume_score", "liquidity_score",
+        )},
+    }
+    with pytest.raises(ValueError, match="unsupported kind"):
+        PremarketConfig.from_mapping(raw)
+    raw["source_freshness_minutes_by_kind"] = {"FILING": 0}
+    with pytest.raises(ValueError, match="positive"):
+        PremarketConfig.from_mapping(raw)
 
 
 def test_identical_duplicate_candidate_is_deduplicated():
