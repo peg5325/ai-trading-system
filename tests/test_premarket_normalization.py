@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -257,12 +258,58 @@ def test_normalizer_builds_v2_scores_and_default_no_trade() -> None:
     assert 0.0 <= aapl["relative_strength_score"] <= 1.0
     assert 0.0 <= aapl["liquidity_score"] <= 1.0
     assert normalized["market_regime"]["label"] == "RISK_ON"
+    assert normalized["provenance"]["run_mode"] == "LIVE_WINDOW"
 
     schedule = build_premarket_schedule(date(2026, 3, 9))
     brief = build_daily_brief(normalized, schedule=schedule, config=_config())
     assert brief["brief"]["status"] == "NO_TRADE"
     assert brief["brief"]["orders"] == []
     assert brief["brief"]["reason_codes"] == ["NO_APPROVED_STRATEGY_TEMPLATE"]
+
+
+def test_catalyst_mean_includes_neutral_news_and_excludes_filings() -> None:
+    provider = _provider_bundle()
+    news_provider = next(item for item in provider["providers"] if item["provider"] == "marketaux")
+    news_provider["items"] = [
+        {
+            "item_id": "news:aapl:positive",
+            "item_type": "NEWS",
+            "published_at": "2026-03-09T11:30:00Z",
+            "source_url": "https://publisher.invalid/aapl-positive",
+            "content_sha256": "a" * 64,
+            "symbols": ["AAPL"],
+            "sentiment": 1.0,
+        },
+        {
+            "item_id": "news:aapl:neutral",
+            "item_type": "NEWS",
+            "published_at": "2026-03-09T11:31:00Z",
+            "source_url": "https://publisher.invalid/aapl-neutral",
+            "content_sha256": "b" * 64,
+            "symbols": ["AAPL"],
+            "sentiment": 0.0,
+        },
+    ]
+    filing_provider = next(item for item in provider["providers"] if item["provider"] == "sec-edgar")
+    filing_provider["items"] = [
+        {
+            "item_id": "sec:aapl:recent",
+            "item_type": "FILING",
+            "accepted_at": "2026-03-09T10:00:00Z",
+            "form": "8-K",
+            "source_url": "https://sec.invalid/aapl",
+            "content_sha256": "c" * 64,
+            "symbols": ["AAPL"],
+        }
+    ]
+    normalized = normalize_bundles(provider, _market_bundle())
+    aapl = next(item for item in normalized["candidates"] if item["symbol"] == "AAPL")
+    assert aapl["catalyst_score"] == pytest.approx(0.5)
+
+    news_provider["items"] = []
+    normalized = normalize_bundles(provider, _market_bundle())
+    aapl = next(item for item in normalized["candidates"] if item["symbol"] == "AAPL")
+    assert aapl["catalyst_score"] == pytest.approx(0.0)
 
 
 @pytest.mark.parametrize(
@@ -322,6 +369,16 @@ def test_v2_stage_windows_are_exact_and_stage_specific() -> None:
     assert "STAGE_AS_OF_MISMATCH" in quality_defects(wrong_as_of, schedule, _config())
 
 
+def test_run_mode_marks_late_generation_as_retrospective_reconstruction() -> None:
+    market = _market_bundle()
+    market["generated_at"] = "2026-03-10T00:00:00Z"
+    normalized = normalize_bundles(_provider_bundle(), market)
+    assert normalized["provenance"]["run_mode"] == "RETROSPECTIVE_RECONSTRUCTION"
+    assert "GENERATED_AFTER_STAGE_WINDOW" in quality_defects(
+        normalized, build_premarket_schedule(date(2026, 3, 9)), _config()
+    )
+
+
 def test_failed_market_bundle_still_normalizes_to_auditable_no_trade() -> None:
     market = _market_bundle()
     market["collection_status"] = "FAIL_CLOSED"
@@ -356,6 +413,23 @@ def test_percentile_ties_are_average_rank_and_order_invariant() -> None:
         if item["symbol"] in {"AAPL", "MSFT"}
     }
     assert scores["AAPL"] == scores["MSFT"]
+
+
+def test_provider_order_invariant_hash_and_output() -> None:
+    provider = _provider_bundle()
+    reversed_provider = copy.deepcopy(provider)
+    reversed_provider["providers"].reverse()
+    first = normalize_bundles(provider, _market_bundle())
+    second = normalize_bundles(reversed_provider, _market_bundle())
+    assert first == second
+    assert first["artifact_sha256"] == second["artifact_sha256"]
+
+
+def test_normalizer_rejects_invalid_provider_schema() -> None:
+    provider = _provider_bundle()
+    provider["schema"] = "wrong/v1"
+    with pytest.raises(ValueError, match="provider bundle"):
+        normalize_bundles(provider, _market_bundle())
 
 
 class _FakeProvider:

@@ -15,7 +15,7 @@ from src.engines.indicators import ema
 from src.history.exchange_calendar import regular_close_minute
 from src.models import Candle
 from src.premarket.contract import INPUT_SCHEMA_V2, sha256_payload
-from src.premarket.schedule import parse_iso
+from src.premarket.schedule import build_premarket_schedule, parse_iso
 
 ET = ZoneInfo("America/New_York")
 
@@ -169,6 +169,7 @@ def _events(provider_bundle: Mapping[str, Any], allowed: set[str], as_of: str,
                     "source_url": str(item["source_url"]),
                     "content_sha256": str(item["content_sha256"]),
                     "symbols": symbols,
+                    "event_kind": "NEWS",
                     "sentiment": _clip(float(item.get("sentiment", 0.0)), -1.0, 1.0),
                 }
             elif item_type == "FILING":
@@ -191,6 +192,7 @@ def _events(provider_bundle: Mapping[str, Any], allowed: set[str], as_of: str,
                     "source_url": str(item["source_url"]),
                     "content_sha256": str(item["content_sha256"]),
                     "symbols": symbols,
+                    "event_kind": "FILING",
                     "sentiment": 0.0,
                 }
             else:
@@ -218,6 +220,8 @@ def _vix_value(provider_bundle: Mapping[str, Any]) -> float | None:
 
 
 def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping[str, Any]) -> dict[str, Any]:
+    if provider_bundle.get("schema") != "premarket-provider-bundle/v1":
+        raise ValueError("provider bundle must be premarket-provider-bundle/v1")
     if market_bundle.get("schema") != "premarket-market-bundle/v1":
         raise ValueError("market bundle must be premarket-market-bundle/v1")
     for field in ("trading_day", "stage", "as_of"):
@@ -226,6 +230,12 @@ def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping
     trading_day = str(provider_bundle["trading_day"])
     as_of = str(provider_bundle["as_of"])
     generated_at = str(market_bundle["generated_at"])
+    run_mode = _run_mode(
+        trading_day=trading_day,
+        stage=str(provider_bundle["stage"]),
+        as_of=as_of,
+        generated_at=generated_at,
+    )
     allowed = {str(symbol) for symbol in provider_bundle.get("symbols", [])}
     market_by_symbol = {item["symbol"]: item for item in market_bundle.get("symbols", [])}
     sources = _provider_sources(provider_bundle, generated_at)
@@ -268,7 +278,7 @@ def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping
             "stage": str(provider_bundle["stage"]),
             "as_of": as_of,
             "generated_at": generated_at,
-            "sources": sources,
+            "sources": sorted(sources, key=lambda item: (item["source_id"], item["kind"])),
             "events": [],
             "candidates": [],
             "market_regime": {
@@ -282,6 +292,7 @@ def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping
                 "market_bundle_sha256": market_bundle["artifact_sha256"],
                 "fail_closed_defects": list(provider_bundle.get("collection_defects", []))
                 + list(market_bundle.get("collection_defects", [])),
+                "run_mode": run_mode,
             },
         }
         result["artifact_sha256"] = sha256_payload(result)
@@ -327,7 +338,11 @@ def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping
         volume = _volume_score(features[symbol]["bars_5m"])
         if trend is None or volume is None or symbol not in rs_percentile or symbol not in liquidity_percentile:
             continue
-        news_sentiments = [float(event["sentiment"]) for event in symbol_events if float(event["sentiment"]) != 0.0]
+        news_sentiments = [
+            float(event["sentiment"])
+            for event in symbol_events
+            if event.get("event_kind") == "NEWS"
+        ]
         catalyst = _clip(sum(news_sentiments) / len(news_sentiments), -1.0, 1.0) if news_sentiments else 0.0
         available_at = max(
             [features[symbol]["latest_1m_available_at"], features[symbol]["daily_available_at"]]
@@ -355,7 +370,7 @@ def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping
         "stage": str(provider_bundle["stage"]),
         "as_of": as_of,
         "generated_at": generated_at,
-        "sources": sources,
+        "sources": sorted(sources, key=lambda item: (item["source_id"], item["kind"])),
         "events": events,
         "candidates": candidates,
         "market_regime": regime,
@@ -363,6 +378,7 @@ def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping
             "provider_bundle_sha256": provider_bundle["artifact_sha256"],
             "market_bundle_sha256": market_bundle["artifact_sha256"],
             "market_excluded_boundary_counts": market_bundle.get("excluded_boundary_counts", {}),
+            "run_mode": run_mode,
         },
     }
     result["artifact_sha256"] = sha256_payload(result)
@@ -408,3 +424,21 @@ def _regime(
         "ingested_at": generated_at,
         "source_ids": sorted({source_id for source_id in source_ids if source_id}),
     }
+
+
+def _run_mode(*, trading_day: str, stage: str, as_of: str, generated_at: str) -> str:
+    schedule = build_premarket_schedule(date.fromisoformat(trading_day))
+    expected_as_of = {
+        "PRIMARY": schedule.primary_run_utc,
+        "VERIFICATION": schedule.verification_utc,
+        "FREEZE": schedule.freeze_utc,
+    }.get(stage)
+    stage_end = {
+        "PRIMARY": schedule.verification_utc,
+        "VERIFICATION": schedule.freeze_utc,
+        "FREEZE": schedule.market_open_utc,
+    }.get(stage)
+    generated = parse_iso(generated_at)
+    if expected_as_of == as_of and stage_end is not None and parse_iso(as_of) <= generated < parse_iso(stage_end):
+        return "LIVE_WINDOW"
+    return "RETROSPECTIVE_RECONSTRUCTION"

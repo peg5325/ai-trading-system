@@ -24,7 +24,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Normalized local evidence -> read-only premarket Daily Brief"
     )
-    parser.add_argument("--input", required=True, help="normalized premarket-input/v1 JSON")
+    parser.add_argument("--input", required=True, help="normalized premarket-input/v1 or v2 JSON")
     parser.add_argument("--config", default="config/premarket_daily_brief.yaml")
     parser.add_argument("--out-json", required=True)
     parser.add_argument("--out-markdown", required=True)
