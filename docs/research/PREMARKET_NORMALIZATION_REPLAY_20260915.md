@@ -16,6 +16,11 @@ The Toss market snapshots and local calculations succeeded, but the
 normalization/brief artifacts were generated after each original stage window.
 Therefore every operational Daily Brief remains fail-closed as `NO_TRADE`.
 
+The sanitized deterministic receipt for this replay is
+`PREMARKET_NORMALIZATION_REPLAY_20260915_RECEIPT.json`.
+Its normalized SHA-256 is
+`4dc9a542d493575fec46db78dcadde85d4a3a2b1cc516a112b24163dec52d055`.
+
 ## Stage results
 
 | Stage | Market bundle | Market defects | Boundary rows clipped | Input regime | Candidates | Brief status | Brief reason |

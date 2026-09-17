@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import json
+import re
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -10,7 +11,7 @@ import pytest
 from src.history.exchange_calendar import is_trading_day
 from src.history.raw_snapshot import RawSnapshotStore
 from src.models import Candle
-from src.premarket.contract import PremarketConfig, quality_defects
+from src.premarket.contract import PremarketConfig, quality_defects, sha256_payload
 from src.premarket.market_snapshot import (
     MarketSnapshotPolicy,
     build_market_bundle,
@@ -694,3 +695,107 @@ def test_no_db_order_broker_or_forward_imports_in_new_premarket_surface() -> Non
         "place_order",
     )
     assert {token for token in forbidden if token in source} == set()
+
+
+def test_20260915_replay_receipt_is_sanitized_and_matches_markdown() -> None:
+    receipt_path = ROOT / "docs" / "research" / "PREMARKET_NORMALIZATION_REPLAY_20260915_RECEIPT.json"
+    markdown_path = ROOT / "docs" / "research" / "PREMARKET_NORMALIZATION_REPLAY_20260915.md"
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    markdown = markdown_path.read_text(encoding="utf-8")
+
+    assert receipt["schema"] == "premarket-normalization-replay-receipt/v1"
+    assert receipt["classification"] == "RETROSPECTIVE_RECONSTRUCTION"
+    assert receipt["trading_day"] == "2026-09-15"
+    assert sha256_payload(receipt) == "4dc9a542d493575fec46db78dcadde85d4a3a2b1cc516a112b24163dec52d055"
+    assert receipt_path.name in markdown
+    assert sha256_payload(receipt) in markdown
+
+    safety = receipt["safety_assertions"]
+    assert safety == {
+        "all_operational_briefs_no_trade": True,
+        "no_api_recollection": True,
+        "no_credentials": True,
+        "no_news_text": True,
+        "no_oos": True,
+        "no_orders": True,
+        "no_pnl": True,
+        "no_returns": True,
+    }
+
+    stages = receipt["stages"]
+    assert [stage["stage"] for stage in stages] == ["PRIMARY", "VERIFICATION", "FREEZE"]
+    expected_candidates = {"PRIMARY": 11, "VERIFICATION": 11, "FREEZE": 8}
+    expected_forming = {"PRIMARY": 19, "VERIFICATION": 22, "FREEZE": 24}
+    expected_artifact_stage = {
+        "PRIMARY": "primary",
+        "VERIFICATION": "verification",
+        "FREEZE": "freeze",
+    }
+    for stage in stages:
+        stage_name = stage["stage"]
+        artifact_stage = expected_artifact_stage[stage_name]
+        assert all("/" not in name and "\\" not in name for name in stage["artifacts"].values())
+        assert stage["market"]["status"] == "OK"
+        assert stage["market"]["defects"] == []
+        assert stage["market"]["boundary_clip_counts"]["forming_1m_exact_as_of"] == expected_forming[stage_name]
+        assert stage["market"]["boundary_clip_counts"]["daily_on_trading_day"] == 28
+        assert stage["input"] == {
+            "candidate_count": expected_candidates[stage_name],
+            "regime": "RISK_ON",
+            "run_mode": "RETROSPECTIVE_RECONSTRUCTION",
+        }
+        assert stage["brief"] == {
+            "status": "NO_TRADE",
+            "watchlist_count": 0,
+            "reason_codes": ["GENERATED_AFTER_STAGE_WINDOW"],
+            "orders": [],
+            "executable": False,
+            "promotion_allowed": False,
+        }
+        assert f"| {stage_name} | `OK` | 0 | {expected_forming[stage_name]} forming 1m, 28 trading-day daily |" in markdown
+        assert f"| {stage_name} | `{stage['sha256']['market']}` | `{stage['sha256']['input']}` | `{stage['sha256']['brief']}` |" in markdown
+
+        for kind, basename in (
+            ("market", stage["artifacts"]["market_basename"]),
+            ("input", stage["artifacts"]["input_basename"]),
+            ("brief", stage["artifacts"]["brief_basename"]),
+        ):
+            artifact_path = ROOT / "reports" / basename
+            if not artifact_path.exists():
+                continue
+            artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+            assert artifact["artifact_sha256"] == stage["sha256"][kind]
+            assert artifact_stage in basename
+
+
+def test_20260915_replay_receipt_has_no_secret_text_news_or_absolute_paths() -> None:
+    receipt_path = ROOT / "docs" / "research" / "PREMARKET_NORMALIZATION_REPLAY_20260915_RECEIPT.json"
+    markdown_path = ROOT / "docs" / "research" / "PREMARKET_NORMALIZATION_REPLAY_20260915.md"
+    payload = receipt_path.read_text(encoding="utf-8")
+    receipt = json.loads(payload)
+    markdown = markdown_path.read_text(encoding="utf-8")
+    combined = payload + "\n" + markdown
+
+    assert "/Users/" not in combined
+    assert str(ROOT) not in combined
+    assert "source_url" not in payload
+    assert "headline" not in payload.lower()
+    string_values: list[str] = []
+
+    def collect_strings(value: object) -> None:
+        if isinstance(value, str):
+            string_values.append(value)
+        elif isinstance(value, dict):
+            for child in value.values():
+                collect_strings(child)
+        elif isinstance(value, list):
+            for child in value:
+                collect_strings(child)
+
+    collect_strings(receipt)
+    assert not any("news_text" in value.lower() for value in string_values)
+    assert not re.search(
+        r"(TOSS_CLIENT|TOSS_API|SECRET|Authorization|Bearer|api_key|client_secret|client_id|access_token)",
+        combined,
+        flags=re.IGNORECASE,
+    )
