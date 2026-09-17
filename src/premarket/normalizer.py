@@ -122,19 +122,52 @@ def _volume_score(bars_5m: list[Candle]) -> float | None:
     return 0.9
 
 
+def _provider_source_evidence_time(
+    provider: Mapping[str, Any],
+    *,
+    kind: str,
+    as_of: str,
+) -> str:
+    source = provider.get("source") or {}
+    if kind in {"NEWS", "FILING"} and source.get("observed_at"):
+        return str(source["observed_at"])
+    item_time_field = {"NEWS": "published_at", "FILING": "accepted_at"}.get(kind)
+    if item_time_field is not None:
+        times = [
+            str(item[item_time_field])
+            for item in provider.get("items") or []
+            if item.get("item_type") == kind and item.get(item_time_field)
+        ]
+        if times:
+            return max(times)
+        # Empty NEWS/FILING queries are evidence that no matching provider item
+        # was available at the cutoff.  Use as_of for the query evidence only;
+        # actual HTTP collection time remains ingested_at=generated_at.
+        return as_of
+    # MACRO providers enforce series freshness before bundling and may have
+    # receipt times after the cutoff, so represent the normalized source as a
+    # point-in-time as_of snapshot instead of falsifying NEWS/FILING evidence.
+    return as_of
+
+
 def _provider_sources(provider_bundle: Mapping[str, Any], generated_at: str) -> list[dict[str, Any]]:
     out = []
     for provider in provider_bundle.get("providers", []):
         source = dict(provider.get("source") or {})
         if not source:
             continue
-        available = str(provider_bundle["as_of"])
+        kind = str(source.get("kind") or provider.get("kind")).upper()
+        observed = _provider_source_evidence_time(
+            provider,
+            kind=kind,
+            as_of=str(provider_bundle["as_of"]),
+        )
         out.append({
             "source_id": str(source.get("source_id") or provider["provider"]),
-            "kind": str(source.get("kind") or provider.get("kind")).upper(),
+            "kind": kind,
             "status": str(provider.get("status") or source.get("status") or "ERROR").upper(),
-            "observed_at": available,
-            "available_at": available,
+            "observed_at": observed,
+            "available_at": observed,
             "ingested_at": generated_at,
             "source_url": str(source.get("source_url") or "https://evidence.invalid/provider"),
             "content_sha256": str(source.get("content_sha256") or provider_bundle["artifact_sha256"]),

@@ -27,6 +27,7 @@ def _config() -> PremarketConfig:
         "schema": "premarket-config/v1",
         "required_source_kinds": ["MARKET", "NEWS"],
         "source_freshness_minutes": 180,
+        "source_freshness_minutes_by_kind": {"FILING": 1440},
         "primary_offset_minutes": 90,
         "verification_offset_minutes": 30,
         "freeze_offset_minutes": 20,
@@ -71,6 +72,8 @@ def _provider_bundle(*, vix: float = 24.99) -> dict:
                     "source_id": "news-src",
                     "kind": "NEWS",
                     "status": "OK",
+                    "observed_at": "2026-03-09T11:40:00Z",
+                    "available_at": "2026-03-09T12:00:30Z",
                     "source_url": "https://api.marketaux.com/v1/news/all",
                     "content_sha256": "b" * 64,
                 },
@@ -112,6 +115,8 @@ def _provider_bundle(*, vix: float = 24.99) -> dict:
                     "source_id": "filing-src",
                     "kind": "FILING",
                     "status": "OK",
+                    "observed_at": "2026-03-09T10:00:00Z",
+                    "available_at": "2026-03-09T12:00:30Z",
                     "source_url": "https://data.sec.gov/submissions",
                     "content_sha256": "f" * 64,
                 },
@@ -144,6 +149,8 @@ def _provider_bundle(*, vix: float = 24.99) -> dict:
                     "source_id": "fred-src",
                     "kind": "MACRO",
                     "status": "OK",
+                    "observed_at": "2026-03-09T12:00:30Z",
+                    "available_at": "2026-03-09T12:00:30Z",
                     "source_url": "https://api.stlouisfed.org/fred/series/observations",
                     "content_sha256": "3" * 64,
                 },
@@ -335,6 +342,97 @@ def test_v2_allows_ingestion_after_as_of_but_not_after_generated_at() -> None:
     assert "FUTURE_SOURCE_EVIDENCE" not in quality_defects(normalized, schedule, _config())
     normalized["sources"][0]["ingested_at"] = "2026-03-09T12:00:31Z"
     assert "FUTURE_SOURCE_EVIDENCE" in quality_defects(normalized, schedule, _config())
+
+
+def test_news_source_observed_at_is_preserved_for_freshness() -> None:
+    provider = _provider_bundle()
+    news_provider = next(item for item in provider["providers"] if item["kind"] == "NEWS")
+    news_provider["source"]["observed_at"] = "2026-03-09T08:00:00Z"
+    normalized = normalize_bundles(provider, _market_bundle())
+    news_source = next(item for item in normalized["sources"] if item["kind"] == "NEWS")
+    assert news_source["observed_at"] == "2026-03-09T08:00:00Z"
+
+    defects = quality_defects(normalized, build_premarket_schedule(date(2026, 3, 9)), _config())
+    assert "STALE_NEWS_SOURCE" in defects
+    assert "STALE_EVENT_SOURCE" in defects
+
+
+def test_fresh_news_source_passes_without_silent_freshening() -> None:
+    normalized = normalize_bundles(_provider_bundle(), _market_bundle())
+    news_source = next(item for item in normalized["sources"] if item["kind"] == "NEWS")
+    assert news_source["observed_at"] == "2026-03-09T11:40:00Z"
+    assert news_source["available_at"] == "2026-03-09T11:40:00Z"
+    defects = quality_defects(normalized, build_premarket_schedule(date(2026, 3, 9)), _config())
+    assert "STALE_NEWS_SOURCE" not in defects
+    assert "STALE_EVENT_SOURCE" not in defects
+
+
+def test_empty_news_query_without_observed_at_uses_as_of_query_evidence() -> None:
+    provider = _provider_bundle()
+    news_provider = next(item for item in provider["providers"] if item["kind"] == "NEWS")
+    news_provider["source"].pop("observed_at")
+    news_provider["source"].pop("available_at")
+    news_provider["items"] = []
+    normalized = normalize_bundles(provider, _market_bundle())
+    news_source = next(item for item in normalized["sources"] if item["kind"] == "NEWS")
+    assert news_source["observed_at"] == "2026-03-09T12:00:00Z"
+    assert news_source["available_at"] == "2026-03-09T12:00:00Z"
+    defects = quality_defects(normalized, build_premarket_schedule(date(2026, 3, 9)), _config())
+    assert "STALE_NEWS_SOURCE" not in defects
+    assert "FUTURE_SOURCE_EVIDENCE" not in defects
+
+
+def test_future_news_source_observed_at_is_not_clamped_away() -> None:
+    provider = _provider_bundle()
+    news_provider = next(item for item in provider["providers"] if item["kind"] == "NEWS")
+    news_provider["source"]["observed_at"] = "2026-03-09T12:01:00Z"
+    normalized = normalize_bundles(provider, _market_bundle())
+    news_source = next(item for item in normalized["sources"] if item["kind"] == "NEWS")
+    assert news_source["observed_at"] == "2026-03-09T12:01:00Z"
+    assert "FUTURE_SOURCE_EVIDENCE" in quality_defects(
+        normalized, build_premarket_schedule(date(2026, 3, 9)), _config()
+    )
+
+
+def test_filing_source_uses_kind_specific_1440_minute_freshness() -> None:
+    provider = _provider_bundle()
+    filing_provider = next(item for item in provider["providers"] if item["kind"] == "FILING")
+    filing_provider["source"]["observed_at"] = "2026-03-08T13:00:00Z"
+    filing_provider["items"] = [
+        {
+            "item_id": "sec:aapl:23h",
+            "item_type": "FILING",
+            "accepted_at": "2026-03-08T13:00:00Z",
+            "form": "8-K",
+            "source_url": "https://sec.invalid/aapl-23h",
+            "content_sha256": "3" * 64,
+            "symbols": ["AAPL"],
+        }
+    ]
+    config = _config()
+    config = PremarketConfig(
+        **{**config.to_dict(), "required_source_kinds": ("FILING", "MARKET", "NEWS")}
+    )
+    normalized = normalize_bundles(provider, _market_bundle())
+    defects = quality_defects(normalized, build_premarket_schedule(date(2026, 3, 9)), config)
+    assert "STALE_FILING_SOURCE" not in defects
+    assert "STALE_EVENT_SOURCE" not in defects
+
+    filing_provider["source"]["observed_at"] = "2026-03-08T11:59:00Z"
+    filing_provider["items"][0]["accepted_at"] = "2026-03-08T11:59:00Z"
+    normalized = normalize_bundles(provider, _market_bundle())
+    defects = quality_defects(normalized, build_premarket_schedule(date(2026, 3, 9)), config)
+    assert "STALE_FILING_SOURCE" in defects
+
+
+def test_macro_source_uses_as_of_snapshot_semantics() -> None:
+    normalized = normalize_bundles(_provider_bundle(), _market_bundle())
+    macro_source = next(item for item in normalized["sources"] if item["kind"] == "MACRO")
+    assert macro_source["observed_at"] == "2026-03-09T12:00:00Z"
+    assert macro_source["available_at"] == "2026-03-09T12:00:00Z"
+    assert "FUTURE_SOURCE_EVIDENCE" not in quality_defects(
+        normalized, build_premarket_schedule(date(2026, 3, 9)), _config()
+    )
 
 
 def test_v2_stage_windows_are_exact_and_stage_specific() -> None:

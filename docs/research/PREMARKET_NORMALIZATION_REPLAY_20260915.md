@@ -26,11 +26,11 @@ Therefore every operational Daily Brief remains fail-closed as `NO_TRADE`.
 
 ## Artifact hashes
 
-| Stage | Market bundle SHA-256 | Normalized input v4 SHA-256 | Daily Brief v4 SHA-256 |
+| Stage | Market bundle SHA-256 | Normalized input v5 SHA-256 | Daily Brief v5 SHA-256 |
 | --- | --- | --- | --- |
-| PRIMARY | `5a4ed6de3d7a9a32cf0a9045ba8e60995544bf68690471930c3b106d371a867b` | `881b13a449c5dff7a1d5f1387a2e45403ae0e26657309a2b90d58ea89e117fe1` | `0e76bc37e1d3ba95c4ef0515fd51d224081b7669e394e91398d83ea9cbb786f0` |
-| VERIFICATION | `ffec834f56fec1fc17786b2f8fb086aa70f65228af28f3bfa02bb20fa08e23d1` | `42745ecab6dff5d0f29f173c42f4fbf193b6610f4573f9517f086eb4de4458a9` | `f47992e02fe375176f0e0d041a4cc9a4dc435b2f0af853a5207fb34731d4acd2` |
-| FREEZE | `112eb5b377c5e19afe190a1d4419decc7a9c89278c27cc6418193dedada53424` | `de842932b35e014bcd54257364c8ce6356c1e591acd8f38d30d065af05ab32c6` | `410a02317a9dc0847f2481d82e680af539f826e2ae116389ac84f947585a7cae` |
+| PRIMARY | `5a4ed6de3d7a9a32cf0a9045ba8e60995544bf68690471930c3b106d371a867b` | `443af378f4b2a5a1c11b359309420d7b8b0e4eb49586eb979b5b2253b6ef3eae` | `8329badadae4e394414979896f3d75510014f75e0f1b91d4ec93530213a8aaeb` |
+| VERIFICATION | `ffec834f56fec1fc17786b2f8fb086aa70f65228af28f3bfa02bb20fa08e23d1` | `10b2aac4ffa1f8968a40502b868a14b353030aa3f1ae43e1105955748e0501a9` | `f98e4ba23ec52e4a2a541008c36b331357c62b11b4ac4dde5a9eb489ed79f3da` |
+| FREEZE | `112eb5b377c5e19afe190a1d4419decc7a9c89278c27cc6418193dedada53424` | `b5ad1bf0c5b575482b17d155ce9a396d22685e3d4eed8470f80c331b0d503b1d` | `e30e142e7a9727d37ccef9193cd5fa5cb8ab7b6d3a4bab37652edd3130810a5e` |
 
 ## Safety boundary
 
@@ -39,4 +39,4 @@ Therefore every operational Daily Brief remains fail-closed as `NO_TRADE`.
 - `promotion_allowed` is `false`.
 - Broker/live account modules were not used.
 - No PnL, returns, forward returns, strategy performance, or OOS metrics were calculated.
-- The replay reused existing market bundles; no additional market API recollection was required for v4 input/brief generation.
+- The replay reused existing market bundles; no additional market API recollection was required for v5 input/brief generation.
