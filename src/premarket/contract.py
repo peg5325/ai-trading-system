@@ -14,11 +14,13 @@ import yaml
 from src.premarket.schedule import PremarketSchedule, parse_iso
 
 INPUT_SCHEMA = "premarket-input/v1"
+INPUT_SCHEMA_V2 = "premarket-input/v2"
 CONFIG_SCHEMA = "premarket-config/v1"
 SNAPSHOT_SCHEMA = "premarket-snapshot/v1"
 ALLOWED_SOURCE_KINDS = frozenset({"MARKET", "NEWS", "MACRO", "FILING"})
 ALLOWED_SOURCE_STATUSES = frozenset({"OK", "ERROR", "UNAVAILABLE"})
 ALLOWED_REGIMES = frozenset({"RISK_ON", "RISK_OFF", "UNCERTAIN"})
+ALLOWED_STAGES = frozenset({"PRIMARY", "VERIFICATION", "FREEZE"})
 SCORE_FIELDS = (
     "catalyst_score",
     "trend_score",
@@ -78,6 +80,7 @@ def _url(value: Any, name: str) -> str:
 class PremarketConfig:
     required_source_kinds: tuple[str, ...]
     source_freshness_minutes: int
+    source_freshness_minutes_by_kind: dict[str, int]
     max_candidates: int
     min_liquidity_score: float
     min_catalyst_score: float
@@ -108,6 +111,18 @@ class PremarketConfig:
         freshness = int(raw.get("source_freshness_minutes", 180))
         if freshness <= 0:
             raise ValueError("source_freshness_minutes must be positive")
+        freshness_by_kind_raw = raw.get("source_freshness_minutes_by_kind", {})
+        if not isinstance(freshness_by_kind_raw, dict):
+            raise TypeError("source_freshness_minutes_by_kind must be an object")
+        freshness_by_kind: dict[str, int] = {}
+        for key, value in freshness_by_kind_raw.items():
+            kind = _nonempty(key, "source_freshness_minutes_by_kind key").upper()
+            if kind not in ALLOWED_SOURCE_KINDS:
+                raise ValueError("source_freshness_minutes_by_kind contains an unsupported kind")
+            minutes = int(value)
+            if minutes <= 0:
+                raise ValueError("source_freshness_minutes_by_kind values must be positive")
+            freshness_by_kind[kind] = minutes
         min_liquidity_score = float(raw.get("min_liquidity_score", 0.5))
         if not 0.0 <= min_liquidity_score <= 1.0:
             raise ValueError("min_liquidity_score must be in [0,1]")
@@ -117,6 +132,7 @@ class PremarketConfig:
         return cls(
             required_source_kinds=required,
             source_freshness_minutes=freshness,
+            source_freshness_minutes_by_kind=freshness_by_kind,
             max_candidates=max_candidates,
             min_liquidity_score=min_liquidity_score,
             min_catalyst_score=min_catalyst_score,
@@ -183,13 +199,23 @@ def normalize_input(raw: Mapping[str, Any]) -> dict:
     an auditable NO_TRADE artifact.  Missing/invalid schema fields are contract
     errors and stop the CLI.
     """
-    if raw.get("schema") != INPUT_SCHEMA:
-        raise ValueError(f"input schema must be {INPUT_SCHEMA}")
+    schema = raw.get("schema")
+    if schema not in {INPUT_SCHEMA, INPUT_SCHEMA_V2}:
+        raise ValueError(f"input schema must be {INPUT_SCHEMA} or {INPUT_SCHEMA_V2}")
     if raw.get("market") != "US":
         raise ValueError("first PR supports market=US only")
     trading_day = date.fromisoformat(_nonempty(raw.get("trading_day"), "trading_day"))
     as_of = _nonempty(raw.get("as_of"), "as_of")
     parse_iso(as_of)
+    generated_at = raw.get("generated_at")
+    if schema == INPUT_SCHEMA_V2:
+        generated_at = _nonempty(generated_at, "generated_at")
+        parse_iso(generated_at)
+    stage = raw.get("stage")
+    if schema == INPUT_SCHEMA_V2:
+        stage = _nonempty(stage, "stage").upper()
+        if stage not in ALLOWED_STAGES:
+            raise ValueError(f"stage must be one of {sorted(ALLOWED_STAGES)}")
 
     sources: list[dict] = []
     for item in _require(raw, "sources", list):
@@ -288,20 +314,23 @@ def normalize_input(raw: Mapping[str, Any]) -> dict:
     parse_iso(regime["ingested_at"])
 
     return {
-        "schema": INPUT_SCHEMA,
+        "schema": schema,
         "market": "US",
         "trading_day": trading_day.isoformat(),
         "as_of": as_of,
+        **({"stage": stage, "generated_at": generated_at} if schema == INPUT_SCHEMA_V2 else {}),
         "sources": _unique_sorted(sources, "source_id"),
         "events": _unique_sorted(events, "event_id"),
         "candidates": _unique_sorted(candidates, "symbol"),
         "market_regime": regime,
+        **({"provenance": raw.get("provenance", {})} if schema == INPUT_SCHEMA_V2 and "provenance" in raw else {}),
     }
 
 
 def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
                     config: PremarketConfig) -> list[str]:
     as_of = parse_iso(data["as_of"])
+    generated_at = parse_iso(data["generated_at"]) if data.get("schema") == INPUT_SCHEMA_V2 else as_of
     defects: set[str] = set()
     if data["trading_day"] != schedule.trading_day:
         defects.add("TRADING_DAY_MISMATCH")
@@ -309,6 +338,26 @@ def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
         defects.add("BEFORE_PRIMARY_RUN")
     if as_of > parse_iso(schedule.freeze_utc):
         defects.add("AFTER_FREEZE_CUTOFF")
+    if data.get("schema") == INPUT_SCHEMA_V2:
+        expected_as_of = {
+            "PRIMARY": schedule.primary_run_utc,
+            "VERIFICATION": schedule.verification_utc,
+            "FREEZE": schedule.freeze_utc,
+        }.get(str(data.get("stage")))
+        stage_end = {
+            "PRIMARY": schedule.verification_utc,
+            "VERIFICATION": schedule.freeze_utc,
+            "FREEZE": schedule.market_open_utc,
+        }.get(str(data.get("stage")))
+        if expected_as_of is None or stage_end is None:
+            defects.add("INVALID_STAGE")
+        else:
+            if data["as_of"] != expected_as_of:
+                defects.add("STAGE_AS_OF_MISMATCH")
+            if not (as_of <= generated_at < parse_iso(stage_end)):
+                defects.add("GENERATED_AFTER_STAGE_WINDOW")
+        if generated_at < as_of:
+            defects.add("GENERATED_BEFORE_AS_OF")
 
     source_by_id: dict[str, dict] = {}
     duplicate_source_ids: set[str] = set()
@@ -317,15 +366,23 @@ def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
         if sid in source_by_id and source_by_id[sid] != source:
             duplicate_source_ids.add(sid)
         source_by_id.setdefault(sid, source)
-        times = [parse_iso(source[field]) for field in ("observed_at", "available_at", "ingested_at")]
-        if any(value > as_of for value in times):
+        observed = parse_iso(source["observed_at"])
+        available = parse_iso(source["available_at"])
+        ingested = parse_iso(source["ingested_at"])
+        if observed > as_of or available > as_of or ingested > generated_at:
             defects.add("FUTURE_SOURCE_EVIDENCE")
-        if times[1] < times[0] or times[2] < times[1]:
+        if available < observed or ingested < available:
             defects.add("INVALID_SOURCE_TIME_ORDER")
     if duplicate_source_ids:
         defects.add("CONFLICTING_SOURCE_REVISION")
 
-    freshness = timedelta(minutes=config.source_freshness_minutes)
+    def source_freshness(source: Mapping[str, Any]) -> timedelta:
+        kind = str(source.get("kind", "")).upper()
+        minutes = config.source_freshness_minutes_by_kind.get(
+            kind,
+            config.source_freshness_minutes,
+        )
+        return timedelta(minutes=minutes)
 
     def source_usable(source_id: str, *, prefix: str) -> None:
         source = source_by_id.get(source_id)
@@ -334,14 +391,14 @@ def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
             return
         if source["status"] != "OK":
             defects.add(f"UNHEALTHY_{prefix}_SOURCE")
-        if as_of - parse_iso(source["observed_at"]) > freshness:
+        if as_of - parse_iso(source["observed_at"]) > source_freshness(source):
             defects.add(f"STALE_{prefix}_SOURCE")
 
     for kind in config.required_source_kinds:
         matching = [s for s in source_by_id.values() if s["kind"] == kind and s["status"] == "OK"]
         if not matching:
             defects.add(f"MISSING_OR_UNHEALTHY_{kind}_SOURCE")
-        elif not any(as_of - parse_iso(s["observed_at"]) <= freshness for s in matching):
+        elif not any(as_of - parse_iso(s["observed_at"]) <= source_freshness(s) for s in matching):
             defects.add(f"STALE_{kind}_SOURCE")
 
     event_by_id: dict[str, dict] = {}
@@ -357,7 +414,7 @@ def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
         published, available, ingested = (
             parse_iso(event[field]) for field in ("published_at", "available_at", "ingested_at")
         )
-        if any(value > as_of for value in (published, available, ingested)):
+        if published > as_of or available > as_of or ingested > generated_at:
             defects.add("FUTURE_EVENT_EVIDENCE")
         if available < published or ingested < available:
             defects.add("INVALID_EVENT_TIME_ORDER")
@@ -369,7 +426,7 @@ def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
         if symbol in seen_candidates and seen_candidates[symbol] != candidate:
             defects.add("CONFLICTING_CANDIDATE_REVISION")
         seen_candidates.setdefault(symbol, candidate)
-        if any(parse_iso(candidate[field]) > as_of for field in ("available_at", "ingested_at")):
+        if parse_iso(candidate["available_at"]) > as_of or parse_iso(candidate["ingested_at"]) > generated_at:
             defects.add("FUTURE_CANDIDATE_EVIDENCE")
         if parse_iso(candidate["ingested_at"]) < parse_iso(candidate["available_at"]):
             defects.add("INVALID_CANDIDATE_TIME_ORDER")
@@ -388,7 +445,7 @@ def quality_defects(data: Mapping[str, Any], schedule: PremarketSchedule,
                 defects.add("CANDIDATE_EVENT_SYMBOL_MISMATCH")
 
     regime = data["market_regime"]
-    if any(parse_iso(regime[field]) > as_of for field in ("available_at", "ingested_at")):
+    if parse_iso(regime["available_at"]) > as_of or parse_iso(regime["ingested_at"]) > generated_at:
         defects.add("FUTURE_REGIME_EVIDENCE")
     if parse_iso(regime["ingested_at"]) < parse_iso(regime["available_at"]):
         defects.add("INVALID_REGIME_TIME_ORDER")

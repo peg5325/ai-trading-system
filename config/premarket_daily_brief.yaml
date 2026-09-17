@@ -3,6 +3,8 @@ required_source_kinds:
   - MARKET
   - NEWS
 source_freshness_minutes: 180
+source_freshness_minutes_by_kind:
+  FILING: 1440
 primary_offset_minutes: 90
 verification_offset_minutes: 30
 freeze_offset_minutes: 20
