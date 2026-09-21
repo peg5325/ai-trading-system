@@ -172,6 +172,10 @@ class ProviderConfig:
                 raise ValueError(
                     "fred series observation_lookback_days must be >= max_age_days"
                 )
+            if observation_lookback_days > 370:
+                raise ValueError(
+                    "fred series observation_lookback_days cannot exceed 370"
+                )
             series_items.append(FredSeries(
                 series_id=series_id,
                 label=label,

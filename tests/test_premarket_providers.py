@@ -949,6 +949,88 @@ def test_fred_lookback_must_cover_age_limit():
         ProviderConfig.from_mapping(raw)
 
 
+def test_fred_lookback_cannot_exceed_bounded_contract():
+    raw = yaml.safe_load(
+        (ROOT / "config" / "premarket_providers.yaml").read_text(encoding="utf-8")
+    )
+    target = next(
+        item for item in raw["fred"]["series"]
+        if item["series_id"] == "CPIAUCSL"
+    )
+    target["observation_lookback_days"] = 371
+
+    with pytest.raises(ValueError, match="cannot exceed 370"):
+        ProviderConfig.from_mapping(raw)
+
+
+def test_fred_context_only_http_failure_warns_without_blocking(tmp_path):
+    def handler(request):
+        if request.url.path.endswith("/releases/dates"):
+            return httpx.Response(200, json={
+                "count": 0, "offset": 0, "limit": 1000, "release_dates": [],
+            })
+        return httpx.Response(503, json={"error": "temporary"})
+
+    base = _config().fred
+    config = FredConfig(
+        enabled=True,
+        base_url=base.base_url,
+        release_dates_url=base.release_dates_url,
+        series=(FredSeries(
+            "CPIAUCSL",
+            "CPI",
+            max_age_days=45,
+            freshness_reason="monthly release cadence",
+            required_for_gate=False,
+            observation_lookback_days=370,
+        ),),
+    )
+    client, raw_store = _http(handler, tmp_path)
+    result = FredProvider(config, client, api_key="fred").collect(
+        _context(), raw_store
+    )
+    client.close()
+
+    assert result["status"] == "OK"
+    assert result["warnings"] == ["CPIAUCSL:HTTP_STATUS_503"]
+    assert result["items"] == []
+
+
+def test_fred_context_only_future_observation_is_not_used(tmp_path):
+    def handler(request):
+        if request.url.path.endswith("/releases/dates"):
+            return httpx.Response(200, json={
+                "count": 0, "offset": 0, "limit": 1000, "release_dates": [],
+            })
+        return httpx.Response(200, json={
+            "observations": [{"date": "2026-09-10", "value": "123.4"}],
+        })
+
+    base = _config().fred
+    config = FredConfig(
+        enabled=True,
+        base_url=base.base_url,
+        release_dates_url=base.release_dates_url,
+        series=(FredSeries(
+            "CPIAUCSL",
+            "CPI",
+            max_age_days=45,
+            freshness_reason="monthly release cadence",
+            required_for_gate=False,
+            observation_lookback_days=370,
+        ),),
+    )
+    client, raw_store = _http(handler, tmp_path)
+    result = FredProvider(config, client, api_key="fred").collect(
+        _context(), raw_store
+    )
+    client.close()
+
+    assert result["status"] == "OK"
+    assert result["warnings"] == ["CPIAUCSL:FRED_OBSERVATION_MISSING"]
+    assert result["items"] == []
+
+
 def test_schedule_gate_rejects_holiday_wrong_cutoff_and_late_execution():
     with pytest.raises(ValueError, match="not an NYSE trading day"):
         validate_collection_window(
