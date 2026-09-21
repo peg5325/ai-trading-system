@@ -65,14 +65,20 @@ fred:
       label: "Consumer Price Index"
       max_age_days: 45
       freshness_reason: "monthly release cadence"
+      required_for_gate: false
+      observation_lookback_days: 370
     - series_id: PAYEMS
       label: "All Employees, Total Nonfarm"
       max_age_days: 45
       freshness_reason: "monthly release cadence"
+      required_for_gate: false
+      observation_lookback_days: 370
     - series_id: UNRATE
       label: "Unemployment Rate"
       max_age_days: 45
       freshness_reason: "monthly release cadence"
+      required_for_gate: false
+      observation_lookback_days: 370
     - series_id: ICSA
       label: "Initial Claims"
       max_age_days: 14

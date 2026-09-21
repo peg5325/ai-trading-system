@@ -30,14 +30,19 @@ class FredProvider:
         receipts: list[dict[str, Any]] = []
         items: list[dict[str, Any]] = []
         errors: list[str] = []
+        warnings: list[str] = []
         for series in self.config.series:
+            series_issues = errors if series.required_for_gate else warnings
             params = {
                 "api_key": self.api_key,
                 "file_type": "json",
                 "series_id": series.series_id,
                 "realtime_start": vintage_day,
                 "realtime_end": vintage_day,
-                "observation_start": (context.trading_day - timedelta(days=45)).isoformat(),
+                "observation_start": (
+                    context.trading_day
+                    - timedelta(days=series.observation_lookback_days)
+                ).isoformat(),
                 "observation_end": context.trading_day.isoformat(),
                 "sort_order": "asc",
             }
@@ -53,16 +58,20 @@ class FredProvider:
             except HttpCollectionError as error:
                 if error.receipt:
                     receipts.append(error.receipt)
-                errors.append(f"{series.series_id}:{error.code}")
+                series_issues.append(f"{series.series_id}:{error.code}")
                 continue
             observations = payload.get("observations", [])
             if not isinstance(observations, list):
-                errors.append(f"{series.series_id}:FRED_OBSERVATIONS_NOT_LIST")
+                series_issues.append(
+                    f"{series.series_id}:FRED_OBSERVATIONS_NOT_LIST"
+                )
                 continue
             eligible: list[dict[str, Any]] = []
             for row in observations:
                 if not isinstance(row, dict):
-                    errors.append(f"{series.series_id}:FRED_OBSERVATION_NOT_OBJECT")
+                    series_issues.append(
+                        f"{series.series_id}:FRED_OBSERVATION_NOT_OBJECT"
+                    )
                     continue
                 raw_value = str(row.get("value", "")).strip()
                 # FRED documents a single period as its null/missing sentinel.
@@ -73,22 +82,32 @@ class FredProvider:
                     observation_day = date.fromisoformat(str(row.get("date", "")))
                     value = Decimal(raw_value)
                 except (InvalidOperation, ValueError):
-                    errors.append(f"{series.series_id}:FRED_OBSERVATION_INVALID")
+                    series_issues.append(
+                        f"{series.series_id}:FRED_OBSERVATION_INVALID"
+                    )
                     continue
                 if not value.is_finite():
-                    errors.append(f"{series.series_id}:FRED_OBSERVATION_INVALID")
+                    series_issues.append(
+                        f"{series.series_id}:FRED_OBSERVATION_INVALID"
+                    )
                     continue
                 if observation_day <= context.trading_day:
                     eligible.append(row)
             if not eligible:
-                errors.append(f"{series.series_id}:FRED_OBSERVATION_MISSING")
+                series_issues.append(
+                    f"{series.series_id}:FRED_OBSERVATION_MISSING"
+                )
                 continue
             row = max(eligible, key=lambda item: str(item.get("date", "")))
             observation_day = date.fromisoformat(str(row["date"]))
             observation_age_days = (context.trading_day - observation_day).days
+            freshness_status = "FRESH"
             if observation_age_days > series.max_age_days:
-                errors.append(f"{series.series_id}:FRED_OBSERVATION_STALE")
-                continue
+                code = f"{series.series_id}:FRED_OBSERVATION_STALE"
+                series_issues.append(code)
+                if series.required_for_gate:
+                    continue
+                freshness_status = "STALE_CONTEXT"
             safe = {
                 "item_type": "MACRO",
                 "item_id": f"fred:{series.series_id}:{row['date']}:{vintage_day}",
@@ -105,6 +124,8 @@ class FredProvider:
                 "freshness_reason": (
                     series.freshness_reason or "default seven-day freshness"
                 ),
+                "freshness_status": freshness_status,
+                "required_for_gate": series.required_for_gate,
                 "source_url": f"https://fred.stlouisfed.org/series/{series.series_id}",
             }
             safe["content_sha256"] = payload_sha256(safe)
@@ -113,7 +134,19 @@ class FredProvider:
         self._collect_release_dates(context, raw_store, receipts, items, errors)
         status = "ERROR" if errors else "OK"
         error_code = ";".join(sorted(errors)) or None
-        return result(self.provider, self.kind, status, self.config.base_url, context.as_of, items, receipts, error_code)
+        output = result(
+            self.provider,
+            self.kind,
+            status,
+            self.config.base_url,
+            context.as_of,
+            items,
+            receipts,
+            error_code,
+        )
+        output["warnings"] = sorted(set(warnings))
+        output["warning_count"] = len(output["warnings"])
+        return output
 
     def _collect_release_dates(
         self,

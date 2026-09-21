@@ -15,7 +15,12 @@ from src.premarket.providers.collector import (
     CollectionContext,
     build_provider_bundle,
 )
-from src.premarket.providers.config import ProviderConfig, load_provider_config
+from src.premarket.providers.config import (
+    FredConfig,
+    FredSeries,
+    ProviderConfig,
+    load_provider_config,
+)
 from src.premarket.providers.fred import FredProvider
 from src.premarket.providers.http import (
     BoundedHttpClient,
@@ -828,6 +833,202 @@ def test_fred_extended_freshness_requires_a_reason():
 
     with pytest.raises(ValueError, match="requires freshness_reason"):
         ProviderConfig.from_mapping(raw)
+
+
+def test_fred_context_only_stale_value_warns_without_blocking_bundle(tmp_path):
+    seen = []
+
+    def handler(request):
+        if request.url.path.endswith("/releases/dates"):
+            return httpx.Response(200, json={
+                "count": 0, "offset": 0, "limit": 1000, "release_dates": [],
+            })
+        seen.append(dict(request.url.params))
+        return httpx.Response(200, json={
+            "observations": [{"date": "2026-07-01", "value": "123.4"}],
+        })
+
+    base = _config().fred
+    config = FredConfig(
+        enabled=True,
+        base_url=base.base_url,
+        release_dates_url=base.release_dates_url,
+        series=(FredSeries(
+            "CPIAUCSL",
+            "CPI",
+            max_age_days=45,
+            freshness_reason="monthly release cadence",
+            required_for_gate=False,
+            observation_lookback_days=370,
+        ),),
+    )
+    client, raw_store = _http(handler, tmp_path)
+    provider = FredProvider(config, client, api_key="fred")
+    result = provider.collect(_context(), raw_store)
+    bundle = build_provider_bundle(_context(), [provider], raw_store)
+    client.close()
+
+    assert result["status"] == "OK"
+    assert result["error_code"] is None
+    assert result["warnings"] == ["CPIAUCSL:FRED_OBSERVATION_STALE"]
+    assert result["warning_count"] == 1
+    assert result["items"][0]["freshness_status"] == "STALE_CONTEXT"
+    assert result["items"][0]["required_for_gate"] is False
+    assert seen[0]["observation_start"] == "2025-09-04"
+    assert bundle["collection_status"] == "OK"
+
+
+@pytest.mark.parametrize(
+    ("observations", "expected_warnings"),
+    [
+        ([], ["CPIAUCSL:FRED_OBSERVATION_MISSING"]),
+        ([{"date": "2026-09-08", "value": "NaN"}],
+         [
+             "CPIAUCSL:FRED_OBSERVATION_INVALID",
+             "CPIAUCSL:FRED_OBSERVATION_MISSING",
+         ]),
+    ],
+)
+def test_fred_context_only_missing_or_invalid_is_warning(
+    tmp_path, observations, expected_warnings
+):
+    def handler(request):
+        if request.url.path.endswith("/releases/dates"):
+            return httpx.Response(200, json={
+                "count": 0, "offset": 0, "limit": 1000, "release_dates": [],
+            })
+        return httpx.Response(200, json={"observations": observations})
+
+    base = _config().fred
+    config = FredConfig(
+        enabled=True,
+        base_url=base.base_url,
+        release_dates_url=base.release_dates_url,
+        series=(FredSeries(
+            "CPIAUCSL",
+            "CPI",
+            max_age_days=45,
+            freshness_reason="monthly release cadence",
+            required_for_gate=False,
+            observation_lookback_days=370,
+        ),),
+    )
+    client, raw_store = _http(handler, tmp_path)
+    result = FredProvider(config, client, api_key="fred").collect(
+        _context(), raw_store
+    )
+    client.close()
+
+    assert result["status"] == "OK"
+    assert result["warnings"] == expected_warnings
+    assert result["items"] == []
+
+
+def test_production_monthly_fred_series_are_context_only():
+    config = load_provider_config(ROOT / "config" / "premarket_providers.yaml")
+    by_id = {series.series_id: series for series in config.fred.series}
+
+    for series_id in ("CPIAUCSL", "PAYEMS", "UNRATE"):
+        assert by_id[series_id].required_for_gate is False
+        assert by_id[series_id].observation_lookback_days == 370
+    for series_id in ("VIXCLS", "DGS10", "DFF", "DTWEXBGS", "ICSA"):
+        assert by_id[series_id].required_for_gate is True
+
+
+def test_fred_lookback_must_cover_age_limit():
+    raw = yaml.safe_load(
+        (ROOT / "config" / "premarket_providers.yaml").read_text(encoding="utf-8")
+    )
+    target = next(
+        item for item in raw["fred"]["series"]
+        if item["series_id"] == "CPIAUCSL"
+    )
+    target["observation_lookback_days"] = 44
+
+    with pytest.raises(ValueError, match="lookback_days must be >= max_age_days"):
+        ProviderConfig.from_mapping(raw)
+
+
+def test_fred_lookback_cannot_exceed_bounded_contract():
+    raw = yaml.safe_load(
+        (ROOT / "config" / "premarket_providers.yaml").read_text(encoding="utf-8")
+    )
+    target = next(
+        item for item in raw["fred"]["series"]
+        if item["series_id"] == "CPIAUCSL"
+    )
+    target["observation_lookback_days"] = 371
+
+    with pytest.raises(ValueError, match="cannot exceed 370"):
+        ProviderConfig.from_mapping(raw)
+
+
+def test_fred_context_only_http_failure_warns_without_blocking(tmp_path):
+    def handler(request):
+        if request.url.path.endswith("/releases/dates"):
+            return httpx.Response(200, json={
+                "count": 0, "offset": 0, "limit": 1000, "release_dates": [],
+            })
+        return httpx.Response(503, json={"error": "temporary"})
+
+    base = _config().fred
+    config = FredConfig(
+        enabled=True,
+        base_url=base.base_url,
+        release_dates_url=base.release_dates_url,
+        series=(FredSeries(
+            "CPIAUCSL",
+            "CPI",
+            max_age_days=45,
+            freshness_reason="monthly release cadence",
+            required_for_gate=False,
+            observation_lookback_days=370,
+        ),),
+    )
+    client, raw_store = _http(handler, tmp_path)
+    result = FredProvider(config, client, api_key="fred").collect(
+        _context(), raw_store
+    )
+    client.close()
+
+    assert result["status"] == "OK"
+    assert result["warnings"] == ["CPIAUCSL:HTTP_STATUS_503"]
+    assert result["items"] == []
+
+
+def test_fred_context_only_future_observation_is_not_used(tmp_path):
+    def handler(request):
+        if request.url.path.endswith("/releases/dates"):
+            return httpx.Response(200, json={
+                "count": 0, "offset": 0, "limit": 1000, "release_dates": [],
+            })
+        return httpx.Response(200, json={
+            "observations": [{"date": "2026-09-10", "value": "123.4"}],
+        })
+
+    base = _config().fred
+    config = FredConfig(
+        enabled=True,
+        base_url=base.base_url,
+        release_dates_url=base.release_dates_url,
+        series=(FredSeries(
+            "CPIAUCSL",
+            "CPI",
+            max_age_days=45,
+            freshness_reason="monthly release cadence",
+            required_for_gate=False,
+            observation_lookback_days=370,
+        ),),
+    )
+    client, raw_store = _http(handler, tmp_path)
+    result = FredProvider(config, client, api_key="fred").collect(
+        _context(), raw_store
+    )
+    client.close()
+
+    assert result["status"] == "OK"
+    assert result["warnings"] == ["CPIAUCSL:FRED_OBSERVATION_MISSING"]
+    assert result["items"] == []
 
 
 def test_schedule_gate_rejects_holiday_wrong_cutoff_and_late_execution():

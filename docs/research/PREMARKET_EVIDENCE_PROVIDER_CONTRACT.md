@@ -29,6 +29,10 @@ Daily Brief에 입력할 수 있다. 특히 이 PR은 Daily Brief가 요구하�
   freshness는 달력일 기준이며, `DTWEXBGS`는 H.10의 묶음 발표 주기와 긴 주말을 포함하도록
   14일, 그 외 일별 시장 series는 7일을 사용한다. 7일을 초과하는 series 설정에는
   `freshness_reason`을 의무화하며, 각 산출 item에는 관측 나이·허용 일수·근거를 함께 남긴다.
+  `CPIAUCSL`, `PAYEMS`, `UNRATE`는 장전 방향에 직접 사용하지 않는 `CONTEXT_ONLY`다.
+  이 세 series의 오래됨·누락·개별 요청 실패는 warning으로 기록하되 FRED provider 전체를
+  실패시키지 않는다. 미래값과 비정상 숫자는 사용하지 않는다. VIX·금리·달러·주간청구 등
+  `required_for_gate=true` series와 release-calendar 구조 오류는 기존 fail-closed를 유지한다.
 
 자격증명이 하나라도 없으면 해당 provider는 네트워크를 호출하지 않고 `UNAVAILABLE`을 남긴다.
 하나 이상의 provider가 `OK`가 아니면 bundle은 `FAIL_CLOSED`다.
