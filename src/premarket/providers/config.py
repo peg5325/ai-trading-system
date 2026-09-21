@@ -67,6 +67,8 @@ class FredSeries:
     label: str
     max_age_days: int = 7
     freshness_reason: str = ""
+    required_for_gate: bool = True
+    observation_lookback_days: int = 45
 
 
 @dataclass(frozen=True)
@@ -162,11 +164,21 @@ class ProviderConfig:
                 raise ValueError(
                     "fred series with max_age_days > 7 requires freshness_reason"
                 )
+            observation_lookback_days = int(_positive(
+                row.get("observation_lookback_days", max(45, max_age_days)),
+                "fred.series.observation_lookback_days",
+            ))
+            if observation_lookback_days < max_age_days:
+                raise ValueError(
+                    "fred series observation_lookback_days must be >= max_age_days"
+                )
             series_items.append(FredSeries(
                 series_id=series_id,
                 label=label,
                 max_age_days=max_age_days,
                 freshness_reason=freshness_reason,
+                required_for_gate=bool(row.get("required_for_gate", True)),
+                observation_lookback_days=observation_lookback_days,
             ))
         if len({item.series_id for item in series_items}) != len(series_items):
             raise ValueError("fred series IDs must be unique")
