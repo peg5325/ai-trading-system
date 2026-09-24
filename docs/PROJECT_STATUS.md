@@ -23,23 +23,36 @@
 
 ## 이번 작업
 
-- 목표·벤치마크·비용·관측 기간·Paper 진입 조건의 문서 정본 생성.
-- Charter v1.2: 사용자 요청으로 Shadow/Paper를 동일 10거래일 평가로 통합,
-  별도 60거래일/30거래 조건 폐지. 승률보다 순수익률 우선, 경제성·손실 한도 유지.
-  시작 전에 모의 체결·전략·위험 검증 준비가 필요하며 새 관측은 아직 시작하지 않았다.
-- 프로젝트 루트 AGENTS.md에 세션 시작 시 위 3문서를 읽는 규칙 추가.
-- 위험 한도 사용자 선택 반영 완료: 일일 1%, 고점 대비 10% 중단.
-  단계 1 문서화 완료. 정책 문서는 실행 코드에 아직 반영되지 않았다.
-- 이번 변경은 문서뿐이며 기존 전략·설정·예약·주문 경로를 수정하지 않는다.
-- 문서 보존 브랜치: `codex/project-charter-roadmap`, 최초 커밋 `c7690fe` 원격 보존 확인.
-  사용자의 후속 요청으로 PR 생성과 main 병합까지 진행한다.
-  최종 병합 상태와 커밋 SHA는 GitHub PR 및 main 이력으로 확인한다.
+- 목표·벤치마크·비용·관측 기간·Paper 진입 조건의 문서 정본 생성은 PR #156으로 main 병합 완료.
+- 단계 2의 1차 구현으로 장전 FREEZE 판단 사후평가 자동화를 추가했다.
+  `src/premarket/postclose.py`와 `scripts/evaluate_premarket_postclose.py`는 read-only로
+  FREEZE Daily Brief를 고정 입력으로 받아 정규장 마감 이후에만 평가하고, JSON에서 Markdown과
+  일별/누적 장부를 파생한다. 주문·브로커·Paper 체결·승격 판정은 생성하지 않는다.
+- 평가 항목: FREEZE artifact/input-file SHA-256, 후보 stage/score/template metadata,
+  정규장 첫 1분봉 open→마지막 1분봉 close 방향성 proxy, 0.34%p official 및 0.68%p stress
+  왕복 비용 민감도, SPY 동시간대 진단, 공식 S&P 500 Total Return 미연결 시
+  `INCONCLUSIVE_BENCHMARK`, 결측/중복/장전 실행 차단 verdict.
+- 현행 FREEZE 파일을 임시 read-only 출력 경로에서 재실행한 결과, 로컬 DB에 2026-09-21
+  정규장 1분봉이 없어 `INCOMPLETE_MARKET_DATA`로 닫혔다. 해당 결측은 수익률 0으로
+  대체하지 않으며, 마감 이후 재실행의 일별 JSON/Markdown은 byte-identical을 확인했다.
+  임시 산출물과 gitignore reports는 저장소 증거로 추적하지 않는다.
+- 이슈 #157, 브랜치 `codex/157-premarket-postclose-ledger`에서 구현했다.
+  독립 code-reviewer는 Critical/High/Medium 0, LOW 1(기존 장부의 중복 거래일 방어)을
+  보고했고 로드·누적 집계 양쪽에 fail-closed 검증과 회귀 테스트를 반영했다.
+  독립 architect는 단계 2 전체가 아닌 FREEZE-only 1차 구현으로 범위를 제한하는 조건에서 승인했다.
+- 리뷰 보완: 장 마감 전 또는 PRIMARY/VERIFICATION 입력은 exit code 2로 끝내고
+  일별 immutable 결과·ledger를 쓰지 않는다. 불완전 일자가 하나라도 있으면 누적 기간
+  수익률은 `INCOMPLETE_PROXY_COVERAGE`와 함께 `null`로 보고한다. SHORT MFE/MAE도
+  종가 수익률과 동일한 진입 명목 기준으로 계산한다.
+- 테스트: post-close 19 passed, 관련 장전·OOS 게이트 135 passed, 전체 pytest
+  2,000 passed. Ruff·compileall·`git diff --check` 통과.
 - `.codex/`는 기존 사용자 소유 미추적 경로로 유지한다.
 
 ## 다음 한 가지 작업
 
-단계 2: **장전 판단 장부·장 마감 평가기 및 통합 모의거래 준비** 설계·구현.
-하나의 전략 템플릿·모의 체결·위험 제어를 고정하고 시점/결측/비용 계약을 검증한다.
+단계 2 다음 작업: **모의거래 전용 승인 계약**을 고정한다.
+전략 템플릿, 진입·청산·비중·손절, 체결 가격 모델, 잔고/비용/위험 제어 규칙을 먼저 문서화·테스트한 뒤
+이번 사후평가 장부와 분리된 Paper 계좌 장부를 구현한다.
 
 ## 아직 충족하지 않은 실행 게이트
 
