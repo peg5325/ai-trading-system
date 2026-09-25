@@ -47,10 +47,24 @@
 - 테스트: post-close 19 passed, 관련 장전·OOS 게이트 135 passed, 전체 pytest
   2,000 passed. Ruff·compileall·`git diff --check` 통과.
 - `.codex/`는 기존 사용자 소유 미추적 경로로 유지한다.
+- 2026-09-24 자동화 장애를 근거로 이슈 #159에서 로컬 운영 실행기를 구현했다.
+  PRIMARY는 Marketaux timeout과 Toss OAuth 403을 `FAIL_CLOSED → NO_TRADE`로 남겼고,
+  VERIFICATION은 Toss 403 이후 Codex workspace credit 부족으로, FREEZE는 credit 부족으로
+  중단됐다. 이 날짜는 전향적 유효 관측으로 세지 않는다.
+- `scripts/run_premarket_pipeline.py`는 Codex 없이 PRIMARY/VERIFICATION/FREEZE/post-close를
+  실행하며, Toss HTTP·timeout·network 오류는 표준 immutable market failure artifact로 바꾼다.
+  due stage 실패는 redacted step log SHA와 immutable `INCOMPLETE` operation receipt로 남긴다.
+  `scripts/install_premarket_launchd.py`는 DST-safe paired KST trigger를 설치·상태 확인한다.
+  실제 launchd 설치는 main 병합 후 별도 실행이며 주문·브로커·OOS 권한은 없다.
+- 테스트: 운영·장전·OOS 관련 151 passed, 전체 pytest 2,009 passed. Ruff·compileall·
+  `git diff --check` 통과. 독립 code-reviewer APPROVE, architect CLEAR.
 
 ## 다음 한 가지 작업
 
 단계 2 다음 작업: **모의거래 전용 승인 계약**을 고정한다.
+먼저 #159 병합 후 launchd를 설치·상태 확인하고, 다음 정상 거래일에서 모든 stage가 완결되는지
+확인한다. 그 뒤 전략 템플릿, 진입·청산·비중·손절, 체결 가격 모델, 잔고/비용/위험 제어 규칙을
+문서화·테스트한 뒤 이번 사후평가 장부와 분리된 Paper 계좌 장부를 구현한다.
 전략 템플릿, 진입·청산·비중·손절, 체결 가격 모델, 잔고/비용/위험 제어 규칙을 먼저 문서화·테스트한 뒤
 이번 사후평가 장부와 분리된 Paper 계좌 장부를 구현한다.
 

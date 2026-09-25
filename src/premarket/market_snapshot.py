@@ -297,6 +297,57 @@ def build_market_bundle(
     return bundle
 
 
+def build_failed_market_bundle(
+    provider_bundle: Mapping[str, Any],
+    *,
+    raw_root: str | Path,
+    defect_code: str,
+    clock: Callable[[], datetime] = utc_now,
+    policy: MarketSnapshotPolicy | None = None,
+) -> dict[str, Any]:
+    """Create the canonical market failure artifact without inventing candles.
+
+    Collection failures must travel through the same immutable bundle contract as
+    successful market snapshots.  This lets normalization create an auditable
+    ``NO_TRADE`` instead of forcing an operator to handcraft a replacement
+    artifact after an OAuth or transport failure.
+    """
+    if provider_bundle.get("schema") != "premarket-provider-bundle/v1":
+        raise ValueError("provider bundle must be premarket-provider-bundle/v1")
+    if not defect_code or any(char not in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_" for char in defect_code):
+        raise ValueError("defect_code must be an uppercase safe reason code")
+    if policy is None:
+        policy = MarketSnapshotPolicy()
+    raw_store = RawSnapshotStore(str(raw_root))
+    bundle = {
+        "schema": MARKET_BUNDLE_SCHEMA,
+        "trading_day": str(provider_bundle["trading_day"]),
+        "stage": str(provider_bundle["stage"]),
+        "as_of": str(provider_bundle["as_of"]),
+        "generated_at": iso_z(clock()),
+        "provider_bundle_sha256": str(provider_bundle["artifact_sha256"]),
+        "collection_status": "FAIL_CLOSED",
+        "collection_defects": [defect_code],
+        "request_policy": asdict(policy),
+        "excluded_boundary_counts": {
+            "incomplete_1m_at_or_before_as_of": 0,
+            "forming_1m_exact_as_of": 0,
+            "daily_on_trading_day": 0,
+            "incomplete_1d_on_or_after_trading_day": 0,
+        },
+        "capabilities": {
+            "order_authority": False,
+            "broker_access": False,
+            "canonical_market_history_access": False,
+        },
+        "raw_manifest": raw_store.manifest(),
+        "request_receipts": [],
+        "symbols": [],
+    }
+    bundle["artifact_sha256"] = sha256_payload(bundle)
+    return bundle
+
+
 def write_market_bundle(bundle: Mapping[str, Any], out_json: str | Path,
                         receipt: str | Path | None = None) -> dict[str, Any]:
     sanitized = {
