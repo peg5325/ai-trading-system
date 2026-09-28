@@ -95,7 +95,9 @@ def run_stage(
     if not start <= actual_now.astimezone(start.tzinfo) < end:
         return _skipped("STAGE_WINDOW_NOT_REACHED", trading_day, stage)
     run = runner or _subprocess_runner
-    python = str(Path(sys.executable).resolve())
+    # Preserve the invoked venv entrypoint. Resolving this symlink can jump to
+    # the base interpreter and silently drop project dependencies.
+    python = sys.executable
     commands = [
         (
             "provider",
@@ -189,7 +191,7 @@ def run_postclose(
     symbols = _freeze_symbols(freeze)
     as_of = iso_z(earliest)
     run = runner or _subprocess_runner
-    python = str(Path(sys.executable).resolve())
+    python = sys.executable
     date_key = trading_day.strftime("%Y%m%d")
     commands = [
         (

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import plistlib
 import subprocess
+import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -90,6 +91,30 @@ def test_stage_runner_completes_no_trade_artifact_once_and_reuses_it(tmp_path):
         root=tmp_path,
         runner=never_run,
     ) == result
+
+
+def test_stage_runner_preserves_the_invoked_virtualenv_python(tmp_path, monkeypatch):
+    venv_python = tmp_path / ".venv" / "bin" / "python"
+    venv_python.parent.mkdir(parents=True)
+    venv_python.symlink_to(Path(sys.executable).resolve())
+    monkeypatch.setattr(sys, "executable", str(venv_python))
+    invoked: list[str] = []
+
+    def record(command: list[str], root: Path) -> subprocess.CompletedProcess[str]:
+        invoked.append(command[0])
+        return _runner_that_writes_outputs(command, root)
+
+    result = run_stage(
+        trading_day=date(2026, 9, 24),
+        stage="PRIMARY",
+        root=tmp_path,
+        runner=record,
+        now=datetime(2026, 9, 24, 12, 1, tzinfo=timezone.utc),
+    )
+
+    assert result["status"] == "COMPLETE"
+    assert invoked
+    assert set(invoked) == {str(venv_python)}
 
 
 def test_stage_runner_repairs_a_missing_brief_markdown_sibling(tmp_path):
