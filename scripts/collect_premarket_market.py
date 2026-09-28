@@ -7,12 +7,28 @@ import json
 import sys
 from pathlib import Path
 
+import httpx
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.premarket.market_snapshot import build_market_bundle, write_market_bundle
+from src.premarket.market_snapshot import (
+    build_failed_market_bundle,
+    build_market_bundle,
+    write_market_bundle,
+)
+
+
+def _failure_code(error: Exception) -> str:
+    """Return a stable, secret-free collection reason code."""
+    if isinstance(error, httpx.HTTPStatusError):
+        return f"TOSS_HTTP_STATUS_{error.response.status_code}"
+    if isinstance(error, httpx.TimeoutException):
+        return "TOSS_HTTP_TIMEOUT"
+    if isinstance(error, httpx.RequestError):
+        return "TOSS_NETWORK_ERROR"
+    return "TOSS_COLLECTION_EXCEPTION"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -28,7 +44,18 @@ def main(argv: list[str] | None = None) -> int:
         load_dotenv(ROOT / ".env")
     with open(args.provider_bundle, encoding="utf-8") as stream:
         provider_bundle = json.load(stream)
-    bundle = build_market_bundle(provider_bundle, raw_root=args.raw_root, config_path=args.config)
+    try:
+        bundle = build_market_bundle(
+            provider_bundle,
+            raw_root=args.raw_root,
+            config_path=args.config,
+        )
+    except (httpx.HTTPStatusError, httpx.TimeoutException, httpx.RequestError) as error:
+        bundle = build_failed_market_bundle(
+            provider_bundle,
+            raw_root=args.raw_root,
+            defect_code=_failure_code(error),
+        )
     receipt = write_market_bundle(bundle, args.out_json, args.receipt)
     print(json.dumps(receipt, ensure_ascii=False, sort_keys=True))
     return 0 if bundle["collection_status"] == "OK" else 2
