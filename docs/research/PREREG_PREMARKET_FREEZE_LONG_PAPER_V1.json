@@ -1,0 +1,154 @@
+{
+  "schema": "premarket-freeze-long-paper/contract/v1",
+  "version": "1.0",
+  "issue": 163,
+  "status": "PAPER_CONTRACT_LOCKED_PENDING_IMPLEMENTATION_REVIEW",
+  "strategy_template_id": "premarket_freeze_long_intraday_v1",
+  "purpose": "prospective operational and economic validation of premarket LONG_WATCH candidates in Paper only",
+  "prior_access_disclosure": {
+    "premarket_shadow_days_examined": ["2026-09-21", "2026-09-28"],
+    "postclose_outcomes_examined": ["2026-09-21", "2026-09-28"],
+    "parameter_tuning_from_those_outcomes": false,
+    "evidence_label": "post-observation prospective Paper contract; not clean-room evidence"
+  },
+  "implementation_scope": {
+    "paper_strategy_code_in_this_change": false,
+    "runtime_config_activation_in_this_change": false,
+    "orders_created_in_this_change": false,
+    "live_broker_access_in_this_change": false,
+    "blind_oos_opened_in_this_change": false,
+    "next_step": "implement in a separate reviewed issue, then record the first future trading day before activation"
+  },
+  "decision_input": {
+    "required_artifact_schema": "premarket-daily-brief/v2",
+    "required_stage": "FREEZE",
+    "required_artifact_hash_match": true,
+    "required_run_mode": "LIVE_WINDOW",
+    "required_provider_status": "OK",
+    "required_market_status": "OK",
+    "required_regime": "RISK_ON",
+    "eligible_bias": "LONG_WATCH",
+    "required_strategy_template_id": "premarket_freeze_long_intraday_v1",
+    "max_candidates": 3,
+    "candidate_order": "FREEZE watchlist rank order",
+    "any_contract_or_quality_defect": "NO_TRADE"
+  },
+  "direction_scope": {
+    "long_watch": "PAPER_ELIGIBLE",
+    "short_watch": "OBSERVATION_ONLY",
+    "short_reason": "current position and cash accounting cannot open and value negative share positions; borrow and dividend obligations are not modeled",
+    "short_successor_requires": [
+      "negative-position accounting",
+      "borrow availability and fee model",
+      "short dividend obligation",
+      "short-specific risk and Paper evidence"
+    ]
+  },
+  "account": {
+    "currency": "USD",
+    "initial_equity": 2000.0,
+    "external_cash_flows_during_window": false,
+    "leverage": false,
+    "margin_borrowing": false,
+    "cash_interest": 0.0
+  },
+  "entry": {
+    "session": "REGULAR",
+    "decision_already_frozen_before_open": true,
+    "entry_time_et": "09:35",
+    "fill": "first available REGULAR 1m bar open at or after 09:35 ET",
+    "missing_entry_bar": "NO_TRADE_SYMBOL",
+    "order_type": "PAPER_MARKET_WITH_REFERENCE_PRICE",
+    "allocation_notional": "entry-time marked account equity * 0.20",
+    "anticipated_entry_fill": "reference_open * (1 + 0.0005 entry slippage)",
+    "cash_per_share_for_sizing": "anticipated_entry_fill * (1 + 0.0002 entry fee)",
+    "quantity": "floor(min(allocation_notional, available_cash) / cash_per_share_for_sizing)",
+    "quantity_zero": "NO_TRADE_SYMBOL",
+    "cash_check_includes_entry_slippage_and_fee": true,
+    "max_entries_per_symbol_per_day": 1,
+    "reentry_same_day": false,
+    "averaging_down": false,
+    "scale_in": false
+  },
+  "portfolio": {
+    "position_notional_pct_of_entry_equity": 0.20,
+    "max_positions": 3,
+    "max_symbol_notional_pct": 0.20,
+    "max_total_effective_exposure_pct": 0.60,
+    "minimum_cash_reserve_pct": 0.40,
+    "whole_shares_only": true,
+    "insufficient_cash": "REJECT_ENTRY",
+    "slot_priority": "FREEZE rank then symbol ascending"
+  },
+  "exits": {
+    "priority": ["DAILY_LOSS_HALT", "STOP_LOSS", "TAKE_PROFIT", "TIME_EXIT", "EOD_FLATTEN"],
+    "stop_loss_pct_from_fill": 0.0075,
+    "take_profit_pct_from_fill": 0.015,
+    "entry_bar_is_scanned_for_exits": true,
+    "stop_trigger": "completed REGULAR 1m bar low <= stop_price",
+    "target_trigger": "completed REGULAR 1m bar high >= target_price",
+    "stop_reference_fill": "bar open if bar open < stop_price, otherwise stop_price",
+    "target_reference_fill": "target_price; favorable gap improvement is not credited",
+    "exit_slippage_and_fee": "after selecting the reference fill, apply 5bp adverse slippage then 2bp fee",
+    "time_exit_minutes": 60,
+    "time_exit_fill": "first available REGULAR 1m bar open at or after due time",
+    "eod_flatten_time_et": "15:50",
+    "eod_fill": "first available REGULAR 1m bar open at or after 15:50 ET",
+    "same_bar_stop_and_target": "STOP_FIRST_CONSERVATIVE",
+    "missing_exit_bar": "HALT_AND_REVIEW",
+    "overnight": false
+  },
+  "execution_costs": {
+    "paper_slippage_bps_per_side": 5.0,
+    "paper_fee_bps_per_side": 2.0,
+    "paper_round_trip_total_pct_points": 0.14,
+    "official_round_trip_total_pct_points": 0.34,
+    "stress_round_trip_total_pct_points": 0.68,
+    "official_incremental_pct_points_per_side": 0.10,
+    "stress_incremental_pct_points_per_side": 0.27,
+    "official_incremental_formula": "((0.34 - 0.14) / 2) pct points * actual filled notional on each side",
+    "stress_incremental_formula": "((0.68 - 0.14) / 2) pct points * actual filled notional on each side",
+    "official_and_stress_reporting": "subtract the per-side incremental drag from recorded Paper equity/PnL; never subtract the full 0.34 or 0.68 again",
+    "basis": "traded notional"
+  },
+  "risk": {
+    "daily_loss_halt_pct_of_prior_close_equity": 0.01,
+    "high_water_drawdown_halt_pct": 0.10,
+    "daily_halt_actions": ["block new entries", "cancel pending entries", "begin risk-reducing exits"],
+    "mark_frequency": "every completed REGULAR 1m bar and every fill",
+    "daily_loss_anchor": "prior trading day regular-close account equity; first session uses initial equity",
+    "high_water_anchor": "highest external-flow-adjusted marked account equity since Paper start",
+    "breach_comparison": "loss or drawdown >= threshold",
+    "breach_liquidation_fill": "next available REGULAR 1m bar open with Paper exit slippage and fee",
+    "breach_includes": ["realized PnL", "unrealized PnL", "recorded costs", "incremental evaluation costs in derived official/stress ledgers"],
+    "gap_can_exceed_limit": true,
+    "automatic_same_day_resume": false,
+    "automatic_high_water_resume": false,
+    "duplicate_client_order_ids_allowed": false,
+    "unresolved_order_fill_position_mismatch_allowed": false
+  },
+  "evaluation": {
+    "first_session": "set by immutable implementation receipt before the first future run",
+    "scheduled_trading_sessions": 10,
+    "preserve_no_trade_and_missing_sessions": true,
+    "minimum_completed_trades": 1,
+    "force_trade_to_fill_sample": false,
+    "primary_metrics_order": [
+      "net account return",
+      "excess return versus same-period SPY total return proxy",
+      "net PnL with starting equity",
+      "maximum drawdown"
+    ],
+    "eligibility_conditions": [
+      "official-cost cumulative account return > 0",
+      "same-period SPY excess return > 0",
+      "stress-cost cumulative PnL >= 0",
+      "daily and high-water risk limits respected",
+      "unresolved order/fill/position mismatches = 0",
+      "duplicate orders = 0",
+      "shutdown, restart, reconciliation, and EOD exit paths verified"
+    ],
+    "outcomes": ["ELIGIBLE_FOR_LIVE_REVIEW", "EXTEND_OBSERVATION", "NO_PROMOTION", "HALT_AND_REVIEW"],
+    "automatic_live_promotion": false
+  }
+}
