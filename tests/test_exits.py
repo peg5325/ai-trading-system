@@ -372,3 +372,39 @@ def test_stop_loss_closed_trade_end_to_end(tmp_path):
     assert trades[0].exit_reason == (STOP_LOSS,)
     assert trades[0].realized_pnl < 0                       # 진입가보다 낮게 매도(-손실)
     assert "SOXL" not in lp.account.positions()             # 전량 청산됨
+
+
+# ---- 완료 1분봉 기반 판정 (additive, issue #165) ----
+def _bar(o, h, low, c):
+    return Candle.from_moment("X", "1m", datetime(2026, 10, 1, 14, 0, tzinfo=timezone.utc),
+                              o, h, low, c, 0.0, "USD", False)
+
+
+_BAR_GEN = ExitSignalGenerator(ExitConfig(stop_loss_pct=0.01, take_profit_pct=0.02,
+                                          time_exit_minutes=60,
+                                          enable_all_symbols_eod_flatten=True))
+_BAR_POS = PositionView("X", 5, entry_price=100.0, current_price=100.0,
+                        entry_time=datetime(2026, 10, 1, 13, 35, tzinfo=timezone.utc))
+
+
+def test_intrabar_stop_first_when_both_touched():
+    fill = _BAR_GEN.evaluate_intrabar(_BAR_POS, _bar(100.0, 103.0, 98.0, 100.0))
+    assert (fill.reason, fill.reference_price) == (STOP_LOSS, 99.0)
+
+
+def test_intrabar_gap_down_stop_uses_open_and_gap_up_target_uses_target():
+    assert _BAR_GEN.evaluate_intrabar(_BAR_POS, _bar(97.0, 97.5, 96.0, 97.0)).reference_price == 97.0
+    fill = _BAR_GEN.evaluate_intrabar(_BAR_POS, _bar(105.0, 106.0, 104.0, 105.0))
+    assert (fill.reason, fill.reference_price) == (TAKE_PROFIT, 102.0)
+    assert _BAR_GEN.evaluate_intrabar(_BAR_POS, _bar(100.0, 101.0, 99.5, 100.5)) is None
+
+
+def test_bar_open_time_exit_counts_minutes_before_eod():
+    t = datetime(2026, 10, 1, 14, 35, tzinfo=timezone.utc)
+    fill = _BAR_GEN.evaluate_bar_open(_BAR_POS, ExitContext(is_eod_window=True, now_time=t),
+                                      bar_open=100.5)
+    assert (fill.reason, fill.reference_price) == (TIME_EXIT, 100.5)
+    early = ExitContext(is_eod_window=True, now_time=t - timedelta(minutes=1))
+    assert _BAR_GEN.evaluate_bar_open(_BAR_POS, early, bar_open=100.5).reason == EOD_FLATTEN
+    assert _BAR_GEN.evaluate_bar_open(_BAR_POS, ExitContext(now_time=t - timedelta(minutes=1)),
+                                      bar_open=100.5) is None

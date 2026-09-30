@@ -47,6 +47,13 @@ class ExitConfig:
 
 
 @dataclass(frozen=True)
+class ExitFill:
+    """봉 기반 청산 판정 결과: 사유(=OrderIntent.kind)와 슬리피지 전 참조 체결가."""
+    reason: str
+    reference_price: float
+
+
+@dataclass(frozen=True)
 class PositionView:
     """청산 평가에 필요한 포지션의 정규화 뷰(계좌/백테스트 공통 입력)."""
     symbol: str
@@ -130,6 +137,38 @@ class ExitSignalGenerator:
         # EOD 창은 symbol별(pos.is_eod_window, 혼합 유니버스 정확) 또는 컨텍스트(ctx) 중 하나로 판단.
         if (pos.is_eod_window or ctx.is_eod_window) and self.eod_applies(pos.leverage_factor):
             return EOD_FLATTEN
+        return None
+
+    # ---- 완료 1분봉 기반 판정(가격 1점이 아닌 open/high/low 사용) ----
+    def evaluate_intrabar(self, pos: PositionView, bar) -> ExitFill | None:
+        """봉 안 손절/익절. bar 는 open/high/low 속성을 가진다(Candle 호환).
+
+        손절가·목표가 기준은 pos.entry_price(체결가). 같은 봉에서 둘 다 닿으면 손절 우선(보수적).
+        손절 참조가: 시가가 손절가 아래(갭다운)면 시가, 아니면 손절가.
+        익절 참조가: 목표가(유리한 갭은 인정하지 않음).
+        """
+        if pos.quantity <= 0 or pos.entry_price <= 0:
+            return None
+        sl, tp = self.cfg.stop_loss_pct, self.cfg.take_profit_pct
+        if sl:
+            stop = pos.entry_price * (1.0 - sl)
+            if bar.low <= stop:
+                return ExitFill(STOP_LOSS, min(stop, bar.open))
+        if tp:
+            target = pos.entry_price * (1.0 + tp)
+            if bar.high >= target:
+                return ExitFill(TAKE_PROFIT, target)
+        return None
+
+    def evaluate_bar_open(self, pos: PositionView, ctx: ExitContext, *,
+                          bar_open: float) -> ExitFill | None:
+        """봉 시가 시점 청산: TIME_EXIT(분 단위, ctx.now_time=봉 시작) > EOD_FLATTEN. 참조가는 봉 시가."""
+        if pos.quantity <= 0:
+            return None
+        if self.hit_time_exit(pos, ctx):
+            return ExitFill(TIME_EXIT, bar_open)
+        if (pos.is_eod_window or ctx.is_eod_window) and self.eod_applies(pos.leverage_factor):
+            return ExitFill(EOD_FLATTEN, bar_open)
         return None
 
     # ---- 보유 포지션 목록 → 청산 OrderIntent 목록 (paper/live) ----
