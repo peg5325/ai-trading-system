@@ -1,6 +1,6 @@
 # 현재 상태와 세션 인계
 
-갱신일: 2026-09-22
+갱신일: 2026-09-30
 
 ## 정본
 
@@ -55,18 +55,31 @@
   실행하며, Toss HTTP·timeout·network 오류는 표준 immutable market failure artifact로 바꾼다.
   due stage 실패는 redacted step log SHA와 immutable `INCOMPLETE` operation receipt로 남긴다.
   `scripts/install_premarket_launchd.py`는 DST-safe paired KST trigger를 설치·상태 확인한다.
-  실제 launchd 설치는 main 병합 후 별도 실행이며 주문·브로커·OOS 권한은 없다.
+  주문·브로커·OOS 권한은 없다. PR #160·#162(`.venv` 이탈 수정) 병합 후 LaunchAgent 8개를 설치했고,
+  2026-09-30 `--status`로 8개 모두 plist 존재·loaded를 확인했다.
 - 테스트: 운영·장전·OOS 관련 151 passed, 전체 pytest 2,009 passed. Ruff·compileall·
   `git diff --check` 통과. 독립 code-reviewer APPROVE, architect CLEAR.
+- 2026-09-28 FREEZE와 post-close가 처음으로 완결됐다. AAPL/NVDA/TSLA LONG_WATCH의
+  동일비중 방향성 proxy는 공식 비용 후 −1.584%였으며 실제 결정은 승인 전략 부재로
+  `NO_TRADE`·주문 0이었다. 한 날짜의 결과를 전략 성과로 승격하지 않는다.
+- 2026-09-29 FREEZE(META/MU/AVGO LONG_WATCH)와 post-close도 완결됐다. 동일비중 방향성 proxy는
+  비용 전 +0.114%, 공식 비용 후 −0.226%, SPY 동시간대 진단 대비 +0.115%p였다. 실제 결정은
+  `NO_TRADE`·주문 0이다. 누적 proxy 장부는 09-21 결측으로 `INCOMPLETE_PROXY_COVERAGE`다.
+  증거: 로컬 `reports/premarket-postclose.2026092{8,9}.json`, `premarket-operation.*.json`(gitignore).
+- 이슈 #163에서 첫 Paper 전용 계약 `premarket_freeze_long_intraday_v1`을 구현 전 고정했다(PR #164).
+  v1은 LONG_WATCH만 대상으로 하고 SHORT_WATCH는 관찰로 남긴다.
+- 2026-09-30 병합 전 독립 리뷰가 CHANGES_REQUIRED(기준 장부 미지정, 운영비 조건 누락, 입력 필드
+  경로 불명확, 정수 주식에서 20% 비중 불성립 등)를 냈다. 첫 Paper 세션 전에 계약을 v1.1로 개정했다.
+  사용자 결정: 종목별 20% 삭제, USD 2,000 유지, stress 왕복 0.51%p, 총 노출 75%. Paper 수수료는
+  Toss 공식 FAQ(매수·매도 각 0.1%, 매도 SEC fee 0.00206%)를 따른다. Charter v1.3에 이유와 효력을 기록했다.
+  계약 테스트 10 passed. 병합과 구현은 아직이다.
 
 ## 다음 한 가지 작업
 
-단계 2 다음 작업: **모의거래 전용 승인 계약**을 고정한다.
-먼저 #159 병합 후 launchd를 설치·상태 확인하고, 다음 정상 거래일에서 모든 stage가 완결되는지
-확인한다. 그 뒤 전략 템플릿, 진입·청산·비중·손절, 체결 가격 모델, 잔고/비용/위험 제어 규칙을
-문서화·테스트한 뒤 이번 사후평가 장부와 분리된 Paper 계좌 장부를 구현한다.
-전략 템플릿, 진입·청산·비중·손절, 체결 가격 모델, 잔고/비용/위험 제어 규칙을 먼저 문서화·테스트한 뒤
-이번 사후평가 장부와 분리된 Paper 계좌 장부를 구현한다.
+단계 2 다음 작업: PR #164(계약 v1.1) 독립 재리뷰·병합 후 별도 이슈에서
+**FREEZE artifact → Paper 주문 어댑터와 전용 계좌 장부**를 구현한다. 계약의 경로별 게이트,
+75% 노출 whole-share 산정, 봉 처리 순서, 위험·청산·비용 규칙을 코드에 1:1로 배선하고
+독립 리뷰 후 첫 미래 거래일을 immutable 영수증에 고정한다.
 
 ## 아직 충족하지 않은 실행 게이트
 
