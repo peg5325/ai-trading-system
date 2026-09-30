@@ -15,6 +15,8 @@
 | `sizing.py` | `portfolio.sizing_procedure` 문자 그대로의 포팅(`floor(x+1e-9)`), `EXPOSURE_ROOM` |
 | `costs.py` | 수수료 10bp/편도, SEC fee(Decimal 센트 올림, 최소 0.01), 공식·stress 파생 비용(읽기 전용) |
 | `engine.py` | `start_session` / `step_bar` / `finish_session` / `run_session`. 상태는 JSON 직렬화 dict |
+| `receipt.py` | 첫 세션 영수증 스키마·검증기(활성화의 유일한 스위치). 영수증을 만들지 않는다 |
+| `runner.py` | 장마감 후 세션 실행기: 활성화 → 시간 가드 → 엄격한 세션 순서 → 게이트 → backfill(subprocess) → OOS 가드 로더 → 엔진 → immutable artifact·장부 |
 | `reconcile.py` | 일일 대조: 주문 저장소·계좌·체결 재생 포지션, 주문↔체결 1:1, 현금 항등식, 세션 종료 무포지션, id 중복, 재시작 재구성 |
 
 ## 3. 봉 처리 순서 (`exits.priority_within_bar`)
@@ -34,6 +36,8 @@ EOD는 마감 10분 전. 마감까지 청산 못 하면 `UNRESOLVED_EXIT`, 다�
 - INVERSE 다리 승인은 정규화·planner 가 `approved_short_strategy_templates` 로부터 만든
   `strategy_template_approved` 플래그를 신뢰한다. 이 패키지는 config 를 다시 읽지 않는다.
 - 비정상 봉(NaN·0 이하·고저 역전)은 `INVALID_BAR` 이벤트로 남기고 결측 봉과 똑같이 처리한다.
+- `Candle.ts_utc`는 봉 **시작** 시각이다. 실행기는 `[market_open_utc, market_close_utc)` 봉만 넘기므로
+  09:35 ET 진입 봉은 EDT에서 `13:35Z`이고, 마감 시각에 시작하는 봉은 쓰지 않는다.
 - 청산 주문 ID는 `pfl1-{진입일}-{종목}-SELL-{n}`: 거절·부분 체결된 청산(손절·익절 포함)은 사유와 함께
   대기 청산으로 남아 다음 유효 봉 시가에서 가격 재확인 없이 n+1로 재시도한다. 봉당 종목별 청산 시도는 1회다.
   이미 FILLED인 ID인데 포지션이 남아 있으면 `LEDGER_INCONSISTENT`로 기록하고 재제출하지 않는다(UNRESOLVED_EXIT로 종료).
@@ -52,7 +56,19 @@ EOD는 마감 10분 전. 마감까지 청산 못 하면 `UNRESOLVED_EXIT`, 다�
 - ❌ 현재 시각·난수·네트워크·파일 쓰기를 쓰지 않는다. `gates.py`는 FREEZE 파일을 읽기만 한다.
 - ❌ 계약 수치를 코드에 하드코딩하지 않는다. `binding.py`를 거친다.
 - ❌ 청산을 막지 않는다. 모든 청산은 `RISK_REDUCING` 종류로 보낸다.
-- ❌ runner, launchd, 장부 파일, 활성화, 평가기는 이 PR 범위가 아니다(PR 2/3).
+- ❌ 영수증 없이 Daily Brief 승인 목록을 채우지 않는다(활성화 OFF 유지, 테스트가 강제).
+
+### 활성화 후 테스트가 바뀌는 방식
+
+`tests/test_freeze_paper_activation.py`는 승인 목록이 비어 있으면 현재 `policy_config` 해시가 고정값과
+같은지, 채워져 있으면 추적 영수증이 존재하고 `load_receipt`로 검증되는지 확인한다. 활성화 PR은
+config 승인 목록과 영수증을 **함께** 추가한다. 이때 활성화 config의 파일 SHA-256은 영수증
+`activation_config_sha256`에 고정되고(검증기가 대조), 실행기는 FREEZE snapshot의 `policy_config`가 그 config와
+같은지 다시 확인한다. 따라서 고정 해시 테스트는 OFF 상태에서만 적용되고, 활성화 뒤의 해시 고정은 영수증이 맡는다.
+영수증 `code_commit`은 실행 HEAD의 조상이어야 한다(`git merge-base --is-ancestor`).
+- ❌ `load_candles`를 직접 쓰지 않는다. 1분봉은 `research_load`로만 읽는다.
+- ❌ 세션 artifact를 덮어쓰거나 stale `.partial`을 지우지 않는다(`DATA_DRIFT`/`INCOMPLETE`로 보고).
+- ❌ 평가기(10세션 판정)는 PR 3 범위다.
 
 ## 5. 테스트
 

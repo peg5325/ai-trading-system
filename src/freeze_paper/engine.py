@@ -158,6 +158,10 @@ def start_session(state: dict, gate: GateResult, binding: ContractBinding) -> di
         "end_equity": None,
     }
     rt = _Runtime(s, binding)
+    if halted_at_start and gate.decision == TRADE:
+        for cand in gate.candidates:        # HALTED sessions stay auditable per candidate
+            rt.event(s["session"]["market_open_utc"], "NO_TRADE_SYMBOL",
+                     symbol=cand.traded_symbol, rank=cand.rank, reason=HALTED)
     rt.mark(day)      # flat (or carried) mark before the 09:35 bar anchors the daily loss
     return rt.dump()
 
@@ -449,8 +453,10 @@ class _Runtime:
         if stored is not None and stored.status == ORD_FILLED:
             # A filled order the position book does not reflect: never resubmit or refill;
             # the position stays open and ends as UNRESOLVED_EXIT (fail closed).
-            self.event(minute_iso, "LEDGER_INCONSISTENT", symbol=sym, kind=kind,
-                       client_order_id=coid)
+            if not any(e["type"] == "LEDGER_INCONSISTENT" and e.get("client_order_id") == coid
+                       for e in self.sess["events"]):   # once per position per session
+                self.event(minute_iso, "LEDGER_INCONSISTENT", symbol=sym, kind=kind,
+                           client_order_id=coid)
             return
         if stored is not None:
             pos["sell_attempt"] += 1          # stale rejected attempt: move to the next id

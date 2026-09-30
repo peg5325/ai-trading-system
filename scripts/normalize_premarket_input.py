@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.premarket.contract import load_config, quality_defects
+from src.premarket.contract import attachable_template, load_config, quality_defects
 from src.premarket.normalizer import normalize_bundles
 from src.premarket.report import json_bytes, write_immutable
 from src.premarket.schedule import build_premarket_schedule
@@ -28,9 +28,10 @@ def main(argv: list[str] | None = None) -> int:
         provider_bundle = json.load(stream)
     with open(args.market_bundle, encoding="utf-8") as stream:
         market_bundle = json.load(stream)
-    result = normalize_bundles(provider_bundle, market_bundle)
-    write_immutable(args.out_json, json_bytes(result))
     config = load_config(args.config)
+    result = normalize_bundles(provider_bundle, market_bundle,
+                               strategy_template_id=attachable_template(config))
+    write_immutable(args.out_json, json_bytes(result))
     schedule = build_premarket_schedule(
         date.fromisoformat(result["trading_day"]),
         primary_offset_minutes=config.primary_offset_minutes,

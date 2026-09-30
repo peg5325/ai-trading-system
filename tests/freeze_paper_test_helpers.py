@@ -147,8 +147,9 @@ def watch_item(symbol: str, bias: str = "LONG_WATCH", *, template: str | None = 
 def write_freeze(reports: Path, *, regime: str | None = None, watchlist: list[dict] | None = None,
                  mutate: Callable[[dict], None] | None = None,
                  mutate_receipt: Callable[[dict], None] | None = None,
-                 resign: bool = True, receipt_status: str = "COMPLETE") -> dict:
-    """Write brief + COMPLETE receipt for BRIEF_DAY; mutations are re-signed unless resign=False."""
+                 resign: bool = True, receipt_status: str = "COMPLETE",
+                 day: str = BRIEF_DAY) -> dict:
+    """Write brief + COMPLETE receipt for ``day``; mutations are re-signed unless resign=False."""
     artifact = planner_artifact()
     if regime is not None:
         artifact["snapshot"]["payload"]["input"]["market_regime"]["label"] = regime
@@ -160,11 +161,11 @@ def write_freeze(reports: Path, *, regime: str | None = None, watchlist: list[di
         artifact.pop("artifact_sha256", None)
         artifact["artifact_sha256"] = sha256_payload(artifact)
     reports.mkdir(parents=True, exist_ok=True)
-    brief_path, receipt_path = freeze_paths(date.fromisoformat(BRIEF_DAY), reports)
+    brief_path, receipt_path = freeze_paths(date.fromisoformat(day), reports)
     content = json_bytes(artifact)
     brief_path.write_bytes(content)
     receipt = {
-        "schema": OPERATION_SCHEMA, "operation": "PREMARKET_STAGE", "trading_day": BRIEF_DAY,
+        "schema": OPERATION_SCHEMA, "operation": "PREMARKET_STAGE", "trading_day": day,
         "stage": "FREEZE", "status": receipt_status, "reason_codes": [],
         "brief_status": artifact["brief"].get("status"),
         "artifact_file_sha256": {"brief": hashlib.sha256(content).hexdigest()},

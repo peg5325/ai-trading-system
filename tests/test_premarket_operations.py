@@ -182,6 +182,27 @@ def test_postclose_runner_requires_freeze_before_any_market_backfill(tmp_path):
     assert postclose_paths(tmp_path, date(2026, 9, 24))["operation"].exists()
 
 
+def test_postclose_runner_waits_for_the_shared_market_db_lock(tmp_path):
+    import fcntl
+
+    day = date(2026, 9, 24)
+    freeze = postclose_paths(tmp_path, day)["freeze"]
+    freeze.parent.mkdir(parents=True, exist_ok=True)
+    freeze.write_text(json.dumps({"brief": {"watchlist": []}}), encoding="utf-8")
+    lock_path = tmp_path / "data" / ".market_history.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock_path, "a+b") as held:
+        fcntl.flock(held.fileno(), fcntl.LOCK_EX)
+        result = run_postclose(
+            trading_day=day, root=tmp_path,
+            now=datetime(2026, 9, 24, 20, 20, tzinfo=timezone.utc),
+            runner=lambda *_args: pytest.fail("a held lock must block the backfill"),
+            lock_timeout_seconds=0.05,
+        )
+    assert (result["status"], result["reason_codes"]) == ("INCOMPLETE", ["LOCK_TIMEOUT"])
+    assert not postclose_paths(tmp_path, day)["operation"].exists()     # retryable
+
+
 def test_postclose_runner_rejects_early_execution_before_reading_freeze(tmp_path):
     result = run_postclose(
         trading_day=date(2026, 9, 24),
@@ -232,15 +253,19 @@ def test_launchd_definitions_use_local_runner_without_credentials(tmp_path):
     assert [job.name for job in all_jobs] == [
         "primary-21", "primary-22", "verification-22", "verification-23",
         "freeze-22", "freeze-23", "postclose-05", "postclose-06",
+        "freeze-paper-05", "freeze-paper-06", "freeze-paper-07",
     ]
     assert [(job.hour, job.minute) for job in all_jobs] == [
         (21, 1), (22, 1), (22, 1), (23, 1), (22, 11), (23, 11), (5, 20), (6, 20),
+        (5, 35), (6, 35), (7, 35),
     ]
     for job in all_jobs:
         payload = plist_payload(job, tmp_path)
         assert payload["Label"].startswith(LABEL_PREFIX)
         assert "TOSS_CLIENT_SECRET" not in str(payload)
-        assert "--stage" in payload["ProgramArguments"] or "--postclose" in payload["ProgramArguments"]
+        args = payload["ProgramArguments"]
+        assert ("--stage" in args or "--postclose" in args
+                or args[-1].endswith("run_freeze_paper_session.py"))
 
 
 def test_launchd_write_only_install_generates_valid_plists(tmp_path):
@@ -253,8 +278,42 @@ def test_launchd_write_only_install_generates_valid_plists(tmp_path):
         python=project / ".venv" / "bin" / "python",
         bootstrap=False,
     )
-    assert len(paths) == 8
+    assert len(paths) == 11
     for path in paths:
         payload = plistlib.loads(path.read_bytes())
         assert payload["Label"].startswith(LABEL_PREFIX)
-        assert payload["StartCalendarInterval"]["Minute"] in {1, 11, 20}
+        assert payload["StartCalendarInterval"]["Minute"] in {1, 11, 20, 35}
+
+
+def test_launchd_status_covers_the_freeze_paper_pair_without_launchctl(tmp_path, monkeypatch):
+    import scripts.install_premarket_launchd as installer
+
+    probed: list[list[str]] = []
+
+    def fake_run(command, **_kwargs):
+        probed.append(command)
+        return subprocess.CompletedProcess(command, 113, "", "")
+
+    monkeypatch.setattr(installer.subprocess, "run", fake_run)
+    rows = installer.status(project_root=tmp_path, home=tmp_path / "home",
+                            python=tmp_path / "python")
+    paper = [row for row in rows if ".freeze-paper-" in row["label"]]
+    assert [(row["hour"], row["minute"]) for row in paper] == [(5, 35), (6, 35), (7, 35)]
+    assert all(row["plist_exists"] is False and row["loaded"] is False for row in paper)
+    assert all(command[:2] == ["launchctl", "print"] for command in probed)
+
+
+def test_freeze_paper_launchd_pair_runs_after_close_in_both_dst_regimes():
+    from datetime import timedelta
+
+    from src.premarket.operations import postclose_earliest
+    from src.premarket.schedule import build_premarket_schedule
+
+    kst = ZoneInfo("Asia/Seoul")
+    for day in (date(2026, 10, 1), date(2026, 11, 27), date(2026, 12, 1)):
+        earliest = postclose_earliest(build_premarket_schedule(day))
+        next_kst = day + timedelta(days=1)
+        runs = [datetime(next_kst.year, next_kst.month, next_kst.day, h, 35, tzinfo=kst)
+                for h in (5, 6, 7)]
+        assert any(run >= earliest for run in runs)
+        assert all(run.astimezone(ZoneInfo("America/New_York")).date() == day for run in runs)

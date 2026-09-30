@@ -30,6 +30,17 @@ SCORE_FIELDS = (
 )
 
 
+# The only strategy template the normalizer may attach.  It is attached only when the
+# Daily Brief config already approves it (LONG and/or SHORT list); with the default
+# empty allowlists nothing changes, so snapshots and brief hashes stay identical.
+FREEZE_PAPER_TEMPLATE_ID = "premarket_freeze_long_intraday_v1"
+
+
+def attachable_template(config: PremarketConfig) -> str | None:
+    approved = set(config.approved_strategy_templates) | set(config.approved_short_strategy_templates)
+    return FREEZE_PAPER_TEMPLATE_ID if FREEZE_PAPER_TEMPLATE_ID in approved else None
+
+
 def canonical_bytes(value: Any) -> bytes:
     return json.dumps(
         value,

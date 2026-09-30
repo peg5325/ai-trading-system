@@ -144,6 +144,8 @@ def test_daily_loss_halt_liquidates_remaining_positions_at_next_bar_open():
     nxt = _run(trade_gate(DAY2, ["AAPL"]), session_bars(DAY2, {"AAPL": 100.0}), state=state)
     assert nxt["session"]["status"] == HALTED
     assert [f for f in nxt["fills"] if f["trading_day"] == DAY2] == []
+    assert [(e["symbol"], e["reason"]) for e in _events(nxt, "NO_TRADE_SYMBOL")] == [
+        ("AAPL", "HALTED")]
 
 
 def test_drawdown_halt_uses_the_restored_peak():
