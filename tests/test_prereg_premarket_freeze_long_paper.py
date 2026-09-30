@@ -30,7 +30,7 @@ def _size(contract: dict, equity: float, reference_opens: list[float]) -> list[i
     for index, reference_open in enumerate(reference_opens):
         per_share = _cash_per_share(contract, reference_open)
         room = cap - used
-        qty = math.floor((room / (len(reference_opens) - index)) / per_share)
+        qty = math.floor((room / (len(reference_opens) - index)) / per_share + 1e-9)
         if qty == 0 and per_share <= room:
             qty = 1
         used += qty * per_share
@@ -124,6 +124,45 @@ def test_sizing_procedure_never_exceeds_exposure_cap():
         quantities = _size(contract, equity, opens)
         used = sum(q * _cash_per_share(contract, o) for q, o in zip(quantities, opens))
         assert used <= cap_pct * equity + 1e-9
+
+
+def test_sizing_procedure_text_is_pinned_to_the_reference_helper():
+    # _size mirrors these exact steps; a wording change must update both.
+    assert _contract()["portfolio"]["sizing_procedure"] == [
+        "cap = 0.75 * E; used = 0",
+        "eligible = gated candidates that have the 09:35 bar, in rank order (known at the 09:35 bar open)",
+        ("for each eligible candidate with k eligible candidates remaining (including itself): "
+         "room = cap - used; budget = room / k"),
+        "qty = floor(budget / cash_per_share)",
+        "if qty == 0 and cash_per_share <= room then qty = 1",
+        "if qty == 0 then NO_TRADE_SYMBOL with reason EXPOSURE_ROOM",
+        "used += qty * cash_per_share",
+    ]
+    assert _contract()["implementation_binding"]["quantity_floor"] == "floor(x + 1e-9) to absorb floating-point error"
+
+
+def test_implementation_binding_keeps_exits_unblocked_and_single_pnl_engine():
+    contract = _contract()
+    binding = contract["implementation_binding"]
+    risk_config = binding["risk_config"]
+    portfolio = contract["portfolio"]
+    assert risk_config["max_portfolio_effective_pct"] == portfolio["max_total_effective_exposure_pct"]
+    assert risk_config["max_symbol_notional_pct"] == portfolio["max_total_effective_exposure_pct"]
+    assert risk_config["max_positions"] == portfolio["max_positions"]
+    assert risk_config["daily_loss_limit_pct"] == contract["risk"]["daily_loss_halt_pct_of_prior_close_equity"]
+    assert risk_config["max_drawdown_pct"] == contract["risk"]["high_water_drawdown_halt_pct"]
+    assert risk_config["max_scale_ins"] == 0
+    sessions = contract["evaluation"]["scheduled_trading_sessions"]
+    assert risk_config["max_consecutive_losses"] > sessions * portfolio["max_positions"]
+    assert "intent.price = reference_open" in binding["entry_risk_inputs"]
+    kinds = binding["order_kinds"]
+    assert {kinds[key] for key in ("stop_loss", "take_profit", "time_exit", "eod_flatten",
+                                   "risk_halt_liquidation")} == {
+        "STOP_LOSS", "TAKE_PROFIT", "TIME_EXIT", "EOD_FLATTEN", "EXIT"}
+    from src.risk.models import RISK_REDUCING
+    assert {kinds[key] for key in kinds if key != "rule"} <= RISK_REDUCING
+    assert "net_pnl == gross_pnl - slippage - commission" in binding["fees_in_fills"]
+    assert "never re-match lots" in binding["derived_ledgers"]
 
 
 def test_sizing_example_from_observed_prices_buys_high_priced_names():

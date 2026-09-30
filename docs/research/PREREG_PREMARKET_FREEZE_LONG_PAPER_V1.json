@@ -165,6 +165,38 @@
     "fixed_in": "first-session receipt, before the first future session, with the itemized list or 0.0 and the reason",
     "reporting": "report after trading costs and after operating costs separately"
   },
+  "implementation_binding": {
+    "purpose": "how the adapter must configure existing components so that they enforce this contract without a second PnL engine or blocked exits",
+    "risk_config": {
+      "max_symbol_notional_pct": 0.75,
+      "max_symbol_effective_pct": 0.75,
+      "max_portfolio_effective_pct": 0.75,
+      "daily_loss_limit_pct": 0.01,
+      "max_drawdown_pct": 0.10,
+      "max_positions": 3,
+      "max_scale_ins": 0,
+      "max_consecutive_losses": 31,
+      "max_consecutive_losses_reason": "non-binding: 10 sessions * 3 positions + 1; not a contract rule",
+      "reentry_cooldown": "disabled; same-day re-entry is already forbidden by entry.max_entries_per_symbol_per_day",
+      "block_all_entries_in_eod_window": true
+    },
+    "risk_quantity_reduction": "if RiskManager returns a reduced quantity for an entry, reject the entry (REJECT_ENTRY); never submit fractional shares",
+    "entry_risk_inputs": "entry intents use intent.price = reference_open and snapshot account_value = the sizing equity E for every entry of the session, and positions entered earlier at the same bar are marked at their reference_open in that snapshot, so the RiskManager exposure check measures the same base as the sizing procedure and cannot reject an entry the procedure accepted",
+    "order_kinds": {
+      "stop_loss": "STOP_LOSS",
+      "take_profit": "TAKE_PROFIT",
+      "time_exit": "TIME_EXIT",
+      "eod_flatten": "EOD_FLATTEN",
+      "risk_halt_liquidation": "EXIT",
+      "rule": "every exit uses a RISK_REDUCING kind so kill switch, daily-loss and drawdown gates never block it; exits never consult AI"
+    },
+    "fees_in_fills": "FillEvent.fee = commission + SEC fee for that fill, so net_pnl == gross_pnl - slippage - commission still holds in the single FIFO PnL engine; the SEC part may be kept as an audit field",
+    "fee_rounding": "commission is not rounded; SEC fee = max(0.01, sell notional * 0.0000206 rounded up to the cent), computed with decimal.Decimal from the float values to avoid binary floating-point rounding",
+    "quantity_floor": "floor(x + 1e-9) to absorb floating-point error",
+    "derived_ledgers": "official and stress views are pure read-only aggregation over recorded fills (filled notional * per-side increment) subtracted from FIFO results; they never re-match lots",
+    "daily_loss_anchor_input": "the adapter marks flat recorded equity before the 09:35 bar each session (equal to the prior regular close when flat) and passes the prior-close equity explicitly when a position was carried by UNRESOLVED_EXIT",
+    "exit_generator_extension": "stop and target use completed-bar low/high with the gap reference fills above, and the time exit counts minutes from the entry bar start, not bar count; the current price-only ExitSignalGenerator must be extended in the implementation issue"
+  },
   "risk": {
     "measured_on": "RECORDED_PAPER_LEDGER",
     "daily_loss_halt_pct_of_prior_close_equity": 0.01,
