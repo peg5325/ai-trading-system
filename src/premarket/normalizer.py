@@ -252,7 +252,10 @@ def _vix_value(provider_bundle: Mapping[str, Any]) -> float | None:
     return max(values)[1]
 
 
-def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping[str, Any]) -> dict[str, Any]:
+def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping[str, Any], *,
+                      strategy_template_id: str | None = None) -> dict[str, Any]:
+    """``strategy_template_id`` is attached to every candidate; callers pass
+    ``attachable_template(config)`` so it is None unless the config approves it."""
     if provider_bundle.get("schema") != "premarket-provider-bundle/v1":
         raise ValueError("provider bundle must be premarket-provider-bundle/v1")
     if market_bundle.get("schema") != "premarket-market-bundle/v1":
@@ -383,7 +386,7 @@ def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping
         )
         candidates.append({
             "symbol": symbol,
-            "strategy_template_id": None,
+            "strategy_template_id": strategy_template_id,
             "available_at": min(available_at, as_of),
             "ingested_at": generated_at,
             "evidence_event_ids": sorted(event["event_id"] for event in symbol_events),

@@ -50,7 +50,11 @@ CLI는 네트워크에 접속하지 않고 `premarket-input/v1` 로컬 JSON만 �
   상속되지 않는다. 승인 template이 하나 이상 있는 경우에도 상태는 `SHADOW_READY`일 뿐이며
   `executable=false`, `promotion_allowed=false`, `orders=[]`는 불변이다.
 - 현재 config의 LONG·SHORT 승인 template 목록은 모두 비어 있으므로 정상 후보가 있어도
-  `NO_TRADE`다.
+  `NO_TRADE`다. 정규화 단계는 승인 목록에 `premarket_freeze_long_intraday_v1`이 있을 때만 그 ID를
+  후보에 붙이며(새 config 필드 없음), 목록이 비어 있으면 입력·snapshot·Brief 해시가 그대로다.
+- 승인 목록을 채우는 활성화는 검증된 첫 세션 영수증
+  (`PREREG_PREMARKET_FREEZE_LONG_PAPER_V1_FIRST_SESSION_RECEIPT.json`)과 함께만 허용된다.
+  영수증 없이 목록이 채워지면 테스트가 실패한다.
 
 ## 증거 및 변경 경계
 

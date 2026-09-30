@@ -47,12 +47,15 @@ def test_module_boundaries_hold():
     root = CONTRACT_PATH.parents[2] / "src"
     for path in (root / "premarket").rglob("*.py"):
         text = path.read_text(encoding="utf-8")
-        assert "freeze_paper" not in text and "src.order" not in text, path
+        assert "src.freeze_paper" not in text and "src.order" not in text, path
     for path in (root / "freeze_paper").glob("*.py"):
         text = path.read_text(encoding="utf-8")
         for forbidden in ("src.ai", "toss_broker", "src.providers", "import requests",
-                          "urllib", "datetime.now", "import random", ".write_"):
+                          "urllib", "import random", "load_candles"):
             assert forbidden not in text, (path, forbidden)
+        if path.name not in {"runner.py", "receipt.py"}:     # pure decision/accounting code
+            for forbidden in ("datetime.now", ".write_", "subprocess", "write_immutable"):
+                assert forbidden not in text, (path, forbidden)
 
 
 def test_binding_follows_contract_values_not_constants():

@@ -7,13 +7,16 @@ into a tradeable decision.
 """
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
 import re
 import subprocess
 import sys
-from collections.abc import Callable, Mapping
+import time
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -94,7 +97,7 @@ def run_stage(
     start, end = _stage_window(schedule, stage)
     if not start <= actual_now.astimezone(start.tzinfo) < end:
         return _skipped("STAGE_WINDOW_NOT_REACHED", trading_day, stage)
-    run = runner or _subprocess_runner
+    run = runner or subprocess_runner
     # Preserve the invoked venv entrypoint. Resolving this symlink can jump to
     # the base interpreter and silently drop project dependencies.
     python = sys.executable
@@ -139,7 +142,7 @@ def run_stage(
             ],
         ),
     ]
-    steps = _run_commands(
+    steps = run_commands(
         commands,
         root,
         run,
@@ -158,12 +161,50 @@ def run_stage(
     return operation
 
 
+POSTCLOSE_DELAY_MINUTES = 20
+MARKET_DB_LOCK_TIMEOUT_SECONDS = 900.0
+
+
+class MarketDbLockTimeout(RuntimeError):
+    """Another local job still holds the shared market-history lock."""
+
+
+@contextmanager
+def market_db_lock(root: Path, *, timeout_seconds: float = MARKET_DB_LOCK_TIMEOUT_SECONDS,
+                   poll_seconds: float = 0.5) -> Iterator[None]:
+    """Exclusive advisory lock shared by every local job that writes or reads
+    data/market_history.sqlite after the close (post-close evaluator, FREEZE Paper runner)."""
+    path = root / "data" / ".market_history.lock"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + timeout_seconds
+    with open(path, "a+b") as stream:
+        while True:
+            try:
+                fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError as exc:
+                if time.monotonic() >= deadline:
+                    raise MarketDbLockTimeout("LOCK_TIMEOUT") from exc
+                time.sleep(poll_seconds)
+        try:
+            yield
+        finally:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+
+def postclose_earliest(schedule: Any) -> datetime:
+    """Earliest post-close run time: scheduled regular close (incl. early close) + 20 min."""
+    close = datetime.fromisoformat(schedule.market_close_utc.replace("Z", "+00:00"))
+    return close + timedelta(minutes=POSTCLOSE_DELAY_MINUTES)
+
+
 def run_postclose(
     *,
     trading_day: date,
     root: Path | None = None,
     runner: CommandRunner | None = None,
     now: datetime | None = None,
+    lock_timeout_seconds: float = MARKET_DB_LOCK_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """Refresh only FREEZE symbols plus SPY, then run the read-only evaluator."""
     root = (root or project_root()).resolve()
@@ -173,7 +214,7 @@ def run_postclose(
     if paths["operation"].exists():
         return _load_operation(paths["operation"])
     schedule = build_premarket_schedule(trading_day)
-    earliest = datetime.fromisoformat(schedule.market_close_utc.replace("Z", "+00:00")) + timedelta(minutes=20)
+    earliest = postclose_earliest(schedule)
     actual_now = now or datetime.now(ET)
     if actual_now.tzinfo is None:
         raise ValueError("timezone-aware datetime required")
@@ -190,7 +231,7 @@ def run_postclose(
     freeze = _load_json(paths["freeze"])
     symbols = _freeze_symbols(freeze)
     as_of = iso_z(earliest)
-    run = runner or _subprocess_runner
+    run = runner or subprocess_runner
     python = sys.executable
     date_key = trading_day.strftime("%Y%m%d")
     commands = [
@@ -220,12 +261,18 @@ def run_postclose(
             ],
         ),
     ]
-    steps = _run_commands(
-        commands,
-        root,
-        run,
-        log_dir=root / "reports" / "premarket-operation-logs" / f"{trading_day:%Y%m%d}.postclose",
-    )
+    try:
+        with market_db_lock(root, timeout_seconds=lock_timeout_seconds):
+            steps = run_commands(
+                commands,
+                root,
+                run,
+                log_dir=root / "reports" / "premarket-operation-logs"
+                / f"{trading_day:%Y%m%d}.postclose",
+            )
+    except MarketDbLockTimeout:
+        # Not persisted: the paired DST trigger retries once the other job releases the lock.
+        return _incomplete("LOCK_TIMEOUT", trading_day, "POSTCLOSE", [])
     if not paths["evaluation"].exists():
         return _persist_incomplete(
             paths["operation"],
@@ -249,7 +296,7 @@ def run_postclose(
     return operation
 
 
-def _run_commands(
+def run_commands(
     commands: list[tuple[str, Path | tuple[Path, ...] | None, list[str]]],
     root: Path,
     runner: CommandRunner,
@@ -322,7 +369,7 @@ def _write_command_log(
     content = f"command={command_text}\nreturncode={completed.returncode}\n[stdout]\n{stdout}\n[stderr]\n{stderr}\n"
     log_dir.mkdir(parents=True, exist_ok=True)
     target = log_dir / f"{name}.log"
-    _write_atomic(target, content.encode("utf-8"))
+    write_atomic(target, content.encode("utf-8"))
     evidence: dict[str, Any] = {
         "log_path": str(target.relative_to(root)),
         "log_sha256": _file_sha256(target),
@@ -340,7 +387,7 @@ def _sanitize_log(value: str, root: Path) -> str:
     return redacted.replace(str(root), "<PROJECT_ROOT>")
 
 
-def _write_atomic(path: Path, content: bytes) -> None:
+def write_atomic(path: Path, content: bytes) -> None:
     partial = path.with_name(f".{path.name}.{os.getpid()}.partial")
     try:
         with open(partial, "xb") as stream:
@@ -392,7 +439,7 @@ def _freeze_symbols(freeze: Mapping[str, Any]) -> list[str]:
     return sorted(symbols)
 
 
-def _subprocess_runner(command: list[str], root: Path) -> subprocess.CompletedProcess[str]:
+def subprocess_runner(command: list[str], root: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, cwd=root, text=True, capture_output=True, check=False)
 
 

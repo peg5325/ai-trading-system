@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import json
 import re
 from datetime import date, datetime, timedelta, timezone
@@ -11,7 +12,13 @@ import pytest
 from src.history.exchange_calendar import is_trading_day
 from src.history.raw_snapshot import RawSnapshotStore
 from src.models import Candle
-from src.premarket.contract import PremarketConfig, quality_defects, sha256_payload
+from src.premarket.contract import (
+    FREEZE_PAPER_TEMPLATE_ID,
+    PremarketConfig,
+    attachable_template,
+    quality_defects,
+    sha256_payload,
+)
 from src.premarket.market_snapshot import (
     MarketSnapshotPolicy,
     build_market_bundle,
@@ -273,6 +280,30 @@ def test_normalizer_builds_v2_scores_and_default_no_trade() -> None:
     assert brief["brief"]["status"] == "NO_TRADE"
     assert brief["brief"]["orders"] == []
     assert brief["brief"]["reason_codes"] == ["NO_APPROVED_STRATEGY_TEMPLATE"]
+
+
+def test_freeze_template_is_attached_only_when_the_config_approves_it() -> None:
+    base = normalize_bundles(_provider_bundle(), _market_bundle())
+    assert attachable_template(_config()) is None
+    same = normalize_bundles(_provider_bundle(), _market_bundle(),
+                             strategy_template_id=attachable_template(_config()))
+    assert same == base                                   # OFF: byte-identical input artifact
+
+    schedule = build_premarket_schedule(date(2026, 3, 9))
+    long_cfg = dataclasses.replace(_config(), approved_strategy_templates=(FREEZE_PAPER_TEMPLATE_ID,))
+    short_cfg = dataclasses.replace(
+        _config(), approved_short_strategy_templates=(FREEZE_PAPER_TEMPLATE_ID,))
+    for cfg, long_approved in ((long_cfg, True), (short_cfg, False)):
+        attached = normalize_bundles(_provider_bundle(), _market_bundle(),
+                                     strategy_template_id=attachable_template(cfg))
+        assert attached["candidates"]
+        assert {c["strategy_template_id"] for c in attached["candidates"]} == {
+            FREEZE_PAPER_TEMPLATE_ID}
+        brief = build_daily_brief(attached, schedule=schedule, config=cfg)["brief"]
+        assert brief["watchlist"] and all(item["bias"] == "LONG_WATCH" for item in brief["watchlist"])
+        assert all(item["strategy_template_approved"] is long_approved
+                   for item in brief["watchlist"])
+        assert brief["executable"] is False and brief["orders"] == []
 
 
 def test_catalyst_mean_includes_neutral_news_and_excludes_filings() -> None:

@@ -221,7 +221,8 @@ def test_filled_attempt_id_with_open_position_is_ledger_inconsistent():
         if m > minute(DAY, 9, 35):
             s = step_bar(s, m, bars[m], BINDING)
     s = finish_session(s, BINDING)
-    assert _events(s, "LEDGER_INCONSISTENT")
+    (event,) = _events(s, "LEDGER_INCONSISTENT")      # recorded once, not every bar
+    assert event["client_order_id"] == "pfl1-20261001-AAPL-SELL-1"
     assert _sells(s) == []
     assert s["session"]["status"] == "UNRESOLVED_EXIT"
     assert not reconcile_state(s).ok

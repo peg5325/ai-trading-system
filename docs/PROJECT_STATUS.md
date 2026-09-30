@@ -81,16 +81,20 @@
 - PR 1(엔진, 브랜치 `codex/165-freeze-paper-engine`): `src/freeze_paper/`의 binding·gates·sizing·
   costs·engine·reconcile과 청산 생성기·계좌·Paper 브로커의 추가형 확장을 구현했다. 거부된 청산의
   시도 번호 재시도, 비정상 봉 fail-closed, 재시작 결정론, 주문↔체결·현금 항등식 대조를 테스트로 고정했다.
-  전체 pytest 2,126 passed / 11 skipped(워크트리에 gitignore 운영 산출물 부재). 익절 리뷰 반복 중.
-  러너·장부 파일·활성화·평가기는 아직 없다. 2026-09-29 FREEZE `allowed_symbols`에는 TQQQ·SOXL이 있고
-  개별주 레버리지 ETF는 없음을 확인했다.
+  익절 리뷰 3회 후 approve, PR #166으로 2026-09-30 main에 병합됐다(`97faeb4`).
+  2026-09-29 FREEZE `allowed_symbols`에는 TQQQ·SOXL이 있고 개별주 레버리지 ETF는 없음을 확인했다.
+- PR 2(운영, 브랜치 `codex/165-freeze-paper-ops`): 세션 러너와 CLI(`scripts/run_freeze_paper_session.py`),
+  immutable 세션 artifact 체인·검증된 누적 장부·운영 영수증, 첫 세션 영수증 스키마·검증기(계약·config·코드
+  커밋·달력·허용 목록 결속), 템플릿 배선(allowlist가 비어 있으면 OFF, 장전 해시 불변 테스트),
+  post-close와 공유하는 DB 잠금, launchd freeze-paper 05:35·06:35·07:35 KST 정의를 추가했다.
+  launchd는 아직 설치하지 않았고 활성화 영수증도 없다. 전체 pytest 2,189 passed / 11 skipped.
 
 ## 다음 한 가지 작업
 
-단계 2 다음 작업: PR 1 병합 후 이슈 #165의 **PR 2(운영)**를 구현한다. 세션 실행 CLI, immutable
-세션 artifact와 누적 장부, 세션 종료 후 launchd 작업, 템플릿 배선(기본 OFF), 첫 세션 영수증 검증기를
-만들고 독립 리뷰 후 첫 미래 거래일을 영수증에 고정한다. 실거래 전 레버리지·인버스 ETP의 브로커·규제
-사전 조건을 확인한다.
+단계 2 다음 작업: PR 2 병합 후 이슈 #165의 **PR 3(10거래일 평가기)**를 구현한다. 공식·stress·운영비
+차감 누적수익, SPY 총수익(무수정 종가+배당 재투자, 미검증 배당 시 `INCONCLUSIVE_BENCHMARK`),
+LONG·인버스 다리 별도 보고, 판정 우선순위를 구현한다. 그 뒤 launchd 재설치와 첫 세션 영수증·활성화
+커밋으로 첫 미래 거래일을 고정한다. 실거래 전 레버리지·인버스 ETP의 브로커·규제 사전 조건을 확인한다.
 
 ## 아직 충족하지 않은 실행 게이트
 

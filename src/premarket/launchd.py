@@ -22,6 +22,7 @@ class LaunchdJob:
 
 def jobs(project_root: Path, python: Path) -> tuple[LaunchdJob, ...]:
     runner = project_root / "scripts" / "run_premarket_pipeline.py"
+    paper = project_root / "scripts" / "run_freeze_paper_session.py"
     return (
         # New York's daylight-saving offset changes the equivalent KST hour.
         # The runner validates the actual NYSE-relative window, so each paired
@@ -34,6 +35,12 @@ def jobs(project_root: Path, python: Path) -> tuple[LaunchdJob, ...]:
         LaunchdJob("freeze-23", 23, 11, (str(python), str(runner), "--stage", "FREEZE")),
         LaunchdJob("postclose-05", 5, 20, (str(python), str(runner), "--postclose")),
         LaunchdJob("postclose-06", 6, 20, (str(python), str(runner), "--postclose")),
+        # FREEZE Paper session runner: exits NOT_ACTIVATED without a valid first-session
+        # receipt, and SKIPPED before regular close + 20 min (the DST no-op of the pair).
+        LaunchdJob("freeze-paper-05", 5, 35, (str(python), str(paper))),
+        LaunchdJob("freeze-paper-06", 6, 35, (str(python), str(paper))),
+        # Retry slot: 17:35 ET in EST. A recorded session makes it a no-op.
+        LaunchdJob("freeze-paper-07", 7, 35, (str(python), str(paper))),
     )
 
 
