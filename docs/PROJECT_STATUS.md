@@ -87,14 +87,22 @@
   immutable 세션 artifact 체인·검증된 누적 장부·운영 영수증, 첫 세션 영수증 스키마·검증기(계약·config·코드
   커밋·달력·허용 목록 결속), 템플릿 배선(allowlist가 비어 있으면 OFF, 장전 해시 불변 테스트),
   post-close와 공유하는 DB 잠금, launchd freeze-paper 05:35·06:35·07:35 KST 정의를 추가했다.
-  launchd는 아직 설치하지 않았고 활성화 영수증도 없다. 전체 pytest 2,189 passed / 11 skipped.
+  익절 리뷰 3회 후 approve, PR #167로 2026-09-30 main에 병합됐다(`5ebeb76`). launchd는 아직 재설치하지 않았다.
+- PR 3(평가기, 브랜치 `codex/165-freeze-paper-evaluator`): 10거래일 판정기와 CLI를 추가했다. 기록 TWR·공식·
+  stress·운영비 차감 수익, 장중 최대낙폭, LONG·인버스 다리 분리(다리 합 = 계좌 FIFO 불변식), 판정 우선순위,
+  INTERIM은 ELIGIBLE 불가, FINAL은 10세션 전부 검증 시에만 write-once.
+- 벤치마크 근거: 저장소에 무수정 공식 일봉이 없다(Toss 1d·1m 모두 adjusted=True, 배당 조정 미검증). 따라서
+  SPY 종가는 15:59(조기폐장 12:59) ET 1분봉을 쓰되, 그날 마감~자정 ET 사이 최초 기록되고 덮어쓰지 않았음을
+  `candle_history.created_at/updated_at`으로 검증한다. 검증 불가·배당락 미기재(분기 패턴 대조)·가격 불연속은
+  `INCONCLUSIVE_BENCHMARK`다. 공식 S&P 500 TR은 계속 미연결이다. 러너는 매 세션 SPY를 별도 비치명 단계로 수집한다.
+  전체 pytest 2,224 passed / 11 skipped.
 
 ## 다음 한 가지 작업
 
-단계 2 다음 작업: PR 2 병합 후 이슈 #165의 **PR 3(10거래일 평가기)**를 구현한다. 공식·stress·운영비
-차감 누적수익, SPY 총수익(무수정 종가+배당 재투자, 미검증 배당 시 `INCONCLUSIVE_BENCHMARK`),
-LONG·인버스 다리 별도 보고, 판정 우선순위를 구현한다. 그 뒤 launchd 재설치와 첫 세션 영수증·활성화
-커밋으로 첫 미래 거래일을 고정한다. 실거래 전 레버리지·인버스 ETP의 브로커·규제 사전 조건을 확인한다.
+단계 2 다음 작업: PR 3 병합 후 **첫 세션 활성화**를 준비한다. launchd 재설치(사용자 확인 후), 평가 시작
+전일 저녁 SPY 종가 수집, SPY 배당 출처·운영비·계좌 이벤트 수수료 확정, 첫 세션 영수증 작성·검증과 승인 목록
+활성화 커밋을 독립 리뷰 후 병합해 첫 미래 거래일을 고정한다. 실거래 전 레버리지·인버스 ETP의 브로커·규제 사전
+조건을 확인한다.
 
 ## 아직 충족하지 않은 실행 게이트
 

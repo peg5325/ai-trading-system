@@ -101,6 +101,17 @@ gitignore 경로에만 보관한다.
   이미 기록된 세션은 no-op이고, 기존 artifact가 검증에 실패하면 receipt는 그대로 두고
   `premarket-freeze-paper.YYYYMMDD.alert.json`에 사유 코드를 남긴다. Markdown이 없으면 검증된 JSON에서
   결정론적으로 다시 만든다.
+- 매 예정 세션의 Paper 실행은 SPY 1분봉 tail repair를 별도 단계(`spy_tail_repair`)로 먼저 실행한다. 이 단계는
+  엔진 입력과 세션 artifact에 들어가지 않으며, 실패해도 세션은 계속되고 receipt에
+  `spy_step.status=SPY_BACKFILL_FAILED`로 남는다(평가기 SPY 벤치마크는 `INCONCLUSIVE_BENCHMARK`).
+- 첫 세션 영수증 전: 구간 시작일 저녁(마감 + 20분 이후, 24:00 ET 이전)에 SPY tail repair를 한 번 실행하고
+  저장된 15:59/12:59 ET 봉 증거를 영수증 `window_start_spy_close_evidence`에 적는다. 정확한 명령과 운영자 신뢰
+  가정(로컬 시계 정확, DB 행 수동 삭제·재삽입 금지)은 `src/freeze_paper/README.md` runbook에 있다.
+- 10세션 평가는 launchd job 없이 수동으로 실행한다:
+  `.venv/bin/python scripts/evaluate_freeze_paper_window.py [--through YYYY-MM-DD] [--dry-run]`.
+  FINAL은 예정 10개 세션 artifact가 모두 존재하고 검증될 때만 쓰이며 write-once다. 그 외에는 재생성 가능한
+  INTERIM이고 ELIGIBLE이 될 수 없다. 결과는 실거래 승인이 아니며 자동 승격이 없다. 세부는
+  `src/freeze_paper/README.md`.
 - launchd를 다시 설치하면 freeze-paper 세 job도 설치된다. 활성화 전에는 매 거래일
   `NOT_ACTIVATED` operation receipt를 남기는 것이 정상이다.
 

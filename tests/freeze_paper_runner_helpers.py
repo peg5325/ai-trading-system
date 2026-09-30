@@ -18,6 +18,7 @@ from src.freeze_paper.receipt import (
     previous_trading_day,
     scheduled_sessions,
 )
+from src.freeze_paper.spy import spy_close_evidence
 from src.history.store import SCHEMA as DB_SCHEMA
 from src.models import ET, Candle
 from src.premarket.contract import FREEZE_PAPER_TEMPLATE_ID, load_config, sha256_payload
@@ -53,6 +54,11 @@ def make_root(tmp_path: Path, *, activate_config: bool = True) -> Path:
 def receipt_payload(root: Path, *, first: str = FIRST, **overrides) -> dict:
     first_day = date.fromisoformat(first)
     sessions = [d.isoformat() for d in scheduled_sessions(first_day, 10)]
+    window_start = previous_trading_day(first_day)
+    db = root / "data" / "market_history.sqlite"
+    if spy_close_evidence(db, window_start) is None:     # captured the same evening
+        write_bars(root, window_start.isoformat(), {"SPY": 500.0},
+                   created_at=f"{window_start.isoformat()}T20:30:00+00:00")
     receipt = {
         "schema": SCHEMA,
         "contract_json_sha256": file_sha256(root / CONTRACT_JSON_RELATIVE),
@@ -62,10 +68,12 @@ def receipt_payload(root: Path, *, first: str = FIRST, **overrides) -> dict:
         "activation_config_sha256": file_sha256(root / CONFIG_RELATIVE),
         "first_session": first,
         "scheduled_sessions": sessions,
-        "window_start_close_date": previous_trading_day(first_day).isoformat(),
+        "window_start_close_date": window_start.isoformat(),
+        "window_start_spy_close_evidence": spy_close_evidence(db, window_start),
         "intraday_bar_provider": "Toss official 1m candles (tail repair)",
         "spy_price_source": "Toss official daily candles",
         "spy_dividend_source": "State Street SPY distribution page",
+        "spy_ex_dividend_source": "State Street SPY distribution page",
         "spy_ex_dividend_dates_in_window": [],
         "operating_costs": {"items": [], "total_usd": 0.0,
                             "allocation": "window sessions / billing-period sessions",
@@ -109,7 +117,8 @@ def write_day_freeze(root: Path, day: str, **kwargs) -> dict:
 
 def write_bars(root: Path, day: str, prices: dict[str, float],
                overrides: dict[tuple[int, int], dict[str, tuple | None]] | None = None,
-               end: tuple[int, int] = (16, 0)) -> Path:
+               end: tuple[int, int] = (16, 0),
+               created_at: str = "2026-01-01T00:00:00+00:00") -> Path:
     db = root / "data" / "market_history.sqlite"
     db.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(db)
@@ -136,7 +145,7 @@ def write_bars(root: Path, day: str, prices: dict[str, float],
                     (bar.symbol, bar.market, bar.interval, bar.ts_utc.isoformat(),
                      bar.ts_exchange.isoformat(), bar.session, bar.open, bar.high, bar.low,
                      bar.close, bar.volume, bar.currency, int(bar.adjusted), "test",
-                     "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00"))
+                     created_at, created_at))
         mm += 1
         if mm == 60:
             hh, mm = hh + 1, 0

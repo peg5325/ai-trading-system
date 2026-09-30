@@ -72,7 +72,7 @@ from src.premarket.report import json_bytes, write_immutable, write_immutable_pa
 from src.premarket.schedule import build_premarket_schedule, iso_z, parse_iso
 from src.runtime.isolation.identity import producer_commit
 
-SESSION_SCHEMA = "premarket-freeze-paper/session/v1"
+SESSION_SCHEMA = "premarket-freeze-paper/session/v2"   # v2: end_state.session.equity_curve
 LEDGER_SCHEMA = "premarket-freeze-paper/ledger/v1"
 DRIFT_SCHEMA = "premarket-freeze-paper/drift/v1"
 ALERT_SCHEMA = "premarket-freeze-paper/alert/v1"
@@ -199,20 +199,21 @@ def _run_scheduled(*, trading_day: date, root: Path, paths: Mapping[str, Path],
             codes = [f"EXISTING_{defect}"]
             if not dry_run:
                 # The (possibly COMPLETE) receipt is kept; the alert makes the break visible.
-                alert = {"schema": ALERT_SCHEMA, "trading_day": trading_day.isoformat(),
-                         "reason_codes": codes}
-                alert["artifact_sha256"] = sha256_payload(alert)
-                write_atomic(paths["alert"], json_bytes(alert))
+                _write_alert(paths, trading_day, codes)
             return finish(INCOMPLETE, codes)
         if dry_run:
             return _result(DRY_RUN, trading_day, ["SESSION_ALREADY_RECORDED"], session=existing)
+        codes = ["SESSION_ALREADY_RECORDED"]
+        markdown = render_markdown(existing).encode("utf-8")
         if not paths["session_markdown"].exists():      # derived view, rebuilt deterministically
-            write_immutable(paths["session_markdown"], render_markdown(existing).encode("utf-8"))
+            write_immutable(paths["session_markdown"], markdown)
+        elif paths["session_markdown"].read_bytes() != markdown:
+            codes.append("EXISTING_MARKDOWN_DIFFERS")    # never overwritten; alert only
+            _write_alert(paths, trading_day, ["EXISTING_MARKDOWN_DIFFERS"])
         write_atomic(paths["ledger"], json_bytes(
             build_ledger(root, sessions, through=trading_day, receipt_sha256=receipt_sha,
                          contract_sha256=binding.sha256)))
-        return finish(COMPLETE_STATUS, ["SESSION_ALREADY_RECORDED"],
-                      session_status=existing["status"],
+        return finish(COMPLETE_STATUS, codes, session_status=existing["status"],
                       session_artifact_sha256=existing["artifact_sha256"])
     if recompute and not paths["session"].exists():
         return _result(INCOMPLETE, trading_day, ["NOTHING_TO_RECOMPUTE"])
@@ -226,13 +227,24 @@ def _run_scheduled(*, trading_day: date, root: Path, paths: Mapping[str, Path],
     close_utc = parse_iso(schedule.market_close_utc)
     steps: list[dict[str, Any]] = []
     bars_by_symbol: dict[str, list] = {}
-    if symbols:
+    spy_step: dict[str, Any] | None = None
+    capture_spy = not dry_run and not recompute
+    if symbols or capture_spy:
         try:
             with _maybe_lock(root, not dry_run, lock_timeout_seconds):
-                if not dry_run and not recompute:
+                if capture_spy:
+                    # Separate, non-fatal SPY close capture for the evaluator's benchmark. It
+                    # never feeds the engine, so the session artifact does not depend on it.
+                    spy_steps = _backfill(root, paths, trading_day, ["SPY"], runner,
+                                          step="spy_tail_repair", run_suffix="spy")
+                    ok = bool(spy_steps) and spy_steps[-1].get("returncode") == 0
+                    spy_step = {"status": "OK" if ok else "SPY_BACKFILL_FAILED",
+                                "steps": spy_steps}
+                if symbols and capture_spy:
                     steps = _backfill(root, paths, trading_day, symbols, runner)
                     if not steps or steps[-1].get("returncode") != 0:
-                        return finish(INCOMPLETE, ["BACKFILL_FAILED"], steps=steps)
+                        return finish(INCOMPLETE, ["BACKFILL_FAILED"], steps=steps,
+                                      spy_step=spy_step)
                 bars_by_symbol = {sym: _regular_bars(loader(paths["market_db"], sym, open_utc,
                                                             close_utc), open_utc, close_utc)
                                   for sym in symbols}
@@ -258,7 +270,15 @@ def _run_scheduled(*, trading_day: date, root: Path, paths: Mapping[str, Path],
                      contract_sha256=binding.sha256)))
     return finish(COMPLETE_STATUS, [], session_status=artifact["status"],
                   session_artifact_sha256=artifact["artifact_sha256"],
-                  reconciliation_ok=artifact["reconciliation"]["ok"], steps=steps)
+                  reconciliation_ok=artifact["reconciliation"]["ok"], steps=steps,
+                  spy_step=spy_step)
+
+
+def _write_alert(paths: Mapping[str, Path], trading_day: date, codes: list[str]) -> None:
+    alert = {"schema": ALERT_SCHEMA, "trading_day": trading_day.isoformat(),
+             "reason_codes": codes}
+    alert["artifact_sha256"] = sha256_payload(alert)
+    write_atomic(paths["alert"], json_bytes(alert))
 
 
 def _regular_bars(bars: list, open_utc: datetime, close_utc: datetime) -> list:
@@ -484,17 +504,19 @@ def _gate_symbols(gate: GateResult, state: Mapping) -> list[str]:
 
 
 def _backfill(root: Path, paths: Mapping[str, Path], trading_day: date, symbols: list[str],
-              runner: CommandRunner) -> list[dict[str, Any]]:
+              runner: CommandRunner, *, step: str = "market_tail_repair",
+              run_suffix: str = "") -> list[dict[str, Any]]:
+    run_id = f"premarket-freeze-paper-{trading_day:%Y%m%d}" + (f"-{run_suffix}" if run_suffix
+                                                                 else "")
     command = [
         sys.executable, str(root / "scripts" / "history_backfill_official.py"),
         "--db", str(paths["market_db"]), "--symbols", ",".join(symbols), "--interval", "1m",
         "--completed-through", trading_day.isoformat(), "--tail-repair",
         "--sessions", "REGULAR", "--max-pages", "8", "--page-size", "200",
-        "--spacing", "0.4", "--run-id", f"premarket-freeze-paper-{trading_day:%Y%m%d}",
+        "--spacing", "0.4", "--run-id", run_id,
         "--raw-snapshot-dir", str(paths["raw_snapshots"]), "--json",
     ]
-    return run_commands([("market_tail_repair", None, command)], root, runner,
-                         log_dir=paths["logs"])
+    return run_commands([(step, None, command)], root, runner, log_dir=paths["logs"])
 
 
 def verify_session_artifact(artifact: Any, *, day: date, index: int,
@@ -504,8 +526,9 @@ def verify_session_artifact(artifact: Any, *, day: date, index: int,
     if not isinstance(artifact, dict):
         return "SESSION_UNREADABLE"
     unsigned = {k: v for k, v in artifact.items() if k != "artifact_sha256"}
-    if artifact.get("schema") != SESSION_SCHEMA or artifact.get("artifact_sha256") != (
-            sha256_payload(unsigned)):
+    if artifact.get("schema") != SESSION_SCHEMA:
+        return "SESSION_SCHEMA_MISMATCH"
+    if artifact.get("artifact_sha256") != sha256_payload(unsigned):
         return "SESSION_SIGNATURE_INVALID"
     if artifact.get("trading_day") != day.isoformat() or artifact.get("session_index") != index:
         return "SESSION_POSITION_INVALID"
