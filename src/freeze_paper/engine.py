@@ -55,7 +55,7 @@ from src.risk.models import (
 )
 from src.risk.risk_manager import RiskManager
 
-STATE_SCHEMA = "freeze-paper-engine-state/v1"
+STATE_SCHEMA = "freeze-paper-engine-state/v2"      # v2: session.equity_curve
 CLIENT_ORDER_PREFIX = "pfl1"
 _QTY_EPS = 1e-9
 
@@ -153,6 +153,7 @@ def start_session(state: dict, gate: GateResult, binding: ContractBinding) -> di
         "liquidate_all": bool(halted_at_start and s["positions"]),
         "last_minute_utc": None,
         "risk": {},
+        "equity_curve": [],       # [minute_utc, recorded marked equity] at every mark
         "events": [],
         "finished": False,
         "end_equity": None,
@@ -162,7 +163,7 @@ def start_session(state: dict, gate: GateResult, binding: ContractBinding) -> di
         for cand in gate.candidates:        # HALTED sessions stay auditable per candidate
             rt.event(s["session"]["market_open_utc"], "NO_TRADE_SYMBOL",
                      symbol=cand.traded_symbol, rank=cand.rank, reason=HALTED)
-    rt.mark(day)      # flat (or carried) mark before the 09:35 bar anchors the daily loss
+    rt.mark(day, s["session"]["market_open_utc"])   # pre-09:35 mark anchors the daily loss
     return rt.dump()
 
 
@@ -327,11 +328,11 @@ class _Runtime:
         for sym in self.s["positions"]:
             if sym in bars:
                 self.s["marks"][sym] = float(bars[sym].close)
-        self.mark(sess["trading_day"])
+        self.mark(sess["trading_day"], minute_iso)
         self.check_risk(minute_iso)
         sess["last_minute_utc"] = minute_iso
 
-    def mark(self, day: str) -> None:
+    def mark(self, day: str, minute_iso: str) -> None:
         marks = {sym: self.s["marks"][sym] for sym in self.s["positions"] if sym in self.s["marks"]}
         equity = self.account.mark_equity(marks, day_key=day,
                                           day_start_equity=self.sess["day_start_equity"])
@@ -339,6 +340,7 @@ class _Runtime:
         self.sess["risk"] = {"equity": equity,
                              "daily_return": self.account.last_daily_return_pct,
                              "drawdown": self.account.last_drawdown_pct}
+        self.sess["equity_curve"].append([minute_iso, equity])
 
     def check_risk(self, minute_iso: str) -> None:
         risk = self.sess["risk"]

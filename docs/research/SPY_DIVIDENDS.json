@@ -1,0 +1,13 @@
+{
+  "schema": "spy-dividends/v1",
+  "symbol": "SPY",
+  "purpose": "verified SPY cash dividends for the FREEZE Paper benchmark (SPY total return, never the S&P 500 Total Return index)",
+  "entry_fields": {
+    "ex_date": "YYYY-MM-DD ex-dividend date",
+    "amount_usd": "cash amount per share in USD, copied from source_url; null until verified",
+    "source_url": "https URL of the named source the amount was read from",
+    "verified_on": "YYYY-MM-DD date the amount was checked against source_url"
+  },
+  "rule": "only add amounts read from a named source; an in-window or receipt-listed ex-date without a verified amount makes the benchmark INCONCLUSIVE_BENCHMARK",
+  "dividends": []
+}

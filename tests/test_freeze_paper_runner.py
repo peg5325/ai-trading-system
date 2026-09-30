@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fcntl
 import json
+import subprocess
 import sys
 from datetime import date, datetime, time
 
@@ -128,7 +129,8 @@ def test_backfill_uses_the_invoked_python_and_traded_symbols(tmp_path):
     backfill = FakeBackfill()
     result = _run(root, FIRST, backfill)
     assert result["status"] == COMPLETE_STATUS
-    (command,) = backfill.commands
+    spy_command, command = backfill.commands
+    assert spy_command[spy_command.index("--symbols") + 1] == "SPY"
     assert command[0] == sys.executable
     assert command[1].endswith("history_backfill_official.py")
     assert command[command.index("--symbols") + 1] == "SQQQ"
@@ -162,7 +164,7 @@ def test_two_sessions_chain_carry_and_restore_the_peak(tmp_path):
     halted = [(e["symbol"], e["reason"]) for e in day2["events"]
               if e["type"] == "NO_TRADE_SYMBOL"]
     assert halted == [("AAPL", "HALTED"), ("MSFT", "HALTED")]
-    assert backfill.commands[0][backfill.commands[0].index("--symbols") + 1] == "AAPL"
+    assert backfill.commands[1][backfill.commands[1].index("--symbols") + 1] == "AAPL"
 
     ledger = json.loads(paper_paths(root, date(2026, 10, 2))["ledger"].read_text())
     assert [r["status"] for r in ledger["rows"]] == ["UNRESOLVED_EXIT", "HALTED"]
@@ -272,7 +274,7 @@ def test_freeze_snapshot_built_with_another_config_is_no_trade(tmp_path):
     session = _session(root, FIRST)
     assert session["status"] == "NO_TRADE"
     assert "POLICY_CONFIG_MISMATCH" in session["gate"]["reason_codes"]
-    assert session["fills"] == [] and backfill.commands == []
+    assert session["fills"] == [] and [c[c.index("--symbols") + 1] for c in backfill.commands] == ["SPY"]
 
 
 def test_corrupted_restart_checkpoint_is_flagged(tmp_path, monkeypatch):
@@ -488,3 +490,61 @@ def test_ledger_verification_includes_the_contract_hash(tmp_path):
         "INVALID", "SESSION_CONTRACT_MISMATCH")
     written = json.loads(paper_paths(root, sessions[0])["ledger"].read_text())
     assert written["rows"] == ok["rows"]          # the run path verified with the same contract
+
+
+def test_edited_markdown_is_kept_and_raises_an_alert(tmp_path):
+    root = _activated(tmp_path)
+    write_day_freeze(root, FIRST)
+    write_bars(root, FIRST, {"AAPL": 100.0, "MSFT": 200.0})
+    _run(root, FIRST)
+    paths = paper_paths(root, date.fromisoformat(FIRST))
+    paths["session_markdown"].write_text("edited\n", encoding="utf-8")
+    receipt = paths["operation"].read_bytes()
+    result = _run(root, FIRST)
+    assert (result["status"], result["reason_codes"]) == (
+        COMPLETE_STATUS, ["SESSION_ALREADY_RECORDED", "EXISTING_MARKDOWN_DIFFERS"])
+    assert paths["session_markdown"].read_text(encoding="utf-8") == "edited\n"
+    assert json.loads(paths["alert"].read_text())["reason_codes"] == ["EXISTING_MARKDOWN_DIFFERS"]
+    assert paths["operation"].read_bytes() == receipt
+
+
+def test_spy_capture_step_is_separate_and_does_not_change_the_session(tmp_path):
+    artifacts = []
+    for name, with_spy in (("a", False), ("b", True)):
+        root = make_root(tmp_path / name)
+        write_receipt(root)
+        write_day_freeze(root, FIRST)
+        write_bars(root, FIRST, {"AAPL": 100.0, "MSFT": 200.0})
+        if with_spy:
+            write_bars(root, FIRST, {"SPY": 500.0}, created_at="2026-10-01T20:30:00+00:00")
+        assert _run(root, FIRST)["status"] == COMPLETE_STATUS
+        artifacts.append(paper_paths(root, date.fromisoformat(FIRST))["session"].read_bytes())
+    assert artifacts[0] == artifacts[1]
+    assert "SPY" not in json.loads(artifacts[0])["inputs"]["bars"]
+
+
+def test_spy_capture_failure_is_non_fatal_and_recorded(tmp_path):
+    root = _activated(tmp_path)
+    write_day_freeze(root, FIRST)
+    write_bars(root, FIRST, {"AAPL": 100.0, "MSFT": 200.0})
+
+    def spy_fails(command, _root):
+        code = 1 if command[command.index("--symbols") + 1] == "SPY" else 0
+        return subprocess.CompletedProcess(command, code, "{}", "")
+
+    result = _run(root, FIRST, spy_fails)
+    assert result["status"] == COMPLETE_STATUS
+    assert result["spy_step"]["status"] == "SPY_BACKFILL_FAILED"
+    receipt = json.loads(paper_paths(root, date.fromisoformat(FIRST))["operation"].read_text())
+    assert receipt["spy_step"]["steps"][0]["name"] == "spy_tail_repair"
+    assert _session(root, FIRST)["status"] == "TRADED"
+
+
+def test_unreadable_market_db_is_not_activated_without_crashing(tmp_path):
+    root = _activated(tmp_path)
+    (root / "data" / "market_history.sqlite").write_bytes(b"not a sqlite database" * 100)
+    result = _run(root, FIRST)
+    assert (result["status"], result["reason_codes"]) == (
+        NOT_ACTIVATED, ["RECEIPT_INVALID:WINDOW_START_SPY_CLOSE_UNREADABLE"])
+    assert json.loads(paper_paths(root, date.fromisoformat(FIRST))["operation"].read_text())[
+        "status"] == NOT_ACTIVATED

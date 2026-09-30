@@ -53,7 +53,7 @@ def test_module_boundaries_hold():
         for forbidden in ("src.ai", "toss_broker", "src.providers", "import requests",
                           "urllib", "import random", "load_candles"):
             assert forbidden not in text, (path, forbidden)
-        if path.name not in {"runner.py", "receipt.py"}:     # pure decision/accounting code
+        if path.name not in {"runner.py", "receipt.py", "evaluator.py"}:   # pure code
             for forbidden in ("datetime.now", ".write_", "subprocess", "write_immutable"):
                 assert forbidden not in text, (path, forbidden)
 

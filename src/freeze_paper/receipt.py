@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sqlite3
 import subprocess
 from collections.abc import Callable, Mapping
 from datetime import date, timedelta
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from src.freeze_paper.binding import CONTRACT_PATH
+from src.freeze_paper.spy import capture_defect, spy_close_evidence
 from src.history.exchange_calendar import CalendarRangeError, is_trading_day
 from src.premarket.contract import load_config, sha256_payload
 from src.universe.screener import leverage_for
@@ -29,6 +31,8 @@ CONTRACT_MD_RELATIVE = Path("docs/research/PREREG_PREMARKET_FREEZE_LONG_PAPER_V1
 CONTRACT_JSON_RELATIVE = Path("docs/research/PREREG_PREMARKET_FREEZE_LONG_PAPER_V1.json")
 CONFIG_RELATIVE = Path("config/premarket_daily_brief.yaml")
 VERIFIED_PATH_KEYS = ("restart", "eod", "reconciliation", "duplicate")
+MARKET_DB_RELATIVE = Path("data/market_history.sqlite")
+SPY_EVIDENCE_KEYS = ("bar_ts_utc", "close", "captured_at", "updated_at")
 _HEX40 = re.compile(r"^[0-9a-f]{40}$")
 _NODE = re.compile(r"^(tests/[\w/]+\.py)::(test_\w+)")
 
@@ -36,7 +40,8 @@ REQUIRED_FIELDS = (
     "schema", "contract_json_sha256", "contract_md_sha256", "contract_version", "code_commit",
     "activation_config_sha256", "first_session", "scheduled_sessions", "window_start_close_date",
     "intraday_bar_provider", "spy_price_source", "spy_dividend_source",
-    "spy_ex_dividend_dates_in_window", "operating_costs", "account_event_fee",
+    "spy_ex_dividend_source", "spy_ex_dividend_dates_in_window",
+    "window_start_spy_close_evidence", "operating_costs", "account_event_fee",
     "allowed_symbols_check", "verified_paths", "test_run", "artifact_sha256",
 )
 
@@ -104,10 +109,15 @@ def validate_receipt(receipt: Any, *, root: Path = ROOT) -> dict[str, Any]:
     _check_config(config_path, contract, receipt["allowed_symbols_check"])
 
     sessions = _check_sessions(receipt, contract)
-    for name in ("intraday_bar_provider", "spy_price_source", "spy_dividend_source"):
+    _check_window_start_spy_close(receipt, root)
+    for name in ("intraday_bar_provider", "spy_price_source", "spy_dividend_source",
+                 "spy_ex_dividend_source"):
         _expect(_nonempty_str(receipt[name]), name.upper())
+    # Exhaustive list of every SPY ex-date in the window per spy_ex_dividend_source;
+    # an empty list is allowed only as this explicit value.
     ex_dates = receipt["spy_ex_dividend_dates_in_window"]
-    _expect(isinstance(ex_dates, list), "SPY_EX_DIVIDEND_DATES")
+    _expect(isinstance(ex_dates, list) and len(set(ex_dates)) == len(ex_dates),
+            "SPY_EX_DIVIDEND_DATES")
     window_start = date.fromisoformat(receipt["window_start_close_date"])
     for value in ex_dates:
         _expect(isinstance(value, str) and window_start < _date(value) <= sessions[-1],
@@ -159,6 +169,20 @@ def _check_sessions(receipt: Mapping, contract: Mapping) -> list[date]:
     _expect(receipt["scheduled_sessions"] == expected, "SCHEDULED_SESSIONS")
     _expect(receipt["window_start_close_date"] == window_start, "WINDOW_START_CLOSE_DATE")
     return [date.fromisoformat(d) for d in expected]
+
+
+def _check_window_start_spy_close(receipt: Mapping, root: Path) -> None:
+    """The recorded window-start SPY close must equal the store row (read-only) and satisfy
+    the same-evening first-write capture rule used by the evaluator."""
+    day = receipt["window_start_close_date"]
+    recorded = receipt["window_start_spy_close_evidence"]
+    try:
+        stored = spy_close_evidence(root / MARKET_DB_RELATIVE, date.fromisoformat(day))
+    except (sqlite3.Error, OSError) as exc:
+        raise ReceiptError("RECEIPT_INVALID:WINDOW_START_SPY_CLOSE_UNREADABLE") from exc
+    _expect(isinstance(recorded, Mapping) and stored is not None
+            and all(recorded.get(key) == stored[key] for key in SPY_EVIDENCE_KEYS)
+            and capture_defect(day, stored) is None, "WINDOW_START_SPY_CLOSE")
 
 
 def _check_config(config_path: Path, contract: Mapping, check: Any) -> None:
