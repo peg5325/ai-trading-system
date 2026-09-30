@@ -1,7 +1,8 @@
-# 장전 FREEZE 롱 후보 Paper 계약 v1.1
+# 장전 FREEZE 롱 후보 Paper 계약 v1.2
 
 이 문서는 `premarket_freeze_long_intraday_v1`의 첫 미래 Paper 실행 전에 적용할 규칙을 고정한다.
-이번 변경은 계약만 보존하며 전략 코드, runtime 활성화, 주문 생성, 실계좌 권한을 포함하지 않는다.
+v1.1까지는 계약만 보존했다. v1.2와 함께 이슈 #165 PR 1이 오프라인 결정론 엔진(`src/freeze_paper`)을 추가하지만
+runner, 예약 실행, 장부 파일, runtime 활성화, 실계좌 권한은 포함하지 않는다.
 기계 판독 정본은 `PREREG_PREMARKET_FREEZE_LONG_PAPER_V1.json`이며 이 문서와 다르면 JSON을 따른다.
 
 ## 사전 공개와 개정
@@ -19,21 +20,43 @@ v1.0(`2cd5773`)은 병합·사용되지 않았다. v1.1은 첫 Paper 세션 전�
 - 비중 규칙 변경은 09-29 시가를 본 뒤 결정했다. v1.0에서는 META(시가 725.93)와 MU(1,075.00)가 0주였고,
   META는 그날 최고 후보(비용 전 +1.871%)였다. 규칙은 수익이 아닌 가격에 따른 것이지만 그날을 본 뒤 정했다.
 
+v1.2(2026-09-30 사용자 결정, 첫 Paper 세션 전)는 다음을 바꿨다. 다른 수치(75% 노출, 0.51%p stress, Toss 수수료,
+청산 규칙, 위험 한도, 평가 구간)는 그대로다.
+
+- 지수 3배 ETF `TQQQ`·`SOXL`을 일반 `LONG_WATCH` 종목처럼 거래한다. 노출과 위험은 가격 명목(레버리지 계수 1)으로 잰다.
+- `RISK_OFF`에서 게이트를 통과한 `TQQQ` `SHORT_WATCH`는 `SQQQ`, `SOXL`은 `SOXS` **매수**로 바꾼다(인버스 다리).
+  인버스 ETF 매수는 롱 포지션이라 대주·배당 지급 의무가 없다. 다른 `SHORT_WATCH`는 계속 관찰만 한다.
+- 개별주 `LONG_WATCH`는 그대로다. 단일 종목 레버리지 ETF는 거래하지 않는다. LONG 다리 종목은 FREEZE snapshot의
+  `policy_config.allowed_symbols`에 있어야 하고(허용 목록), 레버리지 1이거나 `TQQQ`·`SOXL`이어야 한다.
+  INVERSE 다리의 매수 대상은 정확히 `SQQQ`·`SOXS`다.
+- 구현 규칙 추가: watchlist 3개 초과는 잘라내지 않고 `NO_TRADE`, 비정상 1분봉(NaN·0 이하·고저 역전)은 결측 봉과
+  동일 처리, EOD는 마감 10분 전(숫자로 고정), 청산 주문 ID는 포지션별 시도 번호(`-SELL-1`, `-SELL-2` …)를 붙여
+  거절·부분 체결 뒤 다음 봉에서 재시도, 청산 체결 수량이 보유와 다르면 잔량을 유지하고 기록한다.
+- 템플릿 ID `premarket_freeze_long_intraday_v1`은 유지한다. 여기서 long은 롱 포지션만 쓴다는 뜻이다.
+- 평가는 계좌 합계와 함께 LONG 다리와 INVERSE 다리를 따로 보고한다.
+
 ## 대상과 진입
 
 - 입력은 같은 거래일 `COMPLETE` FREEZE 운영 영수증의 파일 해시와 일치하는 `premarket-daily-brief/v2`다.
-- 게이트: stage `FREEZE`, `run_mode` `LIVE_WINDOW`, 모든 source `OK`, `quality_defects` 없음,
-  regime `RISK_ON`, brief `SHADOW_READY`, 템플릿 `premarket_freeze_long_intraday_v1` 승인된 `LONG_WATCH`.
-  경로별 규칙은 JSON `decision_input.gates`에 있다. 하나라도 어긋나면 `NO_TRADE`다.
-- 순위는 `brief.watchlist` 배열 순서이며 최대 3개다. `expires_at`은 개장 전 동결 증명일 뿐 실행 마감이 아니다.
-- 활성화는 구현 이슈에서 Daily Brief config의 LONG 승인 목록에 템플릿을 추가해 수행한다.
-  SHORT 승인 목록은 비워 두며 `executable=false`, `orders=[]`는 유지된다.
-- 정확히 09:35 ET에 시작하는 REGULAR 1분봉 시가를 참조가로 쓴다. 모든 후보를 그 봉 시가에 함께 결정하므로
-  이후 정보가 필요 없다. 그 봉이 없으면 그 종목은 거래하지 않는다.
+- 공통 게이트: stage `FREEZE`, `run_mode` `LIVE_WINDOW`, 모든 source `OK`, `quality_defects` 없음,
+  brief `SHADOW_READY`, 템플릿 `premarket_freeze_long_intraday_v1` 승인.
+- 방향별 게이트: LONG 다리는 regime `RISK_ON` + `LONG_WATCH`, INVERSE 다리는 regime `RISK_OFF` +
+  `TQQQ`·`SOXL`의 `SHORT_WATCH`(승인은 SHORT 승인 목록). 경로별 규칙은 JSON `decision_input.gates`에 있다.
+  하나라도 어긋나면 `NO_TRADE`다.
+- 순위는 `brief.watchlist` 배열 순서이며 최대 3개다(3개 초과는 계약 결함으로 `NO_TRADE`). 인버스 후보는 원래
+  `SHORT_WATCH`의 FREEZE 순위를 유지한다. `expires_at`은 개장 전 동결 증명일 뿐 실행 마감이 아니다.
+- 활성화는 구현 이슈에서 Daily Brief config의 LONG 승인 목록과 SHORT 승인 목록에 템플릿을 추가해 수행한다.
+  SHORT 승인이 있어도 `TQQQ`·`SOXL` 외 종목은 거래하지 않으며 `executable=false`, `orders=[]`는 유지된다.
+- 정확히 09:35 ET에 시작하는 REGULAR 1분봉 시가를 참조가로 쓴다. 인버스 다리는 실제 거래 종목(`SQQQ`·`SOXS`)의
+  봉과 가격을 쓴다. 모든 후보를 그 봉 시가에 함께 결정하므로 이후 정보가 필요 없다. 그 봉이 없으면 그 종목은
+  거래하지 않는다.
 - 종목별 하루 1회만 진입하며 재진입, 물타기, 추가매수는 하지 않는다.
 
-`SHORT_WATCH`는 계속 기록하지만 v1 Paper 주문에는 사용하지 않는다. 숏은 음수 포지션 회계, 대주 가능성,
-대주비, 배당 지급 의무와 숏 전용 위험 테스트를 갖춘 별도 계약으로 승인한다.
+`TQQQ`·`SOXL` 외 `SHORT_WATCH`는 계속 기록하지만 v1 Paper 주문에는 사용하지 않는다. 숏은 음수 포지션 회계,
+대주 가능성, 대주비, 배당 지급 의무와 숏 전용 위험 테스트를 갖춘 별도 계약으로 승인한다.
+
+3배 ETF는 기초지수보다 갭·장중 위험이 크다. 레버리지·인버스 ETP 실거래에는 브로커·규제상 사전 요건이 있을 수
+있으므로 실거래 검토 전에 확인해야 한다.
 
 ## 자본과 비중
 
@@ -72,6 +95,7 @@ Paper 장부는 편도 슬리피지 5bp와 수수료 10bp, 매도 SEC fee를 기
 JSON `implementation_binding`이 정본이다. 요지:
 
 - `RiskConfig`: 종목·포트폴리오 노출 0.75, 일일 손실 0.01, 낙폭 0.10, 최대 3종목, 추가매수 0.
+  이 어댑터는 모든 종목의 `leverage_factor`를 1로 넘겨 3배 ETF도 가격 명목으로 잰다.
   연속 손실 차단(31로 사실상 비활성)과 재진입 쿨다운은 계약 규칙이 아니므로 걸리지 않게 둔다.
   Risk가 수량을 줄이면 진입을 거부한다. 진입 주문은 참조 시가와 산정 자산 E를 Risk 입력으로 써서
   산정 절차가 통과시킨 진입을 Risk가 다른 기준으로 거부하지 않게 한다.
@@ -93,4 +117,5 @@ JSON `implementation_binding`이 정본이다. 요지:
   `UNRESOLVED_EXIT` 0, 종료·재시작·대조·EOD 청산 경로 검증.
 - 판정 우선순위: `HALT_AND_REVIEW`(위험 중단·운영 결함) → `EXTEND_OBSERVATION`(완료 거래 0, 벤치마크
   미확정, 누락 세션, 미검증 경로) → `NO_PROMOTION`(경제성 미달) → `ELIGIBLE_FOR_LIVE_REVIEW`.
+- 계좌 합계와 함께 LONG 다리와 INVERSE 다리를 따로 보고한다. INVERSE 다리 결과는 LONG 성과로 승인하지 않는다.
 - `ELIGIBLE_FOR_LIVE_REVIEW`도 실주문 승인이 아니며 자동 승격은 없다.

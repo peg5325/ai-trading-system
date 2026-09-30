@@ -32,7 +32,8 @@ OrderIntent → (RiskManager) → OrderRequest → BrokerProvider → BrokerOrde
 
 - `OrderManager(broker, order_store, position_store)` — `manager.py:26`
 - `.submit(intent, risk_decision, *, client_order_id, ref_price, order_type=TYPE_MARKET, limit_price=None) -> OrderRecord` — `manager.py:32`
-- `PaperBrokerProvider(execution: ExecutionModel | None = None, reject_symbols: set[str] | None = None)` — `paper_broker.py:18`
+- `PaperBrokerProvider(execution: ExecutionModel | None = None, reject_symbols: set[str] | None = None, fee_model: Callable[[str, float], float] | None = None)` — `paper_broker.py:18`
+  (`fee_model(side, fill notional)` 을 주면 수수료를 그것으로 계산. None 이면 `ExecutionModel.fee` — 기존 동작)
 
 ### `submit()` 의 3단 게이트 (순서 고정)
 

@@ -1,6 +1,6 @@
 {
   "schema": "premarket-freeze-long-paper/contract/v1",
-  "version": "1.1",
+  "version": "1.2",
   "issue": 163,
   "status": "PAPER_CONTRACT_LOCKED_PENDING_IMPLEMENTATION_REVIEW",
   "strategy_template_id": "premarket_freeze_long_intraday_v1",
@@ -19,6 +19,27 @@
       "applied_before_any_paper_session": true,
       "outcome_dependence": "both completed proxy days (2026-09-28 and 2026-09-29) were already negative after the unchanged 0.34 official cost, so the cost change does not flip any observed verdict",
       "sizing_change_trigger_disclosure": "the per-symbol weight removal was prompted by 2026-09-29 FREEZE opens: under v1.0 META (open 725.93) and MU (open 1075.00) sized to 0 shares, and META was that day's best candidate (+1.871% gross); the rule is price-driven, not return-driven, but it was chosen after seeing that day"
+    },
+    {
+      "version": "1.2",
+      "date": "2026-09-30",
+      "reason": "user decision on 2026-09-30: include the index 3x ETFs TQQQ and SOXL as ordinary LONG_WATCH symbols measured at price notional, and turn a gated RISK_OFF SHORT_WATCH on TQQQ or SOXL into a long position in the mapped inverse ETF (SQQQ or SOXS); gates become direction-aware and the LONG and INVERSE legs are reported separately",
+      "applied_before_any_paper_session": true,
+      "unchanged": "initial equity, 75% total exposure, sizing procedure, stop/target/time/EOD exits, Toss fees, 0.34 official and 0.51 stress round-trip costs, risk halts and evaluation window",
+      "rules_added_or_changed": [
+        "index 3x ETFs TQQQ and SOXL trade as LONG_WATCH at price notional (risk_leverage_factor 1)",
+        "RISK_OFF SHORT_WATCH on TQQQ/SOXL buys SQQQ/SOXS (INVERSE leg); other SHORT_WATCH stays observation only",
+        "direction-aware gates (regime, bias, LONG vs SHORT template approval)",
+        "LONG-leg allowlist: FREEZE snapshot policy_config.allowed_symbols and (leverage 1 or TQQQ/SOXL); INVERSE targets exactly SQQQ/SOXS",
+        "watchlist longer than max_candidates is a contract defect (NO_TRADE) instead of truncation",
+        "traded_instrument_bar: the traded instrument supplies its own 09:35 bar; missing bar is NO_TRADE_SYMBOL",
+        "bar validity rule: invalid OHLC bars are treated exactly as missing bars",
+        "eod_flatten_minutes_before_close = 10 as a number (was only text)",
+        "client_order_id format with a per-position SELL attempt suffix",
+        "exit fill quantity must equal held quantity; any remainder stays open and is recorded",
+        "LONG and INVERSE legs reported separately",
+        "implementation_scope.paper_strategy_code_in_this_change = true with scope note (engine only, no runner/activation/evaluator)"
+      ]
     }
   ],
   "prior_access_disclosure": {
@@ -29,12 +50,13 @@
     "evidence_label": "post-observation prospective Paper contract; not clean-room evidence"
   },
   "implementation_scope": {
-    "paper_strategy_code_in_this_change": false,
+    "paper_strategy_code_in_this_change": true,
+    "paper_strategy_code_scope": "issue #165 PR 1 adds the offline deterministic engine src/freeze_paper (gates, sizing, costs, bar engine, reconciliation) with synthetic-bar tests only; no runner, schedule, ledger files, activation or evaluator",
     "runtime_config_activation_in_this_change": false,
     "orders_created_in_this_change": false,
     "live_broker_access_in_this_change": false,
     "blind_oos_opened_in_this_change": false,
-    "next_step": "implement in a separate reviewed issue, then record the first future trading day before activation"
+    "next_step": "add the runner and evaluator in later reviewed changes of issue #165, then record the first future trading day before activation"
   },
   "decision_input": {
     "required_artifact_schema": "premarket-daily-brief/v2",
@@ -49,21 +71,30 @@
       {"path": "snapshot.payload.input.provenance.run_mode", "rule": "== LIVE_WINDOW"},
       {"path": "snapshot.payload.input.sources[].status", "rule": "every entry == OK"},
       {"path": "snapshot.payload.quality_defects", "rule": "== []"},
-      {"path": "snapshot.payload.input.market_regime.label", "rule": "== RISK_ON"},
+      {"path": "snapshot.payload.input.market_regime.label", "rule": "== RISK_ON selects the LONG leg; == RISK_OFF selects the INVERSE leg; anything else is NO_TRADE"},
       {"path": "brief.status", "rule": "== SHADOW_READY"},
       {"path": "brief.executable / brief.orders / brief.promotion_allowed", "rule": "== false / [] / false (Daily Brief invariants stay unchanged)"},
-      {"path": "brief.watchlist[i].bias", "rule": "== LONG_WATCH"},
+      {"path": "brief.watchlist[i].bias", "rule": "LONG leg: == LONG_WATCH; INVERSE leg: == SHORT_WATCH and brief.watchlist[i].symbol is a key of direction_scope.inverse_mapping"},
       {"path": "brief.watchlist[i].strategy_template_id", "rule": "== premarket_freeze_long_intraday_v1"},
-      {"path": "brief.watchlist[i].strategy_template_approved", "rule": "== true"}
+      {"path": "brief.watchlist[i].strategy_template_approved", "rule": "== true (LONG leg via approved_strategy_templates, INVERSE leg via approved_short_strategy_templates)"}
     ],
-    "rank": "0-based index in brief.watchlist; the planner already sorts by score descending then symbol ascending",
+    "rank": "0-based index in brief.watchlist; the planner already sorts by score descending then symbol ascending; a mapped INVERSE candidate keeps the FREEZE rank of its SHORT_WATCH item",
+    "watchlist_longer_than_max_candidates": "contract defect: NO_TRADE",
     "max_candidates": 3,
     "expires_at": "brief.expires_at equals the FREEZE time; it only proves the decision was frozen before the open and is not an execution cutoff; the brief is valid only for the REGULAR session of brief.trading_day",
-    "template_attachment": "activation adds premarket_freeze_long_intraday_v1 to approved_strategy_templates in the Daily Brief config and makes the normalizer attach it to candidates; approved_short_strategy_templates stays empty; this happens only in the implementation issue after review and receipt"
+    "template_attachment": "activation adds premarket_freeze_long_intraday_v1 to approved_strategy_templates (LONG leg) and approved_short_strategy_templates (INVERSE leg) in the Daily Brief config and makes the normalizer attach it to candidates; SHORT approval of any symbol other than TQQQ or SOXL never makes it tradable; this happens only in the implementation issue after review and receipt",
+    "template_id_meaning": "long in premarket_freeze_long_intraday_v1 means long positions only; the INVERSE leg is also a long position (in an inverse ETF), so the id is unchanged"
   },
   "direction_scope": {
     "long_watch": "PAPER_ELIGIBLE",
     "short_watch": "OBSERVATION_ONLY",
+    "short_watch_exception": "INVERSE_LEG_VIA_MAPPING",
+    "inverse_mapping": {"TQQQ": "SQQQ", "SOXL": "SOXS"},
+    "inverse_leg": "a gated SHORT_WATCH on TQQQ buys SQQQ and on SOXL buys SOXS; this is a long position in an inverse ETF (no borrow, no short dividend obligation); every other SHORT_WATCH item stays OBSERVATION_ONLY",
+    "index_3x_etfs_traded_as_long_watch": ["TQQQ", "SOXL"],
+    "single_stock_leveraged_etfs": "never traded",
+    "long_leg_allowlist": "a LONG-leg symbol must be in the FREEZE snapshot payload.policy_config.allowed_symbols AND (leverage factor 1 per src.universe.screener.leverage_for OR one of index_3x_etfs_traded_as_long_watch); the signal symbol of the INVERSE leg must also be in allowed_symbols and the traded targets are exactly the inverse_mapping values; the allowlist, not the incomplete leverage table, is the primary guard",
+    "leveraged_etp_disclosure": "3x ETFs have larger gap and intraday risk than the underlying index; live trading of leveraged or inverse ETPs may require broker or regulatory prerequisites (for example account eligibility steps) that must be verified before any live review",
     "short_reason": "current position and cash accounting cannot open and value negative share positions; borrow and dividend obligations are not modeled",
     "short_successor_requires": [
       "negative-position accounting",
@@ -105,6 +136,7 @@
     "minimum_cash_reserve_pct": 0.25,
     "exposure_cap_derivation": "largest 5%-step exposure with exposure * (stop_loss_pct + stress round trip) < daily loss halt: 0.75 * (0.0075 + 0.0051) = 0.00945 < 0.01",
     "whole_shares_only": true,
+    "leveraged_etp_exposure_basis": "price notional (leverage factor 1) for TQQQ, SOXL, SQQQ and SOXS in sizing, exposure and risk",
     "sizing_equity": "recorded-ledger marked equity E at the entry bar open, before any entry of the session",
     "sizing_procedure": [
       "cap = 0.75 * E; used = 0",
@@ -116,7 +148,8 @@
       "used += qty * cash_per_share"
     ],
     "insufficient_cash": "REJECT_ENTRY",
-    "slot_priority": "FREEZE rank order"
+    "slot_priority": "FREEZE rank order",
+    "traded_instrument_bar": "the traded instrument (the mapped inverse ETF for the INVERSE leg) supplies its own 09:35 bar and reference open; a missing bar is NO_TRADE_SYMBOL"
   },
   "exits": {
     "priority_within_bar": [
@@ -180,6 +213,12 @@
       "reentry_cooldown": "disabled; same-day re-entry is already forbidden by entry.max_entries_per_symbol_per_day",
       "block_all_entries_in_eod_window": true
     },
+    "eod_flatten_minutes_before_close": 10,
+    "risk_leverage_factor": 1,
+    "risk_leverage_rule": "every OrderIntent and risk Position of this adapter uses leverage_factor 1 (price notional) instead of src.universe.screener.leverage_for, so TQQQ, SOXL, SQQQ and SOXS count at price notional and RiskManager cannot reject an entry the sizing procedure accepted",
+    "client_order_id": "BUY: pfl1-{entry trading day YYYYMMDD}-{traded symbol}-BUY, single attempt (no re-entry); SELL: pfl1-{entry trading day YYYYMMDD}-{traded symbol}-SELL-{n}, n starts at 1 per position and increments only after a rejected, unfilled or partially filled sell of that position; at most one sell attempt per symbol per bar; a rejected, unfilled or partially filled exit (including STOP_LOSS and TAKE_PROFIT) is kept pending with its reason and retries unconditionally at the next available bar open (also for a carried position), without re-checking the price level; replaying the same inputs yields the same ids and a stored id is never resubmitted or refilled",
+    "exit_fill_quantity": "an exit fill must equal the held quantity; if it differs by more than 1e-9 the remainder stays open, an EXIT_FILL_QUANTITY_MISMATCH event is recorded and the remainder retries at the next bar",
+    "bar_validity": "a 1m bar is valid only if open, high, low and close are finite and > 0 and low <= min(open, close) and max(open, close) <= high; an invalid bar is recorded as INVALID_BAR and treated exactly as a missing bar (missing_entry_bar, missing_exit_bar and mark rules apply)",
     "risk_quantity_reduction": "if RiskManager returns a reduced quantity for an entry, reject the entry (REJECT_ENTRY); never submit fractional shares",
     "entry_risk_inputs": "entry intents use intent.price = reference_open and snapshot account_value = the sizing equity E for every entry of the session, and positions entered earlier at the same bar are marked at their reference_open in that snapshot, so the RiskManager exposure check measures the same base as the sizing procedure and cannot reject an entry the procedure accepted",
     "order_kinds": {
@@ -254,6 +293,7 @@
       {"outcome": "ELIGIBLE_FOR_LIVE_REVIEW", "when": "every eligibility condition passes"}
     ],
     "outcomes": ["ELIGIBLE_FOR_LIVE_REVIEW", "EXTEND_OBSERVATION", "NO_PROMOTION", "HALT_AND_REVIEW"],
+    "leg_reporting": "report the LONG leg and the INVERSE leg separately in addition to the account total; INVERSE-leg results are never approved as LONG performance",
     "automatic_live_promotion": false
   }
 }

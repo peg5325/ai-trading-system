@@ -249,3 +249,30 @@ def test_portfolio_snapshot_cash_defaults_to_none():
     snap = PortfolioSnapshot(account_value=100_000.0)
     assert snap.cash is None
     assert snap.to_dict()["cash"] is None
+
+
+# ---- 명시 일일 앵커 / 고점 복원 (additive, issue #165) ----
+def test_mark_equity_explicit_day_start_anchor_overrides_first_mark():
+    a = PortfolioAccount(1000.0)
+    a.apply_fill(FillEvent("X", BUY, 10.0, 10.0))
+    a.mark_equity({"X": 9.0}, day_key="d1", day_start_equity=1000.0)
+    assert a.last_daily_return_pct == (990.0 - 1000.0) / 1000.0
+    a.mark_equity({"X": 8.0}, day_key="d1")          # keeps the anchor within the day
+    assert a.last_daily_return_pct == (980.0 - 1000.0) / 1000.0
+
+
+def test_mark_equity_default_behaviour_unchanged():
+    a = PortfolioAccount(1000.0)
+    a.apply_fill(FillEvent("X", BUY, 10.0, 10.0))
+    a.mark_equity({"X": 9.0}, day_key="d1")
+    assert a.last_daily_return_pct == 0.0
+
+
+def test_restore_peak_never_lowers_the_peak():
+    a = PortfolioAccount(1000.0)
+    a.restore_peak(1200.0)
+    a.mark_equity({})
+    assert a.peak_equity == 1200.0
+    assert a.last_drawdown_pct == (1000.0 - 1200.0) / 1200.0
+    a.restore_peak(500.0)
+    assert a.peak_equity == 1200.0

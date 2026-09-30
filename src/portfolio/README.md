@@ -24,7 +24,9 @@ initial_capital, final_equity`.
   (⚠️ `bar_minutes` 기본값이 `FifoMatcher` 의 `5.0` 과 다르다)
 - `.apply_fill(fill: FillEvent) -> None` — `account.py:52`
 - `.portfolio_value(marks: dict) -> PortfolioValue` — `account.py:95`
-- `.mark_equity(marks, day_key=None) -> float` — `account.py:106` (peak / drawdown / 일간수익률 / 자산곡선 갱신)
+- `.mark_equity(marks, day_key=None, *, day_start_equity=None) -> float` — `account.py:106` (peak / drawdown / 일간수익률 / 자산곡선 갱신).
+  `day_start_equity` 를 주면 일일수익률 기준을 그 값(예: 직전 마감 자산)으로 고정한다. 기본은 기존 동작.
+- `.restore_peak(peak)` — 재시작 복원용. 저장된 고점을 되살리며 고점을 낮추지 않는다.
 - `.can_afford(notional: float) -> bool` — `account.py:102`
 - `PortfolioAccount.from_fills(initial_capital, fills, bar_minutes=1.0)` — `account.py:141` (재시작 복원)
 - `performance_summary(initial_capital, equity_curve, realized_trades, *, periods_per_year=None) -> dict` — `performance.py:21`

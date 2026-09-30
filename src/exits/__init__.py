@@ -6,6 +6,7 @@ live/paper/backtest 가 동일한 청산 규칙(Stop Loss / Take Profit / Time E
 from src.exits.generator import (
     ExitConfig,
     ExitContext,
+    ExitFill,
     ExitSignalGenerator,
     PositionView,
 )
@@ -13,6 +14,7 @@ from src.exits.generator import (
 __all__ = [
     "ExitConfig",
     "ExitContext",
+    "ExitFill",
     "ExitSignalGenerator",
     "PositionView",
 ]

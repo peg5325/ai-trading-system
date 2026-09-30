@@ -42,12 +42,14 @@ def test_contract_is_prospective_and_non_executable():
     contract = _contract()
     scope = contract["implementation_scope"]
     assert contract["schema"] == "premarket-freeze-long-paper/contract/v1"
-    assert contract["version"] == "1.1"
+    assert contract["version"] == "1.2"
     assert contract["issue"] == 163
     assert contract["strategy_template_id"] == "premarket_freeze_long_intraday_v1"
     assert contract["status"] == "PAPER_CONTRACT_LOCKED_PENDING_IMPLEMENTATION_REVIEW"
-    assert contract["revision_history"][-1]["applied_before_any_paper_session"] is True
-    assert scope["paper_strategy_code_in_this_change"] is False
+    assert contract["revision_history"][-1]["version"] == "1.2"
+    assert all(row["applied_before_any_paper_session"] for row in contract["revision_history"][1:])
+    assert scope["paper_strategy_code_in_this_change"] is True
+    assert "no runner" in scope["paper_strategy_code_scope"]
     assert scope["runtime_config_activation_in_this_change"] is False
     assert scope["orders_created_in_this_change"] is False
     assert scope["live_broker_access_in_this_change"] is False
@@ -61,22 +63,57 @@ def test_prior_observations_are_disclosed_without_claiming_clean_room():
     ]
     assert disclosure["postclose_outcomes_examined"] == ["2026-09-21", "2026-09-28", "2026-09-29"]
     assert disclosure["parameter_tuning_from_those_outcomes"] is False
-    assert "META" in _contract()["revision_history"][-1]["sizing_change_trigger_disclosure"]
+    v11 = next(row for row in _contract()["revision_history"] if row["version"] == "1.1")
+    assert "META" in v11["sizing_change_trigger_disclosure"]
     assert "not clean-room" in disclosure["evidence_label"]
 
 
-def test_long_only_scope_and_decision_gates_name_artifact_paths():
+def test_long_positions_only_scope_and_decision_gates_name_artifact_paths():
     contract = _contract()
     direction = contract["direction_scope"]
     assert direction["long_watch"] == "PAPER_ELIGIBLE"
     assert direction["short_watch"] == "OBSERVATION_ONLY"
     assert "negative-position accounting" in direction["short_successor_requires"]
     gates = {gate["path"]: gate["rule"] for gate in contract["decision_input"]["gates"]}
-    assert gates["snapshot.payload.input.market_regime.label"] == "== RISK_ON"
+    regime_rule = gates["snapshot.payload.input.market_regime.label"]
+    assert "RISK_ON selects the LONG leg" in regime_rule
+    assert "RISK_OFF selects the INVERSE leg" in regime_rule
+    assert "SHORT_WATCH" in gates["brief.watchlist[i].bias"]
+    assert "approved_short_strategy_templates" in gates["brief.watchlist[i].strategy_template_approved"]
     assert gates["snapshot.payload.input.provenance.run_mode"] == "== LIVE_WINDOW"
     assert gates["snapshot.payload.quality_defects"] == "== []"
     assert gates["brief.status"] == "== SHADOW_READY"
     assert gates["brief.watchlist[i].strategy_template_id"] == "== premarket_freeze_long_intraday_v1"
+
+
+def test_inverse_mapping_is_limited_to_index_3x_etfs_and_is_a_long_position():
+    contract = _contract()
+    direction = contract["direction_scope"]
+    assert direction["inverse_mapping"] == {"TQQQ": "SQQQ", "SOXL": "SOXS"}
+    assert direction["index_3x_etfs_traded_as_long_watch"] == ["TQQQ", "SOXL"]
+    assert "long position in an inverse ETF" in direction["inverse_leg"]
+    assert "every other SHORT_WATCH item stays OBSERVATION_ONLY" in direction["inverse_leg"]
+    assert direction["single_stock_leveraged_etfs"].startswith("never traded")
+    assert "must be verified before any live review" in direction["leveraged_etp_disclosure"]
+    assert "long positions only" in contract["decision_input"]["template_id_meaning"]
+    assert "INVERSE leg" in contract["evaluation"]["leg_reporting"]
+    assert "never approved as LONG performance" in contract["evaluation"]["leg_reporting"]
+
+
+def test_leveraged_etfs_use_price_notional_so_risk_matches_sizing():
+    contract = _contract()
+    binding = contract["implementation_binding"]
+    assert binding["risk_leverage_factor"] == 1
+    assert "leverage_for" in binding["risk_leverage_rule"]
+    assert "leverage factor 1" in contract["portfolio"]["leveraged_etp_exposure_basis"]
+    assert binding["eod_flatten_minutes_before_close"] == 10
+    assert "SELL-{n}" in binding["client_order_id"]
+    assert "treated exactly as a missing bar" in binding["bar_validity"]
+    assert "remainder stays open" in binding["exit_fill_quantity"]
+    assert "allowed_symbols" in contract["direction_scope"]["long_leg_allowlist"]
+    added = contract["revision_history"][-1]["rules_added_or_changed"]
+    assert any("instead of truncation" in rule for rule in added)
+    assert any("bar validity" in rule for rule in added)
 
 
 def test_single_position_book_drives_sizing_and_risk():
@@ -206,5 +243,8 @@ def test_markdown_preserves_contract_boundaries():
         "75%",
         "0.51%p",
         "실주문 승인이 아니며 자동 승격은 없다",
+        "SQQQ",
+        "SOXS",
+        "롱 포지션",
     ):
         assert text in doc

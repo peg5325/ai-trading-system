@@ -19,6 +19,9 @@
 - `.evaluate(pos, ctx) -> str | None` — `generator.py:118` (EOD 포함 전체 우선순위)
 - `.evaluate_signal(pos, ctx) -> str | None` — `generator.py:104` (EOD 제외)
 - `.generate_intents(positions, ctx) -> list[OrderIntent]` — `generator.py:129`
+- `.evaluate_intrabar(pos, bar) -> ExitFill | None` — 완료 봉 low/high 기반 손절(우선)·익절과 갭 참조가
+- `.evaluate_bar_open(pos, ctx, *, bar_open) -> ExitFill | None` — 봉 시가의 TIME_EXIT(분 단위) > EOD_FLATTEN
+  (`evaluate()` 는 변경하지 않았다. 사용처: `src/freeze_paper/engine.py`)
 - `ExitConfig` (frozen) — `generator.py:32`: `stop_loss_pct=0.0, take_profit_pct=0.0,
   time_exit_bars=None, time_exit_minutes=None, enable_all_symbols_eod_flatten=False,
   leverage_eod_flatten=True, exit_on_trend_break=False,

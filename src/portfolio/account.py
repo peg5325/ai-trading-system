@@ -103,9 +103,15 @@ class PortfolioAccount:
         return self.cash + _EPS >= notional
 
     # ---- 마킹(자산곡선/낙폭/일일수익률) ----
-    def mark_equity(self, marks: dict, day_key=None) -> float:
+    def mark_equity(self, marks: dict, day_key=None, *,
+                    day_start_equity: float | None = None) -> float:
+        """day_start_equity 를 주면 일일수익률 기준을 그 값으로 고정한다(직전 마감 자산 등 명시 앵커).
+        None 이면 기존대로 day_key 가 바뀔 때의 첫 평가값을 기준으로 삼는다."""
         eq = self.equity(marks)
-        if day_key != self._day:
+        if day_start_equity is not None:
+            self._day = day_key
+            self._day_start_equity = float(day_start_equity)
+        elif day_key != self._day:
             self._day = day_key
             self._day_start_equity = eq
         self._peak_equity = max(self._peak_equity, eq)
@@ -116,6 +122,10 @@ class PortfolioAccount:
                                    if self._day_start_equity > 0 else 0.0)
         self._equity_curve.append(eq)
         return eq
+
+    def restore_peak(self, peak: float) -> None:
+        """재시작 복원: 저장된 운용 고점을 되살린다. 고점은 낮아지지 않는다(재시작으로 초기화 금지)."""
+        self._peak_equity = max(self._peak_equity, float(peak))
 
     # ---- read-only props ----
     @property
