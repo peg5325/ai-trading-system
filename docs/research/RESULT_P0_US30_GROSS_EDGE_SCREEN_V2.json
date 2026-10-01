@@ -1,0 +1,1511 @@
+{
+  "arms": [
+    {
+      "all": {
+        "best_month_by_sum": "2025-04",
+        "best_symbol_by_sum": "SOXS",
+        "first_half_mean": 0.038954926311522274,
+        "first_half_trades": 92,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G6": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": 0.08330514150497725,
+        "mean_excluding_best_month": 0.0495725687026231,
+        "mean_excluding_best_symbol": -0.03249063039049112,
+        "mean_gross_pct_points": 0.13708980215363736,
+        "recent_year_mean": 0.24980701810749456,
+        "recent_year_trades": 92,
+        "second_half_mean": 0.23416946427702,
+        "trade_count": 185,
+        "trading_days": 152
+      },
+      "arm_id": "A1",
+      "bootstrap_p": 0.9719028097190281,
+      "diagnostics": {
+        "best_trading_day": {
+          "contribution_to_trade_mean": 0.0408428690404208,
+          "daily_gross_pct_points": 7.555930772477848,
+          "day": "2025-03-03",
+          "trades": 1
+        },
+        "exit_reasons": {
+          "stop": 0,
+          "target": 0,
+          "time": 185
+        },
+        "per_symbol": {
+          "SOXL": {
+            "mean_gross_pct_points": -0.17798458769299322,
+            "trades": 81
+          },
+          "SOXS": {
+            "mean_gross_pct_points": 0.4288678993251525,
+            "trades": 68
+          },
+          "SQQQ": {
+            "mean_gross_pct_points": 0.3998111019125657,
+            "trades": 22
+          },
+          "TQQQ": {
+            "mean_gross_pct_points": 0.12996454324061027,
+            "trades": 14
+          }
+        },
+        "trade_mean_minus_baseline": 0.15563067731852104,
+        "unconditional_baseline_mean": -0.01854087516488366
+      },
+      "holm_p": 1.0,
+      "inverse_leg": {
+        "best_month_by_sum": "2025-04",
+        "best_symbol_by_sum": "SOXS",
+        "first_half_mean": 0.1293598137239048,
+        "first_half_trades": 45,
+        "gates": {
+          "G1": false,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": true,
+          "G7": true,
+          "G8": true
+        },
+        "mean_daily_gross_pct_points": 0.3633382749258574,
+        "mean_excluding_best_month": 0.3499655072955805,
+        "mean_excluding_best_symbol": 0.3998111019125657,
+        "mean_gross_pct_points": 0.421765126624298,
+        "recent_year_mean": 0.7577762560622214,
+        "recent_year_trades": 44,
+        "second_half_mean": 0.7141704395246911,
+        "trade_count": 90,
+        "trading_days": 70
+      },
+      "long_listing_checks": {
+        "G3": false,
+        "G4": false,
+        "G5": false,
+        "G7": false,
+        "G8": false,
+        "min_trades": true,
+        "min_trading_days": true
+      },
+      "net_after_cost_pct_points": {
+        "charter_official": -0.20291019784636266,
+        "commission_only": -0.06291019784636265,
+        "realistic": -0.16291019784636263,
+        "stress": -0.37291019784636265
+      },
+      "non_inverse_leg": {
+        "best_month_by_sum": "2025-04",
+        "best_symbol_by_sum": "TQQQ",
+        "first_half_mean": -0.047602944615226954,
+        "first_half_trades": 47,
+        "gates": {
+          "G1": false,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": -0.15574753336650582,
+        "mean_excluding_best_month": -0.24358198582785343,
+        "mean_excluding_best_symbol": -0.17798458769299322,
+        "mean_gross_pct_points": -0.13260261050277794,
+        "recent_year_mean": -0.21583145001767165,
+        "recent_year_trades": 48,
+        "second_half_mean": -0.21583145001767165,
+        "trade_count": 95,
+        "trading_days": 82
+      },
+      "screen_pass": false,
+      "status": "FAIL"
+    },
+    {
+      "all": {
+        "best_month_by_sum": "2025-04",
+        "best_symbol_by_sum": "AAPL",
+        "first_half_mean": 0.006178136376496922,
+        "first_half_trades": 209,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G6": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": 0.005324930340148959,
+        "mean_excluding_best_month": -0.057241065375150633,
+        "mean_excluding_best_symbol": -0.021355650993856803,
+        "mean_gross_pct_points": -0.01418481038448256,
+        "recent_year_mean": 0.017545601906391917,
+        "recent_year_trades": 192,
+        "second_half_mean": -0.034547757145462044,
+        "trade_count": 418,
+        "trading_days": 234
+      },
+      "arm_id": "A2",
+      "bootstrap_p": 1.0,
+      "diagnostics": {
+        "best_trading_day": {
+          "contribution_to_trade_mean": 0.007700710816079692,
+          "daily_gross_pct_points": 3.2188971211213113,
+          "day": "2025-02-06",
+          "trades": 1
+        },
+        "exit_reasons": {
+          "stop": 0,
+          "target": 0,
+          "time": 418
+        },
+        "per_symbol": {
+          "AAPL": {
+            "mean_gross_pct_points": 0.27838548647798667,
+            "trades": 10
+          },
+          "AMD": {
+            "mean_gross_pct_points": -0.059087120238441516,
+            "trades": 44
+          },
+          "AMZN": {
+            "mean_gross_pct_points": 0.07106466937309369,
+            "trades": 9
+          },
+          "AVGO": {
+            "mean_gross_pct_points": -0.03462286649996783,
+            "trades": 42
+          },
+          "CRM": {
+            "mean_gross_pct_points": 0.06919994906189272,
+            "trades": 19
+          },
+          "GOOGL": {
+            "mean_gross_pct_points": 0.06483706676868277,
+            "trades": 7
+          },
+          "META": {
+            "mean_gross_pct_points": -0.22053667605144237,
+            "trades": 14
+          },
+          "MSFT": {
+            "mean_gross_pct_points": 0.22466872529762946,
+            "trades": 6
+          },
+          "MU": {
+            "mean_gross_pct_points": 0.03358408190764371,
+            "trades": 45
+          },
+          "NFLX": {
+            "mean_gross_pct_points": -0.13461122314996743,
+            "trades": 20
+          },
+          "NVDA": {
+            "mean_gross_pct_points": 0.039945403383022104,
+            "trades": 40
+          },
+          "PLTR": {
+            "mean_gross_pct_points": -0.023743971854587445,
+            "trades": 90
+          },
+          "TSLA": {
+            "mean_gross_pct_points": -0.05010790589217085,
+            "trades": 72
+          }
+        },
+        "trade_mean_minus_baseline": 0.02073319274905074,
+        "unconditional_baseline_mean": -0.0349180031335333
+      },
+      "holm_p": 1.0,
+      "inverse_leg": null,
+      "long_listing_checks": {
+        "G3": false,
+        "G4": false,
+        "G5": false,
+        "G7": false,
+        "G8": false,
+        "min_trades": true,
+        "min_trading_days": true
+      },
+      "net_after_cost_pct_points": {
+        "charter_official": -0.3541848103844826,
+        "commission_only": -0.21418481038448256,
+        "realistic": -0.31418481038448254,
+        "stress": -0.5241848103844826
+      },
+      "non_inverse_leg": {
+        "best_month_by_sum": "2025-04",
+        "best_symbol_by_sum": "AAPL",
+        "first_half_mean": 0.006178136376496922,
+        "first_half_trades": 209,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": 0.005324930340148959,
+        "mean_excluding_best_month": -0.057241065375150633,
+        "mean_excluding_best_symbol": -0.021355650993856803,
+        "mean_gross_pct_points": -0.01418481038448256,
+        "recent_year_mean": 0.017545601906391917,
+        "recent_year_trades": 192,
+        "second_half_mean": -0.034547757145462044,
+        "trade_count": 418,
+        "trading_days": 234
+      },
+      "screen_pass": false,
+      "status": "FAIL"
+    },
+    {
+      "all": {
+        "best_month_by_sum": "2023-08",
+        "best_symbol_by_sum": "SQQQ",
+        "first_half_mean": 0.06755662704121031,
+        "first_half_trades": 622,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G6": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": -0.04477890712802308,
+        "mean_excluding_best_month": -0.06904406098065426,
+        "mean_excluding_best_symbol": -0.05811763975016636,
+        "mean_gross_pct_points": -0.03723649443740165,
+        "recent_year_mean": -0.13922340594028929,
+        "recent_year_trades": 535,
+        "second_half_mean": -0.14186140865842353,
+        "trade_count": 1245,
+        "trading_days": 412
+      },
+      "arm_id": "B1",
+      "bootstrap_p": 1.0,
+      "diagnostics": {
+        "best_trading_day": {
+          "contribution_to_trade_mean": 0.013399980300385942,
+          "daily_gross_pct_points": 8.34148773699025,
+          "day": "2024-10-15",
+          "trades": 2
+        },
+        "exit_reasons": {
+          "stop": 831,
+          "target": 0,
+          "time": 414
+        },
+        "per_symbol": {
+          "AAPL": {
+            "mean_gross_pct_points": -0.11613786734026484,
+            "trades": 65
+          },
+          "AMD": {
+            "mean_gross_pct_points": -0.03004038506003007,
+            "trades": 68
+          },
+          "AMZN": {
+            "mean_gross_pct_points": -0.0459986798475924,
+            "trades": 53
+          },
+          "AVGO": {
+            "mean_gross_pct_points": -0.09898268303698089,
+            "trades": 62
+          },
+          "CRM": {
+            "mean_gross_pct_points": -0.14949411957717298,
+            "trades": 56
+          },
+          "GOOGL": {
+            "mean_gross_pct_points": -0.06877442779179489,
+            "trades": 58
+          },
+          "IWM": {
+            "mean_gross_pct_points": -0.10966403067029626,
+            "trades": 56
+          },
+          "META": {
+            "mean_gross_pct_points": -0.13102297188363043,
+            "trades": 50
+          },
+          "MSFT": {
+            "mean_gross_pct_points": -0.11831742021291032,
+            "trades": 77
+          },
+          "MU": {
+            "mean_gross_pct_points": -0.1435759636852445,
+            "trades": 61
+          },
+          "NFLX": {
+            "mean_gross_pct_points": -0.15272432467409752,
+            "trades": 63
+          },
+          "NVDA": {
+            "mean_gross_pct_points": 0.01390209710175876,
+            "trades": 63
+          },
+          "PLTR": {
+            "mean_gross_pct_points": -0.06052481103739449,
+            "trades": 61
+          },
+          "QQQ": {
+            "mean_gross_pct_points": 0.003940818988494009,
+            "trades": 71
+          },
+          "SOXL": {
+            "mean_gross_pct_points": -0.12920697249671842,
+            "trades": 72
+          },
+          "SOXS": {
+            "mean_gross_pct_points": 0.01039194571513611,
+            "trades": 64
+          },
+          "SPY": {
+            "mean_gross_pct_points": 0.05025616359976906,
+            "trades": 64
+          },
+          "SQQQ": {
+            "mean_gross_pct_points": 0.31865085176276214,
+            "trades": 69
+          },
+          "TQQQ": {
+            "mean_gross_pct_points": 0.07018067670461414,
+            "trades": 63
+          },
+          "TSLA": {
+            "mean_gross_pct_points": 0.12040352264798315,
+            "trades": 49
+          }
+        },
+        "trade_mean_minus_baseline": -0.05900738049942526,
+        "unconditional_baseline_mean": 0.021770886062023608
+      },
+      "holm_p": 1.0,
+      "inverse_leg": {
+        "best_month_by_sum": "2024-10",
+        "best_symbol_by_sum": "SQQQ",
+        "first_half_mean": 0.41758918840266607,
+        "first_half_trades": 66,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": 0.16464358247018818,
+        "mean_excluding_best_month": 0.0822109970071942,
+        "mean_excluding_best_symbol": 0.01039194571513611,
+        "mean_gross_pct_points": 0.1703157390781902,
+        "recent_year_mean": -0.05159762415406464,
+        "recent_year_trades": 63,
+        "second_half_mean": -0.0732670617489054,
+        "trade_count": 133,
+        "trading_days": 107
+      },
+      "long_listing_checks": {
+        "G3": false,
+        "G4": false,
+        "G5": false,
+        "G7": false,
+        "G8": false,
+        "min_trades": true,
+        "min_trading_days": true
+      },
+      "net_after_cost_pct_points": {
+        "charter_official": -0.3772364944374017,
+        "commission_only": -0.23723649443740166,
+        "realistic": -0.33723649443740167,
+        "stress": -0.5472364944374016
+      },
+      "non_inverse_leg": {
+        "best_month_by_sum": "2023-08",
+        "best_symbol_by_sum": "TSLA",
+        "first_half_mean": 0.014387681672541971,
+        "first_half_trades": 556,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": -0.1253433568342994,
+        "mean_excluding_best_month": -0.0997091542493092,
+        "mean_excluding_best_symbol": -0.07047149716059786,
+        "mean_gross_pct_points": -0.06206063747478809,
+        "recent_year_mean": -0.15091922003463706,
+        "recent_year_trades": 472,
+        "second_half_mean": -0.13850895662211815,
+        "trade_count": 1112,
+        "trading_days": 404
+      },
+      "screen_pass": false,
+      "status": "FAIL"
+    },
+    {
+      "all": {
+        "best_month_by_sum": "2023-10",
+        "best_symbol_by_sum": "SOXS",
+        "first_half_mean": 0.04863029545310698,
+        "first_half_trades": 313,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G6": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": -0.028860531891320394,
+        "mean_excluding_best_month": -0.06513189341798448,
+        "mean_excluding_best_symbol": -0.0707362989828963,
+        "mean_gross_pct_points": -0.03261761105201639,
+        "recent_year_mean": -0.13059253704640533,
+        "recent_year_trades": 247,
+        "second_half_mean": -0.11386551755713975,
+        "trade_count": 626,
+        "trading_days": 296
+      },
+      "arm_id": "B2",
+      "bootstrap_p": 1.0,
+      "diagnostics": {
+        "best_trading_day": {
+          "contribution_to_trade_mean": 0.024182608219825992,
+          "daily_gross_pct_points": 7.569156372805535,
+          "day": "2025-10-10",
+          "trades": 2
+        },
+        "exit_reasons": {
+          "stop": 425,
+          "target": 0,
+          "time": 201
+        },
+        "per_symbol": {
+          "AAPL": {
+            "mean_gross_pct_points": -0.023302637150675903,
+            "trades": 31
+          },
+          "AMD": {
+            "mean_gross_pct_points": 0.07284437374831067,
+            "trades": 43
+          },
+          "AMZN": {
+            "mean_gross_pct_points": 0.044861907250842714,
+            "trades": 28
+          },
+          "AVGO": {
+            "mean_gross_pct_points": 0.24098005529915706,
+            "trades": 29
+          },
+          "CRM": {
+            "mean_gross_pct_points": -0.7783963142202495,
+            "trades": 32
+          },
+          "GOOGL": {
+            "mean_gross_pct_points": -0.022259728026570228,
+            "trades": 38
+          },
+          "IWM": {
+            "mean_gross_pct_points": 0.12182601662244928,
+            "trades": 27
+          },
+          "META": {
+            "mean_gross_pct_points": -0.3543272094736102,
+            "trades": 28
+          },
+          "MSFT": {
+            "mean_gross_pct_points": 0.0541853008341436,
+            "trades": 34
+          },
+          "MU": {
+            "mean_gross_pct_points": -0.24481888093601706,
+            "trades": 30
+          },
+          "NFLX": {
+            "mean_gross_pct_points": -0.05919807041100172,
+            "trades": 34
+          },
+          "NVDA": {
+            "mean_gross_pct_points": -0.3164400835338885,
+            "trades": 33
+          },
+          "PLTR": {
+            "mean_gross_pct_points": -0.10604669354938966,
+            "trades": 34
+          },
+          "QQQ": {
+            "mean_gross_pct_points": -0.0053207944771691,
+            "trades": 24
+          },
+          "SOXL": {
+            "mean_gross_pct_points": 0.14543499895636985,
+            "trades": 35
+          },
+          "SOXS": {
+            "mean_gross_pct_points": 0.699015270201969,
+            "trades": 31
+          },
+          "SPY": {
+            "mean_gross_pct_points": -0.011301778992872467,
+            "trades": 29
+          },
+          "SQQQ": {
+            "mean_gross_pct_points": -0.004920774675103338,
+            "trades": 23
+          },
+          "TQQQ": {
+            "mean_gross_pct_points": -0.037695396370787115,
+            "trades": 25
+          },
+          "TSLA": {
+            "mean_gross_pct_points": -0.062428124525145214,
+            "trades": 38
+          }
+        },
+        "trade_mean_minus_baseline": -0.055960796483533616,
+        "unconditional_baseline_mean": 0.023343185431517227
+      },
+      "holm_p": 1.0,
+      "inverse_leg": {
+        "best_month_by_sum": "2025-10",
+        "best_symbol_by_sum": "SOXS",
+        "first_half_mean": 0.7137054426166428,
+        "first_half_trades": 27,
+        "gates": {
+          "G1": false,
+          "G2": false,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": 0.6924862918234396,
+        "mean_excluding_best_month": 0.1252311817958109,
+        "mean_excluding_best_symbol": -0.004920774675103338,
+        "mean_gross_pct_points": 0.3991906584950678,
+        "recent_year_mean": 0.4214131844840972,
+        "recent_year_trades": 18,
+        "second_half_mean": 0.08467587437349282,
+        "trade_count": 54,
+        "trading_days": 46
+      },
+      "long_listing_checks": {
+        "G3": false,
+        "G4": false,
+        "G5": false,
+        "G7": false,
+        "G8": false,
+        "min_trades": true,
+        "min_trading_days": true
+      },
+      "net_after_cost_pct_points": {
+        "charter_official": -0.3726176110520164,
+        "commission_only": -0.2326176110520164,
+        "realistic": -0.33261761105201637,
+        "stress": -0.5426176110520164
+      },
+      "non_inverse_leg": {
+        "best_month_by_sum": "2024-06",
+        "best_symbol_by_sum": "AVGO",
+        "first_half_mean": -0.014136186367478624,
+        "first_half_trades": 286,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": -0.13215309767077674,
+        "mean_excluding_best_month": -0.09222383726446676,
+        "mean_excluding_best_symbol": -0.09017189996495667,
+        "mean_gross_pct_points": -0.07338272740786,
+        "recent_year_mean": -0.17398163306190334,
+        "recent_year_trades": 229,
+        "second_half_mean": -0.13262926844824138,
+        "trade_count": 572,
+        "trading_days": 291
+      },
+      "screen_pass": false,
+      "status": "FAIL"
+    },
+    {
+      "all": {
+        "best_month_by_sum": "2025-04",
+        "best_symbol_by_sum": "SOXS",
+        "first_half_mean": 0.032355915992898526,
+        "first_half_trades": 1264,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G6": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": -0.06133423302340005,
+        "mean_excluding_best_month": 0.008068620769405972,
+        "mean_excluding_best_symbol": 0.013483567030922959,
+        "mean_gross_pct_points": 0.02963575070877468,
+        "recent_year_mean": 0.03169551329284398,
+        "recent_year_trades": 968,
+        "second_half_mean": 0.02691773575293867,
+        "trade_count": 2529,
+        "trading_days": 555
+      },
+      "arm_id": "B3",
+      "bootstrap_p": 1.0,
+      "diagnostics": {
+        "best_trading_day": {
+          "contribution_to_trade_mean": 0.01052843088450782,
+          "daily_gross_pct_points": 13.313200853460138,
+          "day": "2025-11-20",
+          "trades": 2
+        },
+        "exit_reasons": {
+          "stop": 761,
+          "target": 0,
+          "time": 1768
+        },
+        "per_symbol": {
+          "AAPL": {
+            "mean_gross_pct_points": -0.02324116800390373,
+            "trades": 128
+          },
+          "AMD": {
+            "mean_gross_pct_points": -0.013986165495825995,
+            "trades": 109
+          },
+          "AMZN": {
+            "mean_gross_pct_points": -0.029139200951233513,
+            "trades": 132
+          },
+          "AVGO": {
+            "mean_gross_pct_points": 0.07127372335979316,
+            "trades": 130
+          },
+          "CRM": {
+            "mean_gross_pct_points": 0.02040825959462372,
+            "trades": 110
+          },
+          "GOOGL": {
+            "mean_gross_pct_points": -0.15561267920302713,
+            "trades": 169
+          },
+          "IWM": {
+            "mean_gross_pct_points": -0.049362050242712605,
+            "trades": 126
+          },
+          "META": {
+            "mean_gross_pct_points": -0.06402995550457537,
+            "trades": 139
+          },
+          "MSFT": {
+            "mean_gross_pct_points": -0.007409549116299541,
+            "trades": 128
+          },
+          "MU": {
+            "mean_gross_pct_points": -0.08900006216613203,
+            "trades": 146
+          },
+          "NFLX": {
+            "mean_gross_pct_points": 0.017012563926657794,
+            "trades": 137
+          },
+          "NVDA": {
+            "mean_gross_pct_points": 0.02667923953696272,
+            "trades": 131
+          },
+          "PLTR": {
+            "mean_gross_pct_points": 0.26802247945915686,
+            "trades": 139
+          },
+          "QQQ": {
+            "mean_gross_pct_points": 0.0007383265390301594,
+            "trades": 151
+          },
+          "SOXL": {
+            "mean_gross_pct_points": 0.07482426407204625,
+            "trades": 133
+          },
+          "SOXS": {
+            "mean_gross_pct_points": 0.717774472570354,
+            "trades": 58
+          },
+          "SPY": {
+            "mean_gross_pct_points": 0.025600075205193237,
+            "trades": 154
+          },
+          "SQQQ": {
+            "mean_gross_pct_points": 0.5865472576765572,
+            "trades": 47
+          },
+          "TQQQ": {
+            "mean_gross_pct_points": -0.04463833150941228,
+            "trades": 146
+          },
+          "TSLA": {
+            "mean_gross_pct_points": 0.06359497328785267,
+            "trades": 116
+          }
+        },
+        "trade_mean_minus_baseline": 0.010039993881008985,
+        "unconditional_baseline_mean": 0.019595756827765695
+      },
+      "holm_p": 1.0,
+      "inverse_leg": {
+        "best_month_by_sum": "2025-02",
+        "best_symbol_by_sum": "SOXS",
+        "first_half_mean": 0.7883057234176936,
+        "first_half_trades": 52,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": true,
+          "G4": true,
+          "G5": true,
+          "G7": true,
+          "G8": true
+        },
+        "mean_daily_gross_pct_points": 0.21136455880756927,
+        "mean_excluding_best_month": 0.48073492352762953,
+        "mean_excluding_best_symbol": 0.5865472576765572,
+        "mean_gross_pct_points": 0.6590346716178926,
+        "recent_year_mean": 0.9741788918565251,
+        "recent_year_trades": 38,
+        "second_half_mean": 0.5322026962671446,
+        "trade_count": 105,
+        "trading_days": 75
+      },
+      "long_listing_checks": {
+        "G3": false,
+        "G4": false,
+        "G5": false,
+        "G7": false,
+        "G8": false,
+        "min_trades": true,
+        "min_trading_days": true
+      },
+      "net_after_cost_pct_points": {
+        "charter_official": -0.31036424929122536,
+        "commission_only": -0.17036424929122534,
+        "realistic": -0.2703642492912253,
+        "stress": -0.48036424929122534
+      },
+      "non_inverse_leg": {
+        "best_month_by_sum": "2023-05",
+        "best_symbol_by_sum": "PLTR",
+        "first_half_mean": 0.004309216743893837,
+        "first_half_trades": 1212,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": -0.15338675549540512,
+        "mean_excluding_best_month": -0.018885908827539242,
+        "mean_excluding_best_symbol": -0.013787724998779153,
+        "mean_gross_pct_points": 0.0023721835901866486,
+        "recent_year_mean": -0.006814560239865567,
+        "recent_year_trades": 930,
+        "second_half_mean": 0.0004351504364794593,
+        "trade_count": 2424,
+        "trading_days": 525
+      },
+      "screen_pass": false,
+      "status": "FAIL"
+    },
+    {
+      "all": {
+        "best_month_by_sum": "2025-11",
+        "best_symbol_by_sum": "PLTR",
+        "first_half_mean": -0.22887344882050203,
+        "first_half_trades": 49,
+        "gates": {
+          "G1": false,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G6": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": 0.07075928957883776,
+        "mean_excluding_best_month": -0.10944580785114438,
+        "mean_excluding_best_symbol": -0.11640813604840285,
+        "mean_gross_pct_points": -0.014436450219630198,
+        "recent_year_mean": 0.08186227518953315,
+        "recent_year_trades": 57,
+        "second_half_mean": 0.1957118084092242,
+        "trade_count": 99,
+        "trading_days": 54
+      },
+      "arm_id": "C1",
+      "bootstrap_p": 0.8983101689831017,
+      "diagnostics": {
+        "best_trading_day": {
+          "contribution_to_trade_mean": 0.04430363915777942,
+          "daily_gross_pct_points": 4.386060276620163,
+          "day": "2025-04-07",
+          "trades": 1
+        },
+        "exit_reasons": {
+          "stop": 0,
+          "target": 0,
+          "time": 99
+        },
+        "per_symbol": {
+          "AAPL": {
+            "mean_gross_pct_points": 0.13066296228987107,
+            "trades": 13
+          },
+          "AMD": {
+            "mean_gross_pct_points": -0.8439281426028344,
+            "trades": 2
+          },
+          "AMZN": {
+            "mean_gross_pct_points": -0.18207206375922597,
+            "trades": 11
+          },
+          "AVGO": {
+            "mean_gross_pct_points": -0.6089038768363216,
+            "trades": 6
+          },
+          "CRM": {
+            "mean_gross_pct_points": -0.28021327002034635,
+            "trades": 7
+          },
+          "GOOGL": {
+            "mean_gross_pct_points": -0.14607180547592247,
+            "trades": 1
+          },
+          "IWM": {
+            "mean_gross_pct_points": 0.47223045272500597,
+            "trades": 4
+          },
+          "META": {
+            "mean_gross_pct_points": -0.21354938336122786,
+            "trades": 4
+          },
+          "MSFT": {
+            "mean_gross_pct_points": -0.11655949411017996,
+            "trades": 5
+          },
+          "MU": {
+            "mean_gross_pct_points": 1.697265308873184,
+            "trades": 5
+          },
+          "NFLX": {
+            "mean_gross_pct_points": 0.7895338861864284,
+            "trades": 7
+          },
+          "NVDA": {
+            "mean_gross_pct_points": -0.773476639302717,
+            "trades": 1
+          },
+          "PLTR": {
+            "mean_gross_pct_points": 1.0052804080680964,
+            "trades": 9
+          },
+          "QQQ": {
+            "mean_gross_pct_points": -0.5473363804395559,
+            "trades": 4
+          },
+          "SOXL": {
+            "mean_gross_pct_points": 0.23151694568505632,
+            "trades": 2
+          },
+          "SPY": {
+            "mean_gross_pct_points": 0.09238016239406344,
+            "trades": 5
+          },
+          "TQQQ": {
+            "mean_gross_pct_points": -1.0937119528212358,
+            "trades": 8
+          },
+          "TSLA": {
+            "mean_gross_pct_points": -1.2802242570431766,
+            "trades": 5
+          }
+        },
+        "trade_mean_minus_baseline": -0.05427476906902272,
+        "unconditional_baseline_mean": 0.03983831884939252
+      },
+      "holm_p": 1.0,
+      "inverse_leg": {
+        "best_month_by_sum": null,
+        "best_symbol_by_sum": null,
+        "first_half_mean": null,
+        "first_half_trades": 0,
+        "gates": {
+          "G1": false,
+          "G2": false,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": null,
+        "mean_excluding_best_month": null,
+        "mean_excluding_best_symbol": null,
+        "mean_gross_pct_points": null,
+        "recent_year_mean": null,
+        "recent_year_trades": 0,
+        "second_half_mean": null,
+        "trade_count": 0,
+        "trading_days": 0
+      },
+      "long_listing_checks": {
+        "G3": false,
+        "G4": false,
+        "G5": false,
+        "G7": false,
+        "G8": false,
+        "min_trades": true,
+        "min_trading_days": true
+      },
+      "net_after_cost_pct_points": {
+        "charter_official": -0.3544364502196302,
+        "commission_only": -0.2144364502196302,
+        "realistic": -0.3144364502196302,
+        "stress": -0.5244364502196303
+      },
+      "non_inverse_leg": {
+        "best_month_by_sum": "2025-11",
+        "best_symbol_by_sum": "PLTR",
+        "first_half_mean": -0.22887344882050203,
+        "first_half_trades": 49,
+        "gates": {
+          "G1": false,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": 0.07075928957883776,
+        "mean_excluding_best_month": -0.10944580785114438,
+        "mean_excluding_best_symbol": -0.11640813604840285,
+        "mean_gross_pct_points": -0.014436450219630198,
+        "recent_year_mean": 0.08186227518953315,
+        "recent_year_trades": 57,
+        "second_half_mean": 0.1957118084092242,
+        "trade_count": 99,
+        "trading_days": 54
+      },
+      "screen_pass": false,
+      "status": "SAMPLE"
+    },
+    {
+      "all": {
+        "best_month_by_sum": "2025-04",
+        "best_symbol_by_sum": "SOXS",
+        "first_half_mean": 0.04583563195013808,
+        "first_half_trades": 348,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G6": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": 0.1449156047850556,
+        "mean_excluding_best_month": -0.0011236595174899016,
+        "mean_excluding_best_symbol": -0.01425537106391515,
+        "mean_gross_pct_points": 0.05909709284873132,
+        "recent_year_mean": 0.11241160986052762,
+        "recent_year_trades": 302,
+        "second_half_mean": 0.07232055529202773,
+        "trade_count": 697,
+        "trading_days": 267
+      },
+      "arm_id": "C2",
+      "bootstrap_p": 0.9055094490550945,
+      "diagnostics": {
+        "best_trading_day": {
+          "contribution_to_trade_mean": 0.03784660683977083,
+          "daily_gross_pct_points": 26.379084967320267,
+          "day": "2025-04-08",
+          "trades": 1
+        },
+        "exit_reasons": {
+          "stop": 89,
+          "target": 0,
+          "time": 608
+        },
+        "per_symbol": {
+          "AAPL": {
+            "mean_gross_pct_points": 0.04191031347670221,
+            "trades": 37
+          },
+          "AMD": {
+            "mean_gross_pct_points": -0.35972521800422613,
+            "trades": 29
+          },
+          "AMZN": {
+            "mean_gross_pct_points": -0.45270674666787325,
+            "trades": 31
+          },
+          "AVGO": {
+            "mean_gross_pct_points": -0.279044275005495,
+            "trades": 29
+          },
+          "CRM": {
+            "mean_gross_pct_points": 0.11329490626231156,
+            "trades": 37
+          },
+          "GOOGL": {
+            "mean_gross_pct_points": -0.09803411806029591,
+            "trades": 41
+          },
+          "IWM": {
+            "mean_gross_pct_points": -0.010406793453212403,
+            "trades": 33
+          },
+          "META": {
+            "mean_gross_pct_points": 0.20349726199285573,
+            "trades": 23
+          },
+          "MSFT": {
+            "mean_gross_pct_points": -0.10274755761705844,
+            "trades": 27
+          },
+          "MU": {
+            "mean_gross_pct_points": 0.3434907906981956,
+            "trades": 33
+          },
+          "NFLX": {
+            "mean_gross_pct_points": 0.021249337882415602,
+            "trades": 30
+          },
+          "NVDA": {
+            "mean_gross_pct_points": 0.08658512556670357,
+            "trades": 37
+          },
+          "PLTR": {
+            "mean_gross_pct_points": -0.08233018693285829,
+            "trades": 36
+          },
+          "QQQ": {
+            "mean_gross_pct_points": -0.02295792726342736,
+            "trades": 49
+          },
+          "SOXL": {
+            "mean_gross_pct_points": 0.250883863788822,
+            "trades": 34
+          },
+          "SOXS": {
+            "mean_gross_pct_points": 1.7487331581469328,
+            "trades": 29
+          },
+          "SPY": {
+            "mean_gross_pct_points": -0.08798733144579798,
+            "trades": 52
+          },
+          "SQQQ": {
+            "mean_gross_pct_points": 0.31943367186052124,
+            "trades": 29
+          },
+          "TQQQ": {
+            "mean_gross_pct_points": -0.027295110336193213,
+            "trades": 49
+          },
+          "TSLA": {
+            "mean_gross_pct_points": -0.10058479449718827,
+            "trades": 32
+          }
+        },
+        "trade_mean_minus_baseline": 0.04246720580364288,
+        "unconditional_baseline_mean": 0.01662988704508844
+      },
+      "holm_p": 1.0,
+      "inverse_leg": {
+        "best_month_by_sum": "2025-04",
+        "best_symbol_by_sum": "SOXS",
+        "first_half_mean": 0.101098976079086,
+        "first_half_trades": 29,
+        "gates": {
+          "G1": false,
+          "G2": false,
+          "G3": true,
+          "G4": false,
+          "G5": true,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": 1.0299187628049549,
+        "mean_excluding_best_month": 0.39819973394154407,
+        "mean_excluding_best_symbol": 0.31943367186052124,
+        "mean_gross_pct_points": 1.034083415003727,
+        "recent_year_mean": 2.0987005099567133,
+        "recent_year_trades": 26,
+        "second_half_mean": 1.967067853928368,
+        "trade_count": 58,
+        "trading_days": 47
+      },
+      "long_listing_checks": {
+        "G3": false,
+        "G4": false,
+        "G5": false,
+        "G7": false,
+        "G8": false,
+        "min_trades": true,
+        "min_trading_days": true
+      },
+      "net_after_cost_pct_points": {
+        "charter_official": -0.2809029071512687,
+        "commission_only": -0.14090290715126869,
+        "realistic": -0.24090290715126866,
+        "stress": -0.4509029071512687
+      },
+      "non_inverse_leg": {
+        "best_month_by_sum": "2023-11",
+        "best_symbol_by_sum": "MU",
+        "first_half_mean": 0.03577716729650871,
+        "first_half_trades": 319,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": -0.04987491211892787,
+        "mean_excluding_best_month": -0.06076255491569147,
+        "mean_excluding_best_symbol": -0.049705215260216,
+        "mean_gross_pct_points": -0.029399318238889575,
+        "recent_year_mean": -0.07470256188766378,
+        "recent_year_trades": 276,
+        "second_half_mean": -0.09437212725698974,
+        "trade_count": 639,
+        "trading_days": 227
+      },
+      "screen_pass": false,
+      "status": "FAIL"
+    },
+    {
+      "all": {
+        "best_month_by_sum": "2025-02",
+        "best_symbol_by_sum": "PLTR",
+        "first_half_mean": 0.13491545986146755,
+        "first_half_trades": 203,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G6": false,
+          "G7": false,
+          "G8": true
+        },
+        "mean_daily_gross_pct_points": 0.5016842811054755,
+        "mean_excluding_best_month": 0.2191243876064217,
+        "mean_excluding_best_symbol": 0.23625713442117122,
+        "mean_gross_pct_points": 0.27733027145034067,
+        "recent_year_mean": 0.4905456918101791,
+        "recent_year_trades": 187,
+        "second_half_mean": 0.4190469712176997,
+        "trade_count": 407,
+        "trading_days": 199
+      },
+      "arm_id": "D1",
+      "bootstrap_p": 0.08139186081391861,
+      "diagnostics": {
+        "best_trading_day": {
+          "contribution_to_trade_mean": 0.026576615706856724,
+          "daily_gross_pct_points": 5.408341296345343,
+          "day": "2025-04-10",
+          "trades": 2
+        },
+        "exit_reasons": {
+          "stop": 165,
+          "target": 117,
+          "time": 125
+        },
+        "per_symbol": {
+          "AMD": {
+            "mean_gross_pct_points": 0.22594749766573266,
+            "trades": 39
+          },
+          "AVGO": {
+            "mean_gross_pct_points": -0.013327970761823606,
+            "trades": 41
+          },
+          "MU": {
+            "mean_gross_pct_points": 0.2541693950935094,
+            "trades": 42
+          },
+          "PLTR": {
+            "mean_gross_pct_points": 0.5103024913207116,
+            "trades": 61
+          },
+          "SOXL": {
+            "mean_gross_pct_points": 0.5373402615424024,
+            "trades": 56
+          },
+          "SOXS": {
+            "mean_gross_pct_points": 0.5205267527792283,
+            "trades": 29
+          },
+          "SQQQ": {
+            "mean_gross_pct_points": -0.2686700419500978,
+            "trades": 25
+          },
+          "TQQQ": {
+            "mean_gross_pct_points": 0.3022188808549868,
+            "trades": 68
+          },
+          "TSLA": {
+            "mean_gross_pct_points": 0.08225836916761366,
+            "trades": 46
+          }
+        },
+        "trade_mean_minus_baseline": 0.2560856562418384,
+        "unconditional_baseline_mean": 0.021244615208502314
+      },
+      "holm_p": 0.6511348865113489,
+      "inverse_leg": {
+        "best_month_by_sum": "2024-01",
+        "best_symbol_by_sum": "SOXS",
+        "first_half_mean": 0.1546871164686531,
+        "first_half_trades": 27,
+        "gates": {
+          "G1": false,
+          "G2": false,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": false
+        },
+        "mean_daily_gross_pct_points": 0.31086784666200223,
+        "mean_excluding_best_month": 0.08363602089162765,
+        "mean_excluding_best_symbol": -0.2686700419500978,
+        "mean_gross_pct_points": 0.15515786633046622,
+        "recent_year_mean": 0.25044194745514975,
+        "recent_year_trades": 26,
+        "second_half_mean": 0.15562861619227933,
+        "trade_count": 54,
+        "trading_days": 36
+      },
+      "long_listing_checks": {
+        "G3": false,
+        "G4": false,
+        "G5": false,
+        "G7": false,
+        "G8": true,
+        "min_trades": true,
+        "min_trading_days": true
+      },
+      "net_after_cost_pct_points": {
+        "charter_official": -0.06266972854965935,
+        "commission_only": 0.07733027145034066,
+        "realistic": -0.022669728549659318,
+        "stress": -0.23266972854965934
+      },
+      "non_inverse_leg": {
+        "best_month_by_sum": "2025-02",
+        "best_symbol_by_sum": "PLTR",
+        "first_half_mean": 0.11698670056014732,
+        "first_half_trades": 176,
+        "gates": {
+          "G1": true,
+          "G2": true,
+          "G3": false,
+          "G4": false,
+          "G5": false,
+          "G7": false,
+          "G8": true
+        },
+        "mean_daily_gross_pct_points": 0.5909739094921846,
+        "mean_excluding_best_month": 0.23755382686404566,
+        "mean_excluding_best_symbol": 0.2512549442735619,
+        "mean_gross_pct_points": 0.2960195345564971,
+        "recent_year_mean": 0.5293202095321093,
+        "recent_year_trades": 161,
+        "second_half_mean": 0.47404088361501445,
+        "trade_count": 353,
+        "trading_days": 169
+      },
+      "screen_pass": false,
+      "status": "FAIL"
+    }
+  ],
+  "automatic_oos_h2_or_paper_approval": false,
+  "blind_oos_accessed": false,
+  "data_identity": {
+    "manifest_data_receipt": {
+      "actual": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "expected": "e270a1b56d2466a856ef92e32abb58730953b7b77ce1038d7b596f66f477bd0c",
+      "status": "match"
+    },
+    "raw_content_index": {
+      "actual": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "expected": "22c02118c7c8bffc225fc021e2c4eb9ad4bf7b1d8c66df8e927909c46e609ed4",
+      "status": "match"
+    },
+    "snapshot_content_receipt": {
+      "actual": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "expected": "d0d145518938686937895fb3c886a4c2fd996588f129e8234a5913b6be2597e4",
+      "status": "match"
+    },
+    "snapshot_file": {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "status": "match"
+    },
+    "snapshot_receipt_file": {
+      "actual": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "expected": "3c2c475125594bd7fe8c59d994bdc6d4cb9f1f1e0b69005b9fbcbf5eb852ca33",
+      "status": "match"
+    }
+  },
+  "data_quality": {
+    "breach": false,
+    "evaluated_symbol_days": 12380,
+    "invalid_by_symbol": {
+      "AAPL": 0,
+      "AMD": 0,
+      "AMZN": 0,
+      "AVGO": 0,
+      "CRM": 0,
+      "GOOGL": 0,
+      "IWM": 0,
+      "META": 0,
+      "MSFT": 0,
+      "MU": 0,
+      "NFLX": 0,
+      "NVDA": 0,
+      "PLTR": 0,
+      "QQQ": 0,
+      "SOXL": 0,
+      "SOXS": 0,
+      "SPY": 0,
+      "SQQQ": 0,
+      "TQQQ": 0,
+      "TSLA": 0
+    },
+    "invalid_share": 0.0,
+    "invalid_symbol_days": 0,
+    "max_invalid_share": 0.05,
+    "max_loaded_day": "2026-01-20",
+    "skip_counts_by_arm": {
+      "A1": {
+        "no_signal": 1053
+      },
+      "A2": {
+        "missing_required_bar": 3,
+        "no_signal": 7626
+      },
+      "B1": {
+        "missing_required_bar": 4,
+        "no_fill": 609,
+        "no_signal": 10383,
+        "t_minus_1_invalid": 139
+      },
+      "B2": {
+        "missing_required_bar": 4,
+        "no_fill": 251,
+        "no_signal": 11360,
+        "t_minus_1_invalid": 139
+      },
+      "B3": {
+        "missing_required_bar": 4,
+        "no_fill": 4769,
+        "no_signal": 4938,
+        "t_minus_1_invalid": 139,
+        "undefined_indicator": 1
+      },
+      "C1": {
+        "missing_required_bar": 4,
+        "no_fill": 183,
+        "no_signal": 9617,
+        "t_minus_1_invalid": 139,
+        "undefined_indicator": 2338
+      },
+      "C2": {
+        "missing_required_bar": 4,
+        "no_fill": 615,
+        "no_signal": 10925,
+        "t_minus_1_invalid": 139
+      },
+      "D1": {
+        "missing_required_bar": 3,
+        "no_signal": 5099,
+        "t_minus_1_invalid": 62
+      }
+    }
+  },
+  "determinism": {
+    "evaluation_rerun_reversed_input_identical": true
+  },
+  "holdout_h2_accessed": false,
+  "implementation": {
+    "git_commit": "6ddd42b2b4e5115487d32cf172962f67246fdf97",
+    "worktree_clean": true
+  },
+  "inconclusive_reason": null,
+  "inverse_only_arms": [],
+  "payload_sha256": "ee0a842f28dc98edc388caf545a571554fc87d67044f0bd47bd02e5bd7f6d362",
+  "prereg": {
+    "freeze_commit": "e164d20",
+    "json_file_sha256": "e94024a207ed607062bab21e791012cdc7c0e36f111444babc920f6c44787c4c",
+    "json_path": "docs/research/PREREG_P0_US30_GROSS_EDGE_SCREEN_V2.json",
+    "md_file_sha256": "5cd63e4ce048a7baae803b075c78bca88b598d6666f65969849432bf76517d48",
+    "md_path": "docs/research/PREREG_P0_US30_GROSS_EDGE_SCREEN_V2.md"
+  },
+  "sample_arms": [
+    "C1"
+  ],
+  "schema": "p0_us30_gross_edge_screen_result_v2",
+  "shortlisted_arms": [],
+  "strategy_id": "p0_us30_gross_edge_screen_v2",
+  "verdict": "NO_GROSS_EDGE",
+  "windows": {
+    "data_end": "2026-01-20",
+    "evaluated_trading_days": 619,
+    "excluded_block_trading_days": 44,
+    "trade_eval_end": "2026-01-20",
+    "trade_eval_start": "2023-05-18",
+    "trade_eval_trading_days": 670
+  }
+}
