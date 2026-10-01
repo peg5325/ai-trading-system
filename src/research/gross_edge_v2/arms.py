@@ -245,10 +245,15 @@ A_REQUIRED = (OPEN_MINUTE, A_SIGNAL_MINUTE, A_ENTRY_MINUTE, EXIT_MINUTE)
 COMMON_REQUIRED = (OPEN_MINUTE, EXIT_MINUTE)
 
 
-def _late_day_return_pct(bars: DayBars) -> float:
+def late_day_return_pct(bars: DayBars) -> float:
+    """R = (close_14:44 / open_09:30 - 1) x 100, rounded to 9 decimals.
+
+    Rounding keeps exact cent-price boundaries exact (20.00 -> 20.90 is +4.5, not
+    4.4999...), so the frozen >= / <= thresholds are applied as written.
+    """
     open_0930 = bars.bar(OPEN_MINUTE)[0]  # type: ignore[index]
     close_1444 = bars.bar(A_SIGNAL_MINUTE)[3]  # type: ignore[index]
-    return (close_1444 / open_0930 - 1.0) * 100.0
+    return round((close_1444 / open_0930 - 1.0) * 100.0, 9)
 
 
 def a1_leg(
@@ -265,7 +270,7 @@ def a1_leg(
         return INVALID_DAY
     if not _has_all(signal_bars, A_REQUIRED):
         return MISSING_BAR
-    move = _late_day_return_pct(signal_bars)
+    move = late_day_return_pct(signal_bars)
     if move >= threshold:
         buy = up_buy
     elif move <= -threshold:
@@ -285,7 +290,7 @@ def a2(bars: DayBars) -> Trade | str:
         return MISSING_BAR
     vwap = bars.vwap_through(A_SIGNAL_MINUTE)
     close_1444 = bars.bar(A_SIGNAL_MINUTE)[3]  # type: ignore[index]
-    if vwap is None or _late_day_return_pct(bars) < A2_THRESHOLD_PCT or close_1444 <= vwap:
+    if vwap is None or late_day_return_pct(bars) < A2_THRESHOLD_PCT or close_1444 <= vwap:
         return NO_SIGNAL
     return make_trade("A2", bars, (A_ENTRY_MINUTE, bars.bar(A_ENTRY_MINUTE)[0]))  # type: ignore[index]
 

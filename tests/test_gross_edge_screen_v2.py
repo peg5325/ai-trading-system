@@ -9,6 +9,7 @@ from datetime import date, datetime
 import numpy as np
 import pytest
 
+import scripts.run_gross_edge_screen_v2 as cli
 from src.history import exchange_calendar as cal
 from src.history.oos_guard import (
     TRACK_INTRADAY,
@@ -28,6 +29,7 @@ from src.research.gross_edge_v2.contract import (
     compute_md_sha256,
     load_contract,
 )
+from src.research.gross_edge_v2.counts import condition_counts
 from src.research.gross_edge_v2.daily import (
     DailyBar,
     Indicators,
@@ -637,24 +639,21 @@ def test_quality_breach_is_inconclusive_without_arm_statistics(synthetic_payload
     assert payload["verdict"] != "INCONCLUSIVE_DATA"
 
 
-def test_identity_fail_closed_before_any_load(monkeypatch, tmp_path) -> None:
+def test_identity_failure_raises_setup_error_before_any_load(monkeypatch, tmp_path) -> None:
     def forbidden(*args, **kwargs):
         raise AssertionError("prices must not be loaded after an identity failure")
 
     monkeypatch.setattr(R, "load_symbol_bars", forbidden)
     operating = tmp_path / "market_history.sqlite"
     operating.write_bytes(b"not a snapshot")
-    payload = R.run_screen(snapshot_path=str(operating), raw_root=str(tmp_path),
-                           manifest_path=R.default_manifest_path())
-    assert payload["verdict"] == "INCONCLUSIVE_DATA"
-    assert payload["inconclusive_reason"].startswith("identity:")
-    assert "basename" in payload["inconclusive_reason"] and payload["arms"] == []
+    with pytest.raises(R.SetupError, match="basename"):
+        R.run_screen(snapshot_path=str(operating), raw_root=str(tmp_path),
+                     manifest_path=R.default_manifest_path())
     fake = tmp_path / "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite"
     fake.write_bytes(b"tampered")
-    payload = R.run_screen(snapshot_path=str(fake), raw_root=str(tmp_path),
-                           manifest_path=R.default_manifest_path())
-    assert payload["verdict"] == "INCONCLUSIVE_DATA"
-    assert payload["inconclusive_reason"].startswith("identity:")
+    with pytest.raises(R.SetupError):
+        R.run_screen(snapshot_path=str(fake), raw_root=str(tmp_path),
+                     manifest_path=R.default_manifest_path())
 
 
 def test_write_new_and_cli_refuse_to_overwrite(monkeypatch, tmp_path) -> None:
@@ -663,8 +662,6 @@ def test_write_new_and_cli_refuse_to_overwrite(monkeypatch, tmp_path) -> None:
     with pytest.raises(FileExistsError):
         write_new(str(target), b"{}\n")
     assert not (tmp_path / "result.json.partial").exists()
-
-    import scripts.run_gross_edge_screen_v2 as cli
 
     def forbidden(**kwargs):
         raise AssertionError("must not run when a result exists")
@@ -675,3 +672,290 @@ def test_write_new_and_cli_refuse_to_overwrite(monkeypatch, tmp_path) -> None:
         "--output-json", str(target), "--output-md", str(tmp_path / "result.md"),
     ])
     assert code == 2
+
+
+# ---------------------------------------------------------------------------
+# review round 1: setup isolation, CLI modes, boundaries, numeric references
+# ---------------------------------------------------------------------------
+SNAPSHOT_NAME = "p0_us30_orb_clean_1m_asof_20260721.bd9fc14.sqlite"
+
+
+def cli_args(tmp_path, snapshot, raw_root, *extra):
+    return ["--snapshot-db", str(snapshot), "--raw-root", str(raw_root),
+            "--output-json", str(tmp_path / "out.json"),
+            "--output-md", str(tmp_path / "out.md"), *extra]
+
+
+def no_outputs(tmp_path) -> bool:
+    return not (tmp_path / "out.json").exists() and not (tmp_path / "out.md").exists()
+
+
+def test_cli_missing_snapshot_writes_nothing(tmp_path, capsys) -> None:
+    code = cli.main(cli_args(tmp_path, tmp_path / "absent" / SNAPSHOT_NAME, tmp_path))
+    assert code == 1 and no_outputs(tmp_path)
+    assert "setup failed" in capsys.readouterr().err
+
+
+def test_cli_wrong_raw_root_writes_nothing(tmp_path, capsys) -> None:
+    snapshot = tmp_path / SNAPSHOT_NAME
+    snapshot.write_bytes(b"junk")
+    code = cli.main(cli_args(tmp_path, snapshot, tmp_path / "no_raw_root"))
+    assert code == 1 and no_outputs(tmp_path)
+    assert "raw snapshot root missing" in capsys.readouterr().err
+
+
+def test_cli_preflight_writes_nothing(monkeypatch, tmp_path, capsys) -> None:
+    ok_identity = {"snapshot_file": {"status": "match"}}
+    monkeypatch.setattr(cli, "prepare", lambda **kw: (None, None, ok_identity, {"git_commit": "c"}))
+    monkeypatch.setattr(cli, "run_screen", lambda **kw: pytest.fail("preflight must not run"))
+    code = cli.main(cli_args(tmp_path, tmp_path / SNAPSHOT_NAME, tmp_path, "--preflight"))
+    assert code == 0 and no_outputs(tmp_path)
+    assert json.loads(capsys.readouterr().out)["preflight"] == "ok"
+    assert not any(tmp_path.iterdir())
+    monkeypatch.undo()
+    code = cli.main(cli_args(tmp_path, tmp_path / SNAPSHOT_NAME, tmp_path, "--preflight"))
+    assert code == 1 and not any(tmp_path.iterdir())
+
+
+def test_cli_official_setup_error_writes_nothing(monkeypatch, tmp_path) -> None:
+    def dirty(**kwargs):
+        raise R.SetupError("worktree is not clean")
+
+    monkeypatch.setattr(cli, "run_screen", dirty)
+    assert cli.main(cli_args(tmp_path, tmp_path / SNAPSHOT_NAME, tmp_path)) == 1
+    assert no_outputs(tmp_path)
+
+
+def test_dirty_tree_is_a_setup_error(monkeypatch) -> None:
+    outputs = {"rev-parse": "abc\n", "status": "?? new.py\n"}
+    monkeypatch.setattr(R, "_git", lambda *args: outputs[args[0]])
+    with pytest.raises(R.SetupError, match="not clean"):
+        R.implementation_provenance(require_clean=True)
+    assert R.implementation_provenance(require_clean=False) == {
+        "git_commit": "abc", "worktree_clean": False}
+    outputs["status"] = ""
+    assert R.implementation_provenance(require_clean=True)["worktree_clean"] is True
+
+
+def test_snapshot_change_during_run_raises(monkeypatch, synthetic_payload_inputs) -> None:
+    contract, windows, _, bars = synthetic_payload_inputs
+    ident = {"snapshot_file": {"expected": "a", "actual": "a", "status": "match"}}
+    monkeypatch.setattr(R, "prepare", lambda **kw: (contract, windows, ident, {"git_commit": "c"}))
+    monkeypatch.setattr(R, "load_all", lambda path: bars)
+    monkeypatch.setattr(R, "file_sha256", lambda path: "b")
+    with pytest.raises(R.SetupError, match="changed"):
+        R.run_screen(snapshot_path="x", raw_root="y", manifest_path="z")
+    monkeypatch.setattr(R, "file_sha256", lambda path: "a")
+    result = R.run_screen(snapshot_path="x", raw_root="y", manifest_path="z")
+    assert result["implementation"] == {"git_commit": "c"}
+    assert "implementation commit: `c`" in render_markdown(result)
+
+
+def test_data_defect_after_identity_is_inconclusive(monkeypatch, synthetic_payload_inputs) -> None:
+    contract, windows, _, _ = synthetic_payload_inputs
+    ident = {"snapshot_file": {"expected": "a", "actual": "a", "status": "match"}}
+    monkeypatch.setattr(R, "prepare", lambda **kw: (contract, windows, ident, {"git_commit": "c"}))
+
+    def defect(path):
+        raise D.DataDefectError("duplicate regular minute")
+
+    monkeypatch.setattr(R, "load_all", defect)
+    monkeypatch.setattr(R, "file_sha256", lambda path: "a")
+    result = R.run_screen(snapshot_path="x", raw_root="y", manifest_path="z")
+    assert result["verdict"] == "INCONCLUSIVE_DATA" and result["arms"] == []
+
+
+def test_count_conditions_mode_prints_counts_only(monkeypatch, tmp_path, capsys,
+                                                  synthetic_payload_inputs) -> None:
+    _, windows, _, bars = synthetic_payload_inputs
+    monkeypatch.setattr(cli, "prepare", lambda **kw: (None, windows, {}, {"git_commit": "c"}))
+    monkeypatch.setattr(cli, "load_all", lambda path: bars)
+    code = cli.main(cli_args(tmp_path, tmp_path / SNAPSHOT_NAME, tmp_path, "--count-conditions"))
+    assert code == 0 and not any(tmp_path.iterdir())
+    out = capsys.readouterr().out
+    payload = json.loads(out)
+    assert set(payload) == {"counts", "definitions", "evaluated_days", "implementation"}
+    for name, value in payload["counts"].items():
+        assert set(value) == {"symbol_days", "days"}, name
+    assert "gross" not in out and "pct_points" not in out
+
+
+def test_condition_counts_cover_every_traded_signal(synthetic_payload_inputs) -> None:
+    _, windows, _, bars = synthetic_payload_inputs
+    counts = condition_counts(bars, windows.evaluated_days)["counts"]
+    extraction = A.extract_trades(bars, windows.evaluated_days)
+    for arm, name in (("A2", "A2"), ("B1", "B1_nr7"), ("B2", "B2_inside_nr4"),
+                      ("B3", "B3_close_gt_sma20"), ("C2", "C2_rsi3_roc1_lt30"),
+                      ("D1", "D_k0.6")):
+        traded = sum(1 for t in extraction.trades if t.arm_id == arm)
+        assert counts[name]["symbol_days"] >= traded > 0, arm
+    a1_trades = sum(1 for t in extraction.trades if t.arm_id == "A1")
+    assert counts["A1_pooled"]["symbol_days"] >= a1_trades
+    assert counts["D_k1.0"]["symbol_days"] <= counts["D_k0.6"]["symbol_days"]
+
+
+def test_holiday_regular_bar_is_a_data_defect() -> None:
+    candle = Candle.from_moment("SPY", "1m", datetime(2025, 7, 4, 9, 30, tzinfo=ET),
+                                1, 1, 1, 1, 1, "USD", True)
+    with pytest.raises(D.DataDefectError, match="non-trading"):
+        D.group_day_bars([candle], "SPY")
+
+
+def signal_day(symbol: str, open_price: float, close_1444: float) -> D.DayBars:
+    return flat_day(symbol, DAY, price=open_price, overrides={
+        M("14:44"): (open_price, max(open_price, close_1444), min(open_price, close_1444),
+                     close_1444),
+    })
+
+
+@pytest.mark.parametrize(("leg", "open_price", "close", "bought"), [
+    (0, 400.00, 406.00, "TQQQ"), (0, 400.00, 394.00, "SQQQ"),
+    (1, 20.00, 20.90, "SOXL"), (1, 20.00, 19.10, "SOXS"),
+])
+def test_a1_exact_cent_boundaries_trigger(leg, open_price, close, bought) -> None:
+    traded = {s: flat_day(s, DAY) for s in ("TQQQ", "SQQQ", "SOXS")}
+    signal = signal_day(A.A1_LEGS[leg][0], open_price, close)
+    traded["SOXL"] = signal
+    result = A.a1_leg(A.A1_LEGS[leg], signal, traded)
+    assert isinstance(result, A.Trade) and result.symbol == bought
+
+
+def test_a2_exact_cent_boundary_triggers() -> None:
+    assert isinstance(A.a2(signal_day("NVDA", 20.00, 20.60)), A.Trade)
+    assert A.a2(signal_day("NVDA", 20.00, 20.59)) == A.NO_SIGNAL
+
+
+def test_g7_fails_when_all_non_inverse_a1_trades_are_soxl() -> None:
+    results, _ = evaluate_arms(strong_trades("A1", ("SOXL",), recent_days(120)), empty_baseline())
+    a1 = next(r for r in results if r["arm_id"] == "A1")
+    assert a1["non_inverse_leg"]["gates"]["G7"] is False
+    assert a1["all"]["gates"]["G7"] is False
+    assert a1["status"] != "LONG_CANDIDATE"
+
+
+def test_rsi2_mixed_series_reference_value() -> None:
+    values = rsi([10, 11, 10.5, 11.5, 11, 12], 2)
+    # gains 1,0,1,0,1 / losses 0,.5,0,.5,0: seed .5/.25 -> .75/.125 -> .375/.3125
+    # -> .6875/.15625; RSI = 100 * 4.4 / 5.4
+    assert values[:5] == [None] * 5
+    assert values[5] == pytest.approx(100 * 4.4 / 5.4)
+
+
+def test_rsi3_roc1_reference_value() -> None:
+    closes = [100.0]
+    for i in range(9):
+        closes.append(closes[-1] * (1.1 if i % 2 == 0 else 0.9))
+    days = cal.trading_days(date(2025, 1, 2), date(2025, 1, 31))
+    bars = [DailyBar(days[i], c, c, c, c) for i, c in enumerate(closes)]
+    values = compute_indicators(bars)
+    # ROC1 = +.1,-.1,...; Wilder(3) on ROC changes in exact fractions -> 59.12208504801097
+    assert values[bars[-1].day].rsi3_roc1 == pytest.approx(59.12208504801097, abs=1e-9)
+    assert values[bars[-2].day].rsi3_roc1 is None
+
+
+def tr_bars(true_ranges: list[float]) -> list[DailyBar]:
+    return [DailyBar(date(2024, 1, 1), 100, 100 + tr / 2, 100 - tr / 2, 100)
+            for tr in true_ranges]
+
+
+def test_atr10_and_atr14_reference_values() -> None:
+    atr14 = atr(tr_bars([float(i) for i in range(1, 15)] + [2.0] * 28), 14)
+    assert atr14[40] is None
+    assert atr14[41] == pytest.approx(2 + 5.5 * (13 / 14) ** 28)
+    atr10 = atr(tr_bars([float(i) for i in range(1, 11)] + [2.0] * 20), 10)
+    assert atr10[28] is None
+    assert atr10[29] == pytest.approx(2 + 3.5 * 0.9 ** 20)
+
+
+def test_nr7_nr4_inside_reference_values() -> None:
+    ranges = [5, 6, 7, 4, 8, 9, 10, 3, 3]
+    days = cal.trading_days(date(2025, 1, 2), date(2025, 1, 31))
+    bars = [DailyBar(days[i], 100, 100 + r / 2, 100 - r / 2, 100) for i, r in enumerate(ranges)]
+    values = [compute_indicators(bars)[bar.day] for bar in bars]
+    assert [v.nr4 for v in values] == [None, None, None, True, False, False, False, True, True]
+    assert [v.nr7 for v in values] == [None] * 6 + [False, True, True]
+    assert [v.inside for v in values] == [
+        None, False, False, True, False, False, False, True, False]
+
+
+def test_stretch10_sma20_sma200_reference_values() -> None:
+    days = cal.trading_days(date(2024, 1, 2), date(2025, 12, 31))[:250]
+    bars = []
+    for i, day in enumerate(days):
+        up, down = (i % 3) + 1.0, (i % 4) + 0.5
+        bars.append(DailyBar(day, 1000.0, 1000.0 + up, 1000.0 - down, float(i + 1)))
+    values = compute_indicators(bars)
+    stretch = [min((i % 3) + 1.0, (i % 4) + 0.5) for i in range(240, 250)]
+    assert values[days[249]].stretch10 == pytest.approx(sum(stretch) / 10)
+    assert values[days[8]].stretch10 is None
+    assert values[days[18]].sma20 is None and values[days[19]].sma20 == pytest.approx(10.5)
+    assert values[days[100]].sma20 == pytest.approx(101 - 9.5)
+    assert values[days[198]].sma200 is None and values[days[199]].sma200 == pytest.approx(100.5)
+    assert values[days[249]].sma200 == pytest.approx(150.5)
+
+
+def test_b_and_c1_scan_window_ends_at_1530() -> None:
+    prev = ind(nr7=True, stretch10=0.5)
+    at_1530 = A.b_arm("B1", flat_day("SPY", DAY, overrides={M("15:30"): (100, 100.6, 100, 100)}),
+                      prev)
+    assert at_1530.entry_minute == M("15:30")
+    assert A.b_arm("B1", flat_day("SPY", DAY, overrides={M("15:31"): (100, 100.6, 100, 100)}),
+                   prev) == A.NO_FILL
+    c1_prev = ind(rsi2=3.0, sma200=90.0, atr10=2.0)
+    c1 = A.c1(flat_day("SPY", DAY, overrides={M("15:30"): (100, 100, 98.5, 100)}), c1_prev)
+    assert c1.entry_minute == M("15:30")
+    assert A.c1(flat_day("SPY", DAY, overrides={M("15:31"): (100, 100, 98.5, 100)}),
+                c1_prev) == A.NO_FILL
+
+
+@pytest.mark.parametrize(("minute", "expected_entry"), [
+    ("09:59", None), ("15:01", None), ("15:00", "15:01"), ("10:00", "10:01"),
+])
+def test_d1_signal_window_is_1000_to_1500(minute, expected_entry) -> None:
+    bars = flat_day("TSLA", DAY, overrides={M(minute): (100, 100, 99.0, 99.0)})
+    result = A.d1(bars, ind(atr14=1.0))
+    if expected_entry is None:
+        assert result == A.NO_SIGNAL
+    else:
+        assert result.entry_minute == M(expected_entry)
+
+
+def test_c2_cannot_fill_before_1030_and_stops_at_first_hour_low() -> None:
+    prev = ind(rsi3_roc1=10.0)
+    high_at_1029 = flat_day("SPY", DAY, overrides={M("10:29"): (100, 101, 100, 100.9)})
+    assert A.c2(high_at_1029, prev) == A.NO_FILL
+    bars = flat_day("SPY", DAY, overrides={
+        M("10:10"): (100, 100, 99.0, 100),
+        M("10:29"): (100, 101, 100, 100.9),
+        M("10:40"): (100.9, 101.2, 100.8, 101.1),
+        M("11:00"): (99.5, 99.6, 98.8, 99.0),
+    })
+    result = A.c2(bars, prev)
+    assert (result.entry_minute, result.entry_price) == (M("10:40"), 101)
+    assert (result.exit_minute, result.exit_price, result.exit_reason) == (
+        M("11:00"), 99.0, "stop")
+
+
+def test_a1_two_legs_same_day_are_averaged_into_one_daily_return() -> None:
+    bars = {
+        "QQQ": {DAY: signal_day("QQQ", 400.0, 406.0)},
+        "TQQQ": {DAY: flat_day("TQQQ", DAY, overrides={
+            M("14:45"): (50, 50, 50, 50), 955: (51, 51, 51, 51)})},
+        "SOXL": {DAY: flat_day("SOXL", DAY, price=20.0, overrides={
+            M("14:44"): (20, 20.9, 20, 20.9), M("14:45"): (21, 21, 21, 21),
+            955: (20.79, 20.79, 20.79, 20.79)})},
+    }
+    trades = [t for t in A.extract_trades(bars, [DAY]).trades if t.arm_id == "A1"]
+    assert sorted(t.symbol for t in trades) == ["SOXL", "TQQQ"]
+    ((day, value),) = daily_returns(trades)
+    assert day == DAY and value == pytest.approx((2.0 + (20.79 / 21 - 1) * 100) / 2)
+
+
+def test_early_close_t_minus_1_blocks_b_c_d() -> None:
+    monday = date(2024, 12, 2)
+    days = series_days("TSLA", date(2024, 6, 1), monday)
+    days[date(2024, 11, 29)] = flat_day("TSLA", date(2024, 11, 29), price=130.0)
+    extraction = A.extract_trades({"TSLA": days}, [monday])
+    for arm_id in ("B1", "B2", "B3", "C1", "C2", "D1"):
+        assert extraction.skip_counts[arm_id].get(A.PREV_INVALID) == 1
+    assert not [t for t in extraction.trades if t.symbol == "TSLA"]

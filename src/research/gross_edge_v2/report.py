@@ -84,6 +84,10 @@ def render_markdown(result: Mapping[str, Any]) -> str:
         f"- holdout H2 accessed: `{str(result['holdout_h2_accessed']).lower()}`",
         f"- prereg JSON SHA-256: `{result['prereg']['json_file_sha256']}`",
         f"- prereg MD SHA-256: `{result['prereg']['md_file_sha256']}`",
+        (
+            "- implementation commit: "
+            f"`{(result.get('implementation') or {}).get('git_commit', 'n/a')}`"
+        ),
         f"- payload SHA-256: `{result['payload_sha256']}`",
         "",
         "## 판정",
@@ -154,8 +158,11 @@ def write_new(path: str, payload: bytes) -> None:
 
 
 def write_outputs(result: Mapping[str, Any], *, json_path: str, md_path: str) -> None:
+    # Render both fully before writing either, so a rendering error leaves no partial pair.
+    json_bytes = canonical_json_bytes(result)
+    md_bytes = render_markdown(result).encode("utf-8")
     for path in (json_path, md_path):
         if os.path.exists(path):
             raise FileExistsError(f"refusing to overwrite existing result: {path}")
-    write_new(json_path, canonical_json_bytes(result))
-    write_new(md_path, render_markdown(result).encode("utf-8"))
+    write_new(json_path, json_bytes)
+    write_new(md_path, md_bytes)

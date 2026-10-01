@@ -102,7 +102,12 @@ def _mean_excluding_best_group(trades: Sequence[Trade], key) -> tuple[str | None
 
 
 def leg_statistics(trades: Sequence[Trade], registry_symbols: Sequence[str]) -> dict[str, Any]:
-    """Per-trade statistics and gates G1-G5, G7, G8 for one trade set (arm or leg)."""
+    """Per-trade statistics and gates G1-G5, G7, G8 for one trade set (arm or leg).
+
+    G7 (orchestrator decision, conservative): "not applicable" (None) ONLY when the
+    registry symbol set of the arm/leg has exactly one symbol. If a multi-symbol set's
+    trades all sit in one symbol, excluding that best symbol leaves nothing and G7 fails.
+    """
     trades = ordered(trades)
     values = [trade.gross_pct_points for trade in trades]
     n = len(values)

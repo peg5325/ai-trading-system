@@ -160,6 +160,9 @@ def group_day_bars(candles: Iterable[Candle], symbol: str) -> dict[date, DayBars
         minute = candle.ts_exchange.hour * 60 + candle.ts_exchange.minute
         if not OPEN_MINUTE <= minute < OPEN_MINUTE + SLOTS:
             continue
+        if not cal.is_trading_day(day):
+            # A holiday/weekend carrying REGULAR bars must never become a daily bar.
+            raise DataDefectError(f"REGULAR bar on non-trading day {symbol} {day}")
         if candle.ts_exchange.second or candle.ts_exchange.microsecond:
             raise DataDefectError(f"off-grid timestamp {symbol} {candle.ts_exchange}")
         if minute in rows[day]:
