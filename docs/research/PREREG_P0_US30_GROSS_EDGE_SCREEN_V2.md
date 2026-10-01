@@ -1,6 +1,6 @@
 # P0-US30 Intraday Gross-Edge Screen — 사전등록 v2.0
 
-상태: **DRAFT r4 — 사용자 승인 후 FROZEN BEFORE RESULTS로 전환**
+상태: **FROZEN BEFORE RESULTS** (r4, 2026-10-01 사용자 승인)
 작성: 2026-10-01 (r1 초안 → 독립 리뷰 REQUEST_CHANGES → r2 → 재리뷰 APPROVE_WITH_CHANGES → r3 반영 → r4 사용자 결정: 최근 1년 게이트 G8 추가, 공식 0.34%p 유지)
 근거 문서:
 - [후보 탐색](EXPLORATION_DAYTRADING_CANDIDATES_20261001.md)

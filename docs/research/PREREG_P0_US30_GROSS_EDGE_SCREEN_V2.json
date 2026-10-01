@@ -2,7 +2,7 @@
   "schema": "p0_us30_gross_edge_screen_prereg_v2",
   "version": "2.0",
   "revision": "r4",
-  "status": "DRAFT_PENDING_USER_APPROVAL",
+  "status": "FROZEN_BEFORE_RESULTS",
   "drafted": "2026-10-01",
   "review_history": [
     "r1 independent review REQUEST_CHANGES (7 major, 13 minor); r2 applies all",
@@ -396,5 +396,7 @@
   ],
   "automatic_oos_h2_or_paper_approval": false,
   "revision_policy": "no post-result amendment except transparent data-invalidating erratum",
-  "single_stock_leveraged_etfs": "excluded and never added (user decision 2026-10-01); only index 3x/inverse ETFs TQQQ, SQQQ, SOXL, SOXS; A2 trades the underlying stocks themselves"
+  "single_stock_leveraged_etfs": "excluded and never added (user decision 2026-10-01); only index 3x/inverse ETFs TQQQ, SQQQ, SOXL, SOXS; A2 trades the underlying stocks themselves",
+  "frozen": "2026-10-01",
+  "frozen_by": "user approval of r4"
 }
