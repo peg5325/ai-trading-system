@@ -1,7 +1,7 @@
 # P0-US30 Intraday Gross-Edge Screen — 사전등록 v2.0
 
-상태: **DRAFT r3 — 사용자 승인 후 FROZEN BEFORE RESULTS로 전환**
-작성: 2026-10-01 (r1 초안 → 독립 리뷰 REQUEST_CHANGES → r2 → 재리뷰 APPROVE_WITH_CHANGES → r3 반영)
+상태: **DRAFT r4 — 사용자 승인 후 FROZEN BEFORE RESULTS로 전환**
+작성: 2026-10-01 (r1 초안 → 독립 리뷰 REQUEST_CHANGES → r2 → 재리뷰 APPROVE_WITH_CHANGES → r3 반영 → r4 사용자 결정: 최근 1년 게이트 G8 추가, 공식 0.34%p 유지)
 근거 문서:
 - [후보 탐색](EXPLORATION_DAYTRADING_CANDIDATES_20261001.md)
 - [실패 분석](ANALYSIS_DAYTRADING_FAILURES_AND_TOSS_DATA_QUALITY_20261001.md)
@@ -218,6 +218,11 @@ v1과 동일한 frozen snapshot을 쓴다.
 | G5 | 거래 gross **합**이 가장 큰 달력월 하나를 뺀 거래당 평균 ≥ 0.34%p |
 | G6 | 일 수익 평균에 대한 H0: 평균 ≤ 0.34%p 단측 검정. **Holm(8)** 조정 p < 0.05 |
 | G7 | 거래 gross 합이 가장 큰 **종목** 하나를 뺀 거래당 평균 ≥ 0.34%p. 단일 종목 arm은 해당 없음 |
+| G8 | **최근 1년**(체결일 2025-01-02~2026-01-20) 거래가 30건 이상이고 그 거래당 평균 > 0.34%p |
+
+G8은 2026-10-01 사용자 결정으로 추가했다.
+- 취지: 2025~2026년 AI·반도체 주도 국면 변화를 반영해, 오래된 구간에서만 통하는 규칙을 1차에서 거른다.
+- 2026년 이후(blind OOS·H2)는 선택에 쓰지 않고 새 국면의 최종 시험으로 남긴다.
 
 G6 bootstrap 설정:
 - circular block bootstrap. 블록 길이 5(거래가 있는 날 계열의 인덱스 기준).
@@ -232,7 +237,7 @@ G6 bootstrap 설정:
 - `screen_pass` arm을 LONG 후보로 나열하려면 **비인버스 다리만으로도** 다음을 모두 충족해야 한다.
   - 거래 ≥ 50건.
   - 거래일 ≥ 25일.
-  - G3·G4·G5·G7(단일 종목만 남으면 G7 해당 없음).
+  - G3·G4·G5·G7·G8(단일 종목만 남으면 G7 해당 없음).
 - 인버스 다리만으로 통과한 결과는 `INVERSE_ONLY`로 별도 표시하고 LONG 후보로 승인하지 않는다.
 
 ### 5.4 진단 (판정 비반영)
@@ -278,7 +283,7 @@ G6 bootstrap 설정:
 - **원 근거:** 공개 문헌과 실전 트레이더의 원 규칙·보고 효과.
   B·C 원 규칙은 2차 요약으로 확인했다. 이 문서의 정의가 정본이다.
 - **누적 탐색:** development 구간은 9건 이상의 시도로 반복 탐색됐다.
-  그래서 경제 기준(G3 0.45, G4·G5·G7 0.34)과 Holm(8)을 함께 요구한다.
+  그래서 경제 기준(G3 0.45, G4·G5·G7·G8 0.34)과 Holm(8)을 함께 요구한다.
 
 ### 7.1 조건 성립 횟수 (count-only, 2026-10-01)
 
@@ -310,7 +315,7 @@ G6 bootstrap 설정:
 - 필수 정확 시각 봉 결측 시 거래 제외. A1 양 종목 요구.
 - 2024-07-01~08-30과 조기폐장일 제외. 2026-01-20 초과 데이터 미로드 단언.
 - 일 수익 집계, circular block bootstrap 결정론(seed, PCG64), Holm(8).
-- 인버스·비인버스 분리 통계와 `INVERSE_ONLY` 판정. G7 최선 종목 제외. 무조건부 기준선.
+- 인버스·비인버스 분리 통계와 `INVERSE_ONLY` 판정. G7 최선 종목 제외. G8 최근 1년 구간 경계. 무조건부 기준선.
 - blind OOS·H2 접근 차단, identity fail-closed(파일 SHA + receipt), 운영 DB 미접근.
 - 입력 순서 불변, 결과 JSON byte 결정론, JSON ↔ Markdown 정합.
 

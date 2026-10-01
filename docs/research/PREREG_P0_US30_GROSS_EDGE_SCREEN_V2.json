@@ -1,12 +1,13 @@
 {
   "schema": "p0_us30_gross_edge_screen_prereg_v2",
   "version": "2.0",
-  "revision": "r3",
+  "revision": "r4",
   "status": "DRAFT_PENDING_USER_APPROVAL",
   "drafted": "2026-10-01",
   "review_history": [
     "r1 independent review REQUEST_CHANGES (7 major, 13 minor); r2 applies all",
-    "r2 re-review APPROVE_WITH_CHANGES (4 minor + reproducibility); r3 applies all"
+    "r2 re-review APPROVE_WITH_CHANGES (4 minor + reproducibility); r3 applies all",
+    "r4 user decisions 2026-10-01: add recent-year gate G8; keep Charter official 0.34 pct points as the gate baseline"
   ],
   "results_examined": false,
   "strategy_id": "p0_us30_gross_edge_screen_v2",
@@ -282,7 +283,8 @@
       "G3",
       "G4",
       "G5",
-      "G7"
+      "G7",
+      "G8"
     ],
     "daily_aggregation": "arithmetic mean of an arm's trades on the same trading day; days without trades omitted",
     "independent_unit": "trading_day (G6)",
@@ -306,7 +308,14 @@
     "G5_mean_excluding_best_month_by_sum_gte_pct_points": 0.34,
     "G6_holm_adjusted_p_lt": 0.05,
     "G7_mean_excluding_best_symbol_by_sum_gte_pct_points": 0.34,
-    "G7_single_symbol_arm": "not applicable"
+    "G7_single_symbol_arm": "not applicable",
+    "G8_recent_year": {
+      "trade_date_start": "2025-01-02",
+      "trade_date_end": "2026-01-20",
+      "min_trades": 30,
+      "mean_gt_pct_points": 0.34,
+      "reason": "user decision: reflect the 2025-2026 AI/semiconductor-led regime change; 2026 onward (blind OOS, H2) stays unused for selection as the final test in the new regime"
+    }
   },
   "inverse_leg_policy": {
     "charter_reference": "PROJECT_CHARTER section 4: inverse-leg results reported separately, not approved as LONG performance",
@@ -320,7 +329,7 @@
       "D1"
     ],
     "report": "statistics for all trades, non-inverse leg, inverse leg",
-    "long_listing_requires": "non-inverse leg alone: >= 50 trades, >= 25 trading days, and G3, G4, G5, G7 (G7 not applicable if one symbol remains)",
+    "long_listing_requires": "non-inverse leg alone: >= 50 trades, >= 25 trading days, and G3, G4, G5, G7, G8 (G7 not applicable if one symbol remains)",
     "inverse_only_label": "INVERSE_ONLY, not listed as a LONG candidate"
   },
   "diagnostics_not_gating": [
@@ -381,7 +390,7 @@
     "required exact-bar exclusions incl. both A1 symbols",
     "2024-07-01..08-30 and early-close exclusion; assert no data after 2026-01-20 loaded",
     "daily aggregation, deterministic circular block bootstrap (seed, PCG64), Holm 8",
-    "inverse/non-inverse split statistics and INVERSE_ONLY; G7 best-symbol exclusion; unconditional baseline",
+    "inverse/non-inverse split statistics and INVERSE_ONLY; G7 best-symbol exclusion; G8 recent-year window boundaries; unconditional baseline",
     "blind OOS and H2 blocked; identity fail-closed (file SHA + receipts); no operating DB access",
     "input-order invariance, byte-deterministic result JSON, JSON-Markdown consistency"
   ],
