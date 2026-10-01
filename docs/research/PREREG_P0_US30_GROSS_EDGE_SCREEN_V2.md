@@ -75,6 +75,9 @@ v1과 동일한 frozen snapshot을 쓴다.
 
 - **핵심 20종:** SPY QQQ IWM TQQQ SQQQ SOXL SOXS AAPL MSFT NVDA AMD AVGO AMZN META GOOGL TSLA MU NFLX CRM PLTR.
   섹터 ETF 7종, VST, DIA, SMH는 D9 품질 사유로 제외한다.
+- **단일종목 레버리지·인버스 ETF**(예: TSLL, NVDL)는 대상이 아니며 추가하지 않는다(2026-10-01 사용자 결정).
+  레버리지·인버스 상품은 지수형 4종(TQQQ·SQQQ·SOXL·SOXS)뿐이다.
+  A2는 단일종목 레버리지 ETF의 리밸런싱을 근거로 삼지만, 매매 대상은 그 기초 주식이다.
 - **인버스 ETF:** SQQQ·SOXS는 역분할 소급조정 가격이다. %수익과 ATR/가격 비율은 유효하지만 주식 수 계산에는 쓰지 않는다.
   Charter §4에 따라 인버스 다리는 §5.3에서 따로 보고·판정한다.
 
