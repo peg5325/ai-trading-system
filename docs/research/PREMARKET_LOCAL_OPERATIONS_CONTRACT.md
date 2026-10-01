@@ -39,7 +39,7 @@ FREEZE Brief가 없거나 변조되었으면 post-close는 backfill과 평가를
 ## launchd 일정
 
 `scripts/install_premarket_launchd.py --install`은 현재 macOS 사용자의 LaunchAgents에
-아래 열한 jobs를 설치한다. New York DST에 따라 같은 stage의 두 KST 시각 중 하나만 실제
+아래 열세 jobs를 설치한다. New York DST에 따라 같은 stage의 두 KST 시각 중 하나만 실제
 NYSE window에 들어가며, 다른 하나는 `SKIPPED/STAGE_WINDOW_NOT_REACHED`로 끝난다. 시간은
 macOS 로컬 시간대(KST)이며 NYSE 휴장일은 실행기가 스스로 skip한다.
 
@@ -50,6 +50,7 @@ macOS 로컬 시간대(KST)이며 NYSE 휴장일은 실행기가 스스로 skip�
 | freeze | 22:11, 23:11 | FREEZE stage, DST-safe pair |
 | postclose | 05:20, 06:20 | 같은 시점의 ET 날짜 FREEZE 정규장 사후평가, DST-safe pair |
 | freeze-paper | 05:35, 06:35, 07:35 | 같은 ET 날짜의 FREEZE Paper 세션. DST-safe pair + 재시도 slot(EST 17:35 ET). 기록된 세션은 이후 실행에서 no-op |
+| history-collect | 10:40, 13:40 | POST가 닫힌 마지막 NYSE 거래일의 P0-US30 30종 1분봉(PRE/REGULAR/POST)을 공식 backfill 경로로 tail-repair. 공유 market-history lock 아래 실행, 종목별 REGULAR 충족을 `reports/history-collection/YYYYMMDD.operation.json`에 기록. COMPLETE 영수증이 있으면 재시도 slot은 no-op |
 
 plist에는 credential을 넣지 않는다. Python CLI가 프로젝트 `.env`를 로드한다. stdout/stderr는
 `reports/premarket-launchd/`에 남고, 생성 산출물과 operation receipt는 `reports/` 및 `data/`

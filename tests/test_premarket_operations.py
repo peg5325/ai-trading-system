@@ -254,10 +254,11 @@ def test_launchd_definitions_use_local_runner_without_credentials(tmp_path):
         "primary-21", "primary-22", "verification-22", "verification-23",
         "freeze-22", "freeze-23", "postclose-05", "postclose-06",
         "freeze-paper-05", "freeze-paper-06", "freeze-paper-07",
+        "history-collect-10", "history-collect-13",
     ]
     assert [(job.hour, job.minute) for job in all_jobs] == [
         (21, 1), (22, 1), (22, 1), (23, 1), (22, 11), (23, 11), (5, 20), (6, 20),
-        (5, 35), (6, 35), (7, 35),
+        (5, 35), (6, 35), (7, 35), (10, 40), (13, 40),
     ]
     for job in all_jobs:
         payload = plist_payload(job, tmp_path)
@@ -265,7 +266,8 @@ def test_launchd_definitions_use_local_runner_without_credentials(tmp_path):
         assert "TOSS_CLIENT_SECRET" not in str(payload)
         args = payload["ProgramArguments"]
         assert ("--stage" in args or "--postclose" in args
-                or args[-1].endswith("run_freeze_paper_session.py"))
+                or args[-1].endswith("run_freeze_paper_session.py")
+                or args[-1].endswith("run_history_collection.py"))
 
 
 def test_launchd_write_only_install_generates_valid_plists(tmp_path):
@@ -278,11 +280,11 @@ def test_launchd_write_only_install_generates_valid_plists(tmp_path):
         python=project / ".venv" / "bin" / "python",
         bootstrap=False,
     )
-    assert len(paths) == 11
+    assert len(paths) == 13
     for path in paths:
         payload = plistlib.loads(path.read_bytes())
         assert payload["Label"].startswith(LABEL_PREFIX)
-        assert payload["StartCalendarInterval"]["Minute"] in {1, 11, 20, 35}
+        assert payload["StartCalendarInterval"]["Minute"] in {1, 11, 20, 35, 40}
 
 
 def test_launchd_status_covers_the_freeze_paper_pair_without_launchctl(tmp_path, monkeypatch):
