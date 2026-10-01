@@ -40,10 +40,16 @@ def _seed_regular_bars(root: Path, symbol: str, day: date, minutes: int) -> None
     con.close()
 
 
+def _backfill_stdout(command: list[str], errors: dict[str, str] | None = None) -> str:
+    symbols = command[command.index("--symbols") + 1].split(",")
+    return json.dumps({"results": [
+        {"symbol": s, "error": (errors or {}).get(s)} for s in symbols]})
+
+
 def _ok_runner(calls: list[list[str]]):
     def run(command: list[str], _root: Path) -> subprocess.CompletedProcess[str]:
         calls.append(command)
-        return subprocess.CompletedProcess(command, 0, "{}", "")
+        return subprocess.CompletedProcess(command, 0, _backfill_stdout(command), "")
     return run
 
 
@@ -81,6 +87,8 @@ def test_collects_the_full_universe_for_the_last_post_closed_day(tmp_path):
     (datetime(2026, 9, 30, 23, 59, tzinfo=timezone.utc), "2026-09-29"),
     # Monday 10:40 KST is Sunday evening in New York: Friday is the last closed day.
     (datetime(2026, 10, 5, 1, 40, tzinfo=timezone.utc), "2026-10-02"),
+    # 13:40 KST retry slot in EDT is 00:40 ET on the next day: still the same target day.
+    (datetime(2026, 10, 1, 4, 40, tzinfo=timezone.utc), "2026-09-30"),
     # EST regime: 10:40 KST on 2026-12-02 is 20:40 ET after the 2026-12-01 POST close.
     (datetime(2026, 12, 2, 1, 40, tzinfo=timezone.utc), "2026-12-01"),
 ])
@@ -117,3 +125,54 @@ def test_cli_reports_incomplete_with_nonzero_exit(tmp_path, monkeypatch, capsys)
     monkeypatch.setattr(cli, "run_history_collection", lambda **_kw: {"status": "INCOMPLETE"})
     assert collection_main(["--no-dotenv"], now=AFTER_POST) == 2
     assert json.loads(capsys.readouterr().out) == {"status": "INCOMPLETE"}
+
+
+def test_symbol_errors_do_not_write_a_complete_receipt(tmp_path):
+    root = _root(tmp_path)
+
+    def partial(command, _root):
+        return subprocess.CompletedProcess(
+            command, 0, _backfill_stdout(command, {"QQQ": "HTTPStatusError 503"}), "")
+
+    result = run_history_collection(root=root, now=AFTER_POST, runner=partial)
+    assert (result["status"], result["reason_codes"]) == ("INCOMPLETE", ["SYMBOL_ERRORS"])
+    assert result["symbol_errors"] == {"QQQ": "HTTPStatusError 503"}
+    assert not collection_paths(root, date(2026, 9, 30))["operation"].exists()
+
+    garbled = run_history_collection(
+        root=root, now=AFTER_POST,
+        runner=lambda command, _root: subprocess.CompletedProcess(command, 0, "not json", ""))
+    assert garbled["reason_codes"] == ["SYMBOL_ERRORS"]
+    assert set(garbled["symbol_errors"].values()) == {"UNPARSEABLE_BACKFILL_OUTPUT"}
+
+
+def test_early_close_coverage_flags_bars_after_the_shortened_session(tmp_path):
+    root = _root(tmp_path)
+    day = date(2026, 11, 27)                      # day after Thanksgiving, 13:00 ET close
+    _seed_regular_bars(root, "SPY", day, 210)
+    _seed_regular_bars(root, "QQQ", day, 211)
+    result = run_history_collection(
+        root=root, now=datetime(2026, 11, 28, 1, 40, tzinfo=timezone.utc),
+        runner=_ok_runner([]))
+    assert result["expected_regular_minutes"] == 210
+    assert "SPY" not in result["incomplete_symbols"] + result["excess_symbols"]
+    assert result["excess_symbols"] == ["QQQ"]
+
+
+def test_calendar_range_end_is_a_structured_incomplete(tmp_path):
+    result = run_history_collection(
+        root=_root(tmp_path), now=datetime(2100, 1, 4, 1, 40, tzinfo=timezone.utc),
+        runner=lambda *_args: pytest.fail("no collection outside the calendar artifact"))
+    assert (result["status"], result["reason_codes"]) == ("INCOMPLETE", ["CALENDAR_RANGE"])
+
+
+def test_default_runner_converts_a_stalled_backfill_into_a_failure(monkeypatch, tmp_path):
+    import src.premarket.collection as collection
+
+    def stall(command, **kwargs):
+        assert kwargs["timeout"] == collection.BACKFILL_TIMEOUT_SECONDS
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(collection.subprocess, "run", stall)
+    completed = collection._timed_runner(["python", "x.py"], tmp_path)
+    assert (completed.returncode, completed.stderr) == (124, "TIMEOUT")

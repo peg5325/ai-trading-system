@@ -52,6 +52,11 @@ macOS 로컬 시간대(KST)이며 NYSE 휴장일은 실행기가 스스로 skip�
 | freeze-paper | 05:35, 06:35, 07:35 | 같은 ET 날짜의 FREEZE Paper 세션. DST-safe pair + 재시도 slot(EST 17:35 ET). 기록된 세션은 이후 실행에서 no-op |
 | history-collect | 10:40, 13:40 | POST가 닫힌 마지막 NYSE 거래일의 P0-US30 30종 1분봉(PRE/REGULAR/POST)을 공식 backfill 경로로 tail-repair. 공유 market-history lock 아래 실행, 종목별 REGULAR 충족을 `reports/history-collection/YYYYMMDD.operation.json`에 기록. COMPLETE 영수증이 있으면 재시도 slot은 no-op |
 
+history-collect의 기본 40페이지는 약 8 달력일을 다시 읽는다. 더 긴 공백(설치 지연 등)은 그날 영수증이
+생기기 전에 `scripts/run_history_collection.py --max-pages N`으로 한 번 넓혀 실행하거나, 영수증이 이미 있으면
+`scripts/history_backfill_official.py --tail-repair`를 별도 `--run-id`와 공유 lock 아래 실행한다.
+종목별 backfill 오류가 하나라도 있으면 COMPLETE 영수증을 쓰지 않아 재시도 slot이 다시 수집한다.
+
 plist에는 credential을 넣지 않는다. Python CLI가 프로젝트 `.env`를 로드한다. stdout/stderr는
 `reports/premarket-launchd/`에 남고, 생성 산출물과 operation receipt는 `reports/` 및 `data/`
 gitignore 경로에만 보관한다.
