@@ -1,10 +1,13 @@
 {
   "schema": "p0_us30_gross_edge_screen_prereg_v2",
   "version": "2.0",
-  "revision": "r2",
+  "revision": "r3",
   "status": "DRAFT_PENDING_USER_APPROVAL",
   "drafted": "2026-10-01",
-  "review_history": ["r1 independent review REQUEST_CHANGES (7 major, 13 minor); r2 applies all"],
+  "review_history": [
+    "r1 independent review REQUEST_CHANGES (7 major, 13 minor); r2 applies all",
+    "r2 re-review APPROVE_WITH_CHANGES (4 minor + reproducibility); r3 applies all"
+  ],
   "results_examined": false,
   "strategy_id": "p0_us30_gross_edge_screen_v2",
   "relation_to_v1": "separate screen on new candidates; v1 NO_GROSS_EDGE verdict unchanged",
@@ -28,14 +31,38 @@
     "hash_mismatch_policy": "fail_closed",
     "price_loader": "research_load(purpose=performance, track=intraday)",
     "daily_bars_source": "snapshot REGULAR 1m bars only; operating market_history.sqlite and swing-track daily DB not read",
-    "precedent_for_daily_from_intraday_track": ["src/research/gap_down_fade/loading.py", "src/research/spy_intraday_momentum/loading.py"]
+    "precedent_for_daily_from_intraday_track": [
+      "src/research/gap_down_fade/loading.py",
+      "src/research/spy_intraday_momentum/loading.py"
+    ]
   },
   "universe": [
-    "SPY", "QQQ", "IWM", "TQQQ", "SQQQ", "SOXL", "SOXS", "AAPL", "MSFT", "NVDA",
-    "AMD", "AVGO", "AMZN", "META", "GOOGL", "TSLA", "MU", "NFLX", "CRM", "PLTR"
+    "SPY",
+    "QQQ",
+    "IWM",
+    "TQQQ",
+    "SQQQ",
+    "SOXL",
+    "SOXS",
+    "AAPL",
+    "MSFT",
+    "NVDA",
+    "AMD",
+    "AVGO",
+    "AMZN",
+    "META",
+    "GOOGL",
+    "TSLA",
+    "MU",
+    "NFLX",
+    "CRM",
+    "PLTR"
   ],
   "universe_exclusion_reason": "sector ETFs (7), VST, DIA, SMH fail per-symbol D9 in the development window",
-  "inverse_etfs": ["SQQQ", "SOXS"],
+  "inverse_etfs": [
+    "SQQQ",
+    "SOXS"
+  ],
   "inverse_etf_price_note": "reverse-split back-adjusted; percent returns and ATR/price ratios valid, share counts not",
   "windows": {
     "trade_eval_start": "2023-05-18",
@@ -64,11 +91,21 @@
     "invalid_symbol_day": "no_trade",
     "validity_selection_bias_note": "validity uses the whole day's bar count; mild selection, invalid counts reported",
     "required_exact_bars": {
-      "all": ["09:30", "15:55"],
-      "A": ["14:44", "14:45"],
+      "all": [
+        "09:30",
+        "15:55"
+      ],
+      "A": [
+        "14:44",
+        "14:45"
+      ],
       "A1_requires_both_signal_and_traded_symbol": true,
-      "C2": ["10:29"],
-      "D": ["signal bar + 1"]
+      "C2": [
+        "10:29"
+      ],
+      "D": [
+        "signal bar + 1"
+      ]
     },
     "missing_bar_in_order_scan": "skip without fill",
     "evaluated_symbol_days": 12380,
@@ -113,28 +150,140 @@
   },
   "arm_reduction_from_r1": {
     "r1_arm_count": 12,
-    "removed": ["QQQ 2.0% (20 days)", "SOXL 6.0% (91 days)", "D k=1.0 (43 symbol-days)"],
+    "removed": [
+      "QQQ 2.0% (20 days)",
+      "SOXL 6.0% (91 days)",
+      "D k=1.0 (43 symbol-days)"
+    ],
     "pooled": "QQQ 1.5% (36 days) with SOXL 4.5% (149 days) into A1",
     "basis": "count-only feasibility pass of signal conditions, no returns or fills (section count_only_pass)"
   },
   "arms": [
-    {"id": "A1", "family": "A_late_day_extreme_continuation", "legs": [
-      {"signal_symbol": "QQQ", "threshold_pct": 1.5, "up_buy": "TQQQ", "down_buy": "SQQQ"},
-      {"signal_symbol": "SOXL", "threshold_pct": 4.5, "up_buy": "SOXL", "down_buy": "SOXS"}],
-      "signal": "close_1444 / open_0930 - 1", "entry": "14:45 open", "stop_loss": null, "exit": "15:55 open",
-      "same_day_both_legs": "two trades; daily return is their mean"},
-    {"id": "A2", "family": "A_late_day_extreme_continuation", "symbols": ["AAPL", "MSFT", "NVDA", "AMD", "AVGO", "AMZN", "META", "GOOGL", "TSLA", "MU", "NFLX", "CRM", "PLTR"], "signal": "close_1444 / open_0930 - 1 >= 3.0% and close_1444 > vwap_1444", "buy": "same symbol", "entry": "14:45 open", "stop_loss": null, "exit": "15:55 open"},
-    {"id": "B1", "family": "B_prior_day_compression_breakout", "symbols": "universe", "condition_t_minus_1": "nr7", "entry": "buy_stop O_t + stretch10, active 09:31-15:30", "stop_loss": "O_t", "exit": "15:55 open"},
-    {"id": "B2", "family": "B_prior_day_compression_breakout", "symbols": "universe", "condition_t_minus_1": "inside_day and nr4", "entry": "buy_stop O_t + stretch10, active 09:31-15:30", "stop_loss": "O_t", "exit": "15:55 open"},
-    {"id": "B3", "family": "B_prior_day_compression_breakout", "symbols": "universe", "condition_t_minus_1": "C(t-1) > SMA20", "entry": "buy_stop O_t + 0.6 * range(t-1), active 09:31-15:30", "stop_loss": "O_t", "exit": "15:55 open"},
-    {"id": "C1", "family": "C_prior_day_oversold_intraday", "symbols": "universe", "condition_t_minus_1": "RSI2 < 5 and C(t-1) > SMA200", "entry": "strict limit C(t-1) - 0.5 * ATR10, active 09:30-15:30; 09:30 open below limit fills at open", "stop_loss": null, "exit": "15:55 open", "expected_sample_limited": true, "r1_overnight_diagnostic": "removed (would read blind OOS / excluded block)"},
-    {"id": "C2", "family": "C_prior_day_oversold_intraday", "symbols": "universe", "condition_t_minus_1": "RSI3(ROC1) < 30", "entry": "buy_stop 09:30-10:29 high, active 10:30-15:30", "stop_loss": "09:30-10:29 low", "exit": "15:55 open"},
-    {"id": "D1", "family": "D_vwap_atr_extreme_reversion", "symbols": ["SOXL", "SOXS", "TQQQ", "SQQQ", "TSLA", "PLTR", "AMD", "MU", "AVGO"], "signal": "first bar 10:00-15:00 with close <= VWAP - 0.6 * ATR14(t-1)", "entry": "next bar open", "target": "resting VWAP sell limit per execution.target_D_only", "stop_loss": "entry - 0.3 * ATR14(t-1)", "exit": "15:55 open"}
+    {
+      "id": "A1",
+      "family": "A_late_day_extreme_continuation",
+      "legs": [
+        {
+          "signal_symbol": "QQQ",
+          "threshold_pct": 1.5,
+          "up_buy": "TQQQ",
+          "down_buy": "SQQQ"
+        },
+        {
+          "signal_symbol": "SOXL",
+          "threshold_pct": 4.5,
+          "up_buy": "SOXL",
+          "down_buy": "SOXS"
+        }
+      ],
+      "signal": "close_1444 / open_0930 - 1",
+      "entry": "14:45 open",
+      "stop_loss": null,
+      "exit": "15:55 open",
+      "same_day_both_legs": "two trades; daily return is their mean",
+      "nature_and_power": "149 of 152 pooled days are SOXL-condition days: effectively a SOXL/SOXS arm; a pass does not imply a QQQ/TQQQ edge. Low power: with ~185 trades and multi-%p dispersion, Holm(8) needs a mean well above 0.34; a true ~0.6 pct-point effect may still fail G6"
+    },
+    {
+      "id": "A2",
+      "family": "A_late_day_extreme_continuation",
+      "symbols": [
+        "AAPL",
+        "MSFT",
+        "NVDA",
+        "AMD",
+        "AVGO",
+        "AMZN",
+        "META",
+        "GOOGL",
+        "TSLA",
+        "MU",
+        "NFLX",
+        "CRM",
+        "PLTR"
+      ],
+      "signal": "close_1444 / open_0930 - 1 >= 3.0% and close_1444 > vwap_1444",
+      "buy": "same symbol",
+      "entry": "14:45 open",
+      "stop_loss": null,
+      "exit": "15:55 open"
+    },
+    {
+      "id": "B1",
+      "family": "B_prior_day_compression_breakout",
+      "symbols": "universe",
+      "condition_t_minus_1": "nr7",
+      "entry": "buy_stop O_t + stretch10, active 09:31-15:30",
+      "stop_loss": "O_t",
+      "exit": "15:55 open"
+    },
+    {
+      "id": "B2",
+      "family": "B_prior_day_compression_breakout",
+      "symbols": "universe",
+      "condition_t_minus_1": "inside_day and nr4",
+      "entry": "buy_stop O_t + stretch10, active 09:31-15:30",
+      "stop_loss": "O_t",
+      "exit": "15:55 open"
+    },
+    {
+      "id": "B3",
+      "family": "B_prior_day_compression_breakout",
+      "symbols": "universe",
+      "condition_t_minus_1": "C(t-1) > SMA20",
+      "entry": "buy_stop O_t + 0.6 * range(t-1), active 09:31-15:30",
+      "stop_loss": "O_t",
+      "exit": "15:55 open"
+    },
+    {
+      "id": "C1",
+      "family": "C_prior_day_oversold_intraday",
+      "symbols": "universe",
+      "condition_t_minus_1": "RSI2 < 5 and C(t-1) > SMA200",
+      "entry": "strict limit C(t-1) - 0.5 * ATR10, active 09:30-15:30; 09:30 open below limit fills at open",
+      "stop_loss": null,
+      "exit": "15:55 open",
+      "expected_sample_limited": true,
+      "r1_overnight_diagnostic": "removed (would read blind OOS / excluded block)"
+    },
+    {
+      "id": "C2",
+      "family": "C_prior_day_oversold_intraday",
+      "symbols": "universe",
+      "condition_t_minus_1": "RSI3(ROC1) < 30",
+      "entry": "buy_stop 09:30-10:29 high, active 10:30-15:30",
+      "stop_loss": "09:30-10:29 low",
+      "exit": "15:55 open"
+    },
+    {
+      "id": "D1",
+      "family": "D_vwap_atr_extreme_reversion",
+      "symbols": [
+        "SOXL",
+        "SOXS",
+        "TQQQ",
+        "SQQQ",
+        "TSLA",
+        "PLTR",
+        "AMD",
+        "MU",
+        "AVGO"
+      ],
+      "signal": "first bar 10:00-15:00 with close <= VWAP - 0.6 * ATR14(t-1)",
+      "entry": "next bar open",
+      "target": "resting VWAP sell limit per execution.target_D_only",
+      "stop_loss": "entry - 0.3 * ATR14(t-1)",
+      "exit": "15:55 open"
+    }
   ],
   "statistics": {
     "trade_return": "gross pct points per trade",
     "trade_order": "(trading day, entry time, symbol) ascending",
-    "per_trade_mean_gates": ["G3", "G4", "G5", "G7"],
+    "per_trade_mean_gates": [
+      "G3",
+      "G4",
+      "G5",
+      "G7"
+    ],
     "daily_aggregation": "arithmetic mean of an arm's trades on the same trading day; days without trades omitted",
     "independent_unit": "trading_day (G6)",
     "significance": "one-sided circular block bootstrap of mean daily return vs 0.34 pct points",
@@ -161,19 +310,27 @@
   },
   "inverse_leg_policy": {
     "charter_reference": "PROJECT_CHARTER section 4: inverse-leg results reported separately, not approved as LONG performance",
-    "arms_with_inverse_legs": ["A1", "B1", "B2", "B3", "C1", "C2", "D1"],
+    "arms_with_inverse_legs": [
+      "A1",
+      "B1",
+      "B2",
+      "B3",
+      "C1",
+      "C2",
+      "D1"
+    ],
     "report": "statistics for all trades, non-inverse leg, inverse leg",
-    "long_listing_requires": "non-inverse leg alone meets G3, G4 and G5",
+    "long_listing_requires": "non-inverse leg alone: >= 50 trades, >= 25 trading days, and G3, G4, G5, G7 (G7 not applicable if one symbol remains)",
     "inverse_only_label": "INVERSE_ONLY, not listed as a LONG candidate"
   },
   "diagnostics_not_gating": [
-    "unconditional baseline: same symbols and entry times, enter every valid day, exit 15:55 open",
+    "unconditional baseline: for each actual trade i (symbol s, entry minute m), baseline_i = mean over all evaluated valid days of s having bars m and 15:55 of (open_15:55 / open_m - 1) * 100 using bar opens, not stop/limit prices; arm baseline = mean of baseline_i; report trade mean minus baseline mean; D1 exits at its target, so its baseline is a drift reference only",
     "best trading day and its contribution; per-symbol trade counts and means",
     "invalid symbol-days and missing required-bar counts"
   ],
   "cost_diagnostics_pct_points": {
-    "commission_only": 0.20,
-    "realistic": 0.30,
+    "commission_only": 0.2,
+    "realistic": 0.3,
     "charter_official": 0.34,
     "stress": 0.51,
     "gating": false
@@ -188,7 +345,8 @@
     "unconditional move-size distributions for core 20 in 2024-09-03..2026-01-20 (no rule P&L, no conditional forward returns)",
     "per-symbol D9 defect ratios and blind-OOS bar presence (no prices)",
     "published literature and practitioner rules; B and C rules taken from secondary summaries, this document is canonical",
-    "count-only signal-condition pass below"
+    "count-only signal-condition pass below",
+    "holdout H2 2026-07-22..09-30 core-20 REGULAR bar counts in the operating DB after the 2026-10-01 backfill (no prices)"
   ],
   "count_only_pass": {
     "date": "2026-10-01",
@@ -210,7 +368,10 @@
       "C2_symbol_days": 1312,
       "D_k0.6_symbol_days": 408,
       "D_k1.0_symbol_days": 43
-    }
+    },
+    "script": "scripts/gross_edge_v2_count_only_pass.py",
+    "script_sha256": "9254ab2190b325509396acdb271ee6feb4c2172306af90df0494b6a5d1156547",
+    "reproduced": "lint-normalised committed copy re-run on 2026-10-01 gives identical counts"
   },
   "required_tests": [
     "8-arm registry with fixed times and parameters",
