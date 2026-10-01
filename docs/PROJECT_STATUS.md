@@ -1,6 +1,6 @@
 # 현재 상태와 세션 인계
 
-갱신일: 2026-09-30
+갱신일: 2026-10-01
 
 ## 정본
 
@@ -95,14 +95,28 @@
   SPY 종가는 15:59(조기폐장 12:59) ET 1분봉을 쓰되, 그날 마감~자정 ET 사이 최초 기록되고 덮어쓰지 않았음을
   `candle_history.created_at/updated_at`으로 검증한다. 검증 불가·배당락 미기재(분기 패턴 대조)·가격 불연속은
   `INCONCLUSIVE_BENCHMARK`다. 공식 S&P 500 TR은 계속 미연결이다. 러너는 매 세션 SPY를 별도 비치명 단계로 수집한다.
-  전체 pytest 2,224 passed / 11 skipped.
+  전체 pytest 2,224 passed / 11 skipped. PR 3은 #168로 main에 병합됐다(`160bbf4`).
+- 첫 세션 활성화 준비(브랜치 `codex/freeze-paper-first-session-activation`, 미병합): 2026-10-01 사용자 결정으로
+  첫 세션 2026-10-01, 구간 시작 종가일 2026-09-30, 예정 10세션 2026-10-01~10-14(검증기가 NYSE 달력에서 유도).
+  `config/premarket_daily_brief.yaml`의 LONG·SHORT 승인 목록에 `premarket_freeze_long_intraday_v1`만 추가했고,
+  첫 세션 영수증 `docs/research/PREREG_PREMARKET_FREEZE_LONG_PAPER_V1_FIRST_SESSION_RECEIPT.json`을 작성했다.
+  - SPY 배당·배당락 출처: State Street SPDR S&P 500 ETF Trust(SPY) 공식 펀드 페이지. 구간 내 배당락일은
+    명시적으로 없음(`[]`), 배당 금액은 기록하지 않았다(`SPY_DIVIDENDS.json` 빈 목록 유지).
+  - 운영비 0 USD(로컬 Mac 실행, Toss Open API 무료, Marketaux 무료 플랜; 공유 구독·개인 시간 제외).
+  - 계좌 이벤트 수수료: 2026-10-01 Toss 앱 확인, 미국주식 0.1%(체결 총액 USD 10 이하 무료), 이벤트 할인 없음.
+    계약 요율을 구간 전체에 적용한다.
+  - 구간 시작 SPY 종가 증거: 2026-09-30 15:59 ET 봉 종가 763.75, 최초 기록 2026-09-30T20:20:22Z, 덮어쓰기 없음.
+  - 코드 커밋 `160bbf4`. 운영 DB를 읽기 전용으로 연결해 `load_receipt`가 통과했다.
+  - 정책 해시: 승인 목록 변경만으로 `policy_config` 해시가 `8cb5995d…` → `285e994b…`로 바뀐다(다른 필드 동일).
+  - launchd freeze-paper 05:35·06:35·07:35 job이 설치·로드되어 있다(`--status` 확인). 2026-09-30 실행은
+    영수증이 없어 `NOT_ACTIVATED` 운영 영수증만 남겼다(정상).
 
 ## 다음 한 가지 작업
 
-단계 2 다음 작업: PR 3 병합 후 **첫 세션 활성화**를 준비한다. launchd 재설치(사용자 확인 후), 평가 시작
-전일 저녁 SPY 종가 수집, SPY 배당 출처·운영비·계좌 이벤트 수수료 확정, 첫 세션 영수증 작성·검증과 승인 목록
-활성화 커밋을 독립 리뷰 후 병합해 첫 미래 거래일을 고정한다. 실거래 전 레버리지·인버스 ETP의 브로커·규제 사전
-조건을 확인한다.
+활성화 커밋을 독립 리뷰 후 **2026-10-01 21:01 KST(PRIMARY) 이전에** main과 운영 체크아웃에 병합한다. FREEZE
+snapshot의 `policy_config`가 영수증의 활성화 config와 같아야 하므로, 병합이 늦으면 그날 세션은
+`NO_TRADE/POLICY_CONFIG_MISMATCH`로 기록된다. 첫 Paper 세션은 2026-10-02 05:35 KST 이후 launchd가 실행한다.
+실거래 전 레버리지·인버스 ETP의 브로커·규제 사전 조건을 확인한다.
 
 ## 아직 충족하지 않은 실행 게이트
 

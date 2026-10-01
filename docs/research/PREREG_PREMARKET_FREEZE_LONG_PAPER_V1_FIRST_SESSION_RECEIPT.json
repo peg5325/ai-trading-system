@@ -1,0 +1,75 @@
+{
+  "account_event_fee": {
+    "note": "user checked the Toss app '수수료 및 혜택' on 2026-10-01: US stocks 0.1% (orders with total execution <= USD 10 are commission-free); no event discount; contract rates apply for the whole window",
+    "observed_commission_bps_per_side": 10.0
+  },
+  "activation_config_sha256": "e1c5cfa5c043c235775c9093370901a569fa9d04cea1725dfa4d39dc835d1375",
+  "allowed_symbols_check": {
+    "index_3x_etfs_listed": [
+      "SOXL",
+      "TQQQ"
+    ],
+    "passed": true,
+    "single_stock_leveraged_etfs": []
+  },
+  "code_commit": "160bbf4859d112b52e42ca20d6209d5907ca7368",
+  "contract_json_sha256": "e173e1409d4e4d5f79ff4966f797e27e3c79dd80fe88cfaeb89aa73c33238ce0",
+  "contract_md_sha256": "1af715449fd0881dbc6ebedf30787c6867356e8265dfadf129c4877567163f89",
+  "contract_version": "1.2",
+  "first_session": "2026-10-01",
+  "intraday_bar_provider": "Toss Open API REGULAR 1m candles via scripts/history_backfill_official.py tail repair into data/market_history.sqlite",
+  "operating_costs": {
+    "allocation": "recurring costs invoiced only for services used by this system during the window, allocated by window sessions / trading sessions in the billing period; shared personal subscriptions and personal time are excluded",
+    "items": [],
+    "reason": "no recurring service is used only by this system during the window: runs on the user's local Mac, Toss Open API has no fee, Marketaux is on a no-charge plan; shared personal subscriptions and personal time are excluded by contract",
+    "total_usd": 0.0
+  },
+  "scheduled_sessions": [
+    "2026-10-01",
+    "2026-10-02",
+    "2026-10-05",
+    "2026-10-06",
+    "2026-10-07",
+    "2026-10-08",
+    "2026-10-09",
+    "2026-10-12",
+    "2026-10-13",
+    "2026-10-14"
+  ],
+  "schema": "premarket-freeze-long-paper/first-session-receipt/v1",
+  "spy_dividend_source": "State Street SPDR S&P 500 ETF Trust (SPY) official fund page / distributions: https://www.ssga.com/us/en/intermediary/etfs/state-street-spdr-sp-500-etf-trust-spy",
+  "spy_ex_dividend_dates_in_window": [],
+  "spy_ex_dividend_source": "State Street SPDR S&P 500 ETF Trust (SPY) official fund page / distributions: https://www.ssga.com/us/en/intermediary/etfs/state-street-spdr-sp-500-etf-trust-spy",
+  "spy_price_source": "Toss REGULAR 1m bar close starting at 15:59 ET (12:59 ET on early closes); provider series is split-adjusted and dividend adjustment is unverified; used only when first written to the store on the same evening (after the close, before 00:00 America/New_York) and never overwritten; not the official closing auction and not an official unadjusted daily close",
+  "test_run": {
+    "command": ".venv/bin/python -m pytest -q -p no:cacheprovider",
+    "passed": true
+  },
+  "verified_paths": {
+    "duplicate": [
+      "tests/test_freeze_paper_engine.py::test_replayed_minute_is_a_no_op_and_duplicate_order_id_never_refills",
+      "tests/test_freeze_paper_engine_robustness.py::test_restart_after_rejected_exit_is_idempotent",
+      "tests/test_freeze_paper_reconcile.py::test_duplicate_client_order_ids_are_flagged"
+    ],
+    "eod": [
+      "tests/test_freeze_paper_engine.py::test_eod_flatten_at_1550_on_a_normal_day",
+      "tests/test_freeze_paper_engine.py::test_early_close_flattens_at_1250_and_ignores_bars_after_close"
+    ],
+    "reconciliation": [
+      "tests/test_freeze_paper_reconcile.py::test_clean_session_reconciles_including_restart_rebuild",
+      "tests/test_freeze_paper_reconcile.py::test_injected_position_mismatch_is_flagged"
+    ],
+    "restart": [
+      "tests/test_freeze_paper_engine.py::test_checkpoint_after_bar_k_then_resume_equals_full_run",
+      "tests/test_freeze_paper_runner.py::test_corrupted_restart_checkpoint_is_flagged"
+    ]
+  },
+  "window_start_close_date": "2026-09-30",
+  "window_start_spy_close_evidence": {
+    "bar_ts_utc": "2026-09-30T19:59:00+00:00",
+    "captured_at": "2026-09-30T20:20:22.196756+00:00",
+    "close": 763.75,
+    "updated_at": "2026-09-30T20:20:22.196756+00:00"
+  },
+  "artifact_sha256": "810c5a0357fef5c7a3c8f2a27280da584d6df741c19ee50c44b3a139ace9e162"
+}
