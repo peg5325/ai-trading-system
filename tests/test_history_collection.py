@@ -167,7 +167,7 @@ def test_calendar_range_end_is_a_structured_incomplete(tmp_path):
 
 
 def test_default_runner_converts_a_stalled_backfill_into_a_failure(monkeypatch, tmp_path):
-    import src.premarket.collection as collection
+    from src.premarket import collection
 
     def stall(command, **kwargs):
         assert kwargs["timeout"] == collection.BACKFILL_TIMEOUT_SECONDS
