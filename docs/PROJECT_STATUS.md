@@ -96,7 +96,7 @@
   `candle_history.created_at/updated_at`으로 검증한다. 검증 불가·배당락 미기재(분기 패턴 대조)·가격 불연속은
   `INCONCLUSIVE_BENCHMARK`다. 공식 S&P 500 TR은 계속 미연결이다. 러너는 매 세션 SPY를 별도 비치명 단계로 수집한다.
   전체 pytest 2,224 passed / 11 skipped. PR 3은 #168로 main에 병합됐다(`160bbf4`).
-- 첫 세션 활성화 준비(브랜치 `codex/freeze-paper-first-session-activation`, 미병합): 2026-10-01 사용자 결정으로
+- 첫 세션 활성화(브랜치 `codex/freeze-paper-first-session-activation`, PR #169로 2026-10-01 main 병합 `ee372c7`): 2026-10-01 사용자 결정으로
   첫 세션 2026-10-01, 구간 시작 종가일 2026-09-30, 예정 10세션 2026-10-01~10-14(검증기가 NYSE 달력에서 유도).
   `config/premarket_daily_brief.yaml`의 LONG·SHORT 승인 목록에 `premarket_freeze_long_intraday_v1`만 추가했고,
   첫 세션 영수증 `docs/research/PREREG_PREMARKET_FREEZE_LONG_PAPER_V1_FIRST_SESSION_RECEIPT.json`을 작성했다.
@@ -110,13 +110,30 @@
   - 정책 해시: 승인 목록 변경만으로 `policy_config` 해시가 `8cb5995d…` → `285e994b…`로 바뀐다(다른 필드 동일).
   - launchd freeze-paper 05:35·06:35·07:35 job이 설치·로드되어 있다(`--status` 확인). 2026-09-30 실행은
     영수증이 없어 `NOT_ACTIVATED` 운영 영수증만 남겼다(정상).
+- 별도 데이트레이딩 탐색 준비(2026-10-01, read-only, 진행 중 Paper와 무관): 과거 intraday 시도 9건의
+  실패 원인과 Toss 1분봉 종목별 D9 품질을 분석했다
+  ([분석](research/ANALYSIS_DAYTRADING_FAILURES_AND_TOSS_DATA_QUALITY_20261001.md)). 과거 판정은 재판정하지 않았다.
+  - 시도 9건의 내역: P0-US30 역산 7건, 보고값 2건(gross-edge screen, H4 랭킹).
+  - 역산 gross는 −0.095~+0.119%/거래다. 수수료만 본 Toss 왕복 0.20%(슬리피지 포함 약 0.30%)에 닿은 데이 시도가 없다.
+  - VWAP/ATR(후보 3)은 사전등록조차 되지 않았다.
+  - 공식 D9를 저장소 코드로 재현했다(Gap+RVOL 1,296/20,100, ORB 1,277/20,100). 결손의 46%는 2024-07~08 수집 공백과 lookback 전파다.
+  - 핵심 20종은 개별 ≤ 5%이고, 2024-09-03~2026-01-20 구간에서는 0.26%다.
+  - blind OOS 구간은 봉 존재 여부로만 접촉했다(가격·수익률 미열람). 이 coverage 정보는 "이미 본 정보"로 기록한다.
+  - US 1분봉은 2026-07-22~09-24에 공백이 있고, 이후 수집은 하루 4~5종목뿐이다.
 
 ## 다음 한 가지 작업
 
+(2026-10-01 갱신: main 병합은 PR #169로 완료. 운영 체크아웃 반영과 첫 세션 결과는 이 갱신에서 확인하지 않았다.)
 활성화 커밋을 독립 리뷰 후 **2026-10-01 21:01 KST(PRIMARY) 이전에** main과 운영 체크아웃에 병합한다. FREEZE
 snapshot의 `policy_config`가 영수증의 활성화 config와 같아야 하므로, 병합이 늦으면 그날 세션은
 `NO_TRADE/POLICY_CONFIG_MISMATCH`로 기록된다. 첫 Paper 세션은 2026-10-02 05:35 KST 이후 launchd가 실행한다.
 실거래 전 레버리지·인버스 ETP의 브로커·규제 사전 조건을 확인한다.
+
+### 병행 연구 (운영 체크아웃·Paper 계약 비접촉, ROADMAP 현재 단계 밖의 다음 후보 연구)
+
+위 분석을 근거로 새 데이트레이딩 탐색 계획을 결과를 보기 전에 고정할 것을 제안한다. 사용자 결정 전이다.
+- 고정할 항목: Toss 단독 핵심 20종, development 경계, OOS 경계, 후보 3~5개, 다중비교 방법.
+- 재개는 closeout이 요구하는 새 계획·새 데이터 완전성 계약·새 사전등록을 거친다.
 
 ## 아직 충족하지 않은 실행 게이트
 
