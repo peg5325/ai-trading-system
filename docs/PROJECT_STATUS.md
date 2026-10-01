@@ -123,17 +123,18 @@
 
 ## 다음 한 가지 작업
 
-(2026-10-01 갱신: main 병합은 PR #169로 완료. 운영 체크아웃 반영과 첫 세션 결과는 이 갱신에서 확인하지 않았다.)
-활성화 커밋을 독립 리뷰 후 **2026-10-01 21:01 KST(PRIMARY) 이전에** main과 운영 체크아웃에 병합한다. FREEZE
-snapshot의 `policy_config`가 영수증의 활성화 config와 같아야 하므로, 병합이 늦으면 그날 세션은
-`NO_TRADE/POLICY_CONFIG_MISMATCH`로 기록된다. 첫 Paper 세션은 2026-10-02 05:35 KST 이후 launchd가 실행한다.
+(2026-10-02 갱신) 활성화는 PR #169로 병합됐다. 첫 Paper 세션 ET 2026-10-01의 장전 단계 결과는 이렇다.
+- FREEZE `SHADOW_READY`, regime `RISK_ON`, MSFT·AMZN·SPY `LONG_WATCH`(승인 전략).
+- VERIFICATION은 Marketaux 오류로 `NO_TRADE`였다. FREEZE에는 영향이 없었다.
+
+다음 한 가지 작업은 매 세션 launchd freeze-paper 결과(05:35 KST)를 확인하고 10세션(10-01~10-14)을 마치는 것이다.
+- 그 뒤 평가기를 수동으로 실행한다.
+- 이어서 PR #171의 history-collect job을 설치한다(운영 체크아웃 이동 후 launchd 재설치).
 실거래 전 레버리지·인버스 ETP의 브로커·규제 사전 조건을 확인한다.
 
 ### 병행 연구 (운영 체크아웃·Paper 계약 비접촉, ROADMAP 현재 단계 밖의 다음 후보 연구)
 
-위 분석을 근거로 새 데이트레이딩 탐색 계획을 결과를 보기 전에 고정할 것을 제안한다. 사용자 결정 전이다.
-- 고정할 항목: Toss 단독 핵심 20종, development 경계, OOS 경계, 후보 3~5개, 다중비교 방법.
-- 재개는 closeout이 요구하는 새 계획·새 데이터 완전성 계약·새 사전등록을 거친다.
+위 분석을 근거로 한 새 데이트레이딩 탐색은 사용자 결정으로 사전등록을 고정하고 실행했다(아래 screen v2).
 - 2026-10-01 후보 탐색([문서](research/EXPLORATION_DAYTRADING_CANDIDATES_20261001.md)):
   - 조사 범위: 학술 문헌, 실전 트레이더 방법, development 구간 기회 크기(무조건부 움직임만, 손익 미계산).
   - 1차 gross-edge screen 후보:
@@ -151,7 +152,7 @@ snapshot의 `policy_config`가 영수증의 활성화 config와 같아야 하므
   - 공식 실행은 1회(`6ddd42b`)였다. **결과 `NO_GROSS_EDGE`**
     ([결과](research/RESULT_P0_US30_GROSS_EDGE_SCREEN_V2.md), payload `ee0a842f…`).
   - 실행 전 확인:
-    - 조건 성립 횟수 대조에서 13개 중 12개가 독립 스크립트와 일치했다.
+    - 조건 성립 횟수 대조에서 13개 중 12개가 독립 스크립트와 일치했다([증거](research/COUNTCHECK_P0_US30_GROSS_EDGE_SCREEN_V2.json)).
     - D 1건 차이는 조기폐장 다음 날 차단 규칙 때문이며, 구현 쪽이 계약에 맞는다.
   - arm별 거래당 gross와 거래 수:
     - A1 0.137 (185)
@@ -164,14 +165,21 @@ snapshot의 `policy_config`가 영수증의 활성화 config와 같아야 하므
     - D1 0.277 (407)
   - D1이 가장 높았다.
     - 무조건부 기준선보다 +0.256%p 높았다.
-    - 하지만 G3 0.45에 미달했고, Holm p는 0.65였다. 0.30%p 비용을 빼면 −0.023%p다.
+    - 하지만 G3 0.45에 미달했고, Holm p는 0.65였다.
+    - 공식 0.34%p를 빼면 −0.063%p다(0.30%p −0.023, stress 0.51%p −0.233).
   - 인버스 다리 일부가 양(+)이었다: B3 inverse 0.659(n=105), C2 inverse 1.034(n=58), A1 inverse 0.422(n=90).
+    다리 게이트를 전부 통과한 것은 B3 inverse뿐이다. A1·C2 inverse는 G1(n<100) 등에서 미달이다.
     Charter §4와 계약 §5.3에 따라 LONG 후보로 승인하지 않는다. 사후 관찰이며 새 arm으로 고르지 않는다.
   - 해석상 선택(구현 고정, 결과 전):
     - arm마다 독립 RNG(seed 20261001)를 쓴다.
     - `INVERSE_ONLY`는 arm 전체 통과이면서 비인버스 다리가 listing 규칙에 미달인 경우다.
     - G7 해당 없음은 등록 종목이 1개일 때만이다.
     - A1 임계 비교는 소수 9자리 반올림이다.
+  - 다음:
+    - 후보 A~D는 v2 범위에서 종결한다(`NO_GROSS_EDGE`, 재판정·개정 없음).
+    - E(실적 발표일)는 EDGAR 실적일 데이터 작업이 먼저다.
+    - 새 screen은 새 사전등록이 필요하다. blind OOS·H2는 계속 봉인한다.
+    - 방향(데이 유지 또는 스윙·장기 코어 전환)은 10-14 Paper 판정 후 사용자가 정한다.
 
 ## 아직 충족하지 않은 실행 게이트
 

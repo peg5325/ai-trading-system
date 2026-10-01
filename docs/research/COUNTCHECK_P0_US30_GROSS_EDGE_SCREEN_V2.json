@@ -1,0 +1,170 @@
+{
+  "schema": "p0_us30_gross_edge_screen_v2_countcheck_v1",
+  "date": "2026-10-01",
+  "purpose": "pre-run parity of signal-condition counts between the screen implementation and the independent count-only script; no fills, no returns",
+  "implementation_commit": "6ddd42b2b4e5115487d32cf172962f67246fdf97",
+  "implementation_command": "scripts/run_gross_edge_screen_v2.py --count-conditions",
+  "independent_script": "scripts/gross_edge_v2_count_only_pass.py",
+  "independent_script_sha256": "9254ab2190b325509396acdb271ee6feb4c2172306af90df0494b6a5d1156547",
+  "evaluated_days": 619,
+  "rows": [
+    {
+      "condition": "QQQ_abs_R_ge_1.5",
+      "field": "days",
+      "implementation": 36,
+      "independent_script": 36,
+      "match": true
+    },
+    {
+      "condition": "QQQ_abs_R_ge_2.0",
+      "field": "days",
+      "implementation": 20,
+      "independent_script": 20,
+      "match": true
+    },
+    {
+      "condition": "SOXL_abs_R_ge_4.5",
+      "field": "days",
+      "implementation": 149,
+      "independent_script": 149,
+      "match": true
+    },
+    {
+      "condition": "SOXL_abs_R_ge_6.0",
+      "field": "days",
+      "implementation": 91,
+      "independent_script": 91,
+      "match": true
+    },
+    {
+      "condition": "A1_pooled",
+      "field": "symbol_days",
+      "implementation": 185,
+      "independent_script": 185,
+      "match": true
+    },
+    {
+      "condition": "A2",
+      "field": "symbol_days",
+      "implementation": 418,
+      "independent_script": 418,
+      "match": true
+    },
+    {
+      "condition": "B1_nr7",
+      "field": "symbol_days",
+      "implementation": 1854,
+      "independent_script": 1854,
+      "match": true
+    },
+    {
+      "condition": "B2_inside_nr4",
+      "field": "symbol_days",
+      "implementation": 877,
+      "independent_script": 877,
+      "match": true
+    },
+    {
+      "condition": "B3_close_gt_sma20",
+      "field": "symbol_days",
+      "implementation": 7299,
+      "independent_script": 7299,
+      "match": true
+    },
+    {
+      "condition": "C1_rsi2_lt5_close_gt_sma200",
+      "field": "symbol_days",
+      "implementation": 282,
+      "independent_script": 282,
+      "match": true
+    },
+    {
+      "condition": "C2_rsi3_roc1_lt30",
+      "field": "symbol_days",
+      "implementation": 1312,
+      "independent_script": 1312,
+      "match": true
+    },
+    {
+      "condition": "D_k0.6",
+      "field": "symbol_days",
+      "implementation": 407,
+      "independent_script": 408,
+      "match": false
+    },
+    {
+      "condition": "D_k1.0",
+      "field": "symbol_days",
+      "implementation": 43,
+      "independent_script": 43,
+      "match": true
+    }
+  ],
+  "matched": 12,
+  "total": 13,
+  "mismatch_explanation": {
+    "D_k0.6": "single symbol-day AVGO 2023-11-27: its t-1 2023-11-24 is an early-close day, invalid under prereg 3.1, so the implementation blocks D; the independent script's D path bridged to the previous valid day 2023-11-22 (its B/C path had the adjacency check). The implementation is the contract-faithful one."
+  },
+  "implementation_output": {
+    "counts": {
+      "A1_pooled": {
+        "days": 152,
+        "symbol_days": 185
+      },
+      "A2": {
+        "days": 234,
+        "symbol_days": 418
+      },
+      "B1_nr7": {
+        "days": 461,
+        "symbol_days": 1854
+      },
+      "B2_inside_nr4": {
+        "days": 344,
+        "symbol_days": 877
+      },
+      "B3_close_gt_sma20": {
+        "days": 612,
+        "symbol_days": 7299
+      },
+      "C1_rsi2_lt5_close_gt_sma200": {
+        "days": 119,
+        "symbol_days": 282
+      },
+      "C2_rsi3_roc1_lt30": {
+        "days": 408,
+        "symbol_days": 1312
+      },
+      "D_k0.6": {
+        "days": 199,
+        "symbol_days": 407
+      },
+      "D_k1.0": {
+        "days": 27,
+        "symbol_days": 43
+      },
+      "QQQ_abs_R_ge_1.5": {
+        "days": 36,
+        "symbol_days": 36
+      },
+      "QQQ_abs_R_ge_2.0": {
+        "days": 20,
+        "symbol_days": 20
+      },
+      "SOXL_abs_R_ge_4.5": {
+        "days": 149,
+        "symbol_days": 149
+      },
+      "SOXL_abs_R_ge_6.0": {
+        "days": 91,
+        "symbol_days": 91
+      }
+    },
+    "definitions": "condition counts only (no fills, no returns); t in evaluated days; B/C/D need a valid t-1 daily bar and defined indicators; A needs 09:30 and 14:44 bars of the signal symbol; D needs ATR14(t-1) and a 10:00-15:00 bar with close <= VWAP - k*ATR14; day t validity not required",
+    "evaluated_days": 619,
+    "implementation": {
+      "git_commit": "6ddd42b2b4e5115487d32cf172962f67246fdf97",
+      "worktree_clean": true
+    }
+  }
+}

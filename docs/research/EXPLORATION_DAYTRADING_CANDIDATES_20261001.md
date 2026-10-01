@@ -3,7 +3,11 @@
 > 작성: 2026-10-01 · 성격: **informational / 가설 생성**<br>
 > 이 문서는 사전등록이 아니다. 어떤 진입·청산 규칙의 손익도 계산하지 않았다.
 > 다음 gross-edge screen 사전등록의 후보·근거·제약을 정리하는 입력이다.
-> 진행 중인 `premarket_freeze_long_intraday_v1` Paper와 무관하다.
+> 진행 중인 `premarket_freeze_long_intraday_v1` Paper와 무관하다.<br>
+> **후속:** 이 문서의 0.30%/0.45 기준과 12개 후보 초안은 사전등록 이전의 탐색값이다.
+> 정본 기준은 [PREREG v2 r4](PREREG_P0_US30_GROSS_EDGE_SCREEN_V2.md)(공식 0.34%p, 8 arm)이다.
+> 결과는 [RESULT v2](RESULT_P0_US30_GROSS_EDGE_SCREEN_V2.md)(`NO_GROSS_EDGE`)다.
+> §1 기회 크기 통계는 스크립트를 커밋하지 않아 재현 불가한 서술 맥락이다.
 
 ## 0. 방법과 데이터 경계
 
