@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -37,11 +38,12 @@ def make_root(tmp_path: Path, *, activate_config: bool = True) -> Path:
     (root / "config").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(REPO / "config" / "universe_p0_us30.yaml", root / "config" / "universe_p0_us30.yaml")
     text = (REPO / CONFIG_RELATIVE).read_text(encoding="utf-8")
-    if activate_config:
-        text = text.replace("approved_strategy_templates: []",
-                            f"approved_strategy_templates: [{FREEZE_PAPER_TEMPLATE_ID}]")
-        text = text.replace("approved_short_strategy_templates: []",
-                            f"approved_short_strategy_templates: [{FREEZE_PAPER_TEMPLATE_ID}]")
+    # Set both allowlists explicitly so the fixture does not depend on the repo's current
+    # activation state.
+    approved = f"[{FREEZE_PAPER_TEMPLATE_ID}]" if activate_config else "[]"
+    for key in ("approved_strategy_templates", "approved_short_strategy_templates"):
+        text, count = re.subn(rf"^{key}: .*$", f"{key}: {approved}", text, flags=re.MULTILINE)
+        assert count == 1, key
     (root / CONFIG_RELATIVE).write_text(text, encoding="utf-8")
     (root / NODE_FILE).parent.mkdir(parents=True, exist_ok=True)
     (root / NODE_FILE).write_text(
