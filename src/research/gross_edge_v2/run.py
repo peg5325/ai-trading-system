@@ -1,0 +1,257 @@
+"""Official one-pass development runner for the frozen screen v2 (§9).
+
+Order (fail closed): contract hashes + registry -> window counts -> data identity (file SHA
++ tracked receipts, no semantic recompute, per the v1 erratum) -> guarded load through
+2026-01-20 -> data-quality gate -> trades -> statistics -> determinism re-check.
+Identity, window, quality or determinism defects yield INCONCLUSIVE_DATA without arm
+statistics.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+from collections.abc import Mapping, Sequence
+from datetime import date
+from typing import Any
+
+from src.research.development_identity import verify_intraday_identity
+from src.research.gross_edge.contract import repo_root
+from src.research.gross_edge_v2.arms import (
+    UNIVERSE,
+    extract_trades,
+    valid_bars_for,
+    verify_registry,
+)
+from src.research.gross_edge_v2.contract import (
+    FREEZE_COMMIT,
+    PREREG_JSON_PATH,
+    PREREG_JSON_SHA256,
+    PREREG_MD_PATH,
+    PREREG_MD_SHA256,
+    load_contract,
+)
+from src.research.gross_edge_v2.data import (
+    DATA_END,
+    DataDefectError,
+    DayBars,
+    Windows,
+    build_windows,
+    load_symbol_bars,
+    window_defects,
+)
+from src.research.gross_edge_v2.evaluation import (
+    BaselineCache,
+    evaluate_arms,
+    verify_statistics,
+)
+
+SCHEMA = "p0_us30_gross_edge_screen_result_v2"
+TRACKED_SNAPSHOT_RECEIPT = "docs/research/P0_US30_ORB_CLEAN_SNAPSHOT_RECEIPT.json"
+MANIFEST_PATH = "docs/research/P0_US30_ORB_CLEAN_1M_MANIFEST.json"
+RESULT_JSON_PATH = "docs/research/RESULT_P0_US30_GROSS_EDGE_SCREEN_V2.json"
+RESULT_MD_PATH = "docs/research/RESULT_P0_US30_GROSS_EDGE_SCREEN_V2.md"
+MAX_INVALID_SHARE = 0.05
+
+
+def canonical_json_bytes(result: Mapping[str, Any]) -> bytes:
+    return (
+        json.dumps(result, sort_keys=True, ensure_ascii=False, indent=2, allow_nan=False)
+        + "\n"
+    ).encode("utf-8")
+
+
+def _base_payload(contract: Mapping[str, Any], windows: Windows) -> dict[str, Any]:
+    return {
+        "schema": SCHEMA,
+        "verdict": None,
+        "strategy_id": contract["strategy_id"],
+        "prereg": {
+            "md_path": PREREG_MD_PATH,
+            "json_path": PREREG_JSON_PATH,
+            "md_file_sha256": PREREG_MD_SHA256,
+            "json_file_sha256": PREREG_JSON_SHA256,
+            "freeze_commit": FREEZE_COMMIT,
+        },
+        "windows": {
+            "trade_eval_start": windows.trade_days[0].isoformat(),
+            "trade_eval_end": windows.trade_days[-1].isoformat(),
+            "trade_eval_trading_days": len(windows.trade_days),
+            "excluded_block_trading_days": len(windows.excluded_block_days),
+            "evaluated_trading_days": len(windows.evaluated_days),
+            "data_end": DATA_END.isoformat(),
+        },
+        "blind_oos_accessed": False,
+        "holdout_h2_accessed": False,
+        "automatic_oos_h2_or_paper_approval": False,
+        "data_identity": None,
+        "data_quality": None,
+        "determinism": None,
+        "arms": [],
+        "shortlisted_arms": [],
+        "inverse_only_arms": [],
+        "sample_arms": [],
+        "inconclusive_reason": None,
+    }
+
+
+def _finalize(payload: dict[str, Any]) -> dict[str, Any]:
+    payload.pop("payload_sha256", None)
+    payload["payload_sha256"] = hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
+    return payload
+
+
+def inconclusive(payload: dict[str, Any], reason: str) -> dict[str, Any]:
+    payload["verdict"] = "INCONCLUSIVE_DATA"
+    payload["inconclusive_reason"] = reason
+    payload["arms"] = []
+    payload["shortlisted_arms"] = payload["inverse_only_arms"] = payload["sample_arms"] = []
+    return _finalize(payload)
+
+
+def data_quality(
+    bars_by_symbol: Mapping[str, Mapping[date, DayBars]], evaluated_days: Sequence[date]
+) -> dict[str, Any]:
+    invalid = {
+        symbol: sum(
+            1 for day in evaluated_days
+            if valid_bars_for(bars_by_symbol.get(symbol, {}), day) is None
+        )
+        for symbol in UNIVERSE
+    }
+    evaluated = len(UNIVERSE) * len(evaluated_days)
+    total = sum(invalid.values())
+    share = total / evaluated if evaluated else 1.0
+    max_day = max(
+        (day for days in bars_by_symbol.values() for day in days), default=None
+    )
+    return {
+        "evaluated_symbol_days": evaluated,
+        "invalid_symbol_days": total,
+        "invalid_share": share,
+        "max_invalid_share": MAX_INVALID_SHARE,
+        "breach": share > MAX_INVALID_SHARE,
+        "invalid_by_symbol": invalid,
+        "max_loaded_day": None if max_day is None else max_day.isoformat(),
+    }
+
+
+def _evaluate(
+    bars_by_symbol: Mapping[str, Mapping[date, DayBars]],
+    windows: Windows,
+    *,
+    reverse_input: bool = False,
+) -> tuple[list[dict[str, Any]], str, Mapping[str, Mapping[str, int]]]:
+    extraction = extract_trades(bars_by_symbol, windows.evaluated_days)
+    trades = list(extraction.trades)
+    if reverse_input:
+        trades.reverse()
+    results, verdict = evaluate_arms(
+        trades, BaselineCache(bars_by_symbol, windows.evaluated_days)
+    )
+    return results, verdict, extraction.skip_counts
+
+
+def build_payload(
+    contract: Mapping[str, Any],
+    windows: Windows,
+    identity: Mapping[str, Any],
+    bars_by_symbol: Mapping[str, Mapping[date, DayBars]],
+) -> dict[str, Any]:
+    """Quality gate, trades, statistics and determinism check on already-loaded bars."""
+    payload = _base_payload(contract, windows)
+    payload["data_identity"] = dict(identity)
+    max_day = max((day for days in bars_by_symbol.values() for day in days), default=None)
+    if max_day is not None and max_day > DATA_END:
+        raise AssertionError(f"data after {DATA_END} reached the screen: {max_day}")
+    quality = data_quality(bars_by_symbol, windows.evaluated_days)
+    payload["data_quality"] = quality
+    if quality["breach"]:
+        return inconclusive(payload, "data_quality: invalid symbol-days exceed 5%")
+
+    results, verdict, skips = _evaluate(bars_by_symbol, windows)
+    rerun, rerun_verdict, _ = _evaluate(bars_by_symbol, windows, reverse_input=True)
+    identical = canonical_json_bytes({"a": results, "v": verdict}) == canonical_json_bytes(
+        {"a": rerun, "v": rerun_verdict}
+    )
+    payload["determinism"] = {"evaluation_rerun_reversed_input_identical": identical}
+    quality["skip_counts_by_arm"] = skips
+    if not identical:
+        return inconclusive(payload, "determinism: evaluation re-run differs")
+    payload["verdict"] = verdict
+    payload["arms"] = results
+    payload["shortlisted_arms"] = [r["arm_id"] for r in results if r["status"] == "LONG_CANDIDATE"]
+    payload["inverse_only_arms"] = [r["arm_id"] for r in results if r["status"] == "INVERSE_ONLY"]
+    payload["sample_arms"] = [r["arm_id"] for r in results if r["status"] == "SAMPLE"]
+    return _finalize(payload)
+
+
+def check_identity(
+    contract: Mapping[str, Any],
+    *,
+    snapshot_path: str,
+    raw_root: str,
+    manifest_path: str,
+    snapshot_receipt_path: str,
+) -> dict[str, Any]:
+    """File SHA + tracked receipts (v1 erratum method). Raises on any mismatch."""
+    expected = contract["data_identity"]
+    if os.path.basename(snapshot_path) != expected["snapshot_basename"]:
+        # Also keeps the operating market_history.sqlite (or any other DB) out.
+        raise RuntimeError(f"snapshot basename is not the frozen snapshot: {snapshot_path}")
+    checks = verify_intraday_identity(
+        snapshot_path=snapshot_path,
+        raw_root=raw_root,
+        intraday_manifest_path=manifest_path,
+        snapshot_receipt_path=snapshot_receipt_path,
+        expected_snapshot_file=str(expected["snapshot_file_sha256"]),
+        expected_snapshot_content=str(expected["snapshot_content_sha256"]),
+        expected_intraday_manifest=str(expected["manifest_data_sha256"]),
+        expected_raw_content=str(expected["raw_content_sha256"]),
+    )
+    return {
+        str(check["name"]): {
+            "expected": check["expected"], "actual": check["actual"], "status": check["status"]
+        }
+        for check in checks
+    }
+
+
+def run_screen(
+    *,
+    snapshot_path: str,
+    raw_root: str,
+    manifest_path: str,
+    snapshot_receipt_path: str | None = None,
+) -> dict[str, Any]:
+    contract = load_contract()
+    verify_registry(contract)
+    verify_statistics(contract)
+    windows = build_windows(contract)
+    payload = _base_payload(contract, windows)
+    defects = window_defects(contract, windows)
+    if defects:
+        return inconclusive(payload, "window: " + "; ".join(defects))
+    try:
+        identity = check_identity(
+            contract,
+            snapshot_path=snapshot_path,
+            raw_root=raw_root,
+            manifest_path=manifest_path,
+            snapshot_receipt_path=snapshot_receipt_path
+            or os.path.join(repo_root(), TRACKED_SNAPSHOT_RECEIPT),
+        )
+    except Exception as error:  # noqa: BLE001 - any identity failure is fail-closed
+        return inconclusive(payload, f"identity: {type(error).__name__}: {error}")
+    payload["data_identity"] = identity
+    try:
+        bars_by_symbol = {
+            symbol: load_symbol_bars(snapshot_path, symbol) for symbol in UNIVERSE
+        }
+    except DataDefectError as error:
+        return inconclusive(payload, f"data_defect: {error}")
+    return build_payload(contract, windows, identity, bars_by_symbol)
+
+
+def default_manifest_path() -> str:
+    return os.path.join(repo_root(), MANIFEST_PATH)
