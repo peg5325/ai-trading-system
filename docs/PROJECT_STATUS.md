@@ -134,6 +134,15 @@ snapshot의 `policy_config`가 영수증의 활성화 config와 같아야 하므
 위 분석을 근거로 새 데이트레이딩 탐색 계획을 결과를 보기 전에 고정할 것을 제안한다. 사용자 결정 전이다.
 - 고정할 항목: Toss 단독 핵심 20종, development 경계, OOS 경계, 후보 3~5개, 다중비교 방법.
 - 재개는 closeout이 요구하는 새 계획·새 데이터 완전성 계약·새 사전등록을 거친다.
+- 2026-10-01 후보 탐색([문서](research/EXPLORATION_DAYTRADING_CANDIDATES_20261001.md)):
+  - 조사 범위: 학술 문헌, 실전 트레이더 방법, development 구간 기회 크기(무조건부 움직임만, 손익 미계산).
+  - 1차 gross-edge screen 후보:
+    - A: 극단일 장 마감 레버리지 ETF 지속
+    - B: Crabel NR7/Williams 변동성 돌파
+    - C: 일봉 과매도 조건 장중 진입
+    - D: VWAP/ATR 극단 회귀
+  - E(실적 발표일)는 EDGAR 실적일 데이터 작업 후로 미룬다.
+  - 2026-01-21 이후 가격은 읽지 않았다. screen 사전등록과 arm 수·판정 기준은 사용자 결정 전이다.
 
 ## 아직 충족하지 않은 실행 게이트
 
