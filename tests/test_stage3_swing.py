@@ -15,13 +15,18 @@ import pytest
 
 from src.research.stage3_swing import contract as C
 from src.research.stage3_swing.account import (
+    Drift,
+    account_values,
+    drift_l3,
     full_period_stats,
     log_factors,
+    log_factors_drift,
     month_starts,
     order_legs,
     turnover,
     window_growth,
 )
+from src.research.stage3_swing.engine import index_paths
 from src.research.stage3_swing.loading import (
     RawData,
     build_panel,
@@ -32,7 +37,11 @@ from src.research.stage3_swing.loading import (
     tr_level,
 )
 from src.research.stage3_swing.products import return_matrix, synthetic_return
-from src.research.stage3_swing.rules import rule_positions, series_from_arrays
+from src.research.stage3_swing.rules import (
+    rebalance_flags,
+    rule_positions,
+    series_from_arrays,
+)
 
 
 def _arrays(n: int = 1600, seed: int = 0) -> dict:
@@ -263,3 +272,49 @@ def test_initial_buy_is_charged_exactly_once():
     dates = pd.bdate_range("2000-01-03", periods=n)
     stats = full_period_stats(prod2, w, lc2, 0, 5, C0, dates)
     assert stats["orders"] == 3 and stats["trade_days"] == 2
+
+
+# ---- partial-weight rules (7, 8): the 3x sleeve drifts between rebalances
+
+_R3 = np.array([0.0, 0.2, 0.2])
+_W = np.array([0.5, 0.5, 0.5])
+
+
+def test_drifted_rebalance_charges_gap_between_target_and_drifted_sleeve():
+    reb = np.array([False, False, True])
+    lf = log_factors_drift(_W, reb, _R3, C0)
+    # sleeve 0.5 -> 0.6 -> 0.72, cash 0.5: V = 1.22; target sleeve 0.61; trade |0.61 - 0.72| = 0.11
+    assert np.exp(lf.sum()) == pytest.approx(1.22 - C0 * 0.11, abs=1e-12)
+
+
+def test_weight_drifts_within_month_without_implicit_daily_reset():
+    reb = np.array([False, False, False])
+    lf = log_factors_drift(_W, reb, _R3, C0)
+    assert np.exp(lf.sum()) == pytest.approx(1.22, abs=1e-12)  # constant-weight model gives 1.21
+    assert np.exp(lf[:2].sum()) == pytest.approx(1.1, abs=1e-12)
+
+
+def test_start_inside_a_segment_uses_start_weight_until_first_rebalance():
+    reb = np.array([False, False, True])
+    lc = np.cumsum(log_factors_drift(_W, reb, _R3, C0))
+    drift = Drift(reb, drift_l3(_R3))
+    v = account_values(lc, _W, drift, np.array([1]), np.array([[1, 2]]), np.array([1.0]), C0)
+    # opened at row 1 with sleeve 0.5: 0.5 -> 0.6 (V 1.1); gap |0.55 - 0.6| = 0.05
+    assert v[0, 0] == pytest.approx(1.0)
+    assert v[0, 1] == pytest.approx(1.1 - C0 * 0.05, abs=1e-12)
+    v0 = account_values(lc, _W, drift, np.array([0]), np.array([[2]]), np.array([1.0]), C0)
+    assert v0[0, 0] == pytest.approx(1.22 - C0 * 0.11, abs=1e-12)
+
+
+def test_rules_7_and_8_use_drift_and_full_weight_rules_do_not():
+    s = _series(_arrays())
+    rmat, paths = index_paths(s, "sp", C0)
+    assert paths["7"][3] is not None and paths["8"][3] is not None
+    assert all(paths[r][3] is None for r in C.RULE_IDS if r not in ("7", "8"))
+    flags = rebalance_flags(s)
+    for rule in ("7", "8"):
+        w = paths[rule][1]
+        changed = np.flatnonzero(np.diff(w) != 0) + 1
+        assert set(changed) <= set(np.flatnonzero(flags[rule]))
+    p3, w3, lc3, _ = paths["3"]
+    np.testing.assert_array_equal(lc3, np.cumsum(log_factors(p3, w3, rmat, C0)))

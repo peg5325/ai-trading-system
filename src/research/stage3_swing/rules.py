@@ -191,3 +191,19 @@ def rule_positions(s: Series, mode: str = "lag") -> dict[str, Position]:
         decided = {k: _lag(*v) for k, v in decided.items()}
     decided.update(calendar)
     return {k: decided[k] for k in C.RULE_IDS}
+
+
+def rebalance_flags(s: Series, mode: str = "lag") -> dict[str, np.ndarray]:
+    """Executed rebalance rows of the partial-weight rules.
+
+    Rule 7 rebalances at each month-end trade; rule 8 at each month-end trade and at each
+    200-day-SMA switch. Decided at the close of the flagged row, executed one row later in
+    "lag" mode.
+    """
+    above = s.px > sma(s.px, 200)
+    flip = np.zeros(len(above), dtype=bool)
+    flip[1:] = above[1:] != above[:-1]
+    flags = {"7": s.is_me.copy(), "8": s.is_me | flip}
+    if mode == "lag":
+        flags = {k: _shift(v, 1) for k, v in flags.items()}
+    return flags

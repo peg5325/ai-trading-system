@@ -27,7 +27,7 @@ from .loading import RawData, build_panel
 INVERSE_RULES = ("3i", "5i", "6i")
 LIMITATIONS = (
     "Thresholds are monitored on daily closes only; intraday crossings are missed.",
-    "Target weights are held constant between trades (no drift); only trades are charged.",
+    "Rules 7 and 8 hold a drifting 3x sleeve rebalanced monthly (and on 200-day switches for 8); full-weight rules have no drift.",
     "Cash earns 0% (Charter section 3); no validated interest rate.",
     (
         "Post-tax view is approximate: gains realised only on sells, tax paid at calendar-year end, "
@@ -72,21 +72,26 @@ def run_study(raw: RawData, provenance: dict, reps: int = C.BOOT_REPS, workers: 
         _, same = index_paths(s, index, C.COST_ONE_WAY, mode="same")
         rows: dict = {}
         for rule in C.RULE_IDS:
-            prod, w, lc = base[rule]
-            paths = score_paths(lc, w, starts, C.COST_ONE_WAY)
+            prod, w, lc, drift = base[rule]
+            paths = score_paths(lc, w, starts, C.COST_ONE_WAY, drift)
             row = summarize_paths(paths)
-            row["full_period"] = full_period_stats(prod, w, lc, i0, n - 1, C.COST_ONE_WAY, dates)
+            row["full_period"] = full_period_stats(
+                prod, w, lc, i0, n - 1, C.COST_ONE_WAY, dates, drift
+            )
             row["era_growth"] = [
-                window_growth(lc, w, a, b, C.COST_ONE_WAY) for a, b in eras
+                window_growth(lc, w, a, b, C.COST_ONE_WAY, drift) for a, b in eras
             ]
             row["stress_cost"] = summarize_paths(
-                score_paths(stress[rule][2], stress[rule][1], starts, C.COST_STRESS)
+                score_paths(stress[rule][2], stress[rule][1], starts, C.COST_STRESS, stress[rule][3])
             )
             row["same_close"] = summarize_paths(
-                score_paths(same[rule][2], same[rule][1], starts, C.COST_ONE_WAY)
+                score_paths(same[rule][2], same[rule][1], starts, C.COST_ONE_WAY, same[rule][3])
             )
             row["after_tax"] = summarize_paths(
-                score_paths_after_tax(prod, w, rmat, starts, C.COST_ONE_WAY, year_end)
+                score_paths_after_tax(
+                    prod, w, rmat, starts, C.COST_ONE_WAY, year_end,
+                    drift.reb if drift is not None else None,
+                )
             )
             if rule in INVERSE_RULES:
                 row["inverse"] = inverse_contribution(prod, w, rmat, i0, n - 1)

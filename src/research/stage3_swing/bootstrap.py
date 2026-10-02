@@ -46,8 +46,8 @@ def delta_p(arr: dict[str, np.ndarray], starts: np.ndarray, cost: float) -> np.n
         _, paths = index_paths(series_for(arr, index), index, cost)
         base = p_reach(paths["1"][2], paths["1"][1], starts, cost)
         for j, rule in enumerate(C.CANDIDATE_IDS):
-            _, w, lc = paths[rule]
-            out[i, j] = p_reach(lc, w, starts, cost) - base
+            _, w, lc, drift = paths[rule]
+            out[i, j] = p_reach(lc, w, starts, cost, drift) - base
     return out
 
 

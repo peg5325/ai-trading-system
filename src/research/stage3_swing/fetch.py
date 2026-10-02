@@ -22,7 +22,8 @@ def _get(url: str) -> bytes:
 
 
 def yahoo_url(symbol: str) -> str:
-    # period2 is the day after DATA_END so blind-OOS rows are never even stored
+    # Yahoo only: period2 is the day after DATA_END so those files hold no blind-OOS rows.
+    # Cboe and French files do contain later rows; the loaders drop them right after parsing.
     nxt = C.DATA_END + timedelta(days=1)
     p2 = int(datetime(nxt.year, nxt.month, nxt.day, tzinfo=timezone.utc).timestamp())
     return (

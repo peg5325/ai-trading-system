@@ -52,6 +52,11 @@ def main() -> int:
     ap.add_argument("--fetch", action="store_true", help="download raw files only")
     ap.add_argument("--raw-dir", type=Path, help="raw directory (default: newest under data/external/stage3_swing)")
     ap.add_argument("--reps", type=int, default=C.BOOT_REPS, help="bootstrap replications (prereg: 1000)")
+    ap.add_argument(
+        "--not-prereg", action="store_true",
+        help="allow a non-preregistered run (other reps, dirty tree, or existing result); "
+        "writes RESULT_STAGE3_SWING_V1.NOT_PREREG.json/.md",
+    )
     ap.add_argument("--workers", type=int, default=1, help="bootstrap worker processes")
     args = ap.parse_args()
 
@@ -61,11 +66,38 @@ def main() -> int:
         print(f"fetched {len(manifest['files'])} files to {out}")
         return 0
 
+    problems = []
+    if not args.not_prereg:
+        if args.reps != C.BOOT_REPS:
+            problems.append(f"--reps {args.reps} != preregistered {C.BOOT_REPS}")
+        if RESULT_BASE.with_suffix(".json").exists():
+            problems.append(f"{RESULT_BASE.with_suffix('.json').name} already exists (one run only)")
+    if args.raw_dir is None and not (RAW_ROOT.is_dir() and any(p.is_dir() for p in RAW_ROOT.iterdir())):
+        problems.append(f"no raw data under {RAW_ROOT}; run --fetch first")
+    if problems:
+        print("refusing to run:\n  " + "\n  ".join(problems), file=sys.stderr)
+        return 1
+
     raw_dir = args.raw_dir or max(p for p in RAW_ROOT.iterdir() if p.is_dir())
     prov = provenance(raw_dir)
+    out_base = RESULT_BASE
+    if args.not_prereg:
+        out_base = RESULT_BASE.with_name(RESULT_BASE.name + ".NOT_PREREG")
+    else:
+        if prov["code_dirty"]:
+            problems.append("code has uncommitted changes (commit before the one-shot run)")
+        if problems:
+            print("refusing to run:\n  " + "\n  ".join(problems)
+                  + "\nuse --not-prereg for an explicitly non-preregistered run", file=sys.stderr)
+            return 1
+    prov["preregistered_run"] = not args.not_prereg
     result = run_study(load_raw_dir(raw_dir), prov, reps=args.reps, workers=args.workers)
-    write_json(result, RESULT_BASE.with_suffix(".json"))
-    RESULT_BASE.with_suffix(".md").write_text(render_markdown(result))
+    result["preregistered_run"] = not args.not_prereg
+    write_json(result, out_base.with_name(out_base.name + ".json"))
+    md = render_markdown(result)
+    if args.not_prereg:
+        md = md.replace("# RESULT stage 3 swing v1", "# RESULT stage 3 swing v1 (NOT PREREGISTERED)", 1)
+    out_base.with_name(out_base.name + ".md").write_text(md)
     print(f"status: {result['status']}")
     return 0 if result["status"] != "CALIBRATION_FAIL" else 2
 
