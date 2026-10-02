@@ -23,6 +23,7 @@ class LaunchdJob:
 def jobs(project_root: Path, python: Path) -> tuple[LaunchdJob, ...]:
     runner = project_root / "scripts" / "run_premarket_pipeline.py"
     paper = project_root / "scripts" / "run_freeze_paper_session.py"
+    collection = project_root / "scripts" / "run_history_collection.py"
     return (
         # New York's daylight-saving offset changes the equivalent KST hour.
         # The runner validates the actual NYSE-relative window, so each paired
@@ -41,6 +42,11 @@ def jobs(project_root: Path, python: Path) -> tuple[LaunchdJob, ...]:
         LaunchdJob("freeze-paper-06", 6, 35, (str(python), str(paper))),
         # Retry slot: 17:35 ET in EST. A recorded session makes it a no-op.
         LaunchdJob("freeze-paper-07", 7, 35, (str(python), str(paper))),
+        # Full-universe 1m collection after the POST session closes in both DST regimes
+        # (09:00/10:00 KST) and clear of every other job; a COMPLETE receipt makes the
+        # retry slot a no-op.
+        LaunchdJob("history-collect-10", 10, 40, (str(python), str(collection))),
+        LaunchdJob("history-collect-13", 13, 40, (str(python), str(collection))),
     )
 
 

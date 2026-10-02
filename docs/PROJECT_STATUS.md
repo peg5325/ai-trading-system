@@ -120,6 +120,20 @@
   - 핵심 20종은 개별 ≤ 5%이고, 2024-09-03~2026-01-20 구간에서는 0.26%다.
   - blind OOS 구간은 봉 존재 여부로만 접촉했다(가격·수익률 미열람). 이 coverage 정보는 "이미 본 정보"로 기록한다.
   - US 1분봉은 2026-07-22~09-24에 공백이 있고, 이후 수집은 하루 4~5종목뿐이다.
+- US 1분봉 수집 보강(2026-10-01, 진행 중 Paper 계약·운영 체크아웃 코드 비접촉):
+  - 공백 복구: P0-US30 30종을 공식 backfill 경로(`--tail-repair`, PRE/REGULAR/POST, raw snapshot 보존)로
+    2026-09-30까지 다시 읽었다. 운영 job과 같은 `data/.market_history.lock` 아래 종목별로 실행했고,
+    시작 전 DB 백업은 `data/backups/market_history.pre-1m-gap-backfill.20261001.sqlite`(quick_check ok)이다.
+  - 결과: 2026-07-22~09-30 50거래일에서 핵심 20종 REGULAR 50/50·결측 0분. SMH·XLE·XLU·VST도 50/50.
+    DIA·XLK·XLF·XLV·XLI·XLY는 1~4분 결측이다(체결 없는 분 추정, 미검증).
+  - 충돌은 2건뿐이다. XLV·XLU 2026-05-06 한 봉의 volume 차이였고, 둘 다 `kept_existing`이다.
+    해당 봉은 blind OOS 구간이지만 기존 봉 재조회의 중복 처리일 뿐 가격·수익률을 분석에 쓰지 않았다.
+  - 매일 수집: `scripts/run_history_collection.py`와 launchd `history-collect` 10:40·13:40 KST를 추가했다
+    (브랜치 `claude/us-1m-collection-backfill`).
+    - 수집 대상은 POST가 닫힌 마지막 거래일의 30종 40페이지 tail-repair다.
+    - 종목별 backfill 오류가 있으면 COMPLETE 영수증을 쓰지 않는다. 독립 리뷰는 APPROVE_WITH_NITS였고 지적을 반영했다.
+    - **launchd 미설치.** 운영 체크아웃 이동과 재설치는 사용자 결정 사항이다(권장: 10-14 Paper 평가 이후).
+    - 그 사이 날짜는 첫 실행 전 `--max-pages`를 넓혀 따라잡는다.
 
 ## 다음 한 가지 작업
 
