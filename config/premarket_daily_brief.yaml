@@ -25,9 +25,11 @@ excluded_universe_classes:
 # LONG allowlist. Activated 2026-10-01 only together with the validated first-session receipt
 # docs/research/PREREG_PREMARKET_FREEZE_LONG_PAPER_V1_FIRST_SESSION_RECEIPT.json (Paper only).
 # Briefs stay executable=false / orders=[]; the Paper runner refuses to run without that receipt.
-approved_strategy_templates: [premarket_freeze_long_intraday_v1]
+# 2026-10-02 사용자 결정: 전략 원점 재검토 동안 Paper를 일시 중지한다(v1.3 세션 실행 전).
+# 목록을 비우면 이 파일 해시가 영수증과 달라져 freeze-paper 러너는 NOT_ACTIVATED로 끝난다.
+approved_strategy_templates: []
 # 숏 가능 전략은 롱 승인에서 상속하지 않고 별도로 승인한다.
-approved_short_strategy_templates: [premarket_freeze_long_intraday_v1]
+approved_short_strategy_templates: []
 
 weights:
   catalyst_score: 0.30
