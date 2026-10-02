@@ -1,9 +1,14 @@
-"""Frozen constants of PREREG_STAGE3_SWING_V1. Do not tune after seeing results."""
+"""Frozen constants of PREREG_STAGE3_SWING_V2. Do not tune after seeing results.
+
+v2 differs from v1 only in the calibration correlation basis (weekly instead of daily returns).
+"""
 from __future__ import annotations
 
 from datetime import date
 
-PREREG_PATH = "docs/research/PREREG_STAGE3_SWING_V1.md"
+VERSION = "v2"
+PREREG_PATH = "docs/research/PREREG_STAGE3_SWING_V2.md"
+RESULT_NAME = "RESULT_STAGE3_SWING_V2"
 DATA_END = date(2025, 7, 18)  # blind OOS (2025-07-21~) is never read
 PREP_START = date(1993, 2, 1)  # indicator-prep slice start
 TRADE_START = date(1994, 2, 1)
@@ -24,7 +29,8 @@ COST_ONE_WAY = 0.0015
 COST_STRESS = 0.0025
 
 CAL_MAX_ANN_DIFF = 0.015
-CAL_MIN_CORR = 0.99
+CAL_MIN_CORR = 0.99  # v2: applied to weekly returns
+CAL_WEEK_RULE = "W-FRI"
 
 BOOT_REPS = 1000
 BOOT_SEED = 20261002

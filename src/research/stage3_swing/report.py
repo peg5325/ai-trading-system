@@ -18,7 +18,7 @@ def _pct(x) -> str:
 def render_markdown(result: dict) -> str:
     prov = result["provenance"]
     lines = [
-        "# RESULT stage 3 swing v1",
+        f"# RESULT stage 3 swing {C.VERSION}",
         "",
         f"- status: **{result['status']}**",
         f"- prereg blob SHA: `{prov['prereg']['git_blob_sha']}`",
@@ -34,15 +34,16 @@ def render_markdown(result: dict) -> str:
     lines += [f"- `{name}`: `{digest}`" for name, digest in sorted(prov["raw_sha256"].items())]
     cal = result["calibration"]
     lines += ["", f"## Calibration gate: {'PASS' if cal['pass'] else 'CALIBRATION_FAIL'}", "",
-              "| ETF | days | ann synthetic | ann actual | diff | corr | pass |",
-              "| --- | --- | --- | --- | --- | --- | --- |"]
+              "| ETF | days | weeks | ann synthetic | ann actual | diff | corr weekly (gate) | corr daily (ref) | pass |",
+              "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
     for etf, r in cal["etfs"].items():
         lines.append(
-            f"| {etf} | {r['days']} | {_pct(r['ann_synthetic'])} | {_pct(r['ann_actual'])} | "
-            f"{100 * r['ann_diff']:+.2f}pp | {r['corr']:.4f} | {r['pass']} |"
+            f"| {etf} | {r['days']} | {r['weeks']} | {_pct(r['ann_synthetic'])} | {_pct(r['ann_actual'])} | "
+            f"{100 * r['ann_diff']:+.2f}pp | {r['corr_weekly']:.4f} | {r['corr_daily']:.4f} | {r['pass']} |"
         )
     t = cal["sp500tr_vs_spy_plus_er"]
-    lines += ["", f"^SP500TR vs SPY TR + ER: ann diff {100 * t['ann_diff']:+.2f}pp, corr {t['corr']:.4f}"]
+    lines += ["", (f"^SP500TR vs SPY TR + ER: ann diff {100 * t['ann_diff']:+.2f}pp, "
+                   f"corr weekly {t['corr_weekly']:.4f}, corr daily {t['corr_daily']:.4f}")]
     if result["status"] == "CALIBRATION_FAIL":
         lines += ["", "No strategy result was computed."]
         return "\n".join(lines) + "\n"
