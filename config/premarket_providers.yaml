@@ -18,6 +18,8 @@ marketaux:
   daily_limit: 60
   lookback_minutes: 180
   max_articles: 3
+  # Overrides http.timeout_seconds for Marketaux only (ops stability, 2026-10-02).
+  timeout_seconds: 30
   # Together these cannot exceed the project 60/day hard cap.
   max_pages_by_stage:
     PRIMARY: 30

@@ -11,7 +11,9 @@ from src.risk.models import RISK_REDUCING
 def test_binding_hash_is_the_contract_file_sha256():
     binding = load_binding()
     assert binding.sha256 == hashlib.sha256(CONTRACT_PATH.read_bytes()).hexdigest()
-    assert binding.contract["version"] == "1.2"
+    assert binding.contract["version"] == "1.3"
+    assert binding.quantity_decimals == 6
+    assert binding.min_order_notional_usd == 1.0
 
 
 def test_risk_and_exit_configs_come_from_implementation_binding():

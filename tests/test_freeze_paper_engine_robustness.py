@@ -120,12 +120,14 @@ def test_partial_exit_fill_keeps_the_remainder_open_and_records_it(scripted_brok
     state = run_session(new_account_state(BINDING), trade_gate(DAY, ["AAPL"]),
                         session_bars(DAY, {"AAPL": 100.0}), BINDING)
     (mismatch,) = _events(state, "EXIT_FILL_QUANTITY_MISMATCH")
-    assert (mismatch["held"], mismatch["filled"]) == (14.0, 10.0)
+    assert (mismatch["held"], mismatch["filled"]) == (14.977526, 10.0)
     sells = _sells(state)
-    assert [(f["client_order_id"], f["quantity"], f["timestamp"]) for f in sells] == [
-        ("pfl1-20261001-AAPL-SELL-1", 10.0, minute(DAY, 10, 35)),
-        ("pfl1-20261001-AAPL-SELL-2", 4.0, minute(DAY, 10, 36)),
+    assert [(f["client_order_id"], f["timestamp"]) for f in sells] == [
+        ("pfl1-20261001-AAPL-SELL-1", minute(DAY, 10, 35)),
+        ("pfl1-20261001-AAPL-SELL-2", minute(DAY, 10, 36)),
     ]
+    assert sells[0]["quantity"] == 10.0
+    assert sells[1]["quantity"] == 4.977526        # exact 6-dp remainder, no float drift
     assert state["positions"] == {}
     assert reconcile_state(state).ok
 

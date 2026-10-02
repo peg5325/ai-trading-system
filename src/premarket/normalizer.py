@@ -176,7 +176,8 @@ def _provider_sources(provider_bundle: Mapping[str, Any], generated_at: str) -> 
 
 
 def _events(provider_bundle: Mapping[str, Any], allowed: set[str], as_of: str,
-            generated_at: str) -> list[dict[str, Any]]:
+            generated_at: str, *, news_title_relevance_required: bool = False,
+            ) -> list[dict[str, Any]]:
     cutoff = parse_iso(as_of)
     recent_filing_cutoff = cutoff - timedelta(hours=24)
     out = []
@@ -191,6 +192,11 @@ def _events(provider_bundle: Mapping[str, Any], allowed: set[str], as_of: str,
                 if parse_iso(available) > cutoff:
                     continue
                 symbols = sorted({str(sym).upper() for sym in item.get("symbols", []) if str(sym).upper() in allowed})
+                if news_title_relevance_required:
+                    # v1.3: keep only symbols the title mentions. Items collected
+                    # before the provider recorded the field are relevant to none.
+                    relevant = {str(sym).upper() for sym in item.get("title_relevant_symbols") or []}
+                    symbols = [sym for sym in symbols if sym in relevant]
                 if not symbols:
                     continue
                 event = {
@@ -253,9 +259,12 @@ def _vix_value(provider_bundle: Mapping[str, Any]) -> float | None:
 
 
 def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping[str, Any], *,
-                      strategy_template_id: str | None = None) -> dict[str, Any]:
+                      strategy_template_id: str | None = None,
+                      news_title_relevance_required: bool = False) -> dict[str, Any]:
     """``strategy_template_id`` is attached to every candidate; callers pass
-    ``attachable_template(config)`` so it is None unless the config approves it."""
+    ``attachable_template(config)`` so it is None unless the config approves it.
+    ``news_title_relevance_required`` comes from the brief config (v1.3); when
+    True, NEWS items count only for their ``title_relevant_symbols``."""
     if provider_bundle.get("schema") != "premarket-provider-bundle/v1":
         raise ValueError("provider bundle must be premarket-provider-bundle/v1")
     if market_bundle.get("schema") != "premarket-market-bundle/v1":
@@ -333,7 +342,8 @@ def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping
         }
         result["artifact_sha256"] = sha256_payload(result)
         return result
-    events = _events(provider_bundle, allowed, as_of, generated_at)
+    events = _events(provider_bundle, allowed, as_of, generated_at,
+                     news_title_relevance_required=news_title_relevance_required)
     events_by_symbol: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
     for event in events:
         for symbol in event["symbols"]:
@@ -415,6 +425,8 @@ def normalize_bundles(provider_bundle: Mapping[str, Any], market_bundle: Mapping
             "market_bundle_sha256": market_bundle["artifact_sha256"],
             "market_excluded_boundary_counts": market_bundle.get("excluded_boundary_counts", {}),
             "run_mode": run_mode,
+            # Recorded only when on, so pre-v1.3 replays stay byte-identical.
+            **({"news_title_relevance_required": True} if news_title_relevance_required else {}),
         },
     }
     result["artifact_sha256"] = sha256_payload(result)

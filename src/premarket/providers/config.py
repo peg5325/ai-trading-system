@@ -50,6 +50,8 @@ class MarketauxConfig:
     lookback_minutes: int
     max_articles: int
     max_pages_by_stage: dict[str, int]
+    # Per-provider request timeout; None falls back to http.timeout_seconds.
+    timeout_seconds: float | None = None
 
 
 @dataclass(frozen=True)
@@ -124,6 +126,10 @@ class ProviderConfig:
             lookback_minutes=int(_positive(marketaux.get("lookback_minutes", 180), "marketaux.lookback_minutes")),
             max_articles=int(_positive(marketaux.get("max_articles", 3), "marketaux.max_articles")),
             max_pages_by_stage=pages_by_stage,
+            timeout_seconds=(
+                _positive(marketaux["timeout_seconds"], "marketaux.timeout_seconds")
+                if marketaux.get("timeout_seconds") is not None else None
+            ),
         )
         if marketaux_config.daily_limit > 60:
             raise ValueError("marketaux.daily_limit cannot exceed the hard cap of 60")

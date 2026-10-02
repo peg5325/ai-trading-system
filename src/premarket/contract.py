@@ -103,6 +103,9 @@ class PremarketConfig:
     primary_offset_minutes: int
     verification_offset_minutes: int
     freeze_offset_minutes: int
+    # v1.3 (2026-10-02): NEWS counts only for symbols its title mentions
+    # (see src/premarket/providers/marketaux.py). False = pre-v1.3 behaviour.
+    news_title_relevance_required: bool = False
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> PremarketConfig:
@@ -167,10 +170,24 @@ class PremarketConfig:
             primary_offset_minutes=int(raw.get("primary_offset_minutes", 90)),
             verification_offset_minutes=int(raw.get("verification_offset_minutes", 30)),
             freeze_offset_minutes=int(raw.get("freeze_offset_minutes", 20)),
+            news_title_relevance_required=_flag(
+                raw.get("news_title_relevance_required", False),
+                "news_title_relevance_required",
+            ),
         )
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        data = asdict(self)
+        # Omitted while off so pre-v1.3 configs keep a byte-identical policy_config.
+        if not data["news_title_relevance_required"]:
+            del data["news_title_relevance_required"]
+        return data
+
+
+def _flag(value: Any, name: str) -> bool:
+    if not isinstance(value, bool):
+        raise TypeError(f"{name} must be a boolean")
+    return value
 
 
 def load_config(path: str | Path) -> PremarketConfig:

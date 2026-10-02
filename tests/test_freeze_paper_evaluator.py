@@ -37,6 +37,9 @@ from tests.freeze_paper_runner_helpers import (
 )
 from tests.freeze_paper_test_helpers import watch_item
 
+# v1.3 fractional sizing of AAPL 100 / MSFT 200 at E = 2000: floor6(750 / 100.15005) and
+# floor6((1500 - QA * 100.15005) / 200.3001).
+QA, QM = 7.488763, 3.744381
 TARGET_BARS = {(9, 40): {"AAPL": (100.0, 103.0, 100.0, 102.0),
                          "MSFT": (200.0, 206.0, 200.0, 204.0)}}
 
@@ -109,13 +112,14 @@ def test_official_stress_and_opex_views_match_hand_computation(good_window):
     receipt["operating_costs"] = {"items": [{"name": "data api", "usd": 3.0}], "total_usd": 3.0,
                                   "allocation": "window sessions", "reason": "dedicated API"}
     m = _evaluate(good_window, receipt=receipt, through="2026-10-01")["metrics"]
-    # first session: AAPL 7 @100.05 -> target 100.05*1.015 less 5bp; MSFT 3 @200.1 -> same
-    notional = (7 * 100.05 + 7 * 100.05 * 1.015 * 0.9995
-                + 3 * 200.1 + 3 * 200.1 * 1.015 * 0.9995)
+    # first session: AAPL QA @100.05 -> target 100.05*1.015 less 5bp; MSFT QM @200.1 -> same
+    qa, qm = QA, QM
+    notional = (qa * 100.05 + qa * 100.05 * 1.015 * 0.9995
+                + qm * 200.1 + qm * 200.1 * 1.015 * 0.9995)
     assert m["filled_notional"] == pytest.approx(notional)
-    fees = (7 * 100.05 * 0.001 + 7 * 100.05 * 1.015 * 0.9995 * 0.001 + 0.02
-            + 3 * 200.1 * 0.001 + 3 * 200.1 * 1.015 * 0.9995 * 0.001 + 0.02)   # SEC 0.02 each
-    gross = 7 * (100.05 * 1.015 * 0.9995 - 100.05) + 3 * (200.1 * 1.015 * 0.9995 - 200.1)
+    fees = (qa * 100.05 * 0.001 + qa * 100.05 * 1.015 * 0.9995 * 0.001 + 0.02
+            + qm * 200.1 * 0.001 + qm * 200.1 * 1.015 * 0.9995 * 0.001 + 0.02)  # SEC 0.02 each
+    gross = qa * (100.05 * 1.015 * 0.9995 - 100.05) + qm * (200.1 * 1.015 * 0.9995 - 200.1)
     assert m["net_pnl"]["ending_equity"] == pytest.approx(2000 + gross - fees)
     assert m["official_drag"] == pytest.approx(notional * 0.0002)
     assert m["stress_drag"] == pytest.approx(notional * 0.00105)
@@ -249,8 +253,9 @@ def test_max_drawdown_includes_intraday_marks(tmp_path):
     day = receipt["scheduled_sessions"][0]
     _build(root, [day], overrides={day: {(9, 50): {"AAPL": (100.0, 100.0, 99.3, 99.3)}}})
     m = _evaluate(root, through=day)["metrics"]
-    # 09:50 mark: 2000 - entry costs (7*100.05*0.001 + 7*0.05 + 3*200.1*0.001 + 3*0.1) - 7*0.7
-    trough = 2000 - (7 * 100.05 * 0.001 + 7 * 0.05 + 3 * 200.1 * 0.001 + 3 * 0.1) - 7 * 0.7
+    # 09:50 mark: 2000 - entry costs (QA*100.05*0.001 + QA*0.05 + QM*200.1*0.001 + QM*0.1)
+    #             - QA*0.7
+    trough = 2000 - (QA * 100.05 * 0.001 + QA * 0.05 + QM * 200.1 * 0.001 + QM * 0.1) - QA * 0.7
     assert m["max_drawdown"] == pytest.approx((2000 - trough) / 2000)
     assert m["max_drawdown"] > -m["net_account_return"]
 

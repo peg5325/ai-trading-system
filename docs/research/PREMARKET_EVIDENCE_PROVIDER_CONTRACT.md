@@ -17,7 +17,9 @@ Daily Brief에 입력할 수 있다. 특히 이 PR은 Daily Brief가 요구하�
   기준 quota ledger가 모든 stage의 실제 요청을 합쳐 60회로 제한한다. Free plan의 요청당
   3건 제한 때문에 page를 순차 수집하며, 남은 page가 있는데 stage 또는 quota cap에 닿으면
   성공으로 표시하지 않는다. sanitized item에는 URL, 시각, 종목, sentiment와 headline hash만
-  남긴다.
+  남긴다. 2026-10-02(v1.3)부터 item은 제목 관련성 판정 결과 `title_relevant_symbols`(종목 목록,
+  제목 원문 아님)도 남긴다. 규칙은 `PREMARKET_NORMALIZATION_CONTRACT.md`의 NEWS 제목 관련성
+  필터를 따른다.
 - SEC EDGAR: `SEC_USER_AGENT`에 연락 가능한 이메일이 있을 때만
   `data.sec.gov/submissions/CIK##########.json`을 호출한다. 고정 CIK와 form allowlist만 사용하고
   기본 속도는 2 req/sec다.
@@ -42,6 +44,12 @@ Daily Brief에 입력할 수 있다. 특히 이 PR은 Daily Brief가 요구하�
 - HTTPS와 config의 host allowlist만 허용한다.
 - timeout, 재시도 횟수, 응답 바이트 상한을 config로 제한한다.
 - 429와 일시적 5xx만 bounded retry한다. redirect는 따라가지 않는다.
+- 운영 안정화(2026-10-02, 판정 규칙 변경 아님): provider별 timeout override를 허용하며
+  Marketaux는 30초다(`marketaux.timeout_seconds`, 나머지는 `http.timeout_seconds`). HTTP 응답이 전혀
+  없는 transport 오류·timeout 뒤의 재시도는 quota ledger를 추가로 차감하지 않는다. 상태 코드와
+  무관하게 HTTP 응답을 받은 시도는 기존처럼 1회씩 차감한다. `max_retries`는 그대로다.
+- 모든 시도마다 stderr에 JSON 한 줄(`event=http_attempt`, provider, resource, attempt,
+  elapsed_ms, outcome=상태 코드 또는 오류 클래스)을 남긴다. receipt 스키마·해시와 무관하다.
 - 429의 `Retry-After`는 config 상한 안에서 우선 적용하고 실제 적용한 대기를 receipt에 남긴다.
 - 응답 body는 JSON parse 전에 exact bytes 기준 SHA-256으로 `data/` 아래 gzip 보존한다.
 - receipt의 `requested_at`과 `received_at`은 실제 wall-clock UTC이며, 사용자 `as_of`

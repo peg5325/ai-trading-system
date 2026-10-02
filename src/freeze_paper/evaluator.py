@@ -1,4 +1,4 @@
-"""10-session evaluator of the FREEZE Paper contract (``evaluation`` section, v1.2).
+"""10-session evaluator of the FREEZE Paper contract (``evaluation`` section, v1.3).
 
 Inputs are only verified evidence: the validated first-session receipt, the signed and
 chained session artifacts, SPY regular closes and verified SPY cash dividends.  Missing,

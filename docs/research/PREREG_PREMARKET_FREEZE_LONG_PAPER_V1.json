@@ -1,6 +1,6 @@
 {
   "schema": "premarket-freeze-long-paper/contract/v1",
-  "version": "1.2",
+  "version": "1.3",
   "issue": 163,
   "status": "PAPER_CONTRACT_LOCKED_PENDING_IMPLEMENTATION_REVIEW",
   "strategy_template_id": "premarket_freeze_long_intraday_v1",
@@ -40,23 +40,42 @@
         "LONG and INVERSE legs reported separately",
         "implementation_scope.paper_strategy_code_in_this_change = true with scope note (engine only, no runner/activation/evaluator)"
       ]
+    },
+    {
+      "version": "1.3",
+      "date": "2026-10-02",
+      "reason": "user decision on 2026-10-02 after reviewing the first v1.2 Paper session (2026-10-01): end the v1.2 window after that session and evaluate v1.3 on a new 10-session window from 2026-10-02 (Charter 4.5: a rule change after seeing results needs a new version and a new evaluation period); (1) fractional amount-based sizing, because whole shares of USD 250-1,065 names deployed only about 38% of equity against the 75% exposure cap and left SPY unsized (EXPOSURE_ROOM); (2) a news-evidence title-relevance filter, implemented in the premarket pipeline under the policy flag news_title_relevance_required; (3) Marketaux timeout and operational hardening in the premarket pipeline",
+      "applied_before_any_paper_session": false,
+      "outcome_dependence": "decided after seeing the 2026-10-01 v1.2 Paper session result (TRADED: MSFT 1 share TIME_EXIT, AMZN 1 share STOP_LOSS, SPY skipped EXPOSURE_ROOM; equity 2000.00 -> 1995.284703) and its post-close diagnostic; the sizing change is driven by under-deployment of the exposure cap, not by that day's returns, but it was chosen after seeing that day; the 2026-10-01 session is preserved in docs/research/PAPER_V1_2_CLOSED_RECORD/ and is never counted in the v1.3 verdict",
+      "cost_note": "costs are unchanged by user decision; on 2026-10-01 recorded fees (commission + SEC fee) were USD 1.56 of the USD 4.72 loss (about one third), recorded as a structural cost of this template, not as a reason for a rule change",
+      "unchanged": "strategy template id, entry at the 09:35 ET bar open, stop -0.75% / target +1.5% from fill, 60-minute time exit, EOD flatten 10 minutes before close, 75% total exposure cap and the room / remaining-candidates budget in rank order, risk limits (daily 1%, drawdown 10%), Paper and official/stress cost model, initial equity and evaluation gates",
+      "rules_added_or_changed": [
+        "sizing: quantity = floor to 6 decimal places of budget / cash_per_share (fractional); the 1-share rule and whole_shares_only are removed",
+        "sizing: an entry whose quantity * entry_fill_price is below minimum_order_notional_usd (USD 1) is NO_TRADE_SYMBOL with reason BELOW_MIN_ORDER_NOTIONAL",
+        "quantity_floor: exact decimal arithmetic with every rounding toward floor instead of floor(x + 1e-9)",
+        "fractional_execution_window: every fractional position must be closed before the regular close minus 60 minutes; the 60-minute time exit from the 09:35 ET entry bar closes positions at the 10:35 ET bar open, so EOD_FLATTEN stays only as a backstop",
+        "leveraged ETF fractional eligibility (TQQQ, SOXL, SQQQ, SOXS) is unverified; Paper assumes eligible and it is a pre-live verification item",
+        "premarket evidence: news title-relevance filter under policy flag news_title_relevance_required (premarket pipeline)"
+      ]
     }
   ],
   "prior_access_disclosure": {
-    "premarket_shadow_days_examined": ["2026-09-15", "2026-09-17", "2026-09-18", "2026-09-21", "2026-09-28", "2026-09-29"],
+    "premarket_shadow_days_examined": ["2026-09-15", "2026-09-17", "2026-09-18", "2026-09-21", "2026-09-28", "2026-09-29", "2026-10-01"],
     "empty_watchlist_days": ["2026-09-15", "2026-09-17", "2026-09-18"],
-    "postclose_outcomes_examined": ["2026-09-21", "2026-09-28", "2026-09-29"],
+    "postclose_outcomes_examined": ["2026-09-21", "2026-09-28", "2026-09-29", "2026-10-01"],
+    "paper_sessions_examined": ["2026-10-01"],
+    "paper_sessions_note": "the 2026-10-01 session ran under contract v1.2 and was examined (fills, equity and post-close diagnostic) before v1.3 was fixed; it is preserved in docs/research/PAPER_V1_2_CLOSED_RECORD/ and excluded from the v1.3 evaluation",
     "parameter_tuning_from_those_outcomes": false,
     "evidence_label": "post-observation prospective Paper contract; not clean-room evidence"
   },
   "implementation_scope": {
     "paper_strategy_code_in_this_change": true,
-    "paper_strategy_code_scope": "issue #165 PR 1 adds the offline deterministic engine src/freeze_paper (gates, sizing, costs, bar engine, reconciliation) with synthetic-bar tests only; no runner, schedule, ledger files, activation or evaluator",
+    "paper_strategy_code_scope": "the v1.3 change edits src/freeze_paper sizing and binding for fractional 6-decimal quantities; the engine (PR #166), runner, ledger and receipt validator (PR #167), evaluator (PR #168) and activation (PR #169) already exist and are otherwise unchanged",
     "runtime_config_activation_in_this_change": false,
     "orders_created_in_this_change": false,
     "live_broker_access_in_this_change": false,
     "blind_oos_opened_in_this_change": false,
-    "next_step": "add the runner and evaluator in later reviewed changes of issue #165, then record the first future trading day before activation"
+    "next_step": "after review and merge, replace the first-session receipt with a v1.3 receipt (first session 2026-10-02) before the 2026-10-02 session runs"
   },
   "decision_input": {
     "required_artifact_schema": "premarket-daily-brief/v2",
@@ -130,21 +149,27 @@
   },
   "portfolio": {
     "per_symbol_weight_cap": null,
-    "per_symbol_weight_cap_reason": "whole shares in a USD 2,000 account make fixed per-symbol weights unreachable for high-priced symbols; risk is bounded by the total exposure cap",
+    "per_symbol_weight_cap_reason": "whole shares in a USD 2,000 account made fixed per-symbol weights unreachable for high-priced symbols (v1.1); risk is bounded by the total exposure cap",
     "max_positions": 3,
     "max_total_effective_exposure_pct": 0.75,
     "minimum_cash_reserve_pct": 0.25,
     "exposure_cap_derivation": "largest 5%-step exposure with exposure * (stop_loss_pct + stress round trip) < daily loss halt: 0.75 * (0.0075 + 0.0051) = 0.00945 < 0.01",
-    "whole_shares_only": true,
+    "whole_shares_only": false,
+    "quantity_decimals": 6,
+    "minimum_order_notional_usd": 1.0,
+    "minimum_order_notional_basis": "quantity * entry_fill_price; Toss documents a USD 1 minimum per fractional order in its app, unverified for the Open API (assumption)",
+    "fractional_execution": "Toss Open API (openapi.json schemas OrderCreateAmountBased and OrderCreateQuantityBased) accepts US fractional BUY only as a MARKET order by USD orderAmount and fractional SELL only as a MARKET order with at most 6 decimal places, both only from the regular open until 1 hour before the close (errors amount-order-outside-regular-hours, fractional-quantity-outside-regular-hours, fractional-quantity-scale-exceeded); Paper models the fill at the reference open with the contract slippage and costs",
+    "fractional_execution_window": "every fractional position must be closed before the regular close minus 60 minutes (15:00 ET, 12:00 ET on an early close); entry at the 09:35 ET bar and the 60-minute time exit close positions at the 10:35 ET bar open, inside that window; EOD_FLATTEN (close minus 10 minutes) is kept only as a backstop and a live implementation would have to flatten by close minus 60 minutes",
+    "fractional_leveraged_etp_eligibility": "TQQQ, SOXL, SQQQ and SOXS fractional eligibility at Toss is unverified; Paper assumes eligible; verify before any live review",
     "leveraged_etp_exposure_basis": "price notional (leverage factor 1) for TQQQ, SOXL, SQQQ and SOXS in sizing, exposure and risk",
     "sizing_equity": "recorded-ledger marked equity E at the entry bar open, before any entry of the session",
     "sizing_procedure": [
       "cap = 0.75 * E; used = 0",
       "eligible = gated candidates that have the 09:35 bar, in rank order (known at the 09:35 bar open)",
       "for each eligible candidate with k eligible candidates remaining (including itself): room = cap - used; budget = room / k",
-      "qty = floor(budget / cash_per_share)",
-      "if qty == 0 and cash_per_share <= room then qty = 1",
+      "qty = floor(budget / cash_per_share) to 6 decimal places",
       "if qty == 0 then NO_TRADE_SYMBOL with reason EXPOSURE_ROOM",
+      "if qty * entry_fill_price < minimum_order_notional_usd then NO_TRADE_SYMBOL with reason BELOW_MIN_ORDER_NOTIONAL",
       "used += qty * cash_per_share"
     ],
     "insufficient_cash": "REJECT_ENTRY",
@@ -219,7 +244,7 @@
     "client_order_id": "BUY: pfl1-{entry trading day YYYYMMDD}-{traded symbol}-BUY, single attempt (no re-entry); SELL: pfl1-{entry trading day YYYYMMDD}-{traded symbol}-SELL-{n}, n starts at 1 per position and increments only after a rejected, unfilled or partially filled sell of that position; at most one sell attempt per symbol per bar; a rejected, unfilled or partially filled exit (including STOP_LOSS and TAKE_PROFIT) is kept pending with its reason and retries unconditionally at the next available bar open (also for a carried position), without re-checking the price level; replaying the same inputs yields the same ids and a stored id is never resubmitted or refilled",
     "exit_fill_quantity": "an exit fill must equal the held quantity; if it differs by more than 1e-9 the remainder stays open, an EXIT_FILL_QUANTITY_MISMATCH event is recorded and the remainder retries at the next bar",
     "bar_validity": "a 1m bar is valid only if open, high, low and close are finite and > 0 and low <= min(open, close) and max(open, close) <= high; an invalid bar is recorded as INVALID_BAR and treated exactly as a missing bar (missing_entry_bar, missing_exit_bar and mark rules apply)",
-    "risk_quantity_reduction": "if RiskManager returns a reduced quantity for an entry, reject the entry (REJECT_ENTRY); never submit fractional shares",
+    "risk_quantity_reduction": "if RiskManager returns a reduced quantity for an entry, reject the entry (REJECT_ENTRY); never submit a quantity other than the sized 6-decimal quantity",
     "entry_risk_inputs": "entry intents use intent.price = reference_open and snapshot account_value = the sizing equity E for every entry of the session, and positions entered earlier at the same bar are marked at their reference_open in that snapshot, so the RiskManager exposure check measures the same base as the sizing procedure and cannot reject an entry the procedure accepted",
     "order_kinds": {
       "stop_loss": "STOP_LOSS",
@@ -231,7 +256,7 @@
     },
     "fees_in_fills": "FillEvent.fee = commission + SEC fee for that fill, so net_pnl == gross_pnl - slippage - commission still holds in the single FIFO PnL engine; the SEC part may be kept as an audit field",
     "fee_rounding": "commission is not rounded; SEC fee = max(0.01, sell notional * 0.0000206 rounded up to the cent), computed with decimal.Decimal from the float values to avoid binary floating-point rounding",
-    "quantity_floor": "floor(x + 1e-9) to absorb floating-point error",
+    "quantity_floor": "decimal.Decimal on str() of the float inputs with every rounding toward floor, quantized to 6 decimal places; no epsilon",
     "derived_ledgers": "official and stress views are pure read-only aggregation over recorded fills (filled notional * per-side increment) subtracted from FIFO results; they never re-match lots",
     "daily_loss_anchor_input": "the adapter marks flat recorded equity before the 09:35 bar each session (equal to the prior regular close when flat) and passes the prior-close equity explicitly when a position was carried by UNRESOLVED_EXIT",
     "exit_generator_extension": "stop and target use completed-bar low/high with the gap reference fills above, and the time exit counts minutes from the entry bar start, not bar count; the current price-only ExitSignalGenerator must be extended in the implementation issue"

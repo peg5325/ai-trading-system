@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import time
 from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
@@ -42,10 +43,12 @@ class BoundedHttpClient:
         transport: httpx.BaseTransport | None = None,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], datetime] = _utc_now,
+        monotonic: Callable[[], float] = time.monotonic,
     ):
         self.policy = policy
         self._sleep = sleep
         self._clock = clock
+        self._monotonic = monotonic
         self._client = httpx.Client(
             timeout=httpx.Timeout(policy.timeout_seconds),
             transport=transport,
@@ -65,19 +68,40 @@ class BoundedHttpClient:
         raw_store: RawEvidenceStore,
         headers: Mapping[str, str] | None = None,
         before_attempt: Callable[[], bool] | None = None,
+        timeout_seconds: float | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """``before_attempt`` reserves budget (e.g. the Marketaux quota ledger). It is
+        not called again for a retry that follows a transport error/timeout (no HTTP
+        response): that reservation was never answered, so it carries over. Every
+        attempt that gets an HTTP response, of any status, consumes its own unit."""
         parsed = urlsplit(url)
         if parsed.scheme != "https":
             raise ValueError("only https provider URLs are allowed")
         if (parsed.hostname or "").lower() not in self.policy.allowed_hosts:
             raise ValueError(f"host not allowed: {parsed.hostname}")
         safe_url = sanitize_url(url)
+        timeout = httpx.Timeout(timeout_seconds) if timeout_seconds is not None else None
+        reservation_carried = False
         for attempt in range(self.policy.max_retries + 1):
-            if before_attempt is not None and not before_attempt():
+            if (
+                before_attempt is not None
+                and not reservation_carried
+                and not before_attempt()
+            ):
                 raise HttpCollectionError("HTTP_REQUEST_BUDGET_EXHAUSTED")
+            reservation_carried = False
             requested_at = self._clock()
+            started = self._monotonic()
+            status_seen: int | None = None
             try:
-                with self._client.stream("GET", url, params=params, headers=headers) as response:
+                with self._client.stream(
+                    "GET",
+                    url,
+                    params=params,
+                    headers=headers,
+                    **({"timeout": timeout} if timeout is not None else {}),
+                ) as response:
+                    status_seen = response.status_code
                     body_parts = bytearray()
                     for chunk in response.iter_bytes():
                         body_parts.extend(chunk)
@@ -88,11 +112,22 @@ class BoundedHttpClient:
                     content_type = response.headers.get("content-type", "application/octet-stream")
                     response_headers = response.headers
             except httpx.RequestError as error:
+                self._log_attempt(
+                    provider, resource, attempt, started,
+                    type(error).__name__ if status_seen is None
+                    else f"{status_seen}:{type(error).__name__}",
+                )
                 if attempt < self.policy.max_retries:
+                    # Free retry only when no HTTP response arrived at all.
+                    reservation_carried = status_seen is None
                     self._sleep(self.policy.retry_backoff_seconds * (2**attempt))
                     continue
                 code = "HTTP_TIMEOUT" if isinstance(error, httpx.TimeoutException) else "HTTP_REQUEST_FAILED"
                 raise HttpCollectionError(code) from None
+            except HttpCollectionError as error:
+                self._log_attempt(provider, resource, attempt, started, f"{status_seen}:{error.code}")
+                raise
+            self._log_attempt(provider, resource, attempt, started, status_code)
             received_at = self._clock()
             if received_at < requested_at:
                 raise HttpCollectionError("HTTP_CLOCK_MOVED_BACKWARD")
@@ -130,6 +165,24 @@ class BoundedHttpClient:
                 raise HttpCollectionError("JSON_ROOT_NOT_OBJECT", receipt=receipt)
             return payload, receipt
         raise AssertionError("unreachable")
+
+    def _log_attempt(
+        self,
+        provider: str,
+        resource: str,
+        attempt: int,
+        started: float,
+        outcome: int | str,
+    ) -> None:
+        """One structured stderr line per attempt; not part of receipts or hashes."""
+        print(json.dumps({
+            "event": "http_attempt",
+            "provider": provider,
+            "resource": resource,
+            "attempt": attempt + 1,
+            "elapsed_ms": round((self._monotonic() - started) * 1000),
+            "outcome": outcome,
+        }, sort_keys=True), file=sys.stderr, flush=True)
 
     def _retry_delay(
         self,

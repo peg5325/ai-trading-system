@@ -490,7 +490,7 @@ def render_markdown(artifact: Mapping) -> str:
     ]
     for f in artifact["fills"]:
         lines.append(f"| {f['timestamp']} | {f['symbol']} | {f['side']} | {f['kind']} | "
-                     f"{f['quantity']:g} | {f['price']:.6f} | {f['fee']:.6f} | {f['leg']} |")
+                     f"{f['quantity']:.6f} | {f['price']:.6f} | {f['fee']:.6f} | {f['leg']} |")
     if not artifact["fills"]:
         lines.append("| - | - | - | - | - | - | - | - |")
     lines += ["", "Paper 전용 기록이다. 실주문·실계좌 권한이 없다.", ""]
