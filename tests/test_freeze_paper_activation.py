@@ -13,10 +13,11 @@ from src.freeze_paper.receipt import (
 )
 from src.premarket.contract import attachable_template, load_config, sha256_payload
 
-# sha256_payload(PremarketConfig.to_dict()) of config/premarket_daily_brief.yaml at 97faeb4.
-# The template plumbing adds no config field, so this policy_config hash (embedded in every
-# FREEZE snapshot) must stay identical while the allowlists are empty.
-CURRENT_POLICY_CONFIG_SHA256 = "8cb5995d9418e2fdc97b85f519557d5b66892f9845578ef4750117b8cf6f1784"
+# sha256_payload(PremarketConfig.to_dict()) of config/premarket_daily_brief.yaml with empty
+# allowlists. 97faeb4 was 8cb5995d…; v1.3 (7a16f34) added news_title_relevance_required, so the
+# 2026-10-02 pause (allowlists emptied again) pins the v1.3 value. Any other config change while
+# the allowlists are empty must update this hash deliberately.
+CURRENT_POLICY_CONFIG_SHA256 = "88c317eb9456fcce1e1a1ddcb3b9161cc9a96d7d238fe308ef69fa300ec29675"
 
 
 def test_allowlists_are_empty_unless_a_valid_receipt_exists():
