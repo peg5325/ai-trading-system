@@ -12,9 +12,9 @@
     "passed": true,
     "single_stock_leveraged_etfs": []
   },
-  "artifact_sha256": "180aa6f5f0fe6ec47272817c974c524bcb46b01a24fe2d28dae4094f9c83ec06",
+  "artifact_sha256": "e42dffa583289e4863a0cd7c2c7172a3613d4beb505c234667cda9086c0e4a91",
   "code_commit": "7a16f34e047752fcf89bd2137ad19e2730b596c7",
-  "contract_json_sha256": "0a12ff9fc946df2405452d737f7965318e52f471e707780c42c0be94f576f301",
+  "contract_json_sha256": "f989eeb8f88f449aae844753738109b6dd34cf5c2bf17477e8fbf07a9efc3a90",
   "contract_md_sha256": "9f0369bf44f158cf6be0776a508d24bbfb7541e7afc38a0c6340cbf6df5247f1",
   "contract_version": "1.3",
   "first_session": "2026-10-02",
