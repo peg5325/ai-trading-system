@@ -1,0 +1,193 @@
+{
+ "DTB3": {
+  "error": "RemoteDisconnected('Remote end closed connection without response')"
+ },
+ "DGS3MO": {
+  "error": "RemoteDisconnected('Remote end closed connection without response')"
+ },
+ "VIXCLS": {
+  "error": "TimeoutError('The read operation timed out')"
+ },
+ "CBOE_VIX": {
+  "first": "01/02/1990",
+  "last": "10/01/2026",
+  "rows": 9285
+ },
+ "FF_RF_daily": {
+  "file": "F-F_Research_Data_Factors_daily.csv",
+  "first": "19260701",
+  "last": "20260831",
+  "rows": 26317
+ },
+ "Y:SPY": {
+  "first": "1993-01-29",
+  "last": "2026-10-01",
+  "rows": 8476,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 136,
+  "splits": 0
+ },
+ "Y:QQQ": {
+  "first": "1999-03-10",
+  "last": "2026-10-01",
+  "rows": 6934,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 90,
+  "splits": 1
+ },
+ "Y:^GSPC": {
+  "first": "1970-01-02",
+  "last": "2026-10-01",
+  "rows": 14309,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 0,
+  "splits": 0
+ },
+ "Y:^NDX": {
+  "first": "1985-10-01",
+  "last": "2026-10-01",
+  "rows": 10330,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 0,
+  "splits": 0
+ },
+ "Y:^SP500TR": {
+  "first": "1988-01-04",
+  "last": "2026-10-01",
+  "rows": 9760,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 0,
+  "splits": 0
+ },
+ "Y:^VIX": {
+  "first": "1990-01-02",
+  "last": "2026-10-01",
+  "rows": 9588,
+  "null_close": 331,
+  "adjclose": true,
+  "dividends": 0,
+  "splits": 0
+ },
+ "Y:SSO": {
+  "first": "2006-06-21",
+  "last": "2026-10-01",
+  "rows": 5102,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 70,
+  "splits": 4
+ },
+ "Y:SDS": {
+  "first": "2006-07-13",
+  "last": "2026-10-01",
+  "rows": 5087,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 35,
+  "splits": 4
+ },
+ "Y:SH": {
+  "first": "2006-06-21",
+  "last": "2026-10-01",
+  "rows": 5102,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 36,
+  "splits": 2
+ },
+ "Y:QLD": {
+  "first": "2006-06-21",
+  "last": "2026-10-01",
+  "rows": 5102,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 33,
+  "splits": 6
+ },
+ "Y:QID": {
+  "first": "2006-07-13",
+  "last": "2026-10-01",
+  "rows": 5087,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 35,
+  "splits": 5
+ },
+ "Y:PSQ": {
+  "first": "2006-06-21",
+  "last": "2026-10-01",
+  "rows": 5102,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 35,
+  "splits": 2
+ },
+ "Y:SPXL": {
+  "first": "2008-11-05",
+  "last": "2026-10-01",
+  "rows": 4503,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 37,
+  "splits": 2
+ },
+ "Y:UPRO": {
+  "first": "2009-06-25",
+  "last": "2026-10-01",
+  "rows": 4344,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 47,
+  "splits": 5
+ },
+ "Y:SPXU": {
+  "first": "2009-06-25",
+  "last": "2026-10-01",
+  "rows": 4344,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 26,
+  "splits": 6
+ },
+ "Y:TQQQ": {
+  "first": "2010-02-11",
+  "last": "2026-10-01",
+  "rows": 4185,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 22,
+  "splits": 8
+ },
+ "Y:SQQQ": {
+  "first": "2010-02-11",
+  "last": "2026-10-01",
+  "rows": 4185,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 26,
+  "splits": 8
+ },
+ "Y:SOXL": {
+  "first": "2010-03-11",
+  "last": "2026-10-01",
+  "rows": 4166,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 32,
+  "splits": 2
+ },
+ "Y:SOXS": {
+  "first": "2010-03-11",
+  "last": "2026-10-01",
+  "rows": 4166,
+  "null_close": 0,
+  "adjclose": true,
+  "dividends": 26,
+  "splits": 10
+ }
+}
