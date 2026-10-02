@@ -4,7 +4,7 @@
 
 Before planning or changing this project, read in order:
 
-1. `docs/PROJECT_CHARTER.md` — goal, benchmark, risk and evaluation policy.
+1. `docs/PROJECT_CHARTER.md` — goal, measurement, risk and evaluation policy.
 2. `docs/ROADMAP.md` — current stage and completion conditions.
 3. `docs/PROJECT_STATUS.md` — verified evidence and next action.
 
@@ -15,9 +15,12 @@ the user's latest explicit instructions govern the active task.
 
 ## Project direction
 
-Preserve the existing project and research evidence. The objective is sustainable
-net whole-account outperformance of the S&P 500 total-return benchmark under the
-Charter's definitions. A watchlist, one profitable day, a backtest or a framework's
+Preserve the existing project and research evidence. The current objective (Charter
+v2.0, 2026-10-02) is seed growth: grow the dedicated account from USD 2,000 to a
+balance of USD 4,000 (deposits included, no deadline) within the Charter's risk policy,
+using US-listed index ETFs (1x, leveraged, inverse) driven only by signals that can be
+validated on long historical data. The former S&P 500 outperformance goal is on hold and
+is not a decision criterion. A watchlist, one profitable day, a backtest or a framework's
 marketing claim is not proof of a deployable profitable strategy.
 
 Read-only shadow results do not authorize orders, blind-OOS access or promotion.
