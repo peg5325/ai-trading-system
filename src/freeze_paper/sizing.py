@@ -1,23 +1,26 @@
-"""Literal port of contract ``portfolio.sizing_procedure``.
+"""Literal port of contract ``portfolio.sizing_procedure`` (v1.3, fractional).
 
     cap = max_exposure_pct * E; used = 0
     for each eligible candidate with k remaining (including itself):
         room = cap - used; budget = room / k
-        qty = floor(budget / cash_per_share + 1e-9)
-        if qty == 0 and cash_per_share <= room: qty = 1
-        if qty == 0: NO_TRADE_SYMBOL(EXPOSURE_ROOM)
+        qty = floor_to_6dp(budget / cash_per_share)
+        if qty * entry_fill_price < minimum_order_notional_usd: NO_TRADE_SYMBOL
         used += qty * cash_per_share
+
+The arithmetic runs in ``decimal.Decimal`` on the shortest decimal form (``str``) of the
+float inputs, with every rounding toward floor, so the 6-dp quantity never
+drifts above the budget and ``used`` never exceeds ``cap``.
 """
 from __future__ import annotations
 
-import math
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
+from decimal import ROUND_FLOOR, Decimal, localcontext
 
 from src.freeze_paper.binding import ContractBinding
 
-QTY_FLOOR_EPS = 1e-9
 EXPOSURE_ROOM = "EXPOSURE_ROOM"
+BELOW_MIN_ORDER_NOTIONAL = "BELOW_MIN_ORDER_NOTIONAL"
 
 
 @dataclass(frozen=True)
@@ -27,7 +30,7 @@ class SizedEntry:
     reference_open: float
     entry_fill_price: float
     cash_per_share: float
-    quantity: int
+    quantity: float
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -57,21 +60,26 @@ def size_entries(
     binding: ContractBinding,
 ) -> tuple[list[SizedEntry], list[NoTradeSymbol]]:
     """``eligible`` = (symbol, rank, reference_open) in rank order, all with a 09:35 bar."""
-    cap = binding.max_exposure_pct * equity
-    used = 0.0
+    step = Decimal(1).scaleb(-binding.quantity_decimals)
+    minimum = Decimal(str(binding.min_order_notional_usd))
     sized: list[SizedEntry] = []
     skipped: list[NoTradeSymbol] = []
-    for index, (symbol, rank, reference_open) in enumerate(eligible):
-        per_share = cash_per_share(reference_open, binding)
-        room = cap - used
-        budget = room / (len(eligible) - index)
-        qty = math.floor(budget / per_share + QTY_FLOOR_EPS)
-        if qty == 0 and per_share <= room:
-            qty = 1
-        if qty == 0:
-            skipped.append(NoTradeSymbol(symbol, rank, EXPOSURE_ROOM))
-            continue
-        used += qty * per_share
-        sized.append(SizedEntry(symbol, rank, reference_open,
-                                entry_fill_price(reference_open, binding), per_share, qty))
+    with localcontext() as ctx:
+        ctx.prec = 50
+        ctx.rounding = ROUND_FLOOR
+        cap = Decimal(str(binding.max_exposure_pct)) * Decimal(str(equity))
+        used = Decimal(0)
+        for index, (symbol, rank, reference_open) in enumerate(eligible):
+            fill = entry_fill_price(reference_open, binding)
+            per_share = cash_per_share(reference_open, binding)
+            budget = (cap - used) / (len(eligible) - index)
+            qty = (budget / Decimal(str(per_share))).quantize(step, rounding=ROUND_FLOOR)
+            if qty <= 0:
+                skipped.append(NoTradeSymbol(symbol, rank, EXPOSURE_ROOM))
+                continue
+            if qty * Decimal(str(fill)) < minimum:
+                skipped.append(NoTradeSymbol(symbol, rank, BELOW_MIN_ORDER_NOTIONAL))
+                continue
+            used += qty * Decimal(str(per_share))
+            sized.append(SizedEntry(symbol, rank, reference_open, fill, per_share, float(qty)))
     return sized, skipped

@@ -60,5 +60,8 @@ CLI는 네트워크에 접속하지 않고 `premarket-input/v1` 로컬 JSON만 �
 
 - 정규화 입력, 고정 policy config, NYSE 상대 스케줄, quality defect, run ID, snapshot SHA-256을
   결과에 포함한다.
+- `news_title_relevance_required`(v1.3, 2026-10-02 시행)는 켜졌을 때만 `policy_config`에 기록된다.
+  꺼져 있거나 없으면 키 자체를 생략해 이전 config의 `policy_config` 해시가 그대로다. 규칙은
+  `PREMARKET_NORMALIZATION_CONTRACT.md`를 따른다.
 - JSON과 Markdown은 원자적으로 write-once하며 동일 재실행만 허용한다.
 - `src/order`, broker, live account, 주문 제출, 외부 HTTP 호출을 import하거나 실행하지 않는다.

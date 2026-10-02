@@ -65,7 +65,7 @@ def receipt_payload(root: Path, *, first: str = FIRST, **overrides) -> dict:
         "schema": SCHEMA,
         "contract_json_sha256": file_sha256(root / CONTRACT_JSON_RELATIVE),
         "contract_md_sha256": file_sha256(root / CONTRACT_MD_RELATIVE),
-        "contract_version": "1.2",
+        "contract_version": "1.3",
         "code_commit": "a" * 40,
         "activation_config_sha256": file_sha256(root / CONFIG_RELATIVE),
         "first_session": first,

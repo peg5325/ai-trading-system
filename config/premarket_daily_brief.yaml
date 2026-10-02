@@ -11,6 +11,11 @@ freeze_offset_minutes: 20
 max_candidates: 3
 min_liquidity_score: 0.50
 min_catalyst_score: 0.00
+# v1.3 (user decision 2026-10-02, prospective only): a NEWS article counts as
+# catalyst/evidence for a symbol only if its title mentions that ticker or
+# company/fund name core (rule: src/premarket/providers/marketaux.py,
+# docs/research/PREMARKET_NORMALIZATION_CONTRACT.md). FILING events unaffected.
+news_title_relevance_required: true
 universe_path: universe_p0_us30.yaml
 
 # 직접 LONG/SHORT 방향과 inverse ETF 방향이 중첩되지 않게 제외한다.

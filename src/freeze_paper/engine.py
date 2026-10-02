@@ -22,6 +22,7 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from src.backtest.execution import ExecutionModel
@@ -474,7 +475,8 @@ class _Runtime:
         if abs(record.filled_quantity - held) > _QTY_EPS:
             self.event(minute_iso, "EXIT_FILL_QUANTITY_MISMATCH", symbol=sym, kind=kind,
                        client_order_id=coid, held=held, filled=record.filled_quantity)
-        remainder = held - record.filled_quantity
+        # exact decimal difference so a fractional remainder keeps its 6-dp form (no float drift)
+        remainder = float(Decimal(str(held)) - Decimal(str(record.filled_quantity)))
         if remainder > _QTY_EPS:
             pos["quantity"] = remainder
             pos["sell_attempt"] += 1

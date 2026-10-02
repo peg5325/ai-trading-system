@@ -2,7 +2,7 @@
 
 ## 1. 목적
 
-`docs/research/PREREG_PREMARKET_FREEZE_LONG_PAPER_V1.json`(v1.2)을 기존 부품
+`docs/research/PREREG_PREMARKET_FREEZE_LONG_PAPER_V1.json`(v1.3)을 기존 부품
 (RiskManager → OrderManager → PaperBrokerProvider → PortfolioAccount/FIFO, ExitSignalGenerator)으로
 **그대로 강제하는** 오프라인 결정론 엔진. 두 번째 PnL 엔진이나 별도 청산 로직을 만들지 않는다.
 
@@ -12,7 +12,7 @@
 |---|---|
 | `binding.py` | 계약 JSON 로드, 파일 SHA-256, `RiskConfig`/`ExitConfig`와 수치 전부를 계약에서 파생 |
 | `gates.py` | `evaluate_gates(trading_day, reports_root, contract) -> GateResult`: FREEZE 파일 해시↔COMPLETE 영수증, `artifact_sha256` 재계산, JSON 경로 게이트, 방향별 다리(LONG / INVERSE 매핑), 최대 3개 |
-| `sizing.py` | `portfolio.sizing_procedure` 문자 그대로의 포팅(`floor(x+1e-9)`), `EXPOSURE_ROOM` |
+| `sizing.py` | `portfolio.sizing_procedure` 문자 그대로의 포팅(v1.3 소수점: Decimal 내림 6자리, USD 1 미만 `BELOW_MIN_ORDER_NOTIONAL`), `EXPOSURE_ROOM` |
 | `costs.py` | 수수료 10bp/편도, SEC fee(Decimal 센트 올림, 최소 0.01), 공식·stress 파생 비용(읽기 전용) |
 | `engine.py` | `start_session` / `step_bar` / `finish_session` / `run_session`. 상태는 JSON 직렬화 dict |
 | `receipt.py` | 첫 세션 영수증 스키마·검증기(활성화의 유일한 스위치). 영수증을 만들지 않는다 |

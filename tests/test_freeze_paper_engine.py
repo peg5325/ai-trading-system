@@ -22,6 +22,7 @@ from src.freeze_paper.engine import (
 )
 from src.freeze_paper.gates import NO_TRADE as GATE_NO_TRADE
 from src.freeze_paper.gates import GateResult
+from src.freeze_paper.reconcile import reconcile_state
 from tests.freeze_paper_test_helpers import BINDING, minute, session_bars, trade_gate
 
 DAY = "2026-10-01"
@@ -59,7 +60,7 @@ def test_flat_day_enters_at_0935_open_and_time_exits_after_60_minutes():
     buy = _fills(state, "BUY")[0]
     sell = _sell(state, "AAPL")
     assert buy["timestamp"] == minute(DAY, 9, 35)
-    assert buy["quantity"] == 14                       # floor(1500 / (100 * 1.0005 * 1.001))
+    assert buy["quantity"] == 14.977526                # floor6(1500 / (100 * 1.0005 * 1.001))
     assert buy["price"] == pytest.approx(100.05)
     assert buy["client_order_id"] == "pfl1-20261001-AAPL-BUY"
     assert (sell["kind"], sell["timestamp"], sell["ref_price"]) == (
@@ -182,20 +183,34 @@ def test_unresolved_exit_is_carried_and_liquidated_next_session_then_halted():
     assert day2["positions"] == {}
 
 
-def test_missing_entry_bar_and_exposure_room_are_no_trade_symbols():
-    bars = session_bars(DAY, {"META": 725.93, "MU": 1075.0, "AVGO": 356.99, "NVDA": 100.0},
+def test_missing_entry_bar_and_min_order_notional_are_no_trade_symbols():
+    # Equity 2.0: cap 1.5; META's budget 0.75 is under USD 1 and is skipped, so MU (last
+    # remaining) gets the whole room.
+    binding = _variant(account__initial_equity=2.0)
+    bars = session_bars(DAY, {"META": 725.93, "MU": 1075.0, "NVDA": 100.0},
                         {(9, 35): {"NVDA": None}})
-    state = _run(trade_gate(DAY, ["NVDA", "META", "MU"]), bars)
+    state = _run(trade_gate(DAY, ["NVDA", "META", "MU"]), bars, binding=binding)
     reasons = {(e["symbol"], e["reason"]) for e in _events(state, "NO_TRADE_SYMBOL")}
     assert ("NVDA", "MISSING_ENTRY_BAR") in reasons
-    assert ("MU", "EXPOSURE_ROOM") in reasons
-    assert [(f["symbol"], f["quantity"]) for f in _fills(state, "BUY")] == [("META", 1)]
+    assert ("META", "BELOW_MIN_ORDER_NOTIONAL") in reasons
+    assert [(f["symbol"], f["quantity"]) for f in _fills(state, "BUY")] == [("MU", 0.001393)]
 
 
-def test_observed_example_sizes_meta_1_mu_0_avgo_2_in_the_engine():
-    bars = session_bars(DAY, {"META": 725.93, "MU": 1075.0, "AVGO": 356.99})
-    state = _run(trade_gate(DAY, ["META", "MU", "AVGO"]), bars)
-    assert [(f["symbol"], f["quantity"]) for f in _fills(state, "BUY")] == [("META", 1), ("AVGO", 2)]
+def test_observed_2026_10_01_opens_size_all_three_fractional_in_the_engine():
+    # v1.2 bought MSFT 1, AMZN 1 and skipped SPY (EXPOSURE_ROOM): about 38% deployed.
+    bars = session_bars(DAY, {"MSFT": 517.56, "AMZN": 250.895, "SPY": 764.0})
+    state = _run(trade_gate(DAY, ["MSFT", "AMZN", "SPY"]), bars)
+    buys = _fills(state, "BUY")
+    assert [(f["symbol"], f["quantity"]) for f in buys] == [
+        ("MSFT", 0.964624), ("AMZN", 1.989879), ("SPY", 0.65347)]
+    used = sum(f["quantity"] * f["price"] + f["fee"] for f in buys)
+    assert 1499.99 < used <= 0.75 * 2000.0 + 1e-9
+    sells = _fills(state, "SELL")
+    assert {f["symbol"]: f["quantity"] for f in sells} == {f["symbol"]: f["quantity"] for f in buys}
+    # every fractional exit is the 10:35 ET time exit, well before close - 60 minutes
+    assert {(f["kind"], f["timestamp"]) for f in sells} == {("TIME_EXIT", minute(DAY, 10, 35))}
+    assert state["positions"] == {} and state["session"]["status"] == COMPLETE
+    assert reconcile_state(state).ok
 
 
 def test_risk_never_rejects_procedure_accepted_entries_including_3x_etfs():

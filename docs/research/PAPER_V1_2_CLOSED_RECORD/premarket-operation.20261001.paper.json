@@ -1,0 +1,38 @@
+{
+  "artifact_sha256": "90e29f1ed384360fb9d5fcc304f2e8876b774aadf8514f2281c87b2eea620041",
+  "git_commit": "ee372c7a7b5475f0a3fe6b6b4518ca9f331c0b75",
+  "operation": "FREEZE_PAPER",
+  "reason_codes": [],
+  "reconciliation_ok": true,
+  "run_at": "2026-10-01T16:35:37.412795-04:00",
+  "schema": "premarket-local-operation/v1",
+  "session_artifact_sha256": "049fd84b2252fcbf1666c8497b1d26e53ac008763ebee2baa720ec7cdf76cd20",
+  "session_status": "TRADED",
+  "spy_step": {
+    "status": "OK",
+    "steps": [
+      {
+        "log_path": "reports/premarket-operation-logs/20261001.paper/spy_tail_repair.log",
+        "log_sha256": "00c61bafba3a2e872543d98d0868b7bb8c505a35a3d428b80c63db83026096d6",
+        "name": "spy_tail_repair",
+        "returncode": 0,
+        "status": "EXECUTED",
+        "stderr_sha256": "bd1b24bf13c832e3d59fa080527d1ae165b4a29c7ecd2182fe012324e1dee341",
+        "stdout_sha256": "094a30c5b2ef2cbaa0991eaebed705a60da1e7e95d8ff9820c1d8e08845cce86"
+      }
+    ]
+  },
+  "status": "COMPLETE",
+  "steps": [
+    {
+      "log_path": "reports/premarket-operation-logs/20261001.paper/market_tail_repair.log",
+      "log_sha256": "5b89f3723ad8ab12c359cc22da21d54066a9f75a0061f2eda4c655e6f20a411c",
+      "name": "market_tail_repair",
+      "returncode": 0,
+      "status": "EXECUTED",
+      "stderr_sha256": "81aa27e42fce5549abaa3e8f41bb5851835b129f94ce24b26d20067cacc429f4",
+      "stdout_sha256": "488ab205cfc0cc6f804537dfb27adb51fbbd67b883e04bb5ebb8ceedb778c63f"
+    }
+  ],
+  "trading_day": "2026-10-01"
+}

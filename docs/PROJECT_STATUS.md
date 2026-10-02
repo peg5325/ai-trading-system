@@ -123,13 +123,22 @@
 
 ## 다음 한 가지 작업
 
-(2026-10-02 갱신) 활성화는 PR #169로 병합됐다. 첫 Paper 세션 ET 2026-10-01의 장전 단계 결과는 이렇다.
-- FREEZE `SHADOW_READY`, regime `RISK_ON`, MSFT·AMZN·SPY `LONG_WATCH`(승인 전략).
-- VERIFICATION은 Marketaux 오류로 `NO_TRADE`였다. FREEZE에는 영향이 없었다.
+(2026-10-02 갱신) **v1.2 구간은 1일차 후 종료했고 v1.3으로 새 10세션(ET 10-02~10-15)을 시작한다.** 사용자 결정이다.
+- v1.2 1일차(ET 10-01): `TRADED`, 평가액 2000 → 1995.28.
+  - AMZN STOP_LOSS, MSFT TIME_EXIT, SPY는 EXPOSURE_ROOM으로 미진입. 투입은 약 38%였다.
+  - 기록은 [PAPER_V1_2_CLOSED_RECORD](research/PAPER_V1_2_CLOSED_RECORD/README.md)에 보존했다. v1.3 판정에는 합산하지 않는다.
+- v1.3 변경(Charter v1.5, 계약 revision_history 1.3)
+  - ① 소수점 금액 매수: 6자리 내림, USD 1 미만 건너뜀, 1주 규칙 삭제.
+  - ② 뉴스 제목 관련성 필터(`news_title_relevance_required`): 티커, 회사명 핵심, 고정 별칭.
+  - ③ Marketaux 대기 30초, 응답 없는 재시도의 한도 미차감, 시도별 소요시간 기록.
+  - 비용(1일차 손실의 약 1/3이 수수료)은 구조적 비용으로 기록만 했다.
+- v1.3 영수증: 첫 세션 2026-10-02, 구간 시작 종가일 2026-10-01(SPY 763.745), 코드 `7a16f34`.
+  운영 DB로 `load_receipt` 검증을 통과했다.
 
-다음 한 가지 작업은 매 세션 launchd freeze-paper 결과(05:35 KST)를 확인하고 10세션(10-01~10-14)을 마치는 것이다.
-- 그 뒤 평가기를 수동으로 실행한다.
-- 이어서 PR #171의 history-collect job을 설치한다(운영 체크아웃 이동 후 launchd 재설치).
+다음 한 가지 작업은 v1.3을 21:01 KST(ET 10-02 PRIMARY) 전에 main과 운영 체크아웃에 반영하는 것이다.
+- 그 뒤 매 세션 05:35 KST launchd 결과를 확인하고 10세션을 마친다.
+- 이어서 평가기를 실행하고, PR #171 history-collect job을 설치한다.
+- 실거래 전 확인 사항: Toss 소수점 주문(금액 기준 시장가, 정규장~마감 1시간 전)과 레버리지 ETF의 소수점 거래 가능 여부를 확인한다.
 실거래 전 레버리지·인버스 ETP의 브로커·규제 사전 조건을 확인한다.
 
 ### 병행 연구 (운영 체크아웃·Paper 계약 비접촉, ROADMAP 현재 단계 밖의 다음 후보 연구)

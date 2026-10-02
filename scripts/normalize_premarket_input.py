@@ -29,8 +29,12 @@ def main(argv: list[str] | None = None) -> int:
     with open(args.market_bundle, encoding="utf-8") as stream:
         market_bundle = json.load(stream)
     config = load_config(args.config)
-    result = normalize_bundles(provider_bundle, market_bundle,
-                               strategy_template_id=attachable_template(config))
+    result = normalize_bundles(
+        provider_bundle,
+        market_bundle,
+        strategy_template_id=attachable_template(config),
+        news_title_relevance_required=config.news_title_relevance_required,
+    )
     write_immutable(args.out_json, json_bytes(result))
     schedule = build_premarket_schedule(
         date.fromisoformat(result["trading_day"]),

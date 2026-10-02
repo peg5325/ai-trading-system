@@ -3,7 +3,7 @@
     "note": "user checked the Toss app '수수료 및 혜택' on 2026-10-01: US stocks 0.1% (orders with total execution <= USD 10 are commission-free); no event discount; contract rates apply for the whole window",
     "observed_commission_bps_per_side": 10.0
   },
-  "activation_config_sha256": "e1c5cfa5c043c235775c9093370901a569fa9d04cea1725dfa4d39dc835d1375",
+  "activation_config_sha256": "ad8c3e367d1f56ddab61a35dc89161079ac571b50a0418485fd34f4278641cbc",
   "allowed_symbols_check": {
     "index_3x_etfs_listed": [
       "SOXL",
@@ -12,11 +12,12 @@
     "passed": true,
     "single_stock_leveraged_etfs": []
   },
-  "code_commit": "160bbf4859d112b52e42ca20d6209d5907ca7368",
-  "contract_json_sha256": "e173e1409d4e4d5f79ff4966f797e27e3c79dd80fe88cfaeb89aa73c33238ce0",
-  "contract_md_sha256": "1af715449fd0881dbc6ebedf30787c6867356e8265dfadf129c4877567163f89",
-  "contract_version": "1.2",
-  "first_session": "2026-10-01",
+  "artifact_sha256": "e42dffa583289e4863a0cd7c2c7172a3613d4beb505c234667cda9086c0e4a91",
+  "code_commit": "7a16f34e047752fcf89bd2137ad19e2730b596c7",
+  "contract_json_sha256": "f989eeb8f88f449aae844753738109b6dd34cf5c2bf17477e8fbf07a9efc3a90",
+  "contract_md_sha256": "9f0369bf44f158cf6be0776a508d24bbfb7541e7afc38a0c6340cbf6df5247f1",
+  "contract_version": "1.3",
+  "first_session": "2026-10-02",
   "intraday_bar_provider": "Toss Open API REGULAR 1m candles via scripts/history_backfill_official.py tail repair into data/market_history.sqlite",
   "operating_costs": {
     "allocation": "recurring costs invoiced only for services used by this system during the window, allocated by window sessions / trading sessions in the billing period; shared personal subscriptions and personal time are excluded",
@@ -25,7 +26,6 @@
     "total_usd": 0.0
   },
   "scheduled_sessions": [
-    "2026-10-01",
     "2026-10-02",
     "2026-10-05",
     "2026-10-06",
@@ -34,7 +34,8 @@
     "2026-10-09",
     "2026-10-12",
     "2026-10-13",
-    "2026-10-14"
+    "2026-10-14",
+    "2026-10-15"
   ],
   "schema": "premarket-freeze-long-paper/first-session-receipt/v1",
   "spy_dividend_source": "State Street SPDR S&P 500 ETF Trust (SPY) official fund page / distributions: https://www.ssga.com/us/en/intermediary/etfs/state-street-spdr-sp-500-etf-trust-spy",
@@ -64,12 +65,11 @@
       "tests/test_freeze_paper_runner.py::test_corrupted_restart_checkpoint_is_flagged"
     ]
   },
-  "window_start_close_date": "2026-09-30",
+  "window_start_close_date": "2026-10-01",
   "window_start_spy_close_evidence": {
-    "bar_ts_utc": "2026-09-30T19:59:00+00:00",
-    "captured_at": "2026-09-30T20:20:22.196756+00:00",
-    "close": 763.75,
-    "updated_at": "2026-09-30T20:20:22.196756+00:00"
-  },
-  "artifact_sha256": "810c5a0357fef5c7a3c8f2a27280da584d6df741c19ee50c44b3a139ace9e162"
+    "bar_ts_utc": "2026-10-01T19:59:00+00:00",
+    "captured_at": "2026-10-01T20:20:19.965012+00:00",
+    "close": 763.745,
+    "updated_at": "2026-10-01T20:20:19.965012+00:00"
+  }
 }

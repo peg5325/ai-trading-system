@@ -57,6 +57,38 @@
 - FILING: `accepted_at <= as_of`이고 직전 24시간 이내인 8-K·10-Q·10-K. form 자체는 방향성이
   없으므로 sentiment는 0이다.
 - MACRO와 release calendar는 regime source/context이며 종목 catalyst로 변환하지 않는다.
+
+### NEWS 제목 관련성 필터 (v1.3, 2026-10-02 시행, 사용자 결정, 소급 없음)
+
+2026-10-01 FREEZE에서 제목이 종목을 언급하지 않는 기사(예: SPY에 붙은 "State Street Corp's
+Dividend Analysis", MSFT에 붙은 ETF 보유 변동 기사)가 catalyst·evidence로 쓰였다. 이에 따라
+`config/premarket_daily_brief.yaml`의 `news_title_relevance_required: true`일 때만 다음 규칙을 적용한다.
+플래그가 없거나 `false`이면 v1.2 이전 동작과 해시가 그대로이며, 이전 Brief는 바뀌지 않는다.
+
+- Marketaux NEWS 기사는 제목이 종목 S를 언급할 때만 S의 catalyst·evidence로 센다. 언급이란
+  (a) 티커 S가 대소문자 구분 whole word로 나타나는 것(`$S` 허용, 경계 = 인접 문자가 ASCII
+  영문자·숫자가 아님), 또는 (b) S로 매칭된 entity `name`의 name core가 대소문자 무시 whole-word
+  구(phrase)로 나타나는 것이다.
+- name core: `name`을 소문자화하고 영숫자가 아닌 문자열을 공백 하나로 바꾼 뒤, 맨 앞 `the`를
+  지우고, 끝의 다음 토큰을 반복 제거한다: `inc, incorporated, corp, corporation, co, company,
+  ltd, limited, plc, holdings, llc, lp, com, etf, fund, trust` 및 `class a|b|c`. 결과가 비었거나
+  다음 일반어 한 단어뿐이면 티커 규칙만 쓴다: `american, capital, energy, financial, first, fund,
+  general, global, group, index, international, invesco, ishares, national, spdr, technologies,
+  technology, united, vanguard`. 제목도 같은 방식으로 정규화한 뒤 비교한다. 튜닝된 문턱은 없다.
+- 판정은 provider 파싱 시점에 제목으로 계산해 sanitized item의 `title_relevant_symbols`에 담는다.
+  제목 원문은 저장하지 않는다(`headline_sha256`만 유지).
+- 플래그가 켜지면 NEWS event의 `symbols`는 `title_relevant_symbols`와의 교집합이며, 남는 종목이
+  없으면 event 자체를 제외한다. 이 필드가 없는 과거 bundle 항목은 어떤 종목과도 관련 없음으로
+  본다(fail-closed). FILING event는 영향받지 않는다. 플래그가 켜진 정규화 산출물은
+  `provenance.news_title_relevance_required=true`를 기록한다.
+- (c) 고정 별칭(alias) 목록(오케스트레이터 결정, 2026-10-02, v1.3 결과 관측 전): 아래 구가
+  대소문자 무시 whole-word로(같은 정규화) 나타나도 언급으로 본다. (a)·(b)와 합집합이다.
+  `AAPL: apple; MSFT: microsoft; NVDA: nvidia; AMD: advanced micro devices; AVGO: broadcom;
+  AMZN: amazon; META: meta, facebook; GOOGL: google, alphabet; TSLA: tesla; MU: micron;
+  NFLX: netflix; CRM: salesforce; PLTR: palantir; VST: vistra.`
+  ETF(SPY QQQ IWM DIA XLK XLF XLE XLV XLI XLY XLU SMH TQQQ SOXL)는 별칭 없이 티커 + name core만 쓴다.
+  이 별칭이 `meta platforms`, `micron technology`, `palantir technologies` 같은 name core가 제목의
+  단독 회사명 언급("Meta", "Micron", "Palantir")을 놓치는 문제를 메운다.
 - 동일 event ID의 상충 revision, 허용 종목 밖 symbol, source join 실패는 fail-closed다.
 - Daily Brief source freshness는 기본 180분을 유지하되, FILING source는 이 계약의 24시간
   lookback과 동일한 1,440분을 사용한다. 종류별 override는 config에 명시하고, 미지정 kind는

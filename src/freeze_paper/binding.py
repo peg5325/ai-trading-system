@@ -30,6 +30,8 @@ class ContractBinding:
     max_candidates: int
     initial_equity: float
     max_exposure_pct: float
+    quantity_decimals: int
+    min_order_notional_usd: float
     entry_time_et: time
     slippage_bps: float
     commission_bps: float
@@ -85,6 +87,8 @@ def binding_from_contract(contract: dict[str, Any], sha256: str) -> ContractBind
         max_candidates=int(contract["decision_input"]["max_candidates"]),
         initial_equity=float(contract["account"]["initial_equity"]),
         max_exposure_pct=float(portfolio["max_total_effective_exposure_pct"]),
+        quantity_decimals=int(portfolio["quantity_decimals"]),
+        min_order_notional_usd=float(portfolio["minimum_order_notional_usd"]),
         entry_time_et=time(hour, minute),
         slippage_bps=float(costs["paper_slippage_bps_per_side"]),
         commission_bps=float(costs["paper_commission_bps_per_side"]),
