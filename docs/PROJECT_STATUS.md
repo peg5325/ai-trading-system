@@ -144,7 +144,8 @@
   근거 없이 이어졌고, 사용자가 진입·청산·비중·비용·평가 설계 전부를 처음부터 다시 보기로 했다.
 - 방법: `config/premarket_daily_brief.yaml`의 LONG·SHORT 승인 목록을 다시 비웠다. 영수증이 결속한 config
   해시가 달라져 러너는 `NOT_ACTIVATED`(`RECEIPT_INVALID:ACTIVATION_CONFIG_SHA256`)로 끝난다.
-  장전 FREEZE·post-close 관찰은 `NO_APPROVED_STRATEGY_TEMPLATE` → `NO_TRADE`로 계속 쌓인다.
+  장전 FREEZE·post-close 관찰은 `NO_TRADE`로 계속 쌓인다(후보가 있으면 `NO_APPROVED_STRATEGY_TEMPLATE`,
+  없으면 `NO_ELIGIBLE_CANDIDATE`).
 - 계약 v1.3 JSON/MD와 영수증은 수정하지 않고 증거로 보존한다. v1.3 구간(10-02~10-15)은 0세션으로 종료한다.
   재검토 후 새 계약은 새 버전·새 영수증·새 10세션으로 시작한다.
 - 뉴스 제목 관련성 필터(v1.3 ②)는 관찰 품질 개선이라 config에 그대로 둔다. 승인 목록이 빈 상태의

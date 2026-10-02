@@ -22,7 +22,7 @@ universe_path: universe_p0_us30.yaml
 excluded_universe_classes:
   - inverse_etf
 
-# LONG allowlist. Activated 2026-10-01 only together with the validated first-session receipt
+# LONG allowlist (currently paused, see below). Activated 2026-10-01 only together with the validated first-session receipt
 # docs/research/PREREG_PREMARKET_FREEZE_LONG_PAPER_V1_FIRST_SESSION_RECEIPT.json (Paper only).
 # Briefs stay executable=false / orders=[]; the Paper runner refuses to run without that receipt.
 # 2026-10-02 사용자 결정: 전략 원점 재검토 동안 Paper를 일시 중지한다(v1.3 세션 실행 전).
