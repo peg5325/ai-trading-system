@@ -1,6 +1,6 @@
 """Read-only probe of the Toss Open API realtime WebSocket (quotes only, no orders).
 
-Connects to wss://openapi-ws.tossinvest.com/ws/v1, subscribes trade:us / orderbook:us for a few
+Connects to wss://openapi-ws.tossinvest.com/ws/v1, subscribes trade:{us,kr} / orderbook:{us,kr} for a few
 symbols, and records message counts, inter-arrival gaps and one sample payload per topic.
 It never subscribes to personal:order and never calls an order endpoint.
 
@@ -49,10 +49,10 @@ def _summary(stats: dict) -> dict:
     return out
 
 
-async def probe(token: str, symbols: list[str], channels: list[str], seconds: float) -> dict:
+async def probe(token: str, symbols: list[str], channels: list[str], seconds: float, market: str) -> dict:
     import websockets
 
-    decl = [{"type": f"{ch}:us", "codes": symbols} for ch in channels]
+    decl = [{"type": f"{ch}:{market}", "codes": symbols} for ch in channels]
     stats: dict = {}
     events: list = []
     started = time.monotonic()
@@ -89,6 +89,7 @@ async def probe(token: str, symbols: list[str], channels: list[str], seconds: fl
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--env-file", type=Path, default=ROOT / ".env", help="file holding TOSS_CLIENT_ID/SECRET")
+    ap.add_argument("--market", choices=("us", "kr"), default="us")
     ap.add_argument("--symbols", default="QQQ,TQQQ,SQQQ,SPY")
     ap.add_argument("--channels", default="trade,orderbook")
     ap.add_argument("--seconds", type=float, default=600.0)
@@ -96,11 +97,11 @@ def main() -> int:
     args = ap.parse_args()
 
     started = datetime.now(timezone.utc).isoformat()
-    report: dict = {"started_utc": started, "url": WS_URL, "symbols": args.symbols.split(","),
+    report: dict = {"started_utc": started, "url": WS_URL, "market": args.market, "symbols": args.symbols.split(","),
                     "channels": args.channels.split(","), "seconds": args.seconds}
     try:
         token = _token(args.env_file)
-        report.update(asyncio.run(probe(token, report["symbols"], report["channels"], args.seconds)))
+        report.update(asyncio.run(probe(token, report["symbols"], report["channels"], args.seconds, args.market)))
         report["status"] = "OK"
     except Exception as exc:  # noqa: BLE001 - a probe records any failure (without secrets) instead of crashing
         report["status"] = "ERROR"
