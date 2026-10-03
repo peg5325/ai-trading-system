@@ -30,6 +30,8 @@ observing outcomes. Version changes prospectively and preserve evidence.
 
 ## Daily trading journal (user rule, 2026-10-04)
 
+Exploratory Paper (Charter v2.3 §4.6) journals start with the 2026-10-05 US session.
+
 Once day-trading runs (Paper or live), every trading day must end with a journal written after the
 US close. It goes in `docs/journal/YYYY-MM-DD.md` (Korean, plain language) and must contain:
 
