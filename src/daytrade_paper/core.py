@@ -153,10 +153,27 @@ def preopen_inputs(
     }
 
 
+def decision_time(events: dict) -> int:
+    """S1/S2 decision time: 10:15 on CPI/NFP/PCE days, else 09:45."""
+    return R.DECISION_INDICATOR_DAY if events.get("indicator") else R.DECISION
+
+
 def data_quality(
-    regular: dict[str, list[Bar]], prior: list[PriorSession], early_close: bool
+    regular: dict[str, list[Bar]],
+    prior: list[PriorSession],
+    early_close: bool,
+    decision_t: int,
+    prev_times: dict[str, set[int]],
+    expected_prev: str,
+    prev_early_close: bool = False,
 ) -> dict:
-    """INCOMPLETE_DATA check: full regular grid per symbol and enough QQQ history."""
+    """INCOMPLETE_DATA check.
+
+    Today: full regular grid per symbol. History: enough QQQ sessions, the latest one is the
+    previous NYSE trading day `expected_prev`, that session has its final bar for every symbol
+    (`prev_times` = bar times of the DB's latest prior session per symbol), and each RVOL
+    baseline session has the complete opening window [09:30, decision_t).
+    """
     need = R.EARLY_CLOSE_BARS if early_close else R.FULL_SESSION_BARS
     last = R.EARLY_CLOSE_LAST_BAR if early_close else R.LAST_BAR
     issues: list[str] = []
@@ -173,5 +190,19 @@ def data_quality(
     min_hist = max(R.SMA_DAYS, R.ATR_DAYS + 1, R.RVOL_LOOKBACK)
     if len(prior) < min_hist:
         issues.append(f"QQQ 과거 세션 {len(prior)}개 < {min_hist}")
+    db_prev = prior[-1].date if prior else None
+    if db_prev != expected_prev:
+        issues.append(f"전 거래일 {expected_prev} QQQ 세션이 DB에 없음(DB 마지막 세션 {db_prev})")
+    prev_last = R.EARLY_CLOSE_LAST_BAR if prev_early_close else R.LAST_BAR
+    for sym in R.SYMBOLS:
+        if prev_last not in prev_times.get(sym, set()):
+            issues.append(f"{sym} 전 거래일({db_prev}) {fmt_t(prev_last)} 마지막 봉 누락")
+    for s in prior[-R.RVOL_LOOKBACK :]:
+        ts = {b.t for b in s.bars}
+        missing = [t for t in range(R.OPEN, decision_t) if t not in ts]
+        if missing:
+            issues.append(f"RVOL 기준 세션 {s.date} 개장 구간 {fmt_t(R.OPEN)}~{fmt_t(decision_t - 1)} "
+                          f"봉 {len(missing)}개 누락(첫 누락 {fmt_t(missing[0])})")
     return {"ok": not issues, "issues": issues, "regular_bar_counts": counts,
-            "prior_sessions": len(prior), "expected_bars": need}
+            "prior_sessions": len(prior), "expected_bars": need,
+            "expected_prev_session": expected_prev, "db_prev_session": db_prev}

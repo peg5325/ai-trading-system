@@ -4,10 +4,19 @@
 #   FOMC        = FOMC decision day (second day of the meeting)      -> S0
 #   EARLY_CLOSE = NYSE 1:00 p.m. early close                         -> S0
 #   CPI / NFP / PCE = 08:30 ET release day                           -> S1/S2/S3 decided at 10:15
+# holidays = NYSE full-day closures inside coverage. Trading days = weekdays minus these;
+# the runner uses them for the previous-trading-day and ledger-chain checks.
 version: v1
 coverage:
   start: "2026-10-01"
   end: "2026-12-31"
+holidays:
+  - date: "2026-11-26"
+    title: Thanksgiving Day (NYSE closed)
+    source: https://www.nyse.com/markets/hours-calendars
+  - date: "2026-12-25"
+    title: Christmas Day (NYSE closed)
+    source: https://www.nyse.com/markets/hours-calendars
 events:
   - date: "2026-10-02"
     type: NFP

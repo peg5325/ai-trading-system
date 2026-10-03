@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import urllib.request
 from datetime import date as Date
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import yaml
@@ -110,3 +110,21 @@ def events_for(cal: dict, day: str) -> dict:
             "fomc": "FOMC" in types, "early_close": "EARLY_CLOSE" in types,
             "indicator": bool(INDICATOR_TYPES & set(types)),
             "items": [{k: str(v) for k, v in e.items()} for e in items]}
+
+
+def nyse_holidays(cal: dict) -> set[str]:
+    """NYSE full-day closures listed in the calendar (`holidays` key)."""
+    return {str(h["date"]) for h in cal.get("holidays") or []}
+
+
+def is_trading_day(cal: dict, day: str) -> bool:
+    """NYSE trading day = weekday that is not a listed full-day holiday."""
+    return Date.fromisoformat(day).weekday() < 5 and day not in nyse_holidays(cal)
+
+
+def prev_trading_day(cal: dict, day: str) -> str:
+    """The NYSE trading day immediately before `day`."""
+    d = Date.fromisoformat(day) - timedelta(days=1)
+    while not is_trading_day(cal, d.isoformat()):
+        d -= timedelta(days=1)
+    return d.isoformat()

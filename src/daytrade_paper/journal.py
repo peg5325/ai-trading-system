@@ -109,8 +109,12 @@ def render(result: dict) -> str:
         L.append("- 거래 없음")
     L += ["", "## 거래하지 않은 구간과 이유", ""]
     L += [f"- {x}" for x in r["no_trade_reasons"]] or ["- 없음"]
-    if r["halt"].get("triggered"):
-        L.append(f"- 일일 손실 한도 발동: {r['halt']}")
+    h = r["halt"]
+    if h.get("triggered"):
+        L.append(f"- 일일 손실 −3% 도달({h['time']} 점검, 손익 {_usd(h['day_pnl_at_check'])} ≤ 한도 "
+                 f"{_usd(h['limit'])}): 이후 신규 진입 없음 (S5 신호 {'있음' if h['s5_signal'] else '없음'})")
+    elif h.get("reached_by_close"):
+        L.append(f"- 일일 손실 −3% 도달(14:45 점검 이후, 마감 손익 기준; 한도 {_usd(h['limit'])})")
     L += [
         "",
         "## 결과 비교(비용 차감 후 vs 1배 보유)",

@@ -7,6 +7,7 @@ from src.daytrade_paper.core import (
     PriorSession,
     by_t,
     data_quality,
+    decision_time,
     fmt_t,
     preopen_inputs,
     vwap_through,
@@ -111,6 +112,8 @@ def _open_trade(kind: str, sym: str, t: int, bars: list[Bar], stop_raw: float | 
     bar = by_t(bars).get(t)
     if bar is None:
         return None, f"{sym} {fmt_t(t)} 봉 없음"
+    if stop_raw is not None and bar.open <= stop_raw:  # long products: already through the stop
+        return None, f"진입 시가가 이미 손절가 아래(시가 {bar.open:.4f} ≤ 손절가 {stop_raw:.4f}) → 진입 안 함"
     fill = buy_fill(bar.open)
     if stop_frac_fixed is not None:
         stop = fill * (1 - stop_frac_fixed)
@@ -156,13 +159,22 @@ def run_day(
     external: dict,
     events: dict,
     equity_start: float,
+    *,
+    prev_times: dict[str, set[int]],
+    expected_prev: str,
+    prev_early_close: bool = False,
 ) -> dict:
-    """Simulate one session. events: {"fomc", "early_close", "indicator", "types", ...}."""
+    """Simulate one session. events: {"fomc", "early_close", "indicator", "types", ...}.
+
+    prev_times / expected_prev / prev_early_close feed the prior-session data checks.
+    """
     base = {"date": day, "rules_version": R.RULES_VERSION, "label": R.LABEL,
             "contract": R.CONTRACT_PATH, "events": events, "external": external,
             "equity_start": equity_start, "trades": [], "no_trade_reasons": [],
             "situations": [], "checks": {}, "halt": {"triggered": False}}
-    quality = data_quality(regular, prior, bool(events.get("early_close")))
+    decision_t = decision_time(events)
+    quality = data_quality(regular, prior, bool(events.get("early_close")), decision_t,
+                           prev_times, expected_prev, prev_early_close)
     base["data_quality"] = quality
     if not quality["ok"]:
         base["situation"] = "INCOMPLETE_DATA"
@@ -185,7 +197,6 @@ def run_day(
         base["no_trade_reasons"].append(f"S0({why}): 하루 종일 진입 없음")
         return _finish(base, regular, equity_start, 0.0)
 
-    decision_t = R.DECISION_INDICATOR_DAY if events.get("indicator") else R.DECISION
     t3 = R.DECISION_INDICATOR_DAY if events.get("indicator") else R.S3_DECISION
     sig = opening_signals(inputs, qqq, prior, decision_t)
     base["opening"] = sig
@@ -234,23 +245,25 @@ def run_day(
 
     s5 = classify_s5(inputs, qqq)
     base["checks"]["S5"] = s5
+    # Daily loss check at 14:45 (the only later entry point), recorded whether or not S5 fires.
+    day_pnl = 0.0
+    open_same = 0.0
+    if closed:
+        p = closed[0]
+        if closed_by({"t": p["exit_t"], "at": p["exit_at"]}, R.S5_DECISION):
+            realized = p["pnl"]
+            day_pnl = realized
+        else:
+            day_pnl = _mark_pnl(primary, primary_bars, R.S5_DECISION)
+            if p["symbol"] == s5["symbol"]:
+                open_same = p["notional"]
+    limit = -R.DAILY_LOSS_HALT * equity_start
+    reached = day_pnl <= limit
+    base["halt"] = {"triggered": reached, "day_pnl_at_check": day_pnl, "limit": limit,
+                    "time": fmt_t(R.S5_DECISION), "s5_signal": bool(s5["label"])}
     if s5["label"]:
         base["situations"].append("S5")
-        day_pnl = 0.0
-        open_same = 0.0
-        if closed:
-            p = closed[0]
-            if closed_by({"t": p["exit_t"], "at": p["exit_at"]}, R.S5_DECISION):
-                realized = p["pnl"]
-                day_pnl = realized
-            else:
-                day_pnl = _mark_pnl(primary, primary_bars, R.S5_DECISION)
-                if p["symbol"] == s5["symbol"]:
-                    open_same = p["notional"]
-        limit = -R.DAILY_LOSS_HALT * equity_start
-        if day_pnl <= limit:
-            base["halt"] = {"triggered": True, "day_pnl_at_check": day_pnl, "limit": limit,
-                            "time": fmt_t(R.S5_DECISION)}
+        if reached:
             base["no_trade_reasons"].append(
                 f"S5 신호 있었으나 일일 손실 {day_pnl:.2f} ≤ 한도 {limit:.2f}(−3%) → 신규 진입 없음")
         else:
@@ -269,9 +282,14 @@ def run_day(
                 closed.append(_close_trade(trade, ex))
     else:
         base["no_trade_reasons"].append(f"S5 미발동: {s5['detail']}")
+        if reached:
+            base["no_trade_reasons"].append(
+                f"14:45 일일 손실 {day_pnl:.2f} ≤ 한도 {limit:.2f}(−3%) 도달 → 이후 신규 진입 없음")
 
     base["trades"] = closed
-    return _finish(base, regular, equity_start, sum(t["pnl"] for t in closed))
+    total = sum(t["pnl"] for t in closed)
+    base["halt"]["reached_by_close"] = total <= limit
+    return _finish(base, regular, equity_start, total)
 
 
 def _ret(bars: list[Bar]) -> float | None:

@@ -38,6 +38,7 @@ def load_bars(db_path: Path, day: str) -> dict:
         regular: dict[str, list[Bar]] = {s: [] for s in R.SYMBOLS}
         qqq_pre: list[Bar] = []
         prior: dict[str, list[Bar]] = {}
+        prior_times: dict[str, dict[str, set[int]]] = {s: {} for s in R.SYMBOLS}
         q = ("SELECT ts_exchange, session, open, high, low, close, volume FROM candle_history "
              "WHERE symbol=? AND interval='1m' AND ts_utc>=? AND ts_utc<? ORDER BY ts_utc")
         for sym in R.SYMBOLS:
@@ -47,13 +48,16 @@ def load_bars(db_path: Path, day: str) -> dict:
                     regular[sym].append(bar)
                 elif bday == day and session == "PRE" and sym == R.SIGNAL:
                     qqq_pre.append(bar)
-                elif bday < day and session == "REGULAR" and sym == R.SIGNAL:
-                    prior.setdefault(bday, []).append(bar)
+                elif bday < day and session == "REGULAR":
+                    prior_times[sym].setdefault(bday, set()).add(bar.t)
+                    if sym == R.SIGNAL:
+                        prior.setdefault(bday, []).append(bar)
     finally:
         con.close()
     sessions = [PriorSession(k, tuple(v)) for k, v in sorted(prior.items())]
-    return {"regular": regular, "qqq_pre": qqq_pre, "prior": sessions,
-            "prev_session": sessions[-1].date if sessions else None}
+    prev = sessions[-1].date if sessions else None
+    return {"regular": regular, "qqq_pre": qqq_pre, "prior": sessions, "prev_session": prev,
+            "prev_times": {s: prior_times[s].get(prev, set()) for s in R.SYMBOLS}}
 
 
 def new_ledger() -> dict:
@@ -67,17 +71,21 @@ def load_ledger(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def check_chain(ledger: dict, day: str, prev_session: str | None) -> float:
-    """Return the starting equity for `day`, refusing gaps or repeats in the ledger."""
+def check_chain(ledger: dict, day: str, prev_trading_day: str) -> float:
+    """Return the starting equity for `day`, refusing gaps or repeats in the ledger.
+
+    prev_trading_day comes from the NYSE calendar (not the DB), so a session the collector
+    missed cannot be skipped silently.
+    """
     days = ledger["days"]
     if not days:
         return float(ledger["start_equity"])
     last = days[-1]
     if day <= last["date"]:
         raise RunRefused(f"ledger already has {last['date']} (>= {day}); dates must move forward")
-    if prev_session != last["date"]:
+    if prev_trading_day != last["date"]:
         raise RunRefused(
-            f"previous trading day {prev_session} is not the last ledger day {last['date']}; "
+            f"previous NYSE trading day {prev_trading_day} is not the last ledger day {last['date']}; "
             "run the missing day first")
     return float(last["equity_end"])
 
@@ -106,3 +114,20 @@ def write_ledger(path: Path, ledger: dict) -> None:
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(ledger, ensure_ascii=False, indent=2), encoding="utf-8")
     os.replace(tmp, path)
+
+
+def commit_outputs(report_path: Path, report_text: str, journal_path: Path, journal_text: str,
+                   ledger_path: Path, ledger: dict, row: dict) -> None:
+    """Write the report, the journal, then the ledger row last. On any failure, delete the
+    files this call created (so a rerun is not blocked by write-once) and re-raise."""
+    created: list[Path] = []
+    try:
+        write_once(report_path, report_text)
+        created.append(report_path)
+        write_once(journal_path, journal_text)
+        created.append(journal_path)
+        write_ledger(ledger_path, {**ledger, "days": [*ledger["days"], row]})
+    except BaseException:
+        for p in created:
+            p.unlink(missing_ok=True)
+        raise
