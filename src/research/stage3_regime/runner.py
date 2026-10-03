@@ -136,6 +136,8 @@ def run_confirm(raw: RawData, selection: dict, provenance: dict) -> dict:
             out["indices"][index] = row
             continue
         labels, rmat = index_inputs(panel, index)
+        if (labels[a - 1 : b + 1] < 0).any():
+            raise ValueError(f"{index}: undefined regime label inside the confirm window")
         combo = tuple(int(sel["combo"][r]) for r in C.REGIMES)
         p1, w1 = _one_x(n)
         variants = {}

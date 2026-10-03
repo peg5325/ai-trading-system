@@ -59,6 +59,20 @@ def provenance(raw_dir: Path) -> dict:
     }
 
 
+V2_RESULT = ROOT / "docs" / "research" / "RESULT_STAGE3_SWING_V2.json"
+
+
+def _raw_matches_v2(prov: dict) -> bool:
+    """Prereg section 1: the raw files must be the ones the swing v2 result recorded."""
+    return json.loads(V2_RESULT.read_text())["provenance"]["raw_sha256"] == prov["raw_sha256"]
+
+
+def _code_unchanged_since(commit: str) -> bool:
+    return subprocess.run(
+        ["git", "diff", "--quiet", commit, "HEAD", "--", *C.CODE_PATHS], cwd=ROOT, check=False
+    ).returncode == 0
+
+
 def _refuse(problems: list[str]) -> int:
     print("refusing to run:\n  " + "\n  ".join(problems)
           + "\nuse --not-prereg for an explicitly non-preregistered run", file=sys.stderr)
@@ -71,6 +85,8 @@ def explore(raw_dir: Path, not_prereg: bool) -> int:
     prov = provenance(raw_dir)
     if not not_prereg and prov["tree_dirty"]:
         return _refuse(["working tree has uncommitted changes (commit before explore)"])
+    if not not_prereg and not _raw_matches_v2(prov):
+        return _refuse(["raw SHA-256 differs from RESULT_STAGE3_SWING_V2 (prereg section 1)"])
     prov["preregistered_run"] = not not_prereg
     prov["explore_window"] = {"start": str(C.EXPLORE_START), "end": str(C.EXPLORE_END)}
     sel = run_explore(load_raw_dir(raw_dir), prov)
@@ -85,6 +101,8 @@ def explore(raw_dir: Path, not_prereg: bool) -> int:
 
 def confirm(raw_dir: Path, not_prereg: bool) -> int:
     problems = []
+    if not_prereg and not RESULT_BASE.with_suffix(".json").exists():
+        return _refuse(["a non-preregistered confirm may not open the confirm window before the official run"])
     sel_path = SELECTION if (SELECTION.exists() or not not_prereg) else SELECTION_NP
     if not sel_path.exists():
         problems.append(f"{sel_path.name} missing; run --explore and commit it first")
@@ -105,6 +123,11 @@ def confirm(raw_dir: Path, not_prereg: bool) -> int:
             problems.append("selection was made under a different prereg blob")
         if not selection.get("preregistered_run"):
             problems.append("selection file is not from a preregistered explore run")
+        sel_prov = selection.get("provenance", {})
+        if sel_prov.get("raw_sha256") != prov["raw_sha256"]:
+            problems.append("raw SHA-256 differs from the one recorded at explore")
+        if not sel_prov.get("code_commit") or not _code_unchanged_since(sel_prov["code_commit"]):
+            problems.append("study code changed since the explore run")
         if problems:
             return _refuse(problems)
     prov["preregistered_run"] = not not_prereg
