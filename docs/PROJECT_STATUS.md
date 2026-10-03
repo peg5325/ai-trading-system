@@ -137,6 +137,15 @@
 
 ## 다음 한 가지 작업
 
+(2026-10-04 갱신 2) **탐색용 Paper(Charter v2.3 §4.6) 준비 완료. 2026-10-05 미국 세션부터 TQQQ/SQQQ, 장 마감 후 1분봉 가상 체결.**
+- 규칙: [CONTRACT_EXPLORATORY_PAPER_DAYTRADE_V1](research/CONTRACT_EXPLORATORY_PAPER_DAYTRADE_V1.md) v1.0(§6 구현 해석 포함). 사용자 결정 2026-10-04: 10/5 시작, TQQQ/SQQQ 한 쌍.
+- 코드: `src/daytrade_paper/`, `scripts/run_daytrade_paper.py`, `config/daytrade_events_v1.yaml`(FOMC·CPI·NFP·PCE·조기폐장·휴장, 공식 출처 확인). `e5d58c6` → 독립 리뷰 APPROVE(M3·L7)
+  → 수정 `578dae3`(진입가 < 손절 거부, NYSE 달력 체인, 이전 세션 품질, 조기 실행 거부, `--out-root`, 실패 정리). 테스트 46개(전체 관련 83개) 통과.
+- 시험 실행(판단에 쓰지 않음, 9/28~10/2): 4일 S4, 10/2 S1 판정이나 손절폭 1.58% > 1.5%로 진입 없음. 규칙이 엄격해 무거래일이 많을 수 있다.
+- 실행: 10/6 11:07 KST 예약(세션 한정). 수동 실행: `scripts/run_daytrade_paper.py --date 2026-10-05 --db <checkout>/data/market_history.sqlite --out-root <checkout>`
+  (먼저 `--backfill-check`). 결과는 원래 체크아웃 `reports/daytrade_paper/`, 일지는 `docs/journal/`.
+- 참고 조사: 레버리지 지수 ETF 쌍 거래대금(3개월) — SOXL/SOXS $11.3B, TQQQ/SQQQ $5.9B, SPXL/SPXS $0.74B, UPRO/SPXU $0.55B, TNA/TZA $0.52B, 나머지 ≤ $0.24B.
+
 (2026-10-04 갱신) **데이트레이딩 "그날 상황 판단" 설계안 정리(확정 전).** 근거: [fable 설계 리뷰](research/REVIEW_DAYTRADE_SITUATION_LAYER_20261004.md) `ee7eed1`,
 [추가 입력 조사](research/RESEARCH_DAYTRADE_EXTRA_INPUTS_20261004.md) `026e163`.
 - 방식: 하루 0~2번, TQQQ/SQQQ 한 쌍, 대기가 기본. 판단은 규칙, AI는 장 마감 후 일지·개선 제안만. 뉴스는 일지 기록용(판단 제외).
