@@ -1,0 +1,63 @@
+# Event calendar for CONTRACT_EXPLORATORY_PAPER_DAYTRADE_V1 (rules v1.0).
+# Checked against the official pages on 2026-10-04. Dates outside `coverage` are unknown:
+# the live runner refuses them (extend the calendar first, as a new version).
+#   FOMC        = FOMC decision day (second day of the meeting)      -> S0
+#   EARLY_CLOSE = NYSE 1:00 p.m. early close                         -> S0
+#   CPI / NFP / PCE = 08:30 ET release day                           -> S1/S2/S3 decided at 10:15
+version: v1
+coverage:
+  start: "2026-10-01"
+  end: "2026-12-31"
+events:
+  - date: "2026-10-02"
+    type: NFP
+    title: Employment Situation, September 2026 (08:30 ET)
+    source: https://www.bls.gov/schedule/news_release/empsit.htm
+  - date: "2026-10-14"
+    type: CPI
+    title: Consumer Price Index, September 2026 (08:30 ET)
+    source: https://www.bls.gov/schedule/news_release/cpi.htm
+  - date: "2026-10-28"
+    type: FOMC
+    title: FOMC meeting October 27-28, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2026-10-29"
+    type: PCE
+    title: Personal Income and Outlays, September 2026 (08:30 ET)
+    source: https://www.bea.gov/news/schedule
+  - date: "2026-11-06"
+    type: NFP
+    title: Employment Situation, October 2026 (08:30 ET)
+    source: https://www.bls.gov/schedule/news_release/empsit.htm
+  - date: "2026-11-10"
+    type: CPI
+    title: Consumer Price Index, October 2026 (08:30 ET)
+    source: https://www.bls.gov/schedule/news_release/cpi.htm
+  - date: "2026-11-25"
+    type: PCE
+    title: Personal Income and Outlays, October 2026 (08:30 ET)
+    source: https://www.bea.gov/news/schedule
+  - date: "2026-11-27"
+    type: EARLY_CLOSE
+    title: NYSE early close 1:00 p.m. (day after Thanksgiving)
+    source: https://www.nyse.com/markets/hours-calendars
+  - date: "2026-12-04"
+    type: NFP
+    title: Employment Situation, November 2026 (08:30 ET)
+    source: https://www.bls.gov/schedule/news_release/empsit.htm
+  - date: "2026-12-09"
+    type: FOMC
+    title: FOMC meeting December 8-9, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2026-12-10"
+    type: CPI
+    title: Consumer Price Index, November 2026 (08:30 ET)
+    source: https://www.bls.gov/schedule/news_release/cpi.htm
+  - date: "2026-12-23"
+    type: PCE
+    title: Personal Income and Outlays, November 2026 (08:30 ET)
+    source: https://www.bea.gov/news/schedule
+  - date: "2026-12-24"
+    type: EARLY_CLOSE
+    title: NYSE early close 1:00 p.m. (Christmas Eve)
+    source: https://www.nyse.com/markets/hours-calendars
