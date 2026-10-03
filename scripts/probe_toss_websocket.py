@@ -102,7 +102,7 @@ def main() -> int:
         token = _token(args.env_file)
         report.update(asyncio.run(probe(token, report["symbols"], report["channels"], args.seconds)))
         report["status"] = "OK"
-    except Exception as exc:  # report the failure class without secrets
+    except Exception as exc:  # noqa: BLE001 - a probe records any failure (without secrets) instead of crashing
         report["status"] = "ERROR"
         report["error"] = f"{type(exc).__name__}: {str(exc)[:300]}"
     report["ended_utc"] = datetime.now(timezone.utc).isoformat()
