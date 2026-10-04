@@ -1,0 +1,137 @@
+{
+  "prereg": {
+    "path": "docs/research/PREREG_STAGE3_SWING_V1.md",
+    "git_blob_sha": "177eafef0534ba45ef46a3a739b05f3b97684e04"
+  },
+  "provenance": {
+    "prereg": {
+      "path": "docs/research/PREREG_STAGE3_SWING_V1.md",
+      "git_blob_sha": "177eafef0534ba45ef46a3a739b05f3b97684e04"
+    },
+    "code_commit": "d8d6f9105b6741f429543b651cd3301e51427571",
+    "code_dirty": false,
+    "raw_dir": "data/external/stage3_swing/20261002",
+    "raw_sha256": {
+      "yahoo_IDX_GSPC.json": "69e98d5533b3cc50b870878d3591445182cbe2534d98eccc3aee0af752e4247a",
+      "yahoo_IDX_NDX.json": "4aa66d83bb38ff2b0985c26eab7b52656d1f5a20fe41594b369044b348fb5306",
+      "yahoo_IDX_SP500TR.json": "d45f6a111733d4e74950aba95da063dbf1ca069ad6bbae51258b3caa031dc8c3",
+      "yahoo_IDX_VIX.json": "6dd651fd81f1f3cfab94cdc0ee9ab1066253e9749ca0806ded37b43769c33223",
+      "yahoo_SPY.json": "35a1c1c328990fa9f072ea4d07a3143cfce893b5b995e5615e60f17a7546e33c",
+      "yahoo_QQQ.json": "c6a6a0b152d01f410866aa0f98df337bcd0897b92d6804839a8c676286d2d292",
+      "yahoo_SSO.json": "522e443610a12d5043e900eb3ff1796eac583938721948d75c264a622b5812f5",
+      "yahoo_UPRO.json": "592d302b0b56867acb35732f203bdebe8ee574cd543194d4861b01866ca781d1",
+      "yahoo_SH.json": "ff12ecfade457aa987347a7b116c24add797f2da80c1da24714cdd1833d65b89",
+      "yahoo_QLD.json": "bf6cf27688c77d358fc2519f9add0d1ce46b07990716db6fe5889d402301c44b",
+      "yahoo_TQQQ.json": "1b52549becd44b569e13aa8a40267568cf43c72bd99b2f60d3e3d723c5b400c8",
+      "yahoo_PSQ.json": "03e6484b3a26a144835b85a67576713e4b00f9d60b3c6e1d73f43a9e8c21ff1e",
+      "VIX_History.csv": "2b28877e77b1b4b76875afb1a84c3a06eced2120a651c3b5ff7d91b32fa660b5",
+      "ff_daily.zip": "2f29e22546069914890a712680a6f81f3680ebc3543b52864484d209ca13a7db"
+    },
+    "preregistered_run": true
+  },
+  "data": {
+    "first_row": "1993-02-01",
+    "last_row": "2025-07-18",
+    "rows": 8172,
+    "meta": {
+      "calendar": "SPY trading days",
+      "pre_spy_index_dates_unused": true,
+      "vix_filled_from_yahoo": 3,
+      "index_days_missing_vs_calendar": {
+        "^GSPC": 0,
+        "^NDX": 0,
+        "^SP500TR": 0,
+        "QQQ": 0,
+        "SPY": 0,
+        "SSO": 0,
+        "UPRO": 0,
+        "SH": 0,
+        "QLD": 0,
+        "TQQQ": 0,
+        "PSQ": 0
+      }
+    }
+  },
+  "calibration": {
+    "pass": false,
+    "thresholds": {
+      "max_abs_ann_diff": 0.015,
+      "min_corr": 0.99
+    },
+    "etfs": {
+      "SPY": {
+        "days": 8172,
+        "ann_synthetic": 0.10561609161057528,
+        "ann_actual": 0.10537504585025959,
+        "ann_diff": 0.00024104576031569458,
+        "corr": 0.9846978761371797,
+        "pass": false
+      },
+      "QQQ": {
+        "days": 6630,
+        "ann_synthetic": 0.10234563159630516,
+        "ann_actual": 0.10234563159630516,
+        "ann_diff": 0.0,
+        "corr": 1.0,
+        "pass": true
+      },
+      "SSO": {
+        "days": 4798,
+        "ann_synthetic": 0.14947835582264557,
+        "ann_actual": 0.14729690236086967,
+        "ann_diff": 0.002181453461775895,
+        "corr": 0.9953640068106968,
+        "pass": true
+      },
+      "UPRO": {
+        "days": 4040,
+        "ann_synthetic": 0.3224256847911302,
+        "ann_actual": 0.3178214199924194,
+        "ann_diff": 0.004604264798710789,
+        "corr": 0.9981518161203394,
+        "pass": true
+      },
+      "SH": {
+        "days": 4798,
+        "ann_synthetic": -0.12443204870463043,
+        "ann_actual": -0.11234869580589413,
+        "ann_diff": -0.0120833528987363,
+        "corr": 0.9953659030308465,
+        "pass": true
+      },
+      "QLD": {
+        "days": 4798,
+        "ann_synthetic": 0.2479668585499717,
+        "ann_actual": 0.2415993370763707,
+        "ann_diff": 0.006367521473600979,
+        "corr": 0.9958222391574856,
+        "pass": true
+      },
+      "TQQQ": {
+        "days": 3881,
+        "ann_synthetic": 0.4242594968956619,
+        "ann_actual": 0.4150075485767952,
+        "ann_diff": 0.009251948318866665,
+        "corr": 0.9989011772258072,
+        "pass": true
+      },
+      "PSQ": {
+        "days": 4798,
+        "ann_synthetic": -0.17246583313090524,
+        "ann_actual": -0.16454809421290006,
+        "ann_diff": -0.00791773891800518,
+        "corr": 0.9925768702478077,
+        "pass": true
+      }
+    },
+    "sp500tr_vs_spy_plus_er": {
+      "days": 8172,
+      "ann_synthetic": 0.10666104544716193,
+      "ann_actual": 0.10641977422252258,
+      "ann_diff": 0.00024127122463935002,
+      "corr": 0.9846978761371797
+    }
+  },
+  "status": "CALIBRATION_FAIL",
+  "preregistered_run": true
+}

@@ -1,4 +1,4 @@
-"""PREREG_STAGE3_SWING_V1 section 7 tests: look-ahead, synthetic leverage, costs.
+"""PREREG_STAGE3_SWING_V2 section 7 tests: look-ahead, synthetic leverage, costs, weekly calibration.
 
 Synthetic data only. No real prices are read.
 """
@@ -26,6 +26,7 @@ from src.research.stage3_swing.account import (
     turnover,
     window_growth,
 )
+from src.research.stage3_swing.calibration import _compare, weekly_returns
 from src.research.stage3_swing.engine import index_paths
 from src.research.stage3_swing.loading import (
     RawData,
@@ -318,3 +319,25 @@ def test_rules_7_and_8_use_drift_and_full_weight_rules_do_not():
         assert set(changed) <= set(np.flatnonzero(flags[rule]))
     p3, w3, lc3, _ = paths["3"]
     np.testing.assert_array_equal(lc3, np.cumsum(log_factors(p3, w3, rmat, C0)))
+
+
+# --- (4) weekly calibration correlation (v2) ---------------------------------
+
+
+def test_weekly_returns_compound_within_friday_weeks():
+    dates = pd.bdate_range("2024-01-01", "2024-01-12")  # Mon..Fri, Mon..Fri
+    r = pd.DataFrame({"x": [0.01, -0.02, 0.0, 0.03, 0.01, 0.02, 0.0, 0.0, -0.01, 0.0]}, index=dates)
+    w = weekly_returns(r)["x"].to_numpy()
+    assert w == pytest.approx([1.01 * 0.98 * 1.0 * 1.03 * 1.01 - 1, 1.02 * 0.99 - 1])
+
+
+def test_next_day_reversal_hurts_daily_but_not_weekly_correlation():
+    rng = np.random.default_rng(0)
+    dates = pd.bdate_range("2000-01-03", periods=2000)
+    base = rng.normal(0.0004, 0.01, len(dates))
+    e = rng.normal(0.0, 0.002, len(dates))
+    shifted = base + e - np.concatenate([[0.0], e[:-1]])  # mis-timed close, undone next day
+    row = _compare(base, shifted, dates)
+    assert row["corr_daily"] < 0.99
+    assert row["corr_weekly"] >= 0.99
+    assert row["weeks"] == len(weekly_returns(pd.DataFrame({"x": base}, index=dates)))

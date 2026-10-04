@@ -1,7 +1,7 @@
-"""Stage-3 swing study entry point (PREREG_STAGE3_SWING_V1).
+"""Stage-3 swing study entry point (PREREG_STAGE3_SWING_V2).
 
   --fetch    download raw files only (data/external/stage3_swing/<YYYYMMDD>/); no computation.
-  (default)  compute from saved raw files and write RESULT_STAGE3_SWING_V1.json/.md.
+  (default)  compute from saved raw files and write RESULT_STAGE3_SWING_V2.json/.md.
 
 Compute mode is a one-shot run: run it only after the independent review has passed.
 """
@@ -23,7 +23,7 @@ from src.research.stage3_swing.report import render_markdown, write_json
 from src.research.stage3_swing.runner import run_study
 
 RAW_ROOT = ROOT / "data" / "external" / "stage3_swing"
-RESULT_BASE = ROOT / "docs" / "research" / "RESULT_STAGE3_SWING_V1"
+RESULT_BASE = ROOT / "docs" / "research" / C.RESULT_NAME
 
 
 def _git(*args: str) -> str:
@@ -55,7 +55,7 @@ def main() -> int:
     ap.add_argument(
         "--not-prereg", action="store_true",
         help="allow a non-preregistered run (other reps, dirty tree, or existing result); "
-        "writes RESULT_STAGE3_SWING_V1.NOT_PREREG.json/.md",
+        "writes RESULT_STAGE3_SWING_V2.NOT_PREREG.json/.md",
     )
     ap.add_argument("--workers", type=int, default=1, help="bootstrap worker processes")
     args = ap.parse_args()
@@ -96,7 +96,8 @@ def main() -> int:
     write_json(result, out_base.with_name(out_base.name + ".json"))
     md = render_markdown(result)
     if args.not_prereg:
-        md = md.replace("# RESULT stage 3 swing v1", "# RESULT stage 3 swing v1 (NOT PREREGISTERED)", 1)
+        title = f"# RESULT stage 3 swing {C.VERSION}"
+        md = md.replace(title, title + " (NOT PREREGISTERED)", 1)
     out_base.with_name(out_base.name + ".md").write_text(md)
     print(f"status: {result['status']}")
     return 0 if result["status"] != "CALIBRATION_FAIL" else 2
