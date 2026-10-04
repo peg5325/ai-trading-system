@@ -28,6 +28,26 @@ Policy documentation is not evidence that enforcement code exists. Do not silent
 rewrite preregistrations, past verdicts, benchmarks or evaluation thresholds after
 observing outcomes. Version changes prospectively and preserve evidence.
 
+## Daily trading journal (user rule, 2026-10-04)
+
+Exploratory Paper (Charter v2.3 §4.6) journals start with the 2026-10-05 US session.
+
+Once day-trading runs (Paper or live), every trading day must end with a journal written after the
+US close. It goes in `docs/journal/YYYY-MM-DD.md` (Korean, plain language) and must contain:
+
+1. Each entry and exit: time, symbol, side, size, price, and **why**. Why means the market situation
+   the system detected, the strategy it chose, the signal values that fired, and the exit reason.
+2. Days or periods with no trade, and why the system stayed out.
+3. Result after costs, compared with simply holding 1x for the day.
+4. **What went well** (keep it) and **what went wrong**, each with a concrete idea for improving it.
+5. Before writing a new entry, read the recent entries. Note which past ideas were tried and whether
+   they helped.
+
+Facts (trades, signals, P&L) come from the system's journal and ledgers, never from memory.
+Improvement ideas are applied as versioned rule changes that take effect from the next session, and
+the journal records the change and its reason. Rules are never edited in the middle of a session.
+Session start: read the latest journal entries before proposing strategy changes.
+
 ## End meaningful work
 
 Update `docs/PROJECT_STATUS.md` with verified work, evidence, remaining blockers and

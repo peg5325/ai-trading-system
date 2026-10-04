@@ -1,0 +1,471 @@
+{
+  "prereg": {
+    "path": "docs/research/PREREG_STAGE3_REGIME_V1.md",
+    "git_blob_sha": "e3a9672dcf3cbf9eab2f326902cb616625369007"
+  },
+  "provenance": {
+    "prereg": {
+      "path": "docs/research/PREREG_STAGE3_REGIME_V1.md",
+      "git_blob_sha": "e3a9672dcf3cbf9eab2f326902cb616625369007"
+    },
+    "code_commit": "6eb4bb75b3bb2ac912e584a054f0cc9ebcdfddbb",
+    "code_dirty": false,
+    "tree_dirty": false,
+    "raw_dir": "data/external/stage3_swing/20261002",
+    "raw_sha256": {
+      "yahoo_IDX_GSPC.json": "69e98d5533b3cc50b870878d3591445182cbe2534d98eccc3aee0af752e4247a",
+      "yahoo_IDX_NDX.json": "4aa66d83bb38ff2b0985c26eab7b52656d1f5a20fe41594b369044b348fb5306",
+      "yahoo_IDX_SP500TR.json": "d45f6a111733d4e74950aba95da063dbf1ca069ad6bbae51258b3caa031dc8c3",
+      "yahoo_IDX_VIX.json": "6dd651fd81f1f3cfab94cdc0ee9ab1066253e9749ca0806ded37b43769c33223",
+      "yahoo_SPY.json": "35a1c1c328990fa9f072ea4d07a3143cfce893b5b995e5615e60f17a7546e33c",
+      "yahoo_QQQ.json": "c6a6a0b152d01f410866aa0f98df337bcd0897b92d6804839a8c676286d2d292",
+      "yahoo_SSO.json": "522e443610a12d5043e900eb3ff1796eac583938721948d75c264a622b5812f5",
+      "yahoo_UPRO.json": "592d302b0b56867acb35732f203bdebe8ee574cd543194d4861b01866ca781d1",
+      "yahoo_SH.json": "ff12ecfade457aa987347a7b116c24add797f2da80c1da24714cdd1833d65b89",
+      "yahoo_QLD.json": "bf6cf27688c77d358fc2519f9add0d1ce46b07990716db6fe5889d402301c44b",
+      "yahoo_TQQQ.json": "1b52549becd44b569e13aa8a40267568cf43c72bd99b2f60d3e3d723c5b400c8",
+      "yahoo_PSQ.json": "03e6484b3a26a144835b85a67576713e4b00f9d60b3c6e1d73f43a9e8c21ff1e",
+      "VIX_History.csv": "2b28877e77b1b4b76875afb1a84c3a06eced2120a651c3b5ff7d91b32fa660b5",
+      "ff_daily.zip": "2f29e22546069914890a712680a6f81f3680ebc3543b52864484d209ca13a7db"
+    },
+    "preregistered_run": true,
+    "selection_path": "docs/research/SELECTION_STAGE3_REGIME_V1.json",
+    "selection_git_blob_sha": "8c9d8e64c99dbcfcbfe2a7aa9b95310cabbe1be2",
+    "confirm_window": {
+      "start": "2020-01-02",
+      "end": "2025-07-18"
+    }
+  },
+  "phase": "confirm",
+  "confirm_window": {
+    "start": "2020-01-02",
+    "end": "2025-07-18"
+  },
+  "data": {
+    "first_row": "1993-02-01",
+    "last_row": "2025-07-18",
+    "rows": 8172
+  },
+  "timing": "Regime decided at the close of t; exposure set at the close of t+1 (earns t+2 onward). Per-regime sums label each day by the regime that decided the position held that day; each day's log factor includes the trade cost charged at that day's close. The initial buy cost at the opening close is in the totals but in no regime's sum.",
+  "indices": {
+    "sp": {
+      "explore": {
+        "status": "SELECTED",
+        "combo": {
+          "A": 1,
+          "B": 1,
+          "C": 0,
+          "D": 0
+        },
+        "explore": {
+          "start": "2006-07-03",
+          "end": "2019-12-31",
+          "final_usd": 4597.500188812869,
+          "net_log_growth": 0.8323655380049888,
+          "twr_annualized": 0.06362210231456067,
+          "max_drawdown": -0.24633086994321363,
+          "reached_4000": true,
+          "reached_4000_date": "2017-11-28"
+        },
+        "one_x": {
+          "start": "2006-07-03",
+          "end": "2019-12-31",
+          "final_usd": 6611.374152761467,
+          "net_log_growth": 1.195644341676564,
+          "twr_annualized": 0.09264344406401781,
+          "max_drawdown": -0.5530992668542147,
+          "reached_4000": true,
+          "reached_4000_date": "2016-04-19"
+        },
+        "n_feasible": 12
+      },
+      "combo": {
+        "A": 1,
+        "B": 1,
+        "C": 0,
+        "D": 0
+      },
+      "criteria": {
+        "c1_twr_beats_1x": false,
+        "c2_mdd_below_35": true,
+        "c3_some_regime_beats_1x": false
+      },
+      "verdict": "FAIL",
+      "base": {
+        "mode": "lag",
+        "cost_one_way": 0.0015,
+        "strategy": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 3155.725844164627,
+          "net_log_growth": 0.45607135051501146,
+          "twr_annualized": 0.0857841030051798,
+          "max_drawdown": -0.24977047272244401,
+          "reached_4000": false,
+          "reached_4000_date": null
+        },
+        "one_x": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 4185.053014588349,
+          "net_log_growth": 0.7383721910643041,
+          "twr_annualized": 0.1425313305358713,
+          "max_drawdown": -0.33796284515091923,
+          "reached_4000": true,
+          "reached_4000_date": "2024-12-04"
+        },
+        "by_regime": {
+          "A": {
+            "days": 722,
+            "log_return": 0.08868212021528157,
+            "log_return_1x": 0.09618775084661699,
+            "excess_vs_1x": -0.007505630631335414,
+            "beats_1x": false
+          },
+          "B": {
+            "days": 329,
+            "log_return": 0.3974117528250718,
+            "log_return_1x": 0.41842751859281124,
+            "excess_vs_1x": -0.021015765767739447,
+            "beats_1x": false
+          },
+          "C": {
+            "days": 281,
+            "log_return": -0.02251689189400637,
+            "log_return_1x": 0.20736629952725366,
+            "excess_vs_1x": -0.22988319142126004,
+            "beats_1x": false
+          },
+          "D": {
+            "days": 60,
+            "log_return": -0.0060045045050683655,
+            "log_return_1x": 0.0178917482238885,
+            "excess_vs_1x": -0.023896252728956867,
+            "beats_1x": false
+          }
+        }
+      },
+      "stress_cost": {
+        "mode": "lag",
+        "cost_one_way": 0.0025,
+        "strategy": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 3034.784361749183,
+          "net_log_growth": 0.4169931909328073,
+          "twr_annualized": 0.07815406204119402,
+          "max_drawdown": -0.2646554872365977,
+          "reached_4000": false,
+          "reached_4000_date": null
+        },
+        "one_x": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 4180.861674563723,
+          "net_log_growth": 0.7373701869724526,
+          "twr_annualized": 0.14232475539127987,
+          "max_drawdown": -0.33796284515091923,
+          "reached_4000": true,
+          "reached_4000_date": "2024-12-04"
+        },
+        "by_regime": {
+          "A": {
+            "days": 722,
+            "log_return": 0.08367209975602452,
+            "log_return_1x": 0.09618775084661699,
+            "excess_vs_1x": -0.012515651090592467,
+            "beats_1x": false
+          },
+          "B": {
+            "days": 329,
+            "log_return": 0.38338369553915264,
+            "log_return_1x": 0.41842751859281124,
+            "excess_vs_1x": -0.03504382305365861,
+            "beats_1x": false
+          },
+          "C": {
+            "days": 281,
+            "log_return": -0.03754695327177715,
+            "log_return_1x": 0.20736629952725366,
+            "excess_vs_1x": -0.2449132527990308,
+            "beats_1x": false
+          },
+          "D": {
+            "days": 60,
+            "log_return": -0.010012520872473908,
+            "log_return_1x": 0.0178917482238885,
+            "excess_vs_1x": -0.027904269096362407,
+            "beats_1x": false
+          }
+        }
+      },
+      "same_close": {
+        "mode": "same",
+        "cost_one_way": 0.0015,
+        "strategy": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 3112.160179503985,
+          "net_log_growth": 0.4421698959945617,
+          "twr_annualized": 0.08306366517110075,
+          "max_drawdown": -0.2168203693766202,
+          "reached_4000": false,
+          "reached_4000_date": null
+        },
+        "one_x": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 4185.053014588349,
+          "net_log_growth": 0.7383721910643041,
+          "twr_annualized": 0.1425313305358713,
+          "max_drawdown": -0.33796284515091923,
+          "reached_4000": true,
+          "reached_4000_date": "2024-12-04"
+        },
+        "by_regime": {
+          "A": {
+            "days": 722,
+            "log_return": 0.2291810358800023,
+            "log_return_1x": 0.23668666651133774,
+            "excess_vs_1x": -0.0075056306313354415,
+            "beats_1x": false
+          },
+          "B": {
+            "days": 329,
+            "log_return": 0.24301138263990163,
+            "log_return_1x": 0.26402714840764085,
+            "excess_vs_1x": -0.021015765767739225,
+            "beats_1x": false
+          },
+          "C": {
+            "days": 281,
+            "log_return": -0.02251689189400637,
+            "log_return_1x": -0.2151635492665655,
+            "excess_vs_1x": 0.19264665737255912,
+            "beats_1x": true
+          },
+          "D": {
+            "days": 60,
+            "log_return": -0.0060045045050683655,
+            "log_return_1x": 0.4543230515381572,
+            "excess_vs_1x": -0.46032755604322556,
+            "beats_1x": false
+          }
+        }
+      }
+    },
+    "ndx": {
+      "explore": {
+        "status": "SELECTED",
+        "combo": {
+          "A": 1,
+          "B": 1,
+          "C": 0,
+          "D": 2
+        },
+        "explore": {
+          "start": "2006-07-03",
+          "end": "2019-12-31",
+          "final_usd": 10868.539083178855,
+          "net_log_growth": 1.6927251125692353,
+          "twr_annualized": 0.1336411883209978,
+          "max_drawdown": -0.3222717097274864,
+          "reached_4000": true,
+          "reached_4000_date": "2012-09-06"
+        },
+        "one_x": {
+          "start": "2006-07-03",
+          "end": "2019-12-31",
+          "final_usd": 12258.354340389873,
+          "net_log_growth": 1.8130605109539566,
+          "twr_annualized": 0.14379521244656868,
+          "max_drawdown": -0.5340576892688558,
+          "reached_4000": true,
+          "reached_4000_date": "2013-07-11"
+        },
+        "n_feasible": 12
+      },
+      "combo": {
+        "A": 1,
+        "B": 1,
+        "C": 0,
+        "D": 2
+      },
+      "criteria": {
+        "c1_twr_beats_1x": false,
+        "c2_mdd_below_35": true,
+        "c3_some_regime_beats_1x": true
+      },
+      "verdict": "FAIL",
+      "base": {
+        "mode": "lag",
+        "cost_one_way": 0.0015,
+        "strategy": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 5113.062042683992,
+          "net_log_growth": 0.9386512697658795,
+          "twr_annualized": 0.18458028956939176,
+          "max_drawdown": -0.29234173349659853,
+          "reached_4000": true,
+          "reached_4000_date": "2024-06-12"
+        },
+        "one_x": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 5359.915340665645,
+          "net_log_growth": 0.9858009997460966,
+          "twr_annualized": 0.1947024300641773,
+          "max_drawdown": -0.35122466729154567,
+          "reached_4000": true,
+          "reached_4000_date": "2024-01-23"
+        },
+        "by_regime": {
+          "A": {
+            "days": 711,
+            "log_return": 0.23322008682481574,
+            "log_return_1x": 0.23922459132988402,
+            "excess_vs_1x": -0.006004504505068287,
+            "beats_1x": false
+          },
+          "B": {
+            "days": 361,
+            "log_return": 0.6697883071549366,
+            "log_return_1x": 0.6833052125946343,
+            "excess_vs_1x": -0.013516905439697635,
+            "beats_1x": false
+          },
+          "C": {
+            "days": 273,
+            "log_return": -0.04203153153547856,
+            "log_return_1x": -0.012886955649800344,
+            "excess_vs_1x": -0.029144575885678217,
+            "beats_1x": false
+          },
+          "D": {
+            "days": 47,
+            "log_return": 0.07917553344787329,
+            "log_return_1x": 0.07765927759764726,
+            "excess_vs_1x": 0.0015162558502260226,
+            "beats_1x": true
+          }
+        }
+      },
+      "stress_cost": {
+        "mode": "lag",
+        "cost_one_way": 0.0025,
+        "strategy": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 4780.972860396344,
+          "net_log_growth": 0.8714968725141222,
+          "twr_annualized": 0.17031141236552716,
+          "max_drawdown": -0.29658909094908326,
+          "reached_4000": true,
+          "reached_4000_date": "2024-07-10"
+        },
+        "one_x": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 5354.547373374042,
+          "net_log_growth": 0.9847989956542452,
+          "twr_annualized": 0.1944864221345579,
+          "max_drawdown": -0.35122466729154567,
+          "reached_4000": true,
+          "reached_4000_date": "2024-01-23"
+        },
+        "by_regime": {
+          "A": {
+            "days": 711,
+            "log_return": 0.22921207045741004,
+            "log_return_1x": 0.23922459132988402,
+            "excess_vs_1x": -0.010012520872473979,
+            "beats_1x": false
+          },
+          "B": {
+            "days": 361,
+            "log_return": 0.6607581964696458,
+            "log_return_1x": 0.6833052125946343,
+            "excess_vs_1x": -0.02254701612498844,
+            "beats_1x": false
+          },
+          "C": {
+            "days": 273,
+            "log_return": -0.07008764610731735,
+            "log_return_1x": -0.012886955649800344,
+            "excess_vs_1x": -0.05720069045751701,
+            "beats_1x": false
+          },
+          "D": {
+            "days": 47,
+            "log_return": 0.05411738191250275,
+            "log_return_1x": 0.07765927759764726,
+            "excess_vs_1x": -0.02354189568514451,
+            "beats_1x": false
+          }
+        }
+      },
+      "same_close": {
+        "mode": "same",
+        "cost_one_way": 0.0015,
+        "strategy": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 6706.298715425531,
+          "net_log_growth": 1.2099000109932867,
+          "twr_annualized": 0.2440073893559569,
+          "max_drawdown": -0.21887500415949346,
+          "reached_4000": true,
+          "reached_4000_date": "2023-06-15"
+        },
+        "one_x": {
+          "start": "2020-01-02",
+          "end": "2025-07-18",
+          "final_usd": 5359.915340665645,
+          "net_log_growth": 0.9858009997460966,
+          "twr_annualized": 0.1947024300641773,
+          "max_drawdown": -0.35122466729154567,
+          "reached_4000": true,
+          "reached_4000_date": "2024-01-23"
+        },
+        "by_regime": {
+          "A": {
+            "days": 711,
+            "log_return": 0.363393368562176,
+            "log_return_1x": 0.3693978730672445,
+            "excess_vs_1x": -0.006004504505068453,
+            "beats_1x": false
+          },
+          "B": {
+            "days": 361,
+            "log_return": 0.5633974922396202,
+            "log_return_1x": 0.5769143976793176,
+            "excess_vs_1x": -0.013516905439697413,
+            "beats_1x": false
+          },
+          "C": {
+            "days": 273,
+            "log_return": -0.04203153153547856,
+            "log_return_1x": -0.16036554264403075,
+            "excess_vs_1x": 0.11833401110855218,
+            "beats_1x": true
+          },
+          "D": {
+            "days": 47,
+            "log_return": 0.32664180785323577,
+            "log_return_1x": 0.2013553977698338,
+            "excess_vs_1x": 0.12528641008340197,
+            "beats_1x": true
+          }
+        }
+      }
+    }
+  },
+  "verdicts": {
+    "sp": "FAIL",
+    "ndx": "FAIL"
+  },
+  "stop_recommendation": false,
+  "stop_rule": "Recommend stopping the project if criterion 3 fails for both indices (NO_CANDIDATE counts as failing).",
+  "preregistered_run": true
+}
