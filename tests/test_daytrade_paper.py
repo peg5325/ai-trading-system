@@ -530,3 +530,92 @@ def test_live_run_with_incomplete_data_refuses_and_writes_nothing(tmp_path, caps
     assert rc == 3 and not out.exists()
     assert "--accept-incomplete" in capsys.readouterr().err
     assert _script().main(["--date", "2026-10-03", "--db", str(db), "--out-root", str(out)]) == 2  # Saturday
+
+
+# ---------------------------------------------------------------- --auto (launchd catch-up)
+
+def _cal():
+    from src.daytrade_paper.external import load_events
+    return load_events(store.Path(__file__).resolve().parents[1] / "config" / "daytrade_events_v1.yaml")
+
+
+def _utc(y, mo, d, h, mi):
+    from datetime import datetime, timezone
+    return datetime(y, mo, d, h, mi, tzinfo=timezone.utc)
+
+
+def _receipt(root, day, status="COMPLETE"):
+    import json
+    folder = root / "reports" / "history-collection"
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / f"{day.replace('-', '')}.operation.json").write_text(
+        json.dumps({"status": status, "trading_day": day}))
+
+
+def test_latest_closed_session_from_the_1107_kst_slot():
+    s, cal = _script(), _cal()
+    # Tue 2026-10-06 11:07 KST = Mon 22:07 EDT -> Monday's session
+    assert s.latest_closed_session(cal, _utc(2026, 10, 6, 2, 7)) == "2026-10-05"
+    # Mon 11:07 KST = Sun 22:07 EDT -> Friday
+    assert s.latest_closed_session(cal, _utc(2026, 10, 5, 2, 7)) == "2026-10-02"
+    # less than an hour after the bell -> the previous session
+    assert s.latest_closed_session(cal, _utc(2026, 10, 5, 20, 30)) == "2026-10-02"
+    assert s.latest_closed_session(cal, _utc(2026, 10, 5, 21, 0)) == "2026-10-05"
+
+
+def test_pending_sessions_start_at_paper_start_and_catch_up_gaps():
+    s, cal = _script(), _cal()
+    assert s.pending_sessions(cal, new_ledger(), "2026-10-02") == []
+    assert s.pending_sessions(cal, new_ledger(), "2026-10-07") == ["2026-10-05", "2026-10-06", "2026-10-07"]
+    ledger = {**new_ledger(), "days": [{"date": "2026-10-05"}]}
+    assert s.pending_sessions(cal, ledger, "2026-10-12") == [
+        "2026-10-06", "2026-10-07", "2026-10-08", "2026-10-09", "2026-10-12"]
+    ledger = {**new_ledger(), "days": [{"date": "2026-10-09"}]}
+    assert s.pending_sessions(cal, ledger, "2026-10-09") == []
+
+
+def test_auto_waits_for_collection_receipt_and_runs_in_order(tmp_path, monkeypatch, capsys):
+    s = _script()
+    ran: list[str] = []
+    monkeypatch.setattr(s, "run_session", lambda day, args: ran.append(day) or 0)
+    now = _utc(2026, 10, 7, 2, 7)  # Tue 22:07 EDT -> pending 10-05, 10-06
+    _receipt(tmp_path, "2026-10-05")
+    _receipt(tmp_path, "2026-10-06", "INCOMPLETE")
+    assert s.main(["--auto", "--out-root", str(tmp_path)], now=now) == 3
+    assert ran == ["2026-10-05"]
+    assert "WAITING" in capsys.readouterr().err
+    _receipt(tmp_path, "2026-10-06")
+    ran.clear()
+    assert s.main(["--auto", "--out-root", str(tmp_path)], now=now) == 0
+    assert ran == ["2026-10-05", "2026-10-06"]  # the stub never writes the ledger
+
+
+def test_auto_stalls_on_an_old_day_the_collector_will_not_fetch(tmp_path, monkeypatch, capsys):
+    s = _script()
+    ran: list[str] = []
+    monkeypatch.setattr(s, "run_session", lambda day, args: ran.append(day) or 0)
+    _receipt(tmp_path, "2026-10-06")  # 10-05 never collected, latest is 10-06
+    assert s.main(["--auto", "--out-root", str(tmp_path)], now=_utc(2026, 10, 7, 2, 7)) == 4
+    assert ran == [] and "STALLED" in capsys.readouterr().err
+
+
+def test_auto_refuses_days_outside_the_calendar_before_waiting(tmp_path, monkeypatch, capsys):
+    s = _script()
+    monkeypatch.setattr(s, "run_session", lambda day, args: 0)
+    ledger = tmp_path / "reports" / "daytrade_paper" / "ledger.json"
+    ledger.parent.mkdir(parents=True)
+    store.json.dump({**new_ledger(), "days": [{"date": "2026-12-31"}]}, ledger.open("w"))
+    assert s.main(["--auto", "--out-root", str(tmp_path)], now=_utc(2027, 1, 5, 2, 7)) == 2
+    assert "coverage" in capsys.readouterr().err
+
+
+def test_auto_stops_at_first_failed_session_and_refuses_accept_incomplete(tmp_path, monkeypatch):
+    s = _script()
+    ran: list[str] = []
+    monkeypatch.setattr(s, "run_session", lambda day, args: ran.append(day) or 3)
+    _receipt(tmp_path, "2026-10-05")
+    _receipt(tmp_path, "2026-10-06")
+    assert s.main(["--auto", "--out-root", str(tmp_path)], now=_utc(2026, 10, 7, 2, 7)) == 4  # NEEDS_HUMAN
+    assert ran == ["2026-10-05"]
+    with pytest.raises(SystemExit):
+        s.main(["--auto", "--accept-incomplete", "--out-root", str(tmp_path)])

@@ -24,6 +24,7 @@ def jobs(project_root: Path, python: Path) -> tuple[LaunchdJob, ...]:
     runner = project_root / "scripts" / "run_premarket_pipeline.py"
     paper = project_root / "scripts" / "run_freeze_paper_session.py"
     collection = project_root / "scripts" / "run_history_collection.py"
+    daytrade = (str(python), str(project_root / "scripts" / "run_daytrade_paper.py"))
     return (
         # New York's daylight-saving offset changes the equivalent KST hour.
         # The runner validates the actual NYSE-relative window, so each paired
@@ -47,6 +48,10 @@ def jobs(project_root: Path, python: Path) -> tuple[LaunchdJob, ...]:
         # retry slot a no-op.
         LaunchdJob("history-collect-10", 10, 40, (str(python), str(collection))),
         LaunchdJob("history-collect-13", 13, 40, (str(python), str(collection))),
+        # Exploratory day-trading Paper: catches up every closed session once its
+        # history-collect receipt is COMPLETE, so it trails each collect slot by ~25 min.
+        LaunchdJob("daytrade-paper-11", 11, 7, (*daytrade, "--auto", "--out-root", str(project_root))),
+        LaunchdJob("daytrade-paper-14", 14, 7, (*daytrade, "--auto", "--out-root", str(project_root))),
     )
 
 
