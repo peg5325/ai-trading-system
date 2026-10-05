@@ -7,6 +7,7 @@ from scripts.measure_toss_realtime import (
     capture_rows,
     capture_summary,
     completed_rest_bars,
+    coverage,
     gap_stats,
     label_check,
     parse_ts,
@@ -56,6 +57,13 @@ def test_capture_rows_and_summary_compare_same_bar():
     summary = capture_summary(rows)
     assert summary["missing_pct"] == 40.0
     assert summary["capture_min"] == 0.0
+
+
+def test_coverage_counts_cells_that_could_not_be_compared():
+    ws = {("TQQQ", _utc(13, 30)): 10.0, ("TQQQ", _utc(13, 31)): 5.0}
+    rest = {("TQQQ", _utc(13, 30)): {"volume": 10.0}}
+    assert coverage(ws, rest, ["TQQQ"], _utc(13, 30), _utc(13, 33)) == {
+        "expected": 3, "compared": 1, "ws_volume_without_rest_bar": 1}
 
 
 def test_gap_stats():

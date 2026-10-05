@@ -1,7 +1,7 @@
 """Read-only measurement of Toss realtime quotes against REST 1-minute candles (design R0, no orders).
 
 `record` keeps one WebSocket connection on trade:us / orderbook:us, logs every trade and every orderbook arrival,
-polls REST /api/v1/candles 1m every few seconds, and drops the connection once on purpose to time the reconnect.
+polls REST /api/v1/candles 1m (every 15 s by default), and drops the connection once on purpose to time the reconnect.
 `analyze` turns the logs into the R0 numbers: per-minute WebSocket volume vs completed REST bar volume (missing %),
 trade/orderbook gaps (open vs later), reconnect time, and whether in-progress REST bars are labelled by their end minute.
 
@@ -97,6 +97,22 @@ def capture_rows(ws: dict, rest: dict, symbols: list[str], start: datetime, end:
                          "capture": (w / r) if r else None})
         minute += MINUTE
     return rows
+
+
+def coverage(ws: dict, rest: dict, symbols: list[str], start: datetime, end: datetime) -> dict:
+    """How many (symbol, minute) cells were actually compared, so a REST outage cannot pass as "0% missing"."""
+    expected = compared = ws_without_rest = 0
+    minute = start
+    while minute < end:
+        for sym in symbols:
+            expected += 1
+            bar = rest.get((sym, minute))
+            if bar is not None and bar["volume"]:
+                compared += 1
+            elif ws.get((sym, minute), 0.0) > 0:
+                ws_without_rest += 1
+        minute += MINUTE
+    return {"expected": expected, "compared": compared, "ws_volume_without_rest_bar": ws_without_rest}
 
 
 def capture_summary(rows: list[dict]) -> dict:
@@ -317,10 +333,13 @@ def analyze(out_dir: Path, open_utc: datetime, symbols: list[str]) -> dict:
         "rest_revised_after_complete": sum(1 for b in rest.values() if b["revised"]),
         "trade_gaps": {"first5": _gap_by_symbol(trades, o, e5), "after5": _gap_by_symbol(trades, e5, 1e12)},
         "book_gaps": {"first5": _gap_by_symbol(books, o, e5), "after5": _gap_by_symbol(books, e5, 1e12)},
-        "trade_lag_s": {"median": round(statistics.median(lag), 3), "p95": round(lag[int(0.95 * (len(lag) - 1))], 3),
-                        "max": round(lag[-1], 3)} if lag else None,
+        # trade timestamps are whole seconds, so recv - ts is an upper bound with up to +1 s truncation
+        "trade_lag_upper_s": {"median": round(statistics.median(lag), 3),
+                              "p95": round(lag[int(0.95 * (len(lag) - 1))], 3),
+                              "max": round(lag[-1], 3)} if lag else None,
         "reconnect": reconnect,
         "labels": label_check(polls),
+        "coverage": coverage(ws, rest, symbols, start, end),
         "rows": rows,
     }
 
