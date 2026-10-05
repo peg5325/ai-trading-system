@@ -1,6 +1,6 @@
 # 현재 상태와 세션 인계
 
-갱신일: 2026-10-02
+갱신일: 2026-10-05
 
 ## 정본
 
@@ -136,6 +136,20 @@
     - 그 사이 날짜는 첫 실행 전 `--max-pages`를 넓혀 따라잡는다.
 
 ## 다음 한 가지 작업
+
+(2026-10-05 갱신) **탐색용 Paper 운영 안정화: launchd 자동 실행, 5세션 정상 주행 판정 고정, 실시간 엔진 설계.** PR #180.
+- 정리: PR #178·#179 병합 확인(2026-10-04). `stage3-swing-run` 워크트리와 `claude/stage3-swing-*` 브랜치는 로컬·원격 모두 이미 없었다.
+- 운영 점검: `premarket-operation.20261002.paper.json` = `NOT_ACTIVATED`(사유 `RECEIPT_INVALID:ACTIVATION_CONFIG_SHA256`, 승인 목록을 비워 설정 해시가 바뀐 결과로 의도대로).
+  2026-10-03 10:40 KST history-collect(거래일 10-02) = `COMPLETE`, 30종 중 XLV·XLY만 389/390분.
+- 자동 실행: `run_daytrade_paper.py --auto`(밀린 세션을 순서대로 따라잡기, history-collect 영수증 `COMPLETE` 전에는 exit 3)와
+  launchd `daytrade-paper-11`(11:07 KST)·`daytrade-paper-14`(14:07 KST 재시도). 테스트 65(관련)·전체 2,453 passed / 11 skipped, ruff 통과.
+  실제 DB 스모크: `UP_TO_DATE`(마지막 마감 10-02). 일지 회고는 세션에서 쓴다.
+- 판정: 사용자 결정(2026-10-05)으로 20세션 대신 **5세션(10-05~10-09) 정상 주행 점검**. 기준은 [계약 §7](research/CONTRACT_EXPLORATORY_PAPER_DAYTRADE_V1.md)에
+  첫 세션 전에 고정했다. "진입→청산 1회 이상"을 넣어, 5일 내내 대기면 소액 실계좌로 가지 않고 다음 버전으로 계속한다.
+- 실시간 엔진: [설계 v1](research/DESIGN_DAYTRADE_REALTIME_EXECUTION_V1.md)(설계만). R0 웹소켓 실측 → R1 그림자 운용(주문 없음) →
+  R2 극소량 주문 시험 → R3 USD 500~800. R2부터 주문 코드라 별도 승인 전에는 만들지 않는다. 웹소켓 시험 결과는 아직 없다(10-05 22:47 KST 예정).
+- v1.1 검토: 일지 0개(첫 세션 전)라 아직 제안하지 않는다. 5세션 판정 때 함께 본다.
+- **다음:** 10-06 11:07 KST 첫 자동 실행 결과 확인 → 일지 회고 작성. 10-09 세션 뒤(10-10 KST) 5세션 판정. R1 시작 여부는 사용자 결정.
 
 (2026-10-04 갱신 2) **탐색용 Paper(Charter v2.3 §4.6) 준비 완료. 2026-10-05 미국 세션부터 TQQQ/SQQQ, 장 마감 후 1분봉 가상 체결.**
 - 규칙: [CONTRACT_EXPLORATORY_PAPER_DAYTRADE_V1](research/CONTRACT_EXPLORATORY_PAPER_DAYTRADE_V1.md) v1.0(§6 구현 해석 포함). 사용자 결정 2026-10-04: 10/5 시작, TQQQ/SQQQ 한 쌍.
