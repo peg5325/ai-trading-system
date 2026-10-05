@@ -10,6 +10,7 @@ from pathlib import Path
 
 from src.daytrade_paper import rules as R
 from src.daytrade_paper.core import Bar, PriorSession
+from src.history.exchange_calendar import CalendarRangeError, regular_close_minute
 
 HISTORY_CALENDAR_DAYS = 120
 
@@ -22,10 +23,24 @@ def _connect_ro(db_path: Path) -> sqlite3.Connection:
     return sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
 
 
-def _bar(row) -> tuple[str, str, Bar]:
-    ts, session, o, h, lo, c, v = row
-    t = int(ts[11:13]) * 60 + int(ts[14:16])
-    return ts[:10], session, Bar(t, o, h, lo, c, v)
+def _bar(row) -> tuple[str, str, Bar] | None:
+    """Toss labels a 1m bar with its END minute (verified 2026-10-05: the daily open equals the open of
+    the bar labelled 09:31, and the live bar labelled HH:MM+1 fills during HH:MM). The collector's
+    `session` column treats the label as the start, so it is ignored here: the bar starts at label - 1
+    and is classed REGULAR when OPEN <= start < that day's close (13:00 on early-close days)."""
+    ts, _session, o, h, lo, c, v = row
+    t = int(ts[11:13]) * 60 + int(ts[14:16]) - 1
+    if t < 0:
+        return None
+    day = ts[:10]
+    close = regular_close_minute(Date.fromisoformat(day))
+    if close is None or t >= close:
+        session = "POST"
+    elif t >= R.OPEN:
+        session = "REGULAR"
+    else:
+        session = "PRE"
+    return day, session, Bar(t, o, h, lo, c, v)
 
 
 def load_bars(db_path: Path, day: str) -> dict:
@@ -43,7 +58,15 @@ def load_bars(db_path: Path, day: str) -> dict:
              "WHERE symbol=? AND interval='1m' AND ts_utc>=? AND ts_utc<? ORDER BY ts_utc")
         for sym in R.SYMBOLS:
             for row in con.execute(q, (sym, lo, hi)):
-                bday, session, bar = _bar(row)
+                if row[0][:10] > day:
+                    continue
+                try:
+                    parsed = _bar(row)
+                except CalendarRangeError as exc:
+                    raise RunRefused(f"exchange calendar does not cover {row[0][:10]}: {exc}") from exc
+                if parsed is None:
+                    continue
+                bday, session, bar = parsed
                 if bday == day and session == "REGULAR":
                     regular[sym].append(bar)
                 elif bday == day and session == "PRE" and sym == R.SIGNAL:
