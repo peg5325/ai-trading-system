@@ -532,6 +532,31 @@ def test_live_run_with_incomplete_data_refuses_and_writes_nothing(tmp_path, caps
     assert _script().main(["--date", "2026-10-03", "--db", str(db), "--out-root", str(out)]) == 2  # Saturday
 
 
+def test_toss_end_labelled_bars_are_shifted_to_their_start_minute(tmp_path):
+    """Toss 1m labels are END minutes: label 09:31 is the 09:30 bar, label 16:00 the 15:59 bar.
+    The collector's session column (label read as start) is ignored."""
+    import sqlite3
+    db = tmp_path / "h.sqlite"
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE candle_history (symbol TEXT, interval TEXT, ts_utc TEXT, "
+                "ts_exchange TEXT, session TEXT, open REAL, high REAL, low REAL, close REAL, volume REAL)")
+    rows = []
+    for day, early in (("2026-10-05", False), ("2026-11-27", True)):  # 11-27 closes 13:00
+        for label in (T(9, 30), T(9, 31), T(12, 59), T(13, 0), T(13, 1), T(16, 0), T(16, 1)):
+            hh, mm = divmod(label, 60)
+            ts = f"{day}T{hh:02d}:{mm:02d}:00-05:00"
+            rows.append(("QQQ", "1m", ts, ts, "WHATEVER", label, label, label, label, 1))
+    con.executemany("INSERT INTO candle_history VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
+    con.commit()
+    con.close()
+    d = store.load_bars(db, "2026-10-05")
+    assert [b.t for b in d["regular"]["QQQ"]] == [T(9, 30), T(12, 58), T(12, 59), T(13, 0), T(15, 59)]
+    assert d["regular"]["QQQ"][0].open == T(9, 31)  # data of the bar labelled 09:31
+    assert [b.t for b in d["qqq_pre"]] == [T(9, 29)]
+    d = store.load_bars(db, "2026-11-30")  # 11-27 is a prior, early-close session
+    assert sorted(d["prev_times"]["QQQ"]) == [T(9, 30), T(12, 58), T(12, 59)]
+
+
 # ---------------------------------------------------------------- --auto (launchd catch-up)
 
 def _cal():
