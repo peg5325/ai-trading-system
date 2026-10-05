@@ -141,8 +141,8 @@
 - 정리: PR #178·#179 병합 확인(2026-10-04). `stage3-swing-run` 워크트리와 `claude/stage3-swing-*` 브랜치는 로컬·원격 모두 이미 없었다.
 - 운영 점검: `premarket-operation.20261002.paper.json` = `NOT_ACTIVATED`(사유 `RECEIPT_INVALID:ACTIVATION_CONFIG_SHA256`, 승인 목록을 비워 설정 해시가 바뀐 결과로 의도대로).
   2026-10-03 10:40 KST history-collect(거래일 10-02) = `COMPLETE`, 30종 중 XLV·XLY만 389/390분.
-- 자동 실행: `run_daytrade_paper.py --auto`(밀린 세션을 순서대로 따라잡기, history-collect 영수증 `COMPLETE` 전에는 exit 3)와
-  launchd `daytrade-paper-11`(11:07 KST)·`daytrade-paper-14`(14:07 KST 재시도). 테스트 65(관련)·전체 2,453 passed / 11 skipped, ruff 통과.
+- 자동 실행: `run_daytrade_paper.py --auto`(밀린 세션을 순서대로 따라잡기, history-collect 영수증 `COMPLETE` 전에는 exit 3, 사람이 필요하면 exit 4)와
+  launchd `daytrade-paper-11`(11:07 KST)·`daytrade-paper-14`(14:07 KST 재시도). 테스트 67(관련)·전체 2,453 passed(리뷰 반영 전 기준) / 11 skipped, ruff 통과.
   실제 DB 스모크: `UP_TO_DATE`(마지막 마감 10-02). 일지 회고는 세션에서 쓴다.
 - 판정: 사용자 결정(2026-10-05)으로 20세션 대신 **5세션(10-05~10-09) 정상 주행 점검**. 기준은 [계약 §7](research/CONTRACT_EXPLORATORY_PAPER_DAYTRADE_V1.md)에
   첫 세션 전에 고정했다. "진입→청산 1회 이상"을 넣어, 5일 내내 대기면 소액 실계좌로 가지 않고 다음 버전으로 계속한다.

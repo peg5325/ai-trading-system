@@ -590,13 +590,32 @@ def test_auto_waits_for_collection_receipt_and_runs_in_order(tmp_path, monkeypat
     assert ran == ["2026-10-05", "2026-10-06"]  # the stub never writes the ledger
 
 
+def test_auto_stalls_on_an_old_day_the_collector_will_not_fetch(tmp_path, monkeypatch, capsys):
+    s = _script()
+    ran: list[str] = []
+    monkeypatch.setattr(s, "run_session", lambda day, args: ran.append(day) or 0)
+    _receipt(tmp_path, "2026-10-06")  # 10-05 never collected, latest is 10-06
+    assert s.main(["--auto", "--out-root", str(tmp_path)], now=_utc(2026, 10, 7, 2, 7)) == 4
+    assert ran == [] and "STALLED" in capsys.readouterr().err
+
+
+def test_auto_refuses_days_outside_the_calendar_before_waiting(tmp_path, monkeypatch, capsys):
+    s = _script()
+    monkeypatch.setattr(s, "run_session", lambda day, args: 0)
+    ledger = tmp_path / "reports" / "daytrade_paper" / "ledger.json"
+    ledger.parent.mkdir(parents=True)
+    store.json.dump({**new_ledger(), "days": [{"date": "2026-12-31"}]}, ledger.open("w"))
+    assert s.main(["--auto", "--out-root", str(tmp_path)], now=_utc(2027, 1, 5, 2, 7)) == 2
+    assert "coverage" in capsys.readouterr().err
+
+
 def test_auto_stops_at_first_failed_session_and_refuses_accept_incomplete(tmp_path, monkeypatch):
     s = _script()
     ran: list[str] = []
     monkeypatch.setattr(s, "run_session", lambda day, args: ran.append(day) or 3)
     _receipt(tmp_path, "2026-10-05")
     _receipt(tmp_path, "2026-10-06")
-    assert s.main(["--auto", "--out-root", str(tmp_path)], now=_utc(2026, 10, 7, 2, 7)) == 3
+    assert s.main(["--auto", "--out-root", str(tmp_path)], now=_utc(2026, 10, 7, 2, 7)) == 4  # NEEDS_HUMAN
     assert ran == ["2026-10-05"]
     with pytest.raises(SystemExit):
         s.main(["--auto", "--accept-incomplete", "--out-root", str(tmp_path)])

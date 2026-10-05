@@ -15,7 +15,9 @@ A live run whose data checks fail exits 3 and writes nothing unless --accept-inc
 --auto runs every NYSE session after the ledger's last date (or from PAPER_START) up to the last
 session closed at least SETTLE ago, oldest first, and stops at the first one that does not finish.
 A session runs only once <out-root>/reports/history-collection/<YYYYMMDD>.operation.json is COMPLETE;
-otherwise it exits 3 (waiting) and the next launchd slot retries. Exit 0 means nothing is pending.
+otherwise it exits 3 (waiting) and the next launchd slot retries. Exit 4 needs a human: a receipt for an
+older day that the collector will never fetch (STALLED), or data checks failing on collected data
+(NEEDS_HUMAN). Exit 2: refused (e.g. outside the calendar). Exit 0 means nothing is pending.
 --accept-incomplete stays a human decision and is refused with --auto.
 """
 from __future__ import annotations
@@ -107,11 +109,22 @@ def run_auto(args, now: datetime | None = None) -> int:
     todo = pending_sessions(cal, ledger, latest)
     print(json.dumps({"auto": "PENDING" if todo else "UP_TO_DATE", "latest_closed": latest, "pending": todo}))
     for day in todo:
+        if not events_for(cal, day)["known"]:
+            print(f"REFUSED: {day} is outside the event calendar coverage {cal['coverage']}; extend "
+                  f"{args.events.name} first", file=sys.stderr)
+            return 2
         if not collection_complete(out_root, day):
+            if day < latest:  # the collector only fetches the latest day; this one will not land by itself
+                print(f"STALLED: no COMPLETE history-collection receipt for {day}; backfill it by hand",
+                      file=sys.stderr)
+                return 4
             print(f"WAITING: history-collection receipt for {day} is not COMPLETE; the next slot retries",
                   file=sys.stderr)
             return 3
         rc = run_session(day, args)
+        if rc == 3:  # data checks failed on collected data: retrying will not change it
+            print(f"NEEDS_HUMAN: {day} data checks failed after a COMPLETE collection", file=sys.stderr)
+            return 4
         if rc != 0:
             return rc
     return 0
