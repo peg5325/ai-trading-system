@@ -10,7 +10,7 @@ from pathlib import Path
 
 from src.daytrade_paper import rules as R
 from src.daytrade_paper.core import Bar, PriorSession
-from src.history.exchange_calendar import regular_close_minute
+from src.history.exchange_calendar import CalendarRangeError, regular_close_minute
 
 HISTORY_CALENDAR_DAYS = 120
 
@@ -58,7 +58,12 @@ def load_bars(db_path: Path, day: str) -> dict:
              "WHERE symbol=? AND interval='1m' AND ts_utc>=? AND ts_utc<? ORDER BY ts_utc")
         for sym in R.SYMBOLS:
             for row in con.execute(q, (sym, lo, hi)):
-                parsed = _bar(row)
+                if row[0][:10] > day:
+                    continue
+                try:
+                    parsed = _bar(row)
+                except CalendarRangeError as exc:
+                    raise RunRefused(f"exchange calendar does not cover {row[0][:10]}: {exc}") from exc
                 if parsed is None:
                     continue
                 bday, session, bar = parsed
