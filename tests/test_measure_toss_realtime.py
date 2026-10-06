@@ -11,6 +11,7 @@ from scripts.measure_toss_realtime import (
     gap_stats,
     label_check,
     parse_ts,
+    stale_candidates,
     ws_minute_volumes,
 )
 
@@ -64,6 +65,12 @@ def test_coverage_counts_cells_that_could_not_be_compared():
     rest = {("TQQQ", _utc(13, 30)): {"volume": 10.0}}
     assert coverage(ws, rest, ["TQQQ"], _utc(13, 30), _utc(13, 33)) == {
         "expected": 3, "compared": 1, "ws_volume_without_rest_bar": 1}
+
+
+def test_stale_candidates_count_silences_over_each_threshold():
+    out = stale_candidates([0.0, 2.0, 14.0, 30.0, 31.0])
+    assert out == {"frames": 5, "gap_max_s": 16.0, "gaps_over_10s": 2, "gaps_over_15s": 1}
+    assert stale_candidates([1.0])["gap_max_s"] is None
 
 
 def test_gap_stats():
