@@ -526,10 +526,14 @@ def test_live_run_with_incomplete_data_refuses_and_writes_nothing(tmp_path, caps
     con.commit()
     con.close()
     out = tmp_path / "out"
-    rc = _script().main(["--date", "2026-10-05", "--db", str(db), "--out-root", str(out)])
-    assert rc == 3 and not out.exists()
+    script = _script()
+    # journals always go to <repo>/docs/journal; point the repo at tmp so a real journal for this date
+    # (written by the live run) cannot trip the write-once check first
+    script.ROOT = tmp_path / "repo"
+    rc = script.main(["--date", "2026-10-05", "--db", str(db), "--out-root", str(out)])
+    assert rc == 3 and not out.exists() and not (tmp_path / "repo").exists()
     assert "--accept-incomplete" in capsys.readouterr().err
-    assert _script().main(["--date", "2026-10-03", "--db", str(db), "--out-root", str(out)]) == 2  # Saturday
+    assert script.main(["--date", "2026-10-03", "--db", str(db), "--out-root", str(out)]) == 2  # Saturday
 
 
 def test_toss_end_labelled_bars_are_shifted_to_their_start_minute(tmp_path):
