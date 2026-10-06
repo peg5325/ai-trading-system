@@ -16,6 +16,7 @@ import asyncio
 import json
 import statistics
 import sys
+import threading
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -81,6 +82,17 @@ def gap_stats(times: list[float]) -> dict:
     ordered = sorted(gaps)
     return {"n": len(times), "gap_median_s": round(statistics.median(gaps), 3),
             "gap_p95_s": round(ordered[int(0.95 * (len(ordered) - 1))], 3), "gap_max_s": round(ordered[-1], 3)}
+
+
+def stale_candidates(times: list[float], thresholds: tuple[float, ...] = (10.0, 15.0)) -> dict:
+    """Connection-level silence: gaps between ANY frames (trades and orderbooks, all symbols).
+
+    For each STALE candidate threshold, how many gaps exceeded it and the longest gap (design §4/§8).
+    """
+    times = sorted(times)
+    gaps = [b - a for a, b in pairwise(times)]
+    return {"frames": len(times), "gap_max_s": round(max(gaps), 3) if gaps else None,
+            **{f"gaps_over_{int(th)}s": sum(1 for g in gaps if g > th) for th in thresholds}}
 
 
 def capture_rows(ws: dict, rest: dict, symbols: list[str], start: datetime, end: datetime) -> list[dict]:
@@ -164,9 +176,12 @@ class _Log:
         out_dir.mkdir(parents=True, exist_ok=True)
         self._files = {name: (out_dir / f"{name}.jsonl").open("a", buffering=1)
                        for name in ("trades", "books", "control", "candles")}
+        self._lock = threading.Lock()  # REST polls may write from a worker thread
 
     def write(self, name: str, row: dict) -> None:
-        self._files[name].write(json.dumps(row, ensure_ascii=False) + "\n")
+        line = json.dumps(row, ensure_ascii=False) + "\n"
+        with self._lock:
+            self._files[name].write(line)
 
     def close(self) -> None:
         for f in self._files.values():
@@ -193,7 +208,8 @@ async def _poll_rest(client, symbols: list[str], every_s: float, deadline: float
 
 
 async def _stream(token_fn, symbols: list[str], market: str, deadline: float, drop_at: float | None,
-                  log: _Log) -> None:
+                  log: _Log, on_trade=None) -> None:
+    """on_trade(symbol, price, recv_epoch) is called for every trade frame (used by the shadow run)."""
     import websockets
 
     decl = [{"type": f"{ch}:{market}", "codes": symbols} for ch in ("trade", "orderbook")]
@@ -234,6 +250,8 @@ async def _stream(token_fn, symbols: list[str], market: str, deadline: float, dr
                     if channel.startswith("trade"):
                         log.write("trades", {"recv": recv, "symbol": sym, "ts": data.get("timestamp"),
                                              "price": data.get("price"), "volume": data.get("volume")})
+                        if on_trade is not None and data.get("price") is not None:
+                            on_trade(sym, float(data["price"]), recv)
                     else:
                         asks, bids = data.get("asks") or [{}], data.get("bids") or [{}]
                         log.write("books", {"recv": recv, "symbol": sym, "ts": data.get("timestamp"),
@@ -335,6 +353,9 @@ def analyze(out_dir: Path, open_utc: datetime, symbols: list[str]) -> dict:
         "rest_revised_after_complete": sum(1 for b in rest.values() if b["revised"]),
         "trade_gaps": {"first5": _gap_by_symbol(trades, o, e5), "after5": _gap_by_symbol(trades, e5, 1e12)},
         "book_gaps": {"first5": _gap_by_symbol(books, o, e5), "after5": _gap_by_symbol(books, e5, 1e12)},
+        "stale_any_frame": {
+            "regular": stale_candidates([r["recv"] for r in trades + books if r["recv"] >= o]),
+            "trades_only": stale_candidates([r["recv"] for r in trades if r["recv"] >= o])},
         # trade timestamps are whole seconds, so recv - ts is an upper bound with up to +1 s truncation
         "trade_lag_upper_s": {"median": round(statistics.median(lag), 3),
                               "p95": round(lag[int(0.95 * (len(lag) - 1))], 3),
