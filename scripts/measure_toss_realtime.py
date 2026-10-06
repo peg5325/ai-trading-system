@@ -1,6 +1,6 @@
 """Read-only measurement of Toss realtime quotes against REST 1-minute candles (design R0, no orders).
 
-`record` keeps one WebSocket connection on trade:us / orderbook:us, logs every trade and every orderbook arrival,
+`record` keeps one WebSocket connection on trade:<market> / orderbook:<market> (us or kr), logs every trade and every orderbook arrival,
 polls REST /api/v1/candles 1m (every 15 s by default), and drops the connection once on purpose to time the reconnect.
 `analyze` turns the logs into the R0 numbers: per-minute WebSocket volume vs completed REST bar volume (missing %),
 trade/orderbook gaps (open vs later), reconnect time, and whether in-progress REST bars are labelled by their end minute.
@@ -191,10 +191,11 @@ async def _poll_rest(client, symbols: list[str], every_s: float, deadline: float
         await asyncio.sleep(max(0.0, every_s - (time.time() - tick)))
 
 
-async def _stream(token_fn, symbols: list[str], deadline: float, drop_at: float | None, log: _Log) -> None:
+async def _stream(token_fn, symbols: list[str], market: str, deadline: float, drop_at: float | None,
+                  log: _Log) -> None:
     import websockets
 
-    decl = [{"type": f"{ch}:us", "codes": symbols} for ch in ("trade", "orderbook")]
+    decl = [{"type": f"{ch}:{market}", "codes": symbols} for ch in ("trade", "orderbook")]
     backoff = 1.0
     dropped = drop_at is None
     while time.time() < deadline:
@@ -244,7 +245,7 @@ async def _stream(token_fn, symbols: list[str], deadline: float, drop_at: float 
             backoff = min(30.0, backoff * 2)
 
 
-async def record(symbols: list[str], seconds: float, drop_after_s: float | None, poll_every_s: float,
+async def record(symbols: list[str], market: str, seconds: float, drop_after_s: float | None, poll_every_s: float,
                  out_dir: Path, env_file: Path) -> None:
     from dotenv import load_dotenv
 
@@ -256,11 +257,11 @@ async def record(symbols: list[str], seconds: float, drop_after_s: float | None,
     start = time.time()
     deadline = start + seconds
     drop_at = start + drop_after_s if drop_after_s is not None else None
-    log.write("control", {"t": _now_iso(), "event": "start", "symbols": symbols, "seconds": seconds,
+    log.write("control", {"t": _now_iso(), "event": "start", "market": market, "symbols": symbols, "seconds": seconds,
                           "drop_after_s": drop_after_s, "poll_every_s": poll_every_s})
     with TossClient(load_settings()) as client:
         try:
-            await asyncio.gather(_stream(client._access_token, symbols, deadline, drop_at, log),
+            await asyncio.gather(_stream(client._access_token, symbols, market, deadline, drop_at, log),
                                  _poll_rest(client, symbols, poll_every_s, deadline, log))
         finally:
             log.write("control", {"t": _now_iso(), "event": "end"})
@@ -349,6 +350,7 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     rec = sub.add_parser("record")
     rec.add_argument("--env-file", type=Path, default=ROOT / ".env", help="file holding TOSS_CLIENT_ID/SECRET")
+    rec.add_argument("--market", choices=("us", "kr"), default="us")
     rec.add_argument("--symbols", default="QQQ,TQQQ,SQQQ,SPY")
     rec.add_argument("--seconds", type=float, default=2700.0)
     rec.add_argument("--drop-after-s", type=float, default=None, help="close the socket once after this many seconds")
@@ -361,7 +363,7 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.cmd == "record":
-        asyncio.run(record(args.symbols.split(","), args.seconds, args.drop_after_s, args.poll_every_s,
+        asyncio.run(record(args.symbols.split(","), args.market, args.seconds, args.drop_after_s, args.poll_every_s,
                            args.out_dir, args.env_file))
         return 0
     report = analyze(args.out_dir, parse_ts(args.open_utc), args.symbols.split(","))
