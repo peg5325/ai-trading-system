@@ -76,6 +76,10 @@ class ExitWatcher:
         if self.pending or t == self.forced_t:
             reason = "STOP_GAP" if open_ <= self.stop else (self.pending or "FORCED_1555")
             self.exit = {"t": t, "at": "open", "raw": open_, "reason": reason}
+        elif open_ < self.stop:
+            # walk_exit finds this in its intrabar branch (low <= stop, open < stop -> STOP_GAP "at open"),
+            # but it is already decided by the open; resolving it here keeps closed_by(…, 14:45) identical.
+            self.exit = {"t": t, "at": "open", "raw": open_, "reason": "STOP_GAP"}
 
     def _close(self, t: int, b: Bar, q: Bar | None, product_bars: list[Bar]) -> None:
         if b.low <= self.stop:

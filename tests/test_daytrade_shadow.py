@@ -64,6 +64,20 @@ def halt_day():
                   tqqq_fn=lambda t: tqqq_default(t) if t < T(10, 0) else 30.0)
 
 
+def gap_at_s5_day():
+    """Morning S1 stop gapped through exactly at the 14:45 open while S5 fires (closed_by at 14:45)."""
+    return s1_day(qqq_after=lambda t: PREV * 1.03,
+                  tqqq_fn=lambda t: 49.5 if t >= T(14, 45) else tqqq_default(t))
+
+
+def gap_at_s5_equal_stop_day():
+    """Open exactly AT the stop at 14:45 is an intrabar STOP in walk_exit (not closed by the 14:45 open)."""
+    reg, pre = s1_day(qqq_after=lambda t: PREV * 1.03)
+    stop = min(b.low for b in reg["TQQQ"] if R.OPEN <= b.t < R.DECISION)
+    reg["TQQQ"] = [b if b.t != T(14, 45) else Bar(b.t, stop, stop, stop - 0.1, stop, b.volume) for b in reg["TQQQ"]]
+    return reg, pre
+
+
 def wide_stop_day():
     return s1_day(tqqq_fn=lambda t: 49.0 if t == T(9, 31) else tqqq_default(t))
 
@@ -73,6 +87,8 @@ SCENARIOS = {
     "S1_plus_S5_combined_cap": (lambda: s1_day(qqq_after=lambda t: PREV * 1.03), NO_EVENTS, EXT_OK),
     "S1_vwap_exit": (vwap_exit_day, NO_EVENTS, EXT_OK),
     "S1_gap_stop": (gap_stop_day, NO_EVENTS, EXT_OK),
+    "S1_gap_stop_at_1445_with_S5": (gap_at_s5_day, NO_EVENTS, EXT_OK),
+    "S1_open_at_stop_1445_with_S5": (gap_at_s5_equal_stop_day, NO_EVENTS, EXT_OK),
     "S1_wide_stop_no_entry": (wide_stop_day, NO_EVENTS, EXT_OK),
     "S1_halt_blocks_S5": (halt_day, NO_EVENTS, EXT_OK),
     "S1_unknown_risk_half": (s1_day, NO_EVENTS, {}),

@@ -16,6 +16,7 @@ import asyncio
 import json
 import statistics
 import sys
+import threading
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
@@ -175,9 +176,12 @@ class _Log:
         out_dir.mkdir(parents=True, exist_ok=True)
         self._files = {name: (out_dir / f"{name}.jsonl").open("a", buffering=1)
                        for name in ("trades", "books", "control", "candles")}
+        self._lock = threading.Lock()  # REST polls may write from a worker thread
 
     def write(self, name: str, row: dict) -> None:
-        self._files[name].write(json.dumps(row, ensure_ascii=False) + "\n")
+        line = json.dumps(row, ensure_ascii=False) + "\n"
+        with self._lock:
+            self._files[name].write(line)
 
     def close(self) -> None:
         for f in self._files.values():

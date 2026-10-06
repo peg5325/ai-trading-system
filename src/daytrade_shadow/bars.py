@@ -56,6 +56,10 @@ class LiveBars:
     def qqq_pre(self) -> list[Bar]:
         return [b for t, b in sorted(self.bars[R.SIGNAL].items()) if t < R.OPEN]
 
+    def earliest(self, symbol: str) -> int:
+        """Start minute of the oldest bar held for this session (a large value when none)."""
+        return min(self.bars[symbol], default=24 * 60)
+
     def missing(self, symbol: str, start: int, end: int) -> list[int]:
         return [t for t in range(start, end) if t not in self.bars[symbol]]
 

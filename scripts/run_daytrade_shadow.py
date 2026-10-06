@@ -14,6 +14,7 @@ import argparse
 import asyncio
 import json
 import sys
+import threading
 import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -40,7 +41,10 @@ from src.daytrade_shadow.engine import ShadowDay
 from src.daytrade_shadow.replay import diff, paper_vs_shadow
 
 EVENTS = ROOT / "config" / "daytrade_events_v1.yaml"
-REPLAY_EXTERNAL = {"vix": {"value": 15.0}, "vix9d": {"value": 14.0}, "gex": {"value": 1.0e9}}
+# replay checks logic, not inputs: fixed prior-day values per risk mode (live fetches the real ones)
+REPLAY_EXTERNAL = {"normal": {"vix": {"value": 15.0}, "vix9d": {"value": 14.0}, "gex": {"value": 1.0e9}},
+                   "high": {"vix": {"value": 35.0}, "vix9d": {"value": 30.0}, "gex": {"value": -1.0e9}},
+                   "unknown": {}}
 NO_EVENTS = {"known": True, "types": [], "fomc": False, "early_close": False, "indicator": False, "items": []}
 POLL_DELAY_S = 4.0  # seconds after each minute boundary: the finished bar is final, the new one has its open
 FETCH_COUNT = 200
@@ -63,7 +67,7 @@ def _db_days(db: Path, start: str, end: str) -> list[str]:
 def run_replay(args) -> int:
     cal = load_events(args.events)
     days = _db_days(args.db, args.start, args.end)
-    summary = {"days": 0, "compared": 0, "identical": 0, "paper_incomplete": 0, "mismatch": [], "situations": {}}
+    summary = {"external": args.external, "days": 0, "compared": 0, "identical": 0, "paper_incomplete": 0, "mismatch": [], "situations": {}}
     prev: str | None = None
     for day in days:
         data = load_bars(args.db, day)
@@ -74,7 +78,8 @@ def run_replay(args) -> int:
         ev = events_for(cal, day)
         events = ev if ev["known"] else NO_EVENTS
         prev_early = events_for(cal, expected_prev)["early_close"] if events_for(cal, expected_prev)["known"] else False
-        out = paper_vs_shadow(day, data["regular"], data["qqq_pre"], data["prior"], REPLAY_EXTERNAL, events,
+        out = paper_vs_shadow(day, data["regular"], data["qqq_pre"], data["prior"], REPLAY_EXTERNAL[args.external],
+                              events,
                               R.START_EQUITY, prev_times=data["prev_times"], expected_prev=expected_prev,
                               prev_early_close=prev_early)
         summary["days"] += 1
@@ -113,10 +118,13 @@ class Journal:
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
         self._f = path.open("a", buffering=1)
+        self._lock = threading.Lock()  # REST polls write from a worker thread, WebSocket trades from the loop
 
     def write(self, row: dict) -> None:
-        self._f.write(json.dumps({"logged_utc": datetime.now(timezone.utc).isoformat(), **row},
-                                 ensure_ascii=False, default=str) + "\n")
+        line = json.dumps({"logged_utc": datetime.now(timezone.utc).isoformat(), **row},
+                          ensure_ascii=False, default=str) + "\n"
+        with self._lock:
+            self._f.write(line)
 
     def close(self) -> None:
         self._f.close()
@@ -143,15 +151,15 @@ def _poll(client, bars: LiveBars, now: int, journal: Journal, candle_log) -> Non
             result = _fetch(client, sym)
             candles = result.get("candles", []) or []
             bars.merge(sym, candles, now)
-            # backfill once if the session so far has holes (late start, restart)
-            if bars.missing(sym, R.OPEN, min(now, bars.close_t)) and result.get("nextBefore"):
-                cursor = result["nextBefore"]
-                for _ in range(3):
-                    page = _fetch(client, sym, before=cursor)
-                    bars.merge(sym, page.get("candles", []) or [], now)
-                    cursor = page.get("nextBefore")
-                    if not cursor or not bars.missing(sym, R.OPEN, min(now, bars.close_t)):
-                        break
+            # page back only while the bars held do not reach 09:24 (late start or restart). A minute with
+            # no trades leaves a hole that paging cannot fill, so holes alone never trigger it.
+            cursor = result.get("nextBefore")
+            for _ in range(3):
+                if not cursor or bars.earliest(sym) <= R.GAP_PRE_CUTOFF - 1:
+                    break
+                page = _fetch(client, sym, before=cursor)
+                bars.merge(sym, page.get("candles", []) or [], now)
+                cursor = page.get("nextBefore")
             if candle_log is not None:
                 candle_log.write("candles", {"fetched": datetime.now(timezone.utc).isoformat(), "symbol": sym,
                                              "candles": [{k: c.get(k) for k in ("timestamp", "openPrice",
@@ -226,7 +234,7 @@ async def _live(day: str, args) -> int:
             if args.smoke_seconds:  # plumbing check outside the session: one poll + WebSocket, no decisions
                 now = _minute(et_now())
                 await asyncio.to_thread(_poll, client, bars, now, journal, ws_log)
-                await ws_task
+                await asyncio.sleep(max(0.0, deadline - time.time()))
                 finished = True
                 n = {s: len(v) for s, v in bars.bars.items()}
                 journal.write({"event": "SMOKE_END", "bars_merged": n, "in_progress": sorted(bars.in_progress)})
@@ -247,7 +255,13 @@ async def _live(day: str, args) -> int:
                         journal.write(ev)
                 if now > close_t:
                     break
-            result = eng.finish(bars.regular())
+            try:
+                result = eng.finish(bars.regular())
+            except ValueError as exc:  # e.g. the 15:55 bar of a held symbol never arrived
+                journal.write({"event": "FINISH_FAILED", "error": str(exc), "state": eng.base})
+                print(f"FINISH_FAILED: {exc}", file=sys.stderr)
+                finished = True
+                return 1
             result["run_meta"] = {"generated_at": datetime.now(timezone.utc).isoformat(), "mode": "R1_SHADOW",
                                   "equity_source": meta["equity_source"], "orders_sent": 0,
                                   "bar_source": "Toss REST 1m polled at each minute + 4 s"}
@@ -256,12 +270,16 @@ async def _live(day: str, args) -> int:
                            "day_pnl": result["pnl"]["day_pnl"]})
             print(json.dumps({"date": day, "situations": result["situations"], "trades": len(result["trades"]),
                               "day_pnl": round(result["pnl"]["day_pnl"], 4), "out": str(out_dir)}, ensure_ascii=False))
-            await ws_task
             finished = True
         finally:
             if not finished:  # do not wait for the session deadline on an error path
                 ws_task.cancel()
                 journal.write({"event": "ABORTED"})
+            try:
+                await ws_task  # the stream ends at its deadline (normal path) or on cancel
+            except BaseException as exc:  # noqa: BLE001 - a WebSocket failure must not hide the day's result
+                if not isinstance(exc, asyncio.CancelledError):
+                    journal.write({"event": "WS_TASK_ERROR", "error": f"{type(exc).__name__}: {str(exc)[:200]}"})
             ws_log.close()
             journal.close()
     return 0
@@ -295,6 +313,8 @@ def compare(shadow: dict, paper: dict) -> dict:
                                             for a, b in zip(st, pt))
     return {"date": paper.get("date"), "pass": same_sit and same_entries and size_close,
             "same_situations": same_sit, "same_entries": same_entries, "size_within_1pct": size_close,
+            "equity_start": {"shadow": shadow.get("equity_start"), "paper": paper.get("equity_start"),
+                             "shadow_source": (shadow.get("run_meta") or {}).get("equity_source")},
             "shadow": {"situations": shadow.get("situations"), "trades": st},
             "paper": {"situations": paper.get("situations"), "trades": pt},
             "input_diffs": diff(paper.get("inputs") or {}, shadow.get("inputs") or {}),
@@ -325,6 +345,8 @@ def main(argv: list[str] | None = None) -> int:
     rp.add_argument("--end", default="2099-12-31")
     rp.add_argument("--out", type=Path, default=None)
     rp.add_argument("--verbose", action="store_true")
+    rp.add_argument("--external", choices=sorted(REPLAY_EXTERNAL), default="normal",
+                    help="fixed prior-day VIX/VIX9D/GEX for both sides (risk mode NORMAL, HIGH or unknown)")
     lv = sub.add_parser("live")
     lv.add_argument("--date", default=None, help="US session date (default: today in ET)")
     lv.add_argument("--env-file", type=Path, default=ROOT / ".env")
