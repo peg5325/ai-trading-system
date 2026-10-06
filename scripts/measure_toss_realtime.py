@@ -1,6 +1,7 @@
 """Read-only measurement of Toss realtime quotes against REST 1-minute candles (design R0, no orders).
 
-`record` keeps one WebSocket connection on trade:<market> / orderbook:<market> (us or kr), logs every trade and every orderbook arrival,
+`record` keeps one WebSocket connection on trade:<market> / orderbook:<market> (us or kr),
+logs every trade and every orderbook arrival,
 polls REST /api/v1/candles 1m (every 15 s by default), and drops the connection once on purpose to time the reconnect.
 `analyze` turns the logs into the R0 numbers: per-minute WebSocket volume vs completed REST bar volume (missing %),
 trade/orderbook gaps (open vs later), reconnect time, and whether in-progress REST bars are labelled by their end minute.
