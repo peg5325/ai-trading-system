@@ -120,6 +120,14 @@ def test_scenarios_cover_every_exit_and_situation():
         seen_exit.update(t["exit_reason"] for t in r["trades"])
     assert {"S0", "S1", "S2", "S3", "S4", "S5"} <= seen_sit
     assert {"STOP_GAP", "VWAP_5M", "S3_TARGET_PREV_CLOSE", "FORCED_1555"} <= seen_exit
+    # the two 14:45 cases really exercise what they are named after
+    for name, reason in (("S1_gap_stop_at_1445_with_S5", "STOP_GAP"), ("S1_open_at_stop_1445_with_S5", "STOP")):
+        build, events, external = SCENARIOS[name]
+        reg, pre = build()
+        r, _ = replay_day("2026-10-05", reg, pre, PRIOR, external, events, 2000.0, **QC)
+        s1 = r["trades"][0]
+        assert (s1["kind"], s1["exit_time"], s1["exit_reason"]) == ("S1", "14:45", reason)
+        assert r["situations"] == ["S1", "S5"]
 
 
 def test_decision_does_not_see_the_future():

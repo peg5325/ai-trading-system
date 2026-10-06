@@ -277,9 +277,12 @@ async def _live(day: str, args) -> int:
                 journal.write({"event": "ABORTED"})
             try:
                 await ws_task  # the stream ends at its deadline (normal path) or on cancel
-            except BaseException as exc:  # noqa: BLE001 - a WebSocket failure must not hide the day's result
-                if not isinstance(exc, asyncio.CancelledError):
-                    journal.write({"event": "WS_TASK_ERROR", "error": f"{type(exc).__name__}: {str(exc)[:200]}"})
+            except asyncio.CancelledError:
+                if not ws_task.cancelled():  # this task itself was cancelled (Ctrl-C): not a clean day
+                    journal.write({"event": "ABORTED"})
+                    raise
+            except Exception as exc:  # noqa: BLE001 - a WebSocket failure must not hide the day's result
+                journal.write({"event": "WS_TASK_ERROR", "error": f"{type(exc).__name__}: {str(exc)[:200]}"})
             ws_log.close()
             journal.close()
     return 0

@@ -141,7 +141,7 @@
 - 10-05 Paper 첫 자동 실행(10-06 11:07 KST): S4, 거래 0, 잔고 USD 2,000. 사용자 결정: 1일차로 판단하지 않고 지켜본다.
 - 엔진: `src/daytrade_shadow/`(Paper 함수를 그대로 부르고 `walk_exit`만 봉 단위로 나눔) + `scripts/run_daytrade_shadow.py`(`replay`·`live`·`compare`).
   Paper 5세션 점검 중이라 Paper 코드는 바꾸지 않았다(계획과 달라진 점, 계획 §6에 이유 기록).
-- 검증: 합성 13개 시나리오 재생 = `run_day`, Toss 모양 봉 경로 4개 = `run_day`, 실제 DB 800거래일(2023-05~2026-10) 모두 일치. 실시간 스모크(장외) 정상.
+- 검증: 합성 13개 시나리오 재생 = `run_day`, Toss 모양 봉 경로 4개 = `run_day`, 실제 DB 801거래일(2023-05~2026-10-05) 위험 모드 NORMAL·HIGH·미확인 모두 일치. 독립 리뷰(opus)가 찾은 14:45 갭 손절 불일치 1건 수정 후 재리뷰 APPROVE. 실시간 스모크(장외) 정상.
   `analyze`에 연결 단위 무음(10초·15초 초과 횟수) 추가 — 10-05 정규장 최대 1.38초.
 - **다음(다음 세션):** 22:15 KST 무렵 `run_daytrade_shadow.py live` 시작 → 장 마감 뒤 `analyze`로 `STALE` 결정 → 10-07 11:07 Paper 뒤 `compare`.
 
