@@ -24,6 +24,7 @@ from src.daytrade_paper.core import (
     data_quality,
     decision_time,
     fmt_t,
+    high_mode,
 )
 from src.daytrade_paper.external import (
     events_for,
@@ -42,12 +43,19 @@ PREREG_PATH = "docs/research/PREREG_DAYTRADE_V1_1_INTRADAY_REVERSAL.md"
 
 # v1.0 lookback: SMA50 (covers ATR14's 15 sessions and RVOL's 20).
 V10_LOOKBACK = max(R.SMA_DAYS, R.ATR_DAYS + 1, R.RVOL_LOOKBACK)
-# v1.1 sigma(t): 14 prior non-early-close sessions, each with Open (09:30 bar) and every t used by S6
-# (decisions read t = T-1 for T in 10:30..14:30; the S6 position's signal exit reads t up to 15:54).
+# v1.1 sigma(t) (§2): the 14 prior non-early-close sessions must lie in the same segment. Minute gaps are a
+# runtime matter (sigma(t) undefined -> that decision time is skipped) and only reported in the mask as a
+# diagnostic over the minutes S6 reads (decisions t = T-1 for T in 10:30..14:30, signal exit up to 15:54).
 SIGMA_SESSIONS = 14
 SIGMA_FIRST_T = R.hm(10, 29)
 SIGMA_LAST_T = R.hm(15, 54)
-SIGMA_TIMES = (R.OPEN, *range(SIGMA_FIRST_T, SIGMA_LAST_T + 1))
+
+# Fields of each DB row covered by the per-segment, per-symbol content hash (one line per row, ts_utc order).
+ROW_HASH_FIELDS = ("ts_utc", "ts_exchange", "session", "open", "high", "low", "close", "volume", "market",
+                   "adjusted")
+
+# Date-only segment end facts (§6.1, user decision 2026-10-07): first/last session with QQQ regular bars.
+SEGMENT_FACTS = {"A": ("2023-04-11", "2024-07-24"), "B": ("2024-08-05", None)}
 
 
 class MaskRefused(Exception):
@@ -92,7 +100,9 @@ def sha256_file(path: Path) -> str:
 
 def candle_bar(c: Candle) -> tuple[str, str, Bar] | None:
     """`store._bar` applied to a Candle. The DB stores ts_exchange as `Candle.ts_exchange.isoformat()`
-    (src/history/store.py), so the row tuple is the one `load_bars` reads."""
+    (src/history/store.py), so the row tuple is the one `load_bars` reads. Off-grid times are refused."""
+    if c.ts_exchange.second or c.ts_exchange.microsecond:
+        raise MaskRefused(f"{c.symbol} bar at {c.ts_exchange.isoformat()} is not on the minute grid")
     return _bar((c.ts_exchange.isoformat(), c.session, c.open, c.high, c.low, c.close, c.volume))
 
 
@@ -126,13 +136,13 @@ def load_segment(db: Path | str, seg: Segment) -> SegmentData:
             for c in research_load(str(db), sym, "1m", start=lo, end=hi, purpose="performance"):
                 n += 1
                 h.update(f"{c.ts_utc.isoformat()}|{c.ts_exchange.isoformat()}|{c.session}|{c.open!r}|"
-                         f"{c.high!r}|{c.low!r}|{c.close!r}|{c.volume!r}\n".encode())
+                         f"{c.high!r}|{c.low!r}|{c.close!r}|{c.volume!r}|{c.market}|{int(c.adjusted)}\n".encode())
                 parsed = candle_bar(c)
                 if parsed is None:
                     continue
                 day, session, bar = parsed
                 if not first <= day <= last:
-                    continue
+                    raise MaskRefused(f"{sym} bar dated {day} read inside segment {seg.name} chunk [{lo}, {hi})")
                 if session == "REGULAR":
                     data.regular.setdefault(day, {}).setdefault(sym, []).append(bar)
                 elif session == "PRE" and sym == R.SIGNAL:
@@ -217,26 +227,41 @@ def _qqq(data: SegmentData, day: str) -> list[Bar]:
     return data.regular.get(day, {}).get(R.SIGNAL, [])
 
 
-def lookback_reasons(data: SegmentData, i: int) -> list[str]:
-    reasons: list[str] = []
+def lookback_reasons(data: SegmentData, i: int, s0: bool = False) -> list[tuple[str, str]]:
+    """(kind, text) reasons why sessions[i] lacks in-segment lookbacks. S0 days get no sigma condition."""
+    reasons: list[tuple[str, str]] = []
     day = data.sessions[i]
     if i < V10_LOOKBACK:
-        reasons.append(f"v1.0 lookback: {i} in-segment sessions before {day} < {V10_LOOKBACK} (SMA50)")
+        reasons.append(("v10_lookback_short",
+                        f"v1.0 lookback: {i} in-segment sessions before {day} < {V10_LOOKBACK} (SMA50)"))
     else:
         missing = [d for d in data.sessions[i - V10_LOOKBACK:i] if not _qqq(data, d)]
         if missing:
-            reasons.append("v1.0 lookback sessions without QQQ regular bars (not substituted): " + ", ".join(missing))
+            reasons.append(("v10_lookback_missing_session",
+                            "v1.0 lookback sessions without QQQ regular bars (not substituted): " + ", ".join(missing)))
+    if s0:
+        return reasons
     sig = sigma_sessions(data.sessions, i)
     if sig is None:
-        reasons.append(f"sigma lookback: fewer than {SIGMA_SESSIONS} non-early-close in-segment sessions before {day}")
+        reasons.append(("sigma_lookback_short",
+                        f"sigma lookback: fewer than {SIGMA_SESSIONS} non-early-close in-segment sessions before {day}"))
     else:
-        for d in sig:
-            have = {b.t for b in _qqq(data, d)}
-            gaps = [t for t in SIGMA_TIMES if t not in have]
-            if gaps:
-                reasons.append(f"sigma session {d}: QQQ bars missing at {len(gaps)} required minutes "
-                               f"(first {fmt_t(gaps[0])})")
+        missing = [d for d in sig if not _qqq(data, d)]
+        if missing:
+            reasons.append(("sigma_lookback_missing_session",
+                            "sigma lookback sessions without QQQ regular bars: " + ", ".join(missing)))
     return reasons
+
+
+def sigma_undefined_minutes(data: SegmentData, i: int) -> list[str] | None:
+    """Diagnostic only: minutes t in 10:29..15:54 where sigma(t) would be undefined for sessions[i] (some of the
+    14 sessions lacks bar t or its 09:30 bar). None when the 14 sessions are not available."""
+    sig = sigma_sessions(data.sessions, i)
+    if sig is None:
+        return None
+    have = [{b.t for b in _qqq(data, d)} for d in sig]
+    return [fmt_t(t) for t in range(SIGMA_FIRST_T, SIGMA_LAST_T + 1)
+            if any(R.OPEN not in h or t not in h for h in have)]
 
 
 def day_inputs(data: SegmentData, i: int) -> dict:
@@ -257,8 +282,11 @@ def day_inputs(data: SegmentData, i: int) -> dict:
 # ---------------------------------------------------------------- mask
 
 
-def build_mask(datas: list[SegmentData], cal: dict, sources: dict) -> dict:
-    """Scored dates per segment and every excluded date with its reasons. S0 days stay in (v1.0 decides S0)."""
+def build_mask(datas: list[SegmentData], cal: dict, sources: dict, ext: dict | None = None) -> dict:
+    """Scored dates per segment and every excluded date with its reasons. S0 days stay in (v1.0 decides S0).
+
+    ext (optional): external snapshots; only their hashes and per-day VIX/VIX9D availability (session dates vs
+    CSV dates) are recorded. They never change which days are scored."""
     for data in datas:  # refuse before any per-day work if a segment day lies outside the event calendar
         for day in data.sessions:
             day_events(cal, day)
@@ -266,18 +294,22 @@ def build_mask(datas: list[SegmentData], cal: dict, sources: dict) -> dict:
     for data in datas:
         scored: list[str] = []
         excluded: list[dict] = []
+        sigma_diag: dict[str, list[str] | None] = {}
         for i, day in enumerate(data.sessions):
             ctx = day_context(cal, day)
-            reasons = lookback_reasons(data, i)
+            s0 = bool(ctx["events"]["fomc"] or ctx["events"]["early_close"])
+            reasons = lookback_reasons(data, i, s0)
             if not reasons:
                 inp = day_inputs(data, i)
                 q = data_quality(inp["regular"], inp["prior"], ctx["events"]["early_close"], ctx["decision_t"],
                                  inp["prev_times"], ctx["expected_prev"], ctx["prev_early_close"])
-                reasons = [f"data_quality: {x}" for x in q["issues"]]
+                reasons = [("data_quality", f"data_quality: {x}") for x in q["issues"]]
             if reasons:
-                excluded.append({"date": day, "reasons": reasons})
+                excluded.append({"date": day, "kinds": sorted({k for k, _ in reasons}),
+                                 "reasons": [r for _, r in reasons]})
             else:
                 scored.append(day)
+                sigma_diag[day] = sigma_undefined_minutes(data, i)
         with_data = [d for d in data.sessions if _qqq(data, d)]
         segments[data.segment.name] = {
             "start": data.segment.start.isoformat(), "end": data.segment.end.isoformat(),
@@ -286,14 +318,40 @@ def build_mask(datas: list[SegmentData], cal: dict, sources: dict) -> dict:
             "last_session_with_qqq_bars": with_data[-1] if with_data else None,
             "scored_count": len(scored), "excluded_count": len(excluded),
             "scored": scored, "excluded": excluded,
+            "excluded_by_kind": _by_kind(excluded),
+            "sigma_undefined_minutes_diagnostic": sigma_diag,
+            "external_availability": external_availability(ext, scored) if ext is not None else None,
             "db_rows_sha256": dict(data.row_sha256), "db_row_counts": dict(data.row_counts),
         }
     return {"schema": MASK_SCHEMA, "prereg": PREREG_PATH,
             "rules": {"v10_lookback_sessions": V10_LOOKBACK, "sigma_sessions": SIGMA_SESSIONS,
-                      "sigma_required_minutes": f"{fmt_t(R.OPEN)}, {fmt_t(SIGMA_FIRST_T)}~{fmt_t(SIGMA_LAST_T)}",
+                      "sigma_condition": "14 prior non-early-close sessions inside the segment, each with QQQ "
+                                         "regular bars; not applied to S0 days; minute gaps are not a mask "
+                                         "condition (runtime: sigma(t) undefined -> that T is skipped)",
+                      "sigma_diagnostic_minutes": f"{fmt_t(SIGMA_FIRST_T)}~{fmt_t(SIGMA_LAST_T)} (+ 09:30 Open)",
+                      "db_row_hash_fields": list(ROW_HASH_FIELDS),
                       "sigma_skips_early_close": True, "s0_days_kept": True,
                       "data_quality": "src.daytrade_paper.core.data_quality (full session, decision time per events)"},
-            "segments": segments, "sources": sources}
+            "segments": segments, "sources": sources,
+            "external_snapshot_sha256": dict(ext["sha256"]) if ext is not None else None}
+
+
+def _by_kind(excluded: list[dict]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for e in excluded:
+        for k in e["kinds"]:
+            out[k] = out.get(k, 0) + 1
+    return dict(sorted(out.items()))
+
+
+def check_segment_facts(mask: dict) -> None:
+    """Refuse unless the first/last sessions with QQQ bars match the fixed segment facts (dates only)."""
+    for name, (first, last) in SEGMENT_FACTS.items():
+        seg = mask["segments"][name]
+        got = (seg["first_session_with_qqq_bars"], seg["last_session_with_qqq_bars"])
+        if got[0] != first or (last is not None and got[1] != last):
+            raise MaskRefused(f"segment {name}: sessions with QQQ bars run {got[0]}..{got[1]}, "
+                              f"expected first {first}" + (f", last {last}" if last else ""))
 
 
 def mask_bytes(mask: dict) -> bytes:
@@ -325,6 +383,20 @@ def load_external(vix_csv: Path, vix9d_csv: Path, dix_csv: Path | None) -> dict:
         out["sha256"][key] = hashlib.sha256(raw).hexdigest()
         out["files"][key] = str(path)
     return out
+
+
+def external_availability(ext: dict, days: list[str]) -> dict:
+    """VIX/VIX9D prior-day status per day from CSV dates only (values are not reported)."""
+    out = {}
+    for key in ("vix", "vix9d"):
+        status = {d: prior_value(ext["rows"][key], d)["status"] for d in days}
+        bad = {d: st for d, st in status.items() if st != "ok"}
+        out[key] = {"non_ok_count": len(bad), "non_ok": bad}
+    return out
+
+
+def risk_mode(external: dict) -> str:
+    return high_mode(external["vix"]["value"], external["vix9d"]["value"])[0]
 
 
 def external_for(ext: dict, day: str) -> dict:

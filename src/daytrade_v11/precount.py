@@ -10,11 +10,18 @@ from __future__ import annotations
 from src.daytrade_paper import rules as R
 from src.daytrade_paper.core import Bar, PriorSession
 from src.daytrade_shadow.engine import ShadowDay
-from src.daytrade_v11.data import SegmentData, day_context, day_inputs, external_for
+from src.daytrade_v11.data import (
+    SegmentData,
+    day_context,
+    day_inputs,
+    external_for,
+    risk_mode,
+)
 
 COUNT_END = R.hm(10, 30)
 MORNING = ("S1", "S2", "S3")
 DIRECTIONS = (R.LONG, R.SHORT)
+RISK_MODES = ("NORMAL", "HIGH", "UNKNOWN_TREATED_AS_HIGH")
 
 
 class CountInvariantError(RuntimeError):
@@ -51,7 +58,8 @@ def count_day(day: str, regular: dict[str, list[Bar]], qqq_pre: list[Bar], prior
 def _empty() -> dict:
     return {"days": 0, "entry_days": 0, "entries": dict.fromkeys(MORNING, 0),
             "entries_by_direction": dict.fromkeys(DIRECTIONS, 0),
-            "open_after_1030_days": 0, "open_after_1030": dict.fromkeys(DIRECTIONS, 0)}
+            "open_after_1030_days": 0, "open_after_1030": dict.fromkeys(DIRECTIONS, 0),
+            "risk_mode": dict.fromkeys(RISK_MODES, 0), "external_non_ok": {"vix": 0, "vix9d": 0}}
 
 
 def _add(acc: dict, r: dict) -> None:
@@ -78,7 +86,11 @@ def run_count(mask: dict, datas: list[SegmentData], cal: dict, ext: dict) -> dic
         for day in seg["scored"]:
             ctx = day_context(cal, day)
             inp = day_inputs(data, pos[day])
-            r = count_day(day, inp["regular"], inp["qqq_pre"], inp["prior"], external_for(ext, day),
+            external = external_for(ext, day)
+            acc["risk_mode"][risk_mode(external)] += 1
+            for key in ("vix", "vix9d"):
+                acc["external_non_ok"][key] += external[key]["status"] != "ok"
+            r = count_day(day, inp["regular"], inp["qqq_pre"], inp["prior"], external,
                           ctx["events"], R.START_EQUITY, prev_times=inp["prev_times"],
                           expected_prev=ctx["expected_prev"], prev_early_close=ctx["prev_early_close"])
             _add(acc, r)
@@ -87,7 +99,7 @@ def run_count(mask: dict, datas: list[SegmentData], cal: dict, ext: dict) -> dic
     for acc in out["segments"].values():
         for k in ("days", "entry_days", "open_after_1030_days"):
             tot[k] += acc[k]
-        for k in ("entries", "entries_by_direction", "open_after_1030"):
+        for k in ("entries", "entries_by_direction", "open_after_1030", "risk_mode", "external_non_ok"):
             for kk, v in acc[k].items():
                 tot[k][kk] += v
     return out

@@ -7,6 +7,7 @@ from datetime import date, datetime, timezone
 
 import pytest
 from test_daytrade_paper import EXT_OK, NO_EVENTS, PRIOR, QC, T, s1_day, tqqq_default
+from test_daytrade_shadow import s2_day, s3_day
 
 from src.daytrade_paper import rules as R
 from src.daytrade_paper import store
@@ -14,6 +15,7 @@ from src.daytrade_paper.core import Bar
 from src.daytrade_paper.external import load_events
 from src.daytrade_shadow.replay import replay_day
 from src.daytrade_v11 import data as V
+from src.daytrade_v11 import precount as P
 from src.daytrade_v11.precount import count_day, run_count
 from src.history import exchange_calendar as xcal
 from src.history.oos_guard import OOSLockError, research_load
@@ -168,13 +170,39 @@ def test_mask_excludes_data_quality_failure_with_reason(tmp_path):
     assert "2023-07-19" in seg["scored"] and "2023-07-21" in seg["scored"]
 
 
-def test_sigma_session_missing_a_minute_excludes_later_days(tmp_path):
+def test_sigma_minute_gap_keeps_later_days_scored_and_is_diagnosed(tmp_path):
+    """Per-T reading (§2): a missing minute only makes sigma(t) undefined at that t at runtime."""
     db = make_db(tmp_path / "h.sqlite", drop={("QQQ", "2023-07-14", T(14, 0))})
     seg = _seg(V.build_mask([V.load_segment(db, SEG)], CAL, {}))
-    why = {e["date"]: e["reasons"] for e in seg["excluded"]}
-    assert any(r.startswith("data_quality:") for r in why["2023-07-14"])
-    assert any("sigma session 2023-07-14" in r and "14:00" in r for r in why["2023-07-17"])
-    assert seg["scored"] == ["2023-07-13"]  # every later day in range has 07-14 in its 14 sessions
+    why = {e["date"]: e for e in seg["excluded"]}
+    assert set(why) == set(V.load_segment(db, SEG).sessions[:50]) | {"2023-07-14"}
+    assert why["2023-07-14"]["kinds"] == ["data_quality"]
+    diag = seg["sigma_undefined_minutes_diagnostic"]
+    assert diag["2023-07-13"] == [] and diag["2023-07-17"] == diag["2023-07-31"] == ["14:00"]
+    # sessions 0..13 also lack 14 sigma sessions, except FOMC 2023-05-03 (S0: no sigma condition)
+    assert seg["excluded_by_kind"] == {"data_quality": 1, "sigma_lookback_short": 13, "v10_lookback_short": 50}
+    assert why["2023-05-03"]["kinds"] == ["v10_lookback_short"]
+    assert why["2023-05-02"]["kinds"] == ["sigma_lookback_short", "v10_lookback_short"]
+
+
+def test_sigma_diagnostic_marks_every_minute_when_a_session_lacks_its_open(tmp_path):
+    db = make_db(tmp_path / "h.sqlite", drop={("QQQ", "2023-07-14", R.OPEN)})
+    data = V.load_segment(db, SEG)  # (v1.0 RVOL already excludes those days from the mask; function only)
+    diag = V.sigma_undefined_minutes(data, data.sessions.index("2023-07-17"))
+    assert len(diag) == V.SIGMA_LAST_T - V.SIGMA_FIRST_T + 1 and diag[0] == "10:29" and diag[-1] == "15:54"
+
+
+def test_off_grid_timestamp_is_refused(tmp_path):
+    db = make_db(tmp_path / "h.sqlite", days=[date(2023, 7, 5)])
+    con = sqlite3.connect(db)
+    et = datetime(2023, 7, 5, 10, 0, 30, tzinfo=ET)
+    con.execute(f"INSERT INTO candle_history VALUES ({','.join('?' * 16)})",
+                ("QQQ", "US", "1m", et.astimezone(timezone.utc).isoformat(), et.isoformat(), "X",
+                 1, 1, 1, 1, 1, "USD", 1, "t", "x", "x"))
+    con.commit()
+    con.close()
+    with pytest.raises(V.MaskRefused, match="minute grid"):
+        V.load_segment(db, V.Segment("G", date(2023, 7, 3), date(2023, 7, 7)))
 
 
 def test_events_outside_coverage_are_refused():
@@ -279,31 +307,241 @@ def _csvs(tmp_path):
     return vix, vix9d, dix
 
 
-def test_run_count_totals(base, tmp_path):
+def test_run_count_totals_flat_prices(base, tmp_path):
     _db, data, mask = base
     ext = V.load_external(*_csvs(tmp_path))
     out = run_count(mask, [data], CAL, ext)
     seg = out["segments"]["T"]
     assert seg["days"] == _seg(mask)["scored_count"] == out["total"]["days"]
     assert seg["entry_days"] == sum(seg["entries"].values()) == 0  # flat synthetic prices: no S1/S2/S3
+    assert seg["risk_mode"] == {"NORMAL": seg["days"], "HIGH": 0, "UNKNOWN_TREATED_AS_HIGH": 0}
+    assert seg["external_non_ok"] == {"vix": 0, "vix9d": 0}
 
 
-def test_script_end_to_end_on_synthetic_db(tmp_path):
+def test_run_count_breakdown_with_entries(base, tmp_path, monkeypatch):
+    """Label/direction/open breakdowns and the segment -> total roll-up with nonzero entries."""
+    _db, data, mask = base
+    script = [{"entry": "S1", "symbol": "TQQQ", "open_after_1030": True},
+              {"entry": "S2", "symbol": "SQQQ", "open_after_1030": False},
+              {"entry": "S3", "symbol": "TQQQ", "open_after_1030": True},
+              {"entry": "S2", "symbol": "SQQQ", "open_after_1030": True},
+              {"entry": None, "symbol": None, "open_after_1030": False}]
+    calls = iter(script * 10)
+    monkeypatch.setattr(P, "count_day", lambda *a, **k: next(calls))
+    seg2 = V.SegmentData(V.Segment("U", SEG.start, SEG.end), data.sessions, data.regular, data.qqq_pre)
+    mask2 = {"segments": {"T": _seg(mask), "U": {"scored": _seg(mask)["scored"][:5]}}}
+    vix, vix9d, _ = _csvs(tmp_path)
+    out = P.run_count(mask2, [data, seg2], CAL, V.load_external(vix, vix9d, None))
+    n = _seg(mask)["scored_count"]
+    assert n == 13
+    t = out["segments"]["T"]  # 13 days = 2 full cycles + S1, S2, S3
+    assert t["entries"] == {"S1": 3, "S2": 5, "S3": 3} and t["entry_days"] == 11 and t["days"] == 13
+    assert t["entries_by_direction"] == {"TQQQ": 6, "SQQQ": 5}
+    assert t["open_after_1030"] == {"TQQQ": 6, "SQQQ": 2} and t["open_after_1030_days"] == 8
+    u = out["segments"]["U"]  # continues the cycle: S2 open, None, S1, S2 closed, S3
+    assert u["entries"] == {"S1": 1, "S2": 2, "S3": 1} and u["open_after_1030"] == {"TQQQ": 2, "SQQQ": 1}
+    tot = out["total"]
+    assert tot["days"] == 18 and tot["entry_days"] == 15
+    assert tot["entries"] == {"S1": 4, "S2": 7, "S3": 4}
+    assert tot["entries_by_direction"] == {"TQQQ": 8, "SQQQ": 7}
+    assert tot["open_after_1030"] == {"TQQQ": 8, "SQQQ": 3} and tot["open_after_1030_days"] == 11
+    assert tot["risk_mode"]["NORMAL"] == 18
+
+
+# ---------------------------------------------------------------- indicator days, S3, UNKNOWN risk
+
+IND = {**NO_EVENTS, "indicator": True, "types": ["CPI"]}
+
+
+def _count_ev(reg, pre, events, external=EXT_OK):
+    return count_day("2026-10-05", reg, pre, PRIOR, external, events, 2000.0, **QC)
+
+
+def s3_day_at(t3):
+    """s3_day with the 5m close above VWAP at t3 - 1 (10:15 decision on indicator days)."""
+    reg, pre = s3_day()
+    q = reg["QQQ"]
+    base = q[0].open
+    reg["QQQ"] = [Bar(b.t, base, base + 0.1, b.low, base, b.volume) if b.t == T(9, 59) else b for b in q]
+    reg["QQQ"] = [Bar(b.t, b.open, b.close + 0.5, b.low, b.close + 0.4, b.volume) if b.t == t3 - 1 else b
+                  for b in reg["QQQ"]]
+    return reg, pre
+
+
+def test_indicator_day_s1_entry_at_1015_stopped_before_1030_counts_closed():
+    reg, pre = s1_day()
+    stop = _stop(reg)
+    reg = _with_bar(reg, "TQQQ", T(10, 25), 50.3, 50.35, stop - 1.0, 50.3)
+    assert _count_ev(reg, pre, IND) == {"entry": "S1", "symbol": "TQQQ", "open_after_1030": False}
+    full, _ = replay_day("2026-10-05", reg, pre, PRIOR, EXT_OK, IND, 2000.0, **QC)
+    assert full["trades"][0]["entry_time"] == "10:15" and full["trades"][0]["exit_time"] == "10:25"
+
+
+def test_indicator_day_s1_and_s2_entries_at_1015_surviving_count_open():
+    reg, pre = s1_day()
+    assert _count_ev(reg, pre, IND) == {"entry": "S1", "symbol": "TQQQ", "open_after_1030": True}
+    reg, pre = s2_day()
+    assert _count_ev(reg, pre, IND) == {"entry": "S2", "symbol": "SQQQ", "open_after_1030": True}
+    full, _ = replay_day("2026-10-05", reg, pre, PRIOR, EXT_OK, IND, 2000.0, **QC)
+    assert full["trades"][0]["entry_time"] == "10:15"
+
+
+def test_s3_counts_as_s3_tqqq_on_normal_and_indicator_days():
+    reg, pre = s3_day()
+    assert _count_ev(reg, pre, NO_EVENTS) == {"entry": "S3", "symbol": "TQQQ", "open_after_1030": True}
+    full, _ = replay_day("2026-10-05", reg, pre, PRIOR, EXT_OK, NO_EVENTS, 2000.0, **QC)
+    assert full["trades"][0]["entry_time"] == "10:00"
+    reg, pre = s3_day_at(T(10, 15))
+    assert _count_ev(reg, pre, IND) == {"entry": "S3", "symbol": "TQQQ", "open_after_1030": True}
+    full, _ = replay_day("2026-10-05", reg, pre, PRIOR, EXT_OK, IND, 2000.0, **QC)
+    assert full["trades"][0]["entry_time"] == "10:15"
+
+
+def test_unknown_risk_mode_suppresses_s3_but_not_s1_s2():
+    reg, pre = s3_day()
+    assert _count_ev(reg, pre, NO_EVENTS, external={})["entry"] is None
+    reg, pre = s1_day()
+    assert _count_ev(reg, pre, NO_EVENTS, external={})["entry"] == "S1"
+    reg, pre = s2_day()
+    assert _count_ev(reg, pre, NO_EVENTS, external={})["entry"] == "S2"
+
+
+def _scenarios():
+    def stop_bar(build, t, kind):
+        def f():
+            reg, pre = build()
+            stop = _stop(reg) if reg["TQQQ"] else 0
+            o = {"intrabar": (50.3, 50.35, stop - 1.0, 50.3), "gap": (stop - 1.0, stop - 1.0, stop - 1.1, stop - 1.0),
+                 "at": (stop, stop, stop - 0.1, stop)}[kind]
+            return _with_bar(reg, "TQQQ", t, *o), pre
+        return f
+    out = {"s1": (s1_day, NO_EVENTS), "s2": (s2_day, NO_EVENTS), "s3": (s3_day, NO_EVENTS),
+           "s3_ind": (lambda: s3_day_at(T(10, 15)), IND), "s1_ind": (s1_day, IND), "s2_ind": (s2_day, IND),
+           "s4": (lambda: s1_day(qqq_vol=1000.0), NO_EVENTS)}
+    for t in (T(9, 50), T(10, 20), T(10, 29), T(10, 30), T(10, 31)):
+        for kind in ("intrabar", "gap", "at"):
+            out[f"s1_{kind}_{t}"] = (stop_bar(s1_day, t, kind), NO_EVENTS)
+            out[f"s1ind_{kind}_{t}"] = (stop_bar(s1_day, t, kind), IND)
+    return out
+
+
+@pytest.mark.parametrize("name", sorted(_scenarios()))
+def test_open_after_1030_matches_full_replay_exit(name):
+    build, events = _scenarios()[name]
+    reg, pre = build()
+    r = _count_ev(reg, pre, events)
+    full, _ = replay_day("2026-10-05", reg, pre, PRIOR, EXT_OK, events, 2000.0, **QC)
+    morning = [tr for tr in full["trades"] if tr["kind"] in ("S1", "S2", "S3")]
+    assert (r["entry"] is None) == (not morning)
+    if morning:
+        tr = morning[0]
+        assert (r["entry"], r["symbol"]) == (tr["kind"], tr["symbol"])
+        after = tr["exit_t"] > T(10, 30) or (tr["exit_t"] == T(10, 30) and tr["exit_at"] != "open")
+        assert r["open_after_1030"] is after
+
+
+# ---------------------------------------------------------------- script stages (synthetic)
+
+
+def _script():
     import importlib.util
     spec = importlib.util.spec_from_file_location("v11_precount", ROOT / "scripts" / "daytrade_v11_precount.py")
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    db = make_db(tmp_path / "h.sqlite")
+    return mod
+
+
+def _facts_db(path):
+    """Synthetic DB matching the fixed segment facts: A from 2023-04-11 (complete to 07-31) and its last
+    session 2024-07-24, B's first session 2024-08-05."""
+    days = xcal.trading_days(DATA_START, DATA_END) + [date(2024, 7, 24), date(2024, 8, 5)]
+    return make_db(path, days=days)
+
+
+def test_script_mask_then_count(tmp_path, capsys):
+    mod = _script()
+    db = _facts_db(tmp_path / "h.sqlite")
     vix, vix9d, dix = _csvs(tmp_path)
-    out = tmp_path / "out" / "counts.json"
-    argv = ["--db", str(db), "--vix-csv", str(vix), "--vix9d-csv", str(vix9d), "--dix-csv", str(dix),
-            "--out", str(out)]
-    assert mod.main(argv) == 0
+    common = ["--db", str(db), "--vix-csv", str(vix), "--vix9d-csv", str(vix9d), "--dix-csv", str(dix),
+              "--allow-dirty"]
+    mpath = tmp_path / "m" / "mask.json"
+    assert mod.main([*common, "--mask-only", "--mask-out", str(mpath)]) == 0
+    printed = capsys.readouterr().out
+    assert "v10_lookback_short" in printed and "counts" not in printed
+    sha = __import__("hashlib").sha256(mpath.read_bytes()).hexdigest()
+    assert f"mask sha256 {sha}" in printed
+    mask = json.loads(mpath.read_text())
+    assert mask["segments"]["A"]["external_availability"]["vix"]["non_ok_count"] == 0
+    assert mask["external_snapshot_sha256"]["vix"]
+    assert mod.main([*common, "--mask-only", "--mask-out", str(mpath)]) == 2  # write-once
+
+    out = tmp_path / "c" / "counts.json"
+    count = [*common, "--mask", str(mpath), "--out", str(out)]
+    assert mod.main([*count, "--mask-sha256", "0" * 64]) == 2 and not out.exists()
+    assert mod.main([*count, "--mask-sha256", sha]) == 0
     doc = json.loads(out.read_text())
-    mask = json.loads((tmp_path / "out" / "counts_mask.json").read_text())
     assert doc["counts"]["segments"]["A"]["days"] == mask["segments"]["A"]["scored_count"] > 0
     assert doc["counts"]["segments"]["B"]["days"] == 0
     m = doc["manifest"]
-    assert set(m["external_csv_sha256"]) == {"vix", "vix9d", "gex"} and len(m["mask_sha256"]) == 64
-    assert m["numpy"] and m["python"] and m["events_sha256"]["history"]
-    assert mod.main(argv) == 2  # write-once
+    assert m["mask_sha256"] == sha and set(m["external_csv_sha256"]) == {"vix", "vix9d", "gex"}
+    assert m["numpy"] and m["python"] and m["events_sha256"]["history"] and "adjusted" in m["db_row_hash_fields"]
+    assert m["git_commit"] and isinstance(m["git_dirty_tracked"], bool)
+    assert mod.main([*count, "--mask-sha256", sha]) == 2  # write-once
+
+
+def test_count_refuses_a_mask_that_does_not_rebuild(tmp_path):
+    mod = _script()
+    db = _facts_db(tmp_path / "h.sqlite")
+    vix, vix9d, _ = _csvs(tmp_path)
+    common = ["--db", str(db), "--vix-csv", str(vix), "--vix9d-csv", str(vix9d), "--allow-dirty"]
+    mpath = tmp_path / "mask.json"
+    assert mod.main([*common, "--mask-only", "--mask-out", str(mpath)]) == 0
+    mask = json.loads(mpath.read_text())
+    mask["segments"]["A"]["scored"].append("2024-07-24")  # tampered after the fact, re-hashed
+    mpath.write_bytes(V.mask_bytes(mask))
+    sha = __import__("hashlib").sha256(mpath.read_bytes()).hexdigest()
+    out = tmp_path / "counts.json"
+    assert mod.main([*common, "--mask", str(mpath), "--mask-sha256", sha, "--out", str(out)]) == 2
+    assert not out.exists()
+
+
+def test_count_refuses_missing_vix_unless_allowed(tmp_path):
+    mod = _script()
+    db = _facts_db(tmp_path / "h.sqlite")
+    _vix, vix9d, _ = _csvs(tmp_path)
+    vix = tmp_path / "short_vix.csv"  # ends 2023-07-01: July scored days are stale
+    vix.write_text("DATE,OPEN,HIGH,LOW,CLOSE\n06/30/2023,1,1,1,15\n")
+    common = ["--db", str(db), "--vix-csv", str(vix), "--vix9d-csv", str(vix9d), "--allow-dirty"]
+    mpath = tmp_path / "mask.json"
+    assert mod.main([*common, "--mask-only", "--mask-out", str(mpath)]) == 0
+    mask = json.loads(mpath.read_text())
+    assert mask["segments"]["A"]["external_availability"]["vix"]["non_ok_count"] > 0
+    sha = __import__("hashlib").sha256(mpath.read_bytes()).hexdigest()
+    out = tmp_path / "counts.json"
+    count = [*common, "--mask", str(mpath), "--mask-sha256", sha, "--out", str(out)]
+    assert mod.main(count) == 2 and not out.exists()
+    assert mod.main([*count, "--allow-missing-vix"]) == 0
+    seg = json.loads(out.read_text())["counts"]["segments"]["A"]
+    assert seg["external_non_ok"]["vix"] > 0 and seg["risk_mode"]["UNKNOWN_TREATED_AS_HIGH"] > 0
+
+
+def test_script_refuses_broken_segment_facts_and_bad_modes(tmp_path):
+    mod = _script()
+    db = make_db(tmp_path / "h.sqlite")  # no 2024-07-24 / 2024-08-05 sessions
+    vix, vix9d, _ = _csvs(tmp_path)
+    common = ["--db", str(db), "--vix-csv", str(vix), "--vix9d-csv", str(vix9d), "--allow-dirty"]
+    mpath = tmp_path / "mask.json"
+    assert mod.main([*common, "--mask-only", "--mask-out", str(mpath)]) == 2 and not mpath.exists()
+    with pytest.raises(SystemExit):
+        mod.main([*common, "--out", str(tmp_path / "c.json")])  # count mode without a fixed mask
+    with pytest.raises(SystemExit):
+        mod.main([*common, "--mask-only", "--mask-out", str(mpath), "--out", str(tmp_path / "c.json")])
+
+
+def test_script_refuses_dirty_worktree_without_flag(tmp_path, monkeypatch):
+    mod = _script()
+    monkeypatch.setattr(mod, "git_state", lambda: {"commit": "x", "dirty_tracked": True, "dirty_files": ["M a"]})
+    vix, vix9d, _ = _csvs(tmp_path)
+    argv = ["--db", str(tmp_path / "none.sqlite"), "--vix-csv", str(vix), "--vix9d-csv", str(vix9d),
+            "--mask-only", "--mask-out", str(tmp_path / "m.json")]
+    assert mod.main(argv) == 2 and not (tmp_path / "m.json").exists()
