@@ -1,0 +1,642 @@
+# Historical event calendar for the v1.1 draft backtest (intraday reversal S6).
+# Purpose: BACKTEST ONLY. Not used by the live runner; the live runner reads
+# daytrade_events_v1.yaml. Same schema as daytrade_events_v1.yaml.
+# Sources checked on 2026-10-07 (pages listed per entry). Dates outside `coverage` are unknown.
+#
+# Rules:
+#   FOMC        = decision day (second day) of every SCHEDULED two-day FOMC meeting.
+#                 Unscheduled calls are excluded unless a policy decision was announced
+#                 (none in coverage). The 2025-08-22 notation vote (Statement on Longer-Run
+#                 Goals and Monetary Policy Strategy, no rate decision) is NOT an event.
+#   CPI / NFP / PCE = ACTUAL release day (BLS CPI, BLS Employment Situation, BEA Personal
+#                 Income and Outlays). 08:30 ET unless the title says otherwise.
+#                 CPI/NFP dates come from the BLS archive link names (cpi_MMDDYYYY,
+#                 empsit_MMDDYYYY); PCE dates and times from the BEA embargo lines.
+#   EARLY_CLOSE = NYSE 1:00 p.m. early close.
+#   holidays    = NYSE full-day closures inside coverage (weekdays only). They match
+#                 src/history/exchange_calendar.py for 2023-04..2026-01.
+#   An event can fall on a holiday (the release still happened while NYSE was closed);
+#   the backtest only evaluates trading days, so such entries have no trading effect.
+#
+# 2025 US government shutdown (Oct 1 - Nov 12, 2025):
+#   - CPI October 2025: NOT published (BLS did not collect October survey data). No event.
+#   - Employment Situation October 2025: NOT published as a release; October payroll
+#     estimates came out with the November report on 2025-12-16. No separate event.
+#   - CPI September 2025 released 2025-10-24 (during the shutdown); NFP September 2025
+#     released 2025-11-20; NFP November 2025 2025-12-16; CPI November 2025 2025-12-18.
+#   - PIO September 2025 released 2025-12-05 10:00 ET; PIO October+November 2025 combined
+#     released 2026-01-22 10:00 ET. The 2025-12-23 "Personal Income and Outlays, Data
+#     Update, September 2025" was a data-only revision issued alongside Q3 GDP, not a
+#     news release, and is NOT an event.
+version: history-v1
+coverage:
+  start: "2023-04-01"
+  end: "2026-01-31"
+holidays:
+  - date: "2023-04-07"
+    title: Good Friday (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2023-05-29"
+    title: Memorial Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2023-06-19"
+    title: Juneteenth (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2023-07-04"
+    title: Independence Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2023-09-04"
+    title: Labor Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2023-11-23"
+    title: Thanksgiving Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2023-12-25"
+    title: Christmas Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-01-01"
+    title: New Year's Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-01-15"
+    title: Martin Luther King, Jr. Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-02-19"
+    title: Washington's Birthday (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-03-29"
+    title: Good Friday (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-05-27"
+    title: Memorial Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-06-19"
+    title: Juneteenth (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-07-04"
+    title: Independence Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-09-02"
+    title: Labor Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-11-28"
+    title: Thanksgiving Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-12-25"
+    title: Christmas Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-01-01"
+    title: New Year's Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-01-09"
+    title: National Day of Mourning for President Jimmy Carter (NYSE closed, unscheduled)
+    source: https://ir.theice.com/press/news-details/2024/The-New-York-Stock-Exchange-Will-Close-Markets-on-January-9-to-Honor-the-Passing-of-Former-President-Jimmy-Carter-on-National-Day-of-Mourning/default.aspx
+  - date: "2025-01-20"
+    title: Martin Luther King, Jr. Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-02-17"
+    title: Washington's Birthday (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-04-18"
+    title: Good Friday (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-05-26"
+    title: Memorial Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-06-19"
+    title: Juneteenth (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-07-04"
+    title: Independence Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-09-01"
+    title: Labor Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-11-27"
+    title: Thanksgiving Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-12-25"
+    title: Christmas Day (NYSE closed)
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2026-01-01"
+    title: New Year's Day (NYSE closed)
+    source: https://www.nyse.com/markets/hours-calendars
+  - date: "2026-01-19"
+    title: Martin Luther King, Jr. Day (NYSE closed)
+    source: https://www.nyse.com/markets/hours-calendars
+events:
+  - date: "2023-04-07"
+    type: NFP
+    title: "Employment Situation, March 2023 (08:30 ET; released on Good Friday, NYSE closed)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2023-04-12"
+    type: CPI
+    title: "Consumer Price Index, March 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2023-04-28"
+    type: PCE
+    title: "Personal Income and Outlays, March 2023 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2023-05-03"
+    type: FOMC
+    title: FOMC meeting May 2-3, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2023-05-05"
+    type: NFP
+    title: "Employment Situation, April 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2023-05-10"
+    type: CPI
+    title: "Consumer Price Index, April 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2023-05-26"
+    type: PCE
+    title: "Personal Income and Outlays, April 2023 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2023-06-02"
+    type: NFP
+    title: "Employment Situation, May 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2023-06-13"
+    type: CPI
+    title: "Consumer Price Index, May 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2023-06-14"
+    type: FOMC
+    title: FOMC meeting June 13-14, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2023-06-30"
+    type: PCE
+    title: "Personal Income and Outlays, May 2023 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2023-07-03"
+    type: EARLY_CLOSE
+    title: "NYSE early close 1:00 p.m. (day before Independence Day)"
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2023-07-07"
+    type: NFP
+    title: "Employment Situation, June 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2023-07-12"
+    type: CPI
+    title: "Consumer Price Index, June 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2023-07-26"
+    type: FOMC
+    title: FOMC meeting July 25-26, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2023-07-28"
+    type: PCE
+    title: "Personal Income and Outlays, June 2023 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2023-08-04"
+    type: NFP
+    title: "Employment Situation, July 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2023-08-10"
+    type: CPI
+    title: "Consumer Price Index, July 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2023-08-31"
+    type: PCE
+    title: "Personal Income and Outlays, July 2023 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2023-09-01"
+    type: NFP
+    title: "Employment Situation, August 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2023-09-13"
+    type: CPI
+    title: "Consumer Price Index, August 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2023-09-20"
+    type: FOMC
+    title: FOMC meeting September 19-20, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2023-09-29"
+    type: PCE
+    title: "Personal Income and Outlays, August 2023 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2023-10-06"
+    type: NFP
+    title: "Employment Situation, September 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2023-10-12"
+    type: CPI
+    title: "Consumer Price Index, September 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2023-10-27"
+    type: PCE
+    title: "Personal Income and Outlays, September 2023 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2023-11-01"
+    type: FOMC
+    title: FOMC meeting October 31-November 1, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2023-11-03"
+    type: NFP
+    title: "Employment Situation, October 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2023-11-14"
+    type: CPI
+    title: "Consumer Price Index, October 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2023-11-24"
+    type: EARLY_CLOSE
+    title: "NYSE early close 1:00 p.m. (day after Thanksgiving)"
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2023-11-30"
+    type: PCE
+    title: "Personal Income and Outlays, October 2023 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2023-12-08"
+    type: NFP
+    title: "Employment Situation, November 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2023-12-12"
+    type: CPI
+    title: "Consumer Price Index, November 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2023-12-13"
+    type: FOMC
+    title: FOMC meeting December 12-13, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2023-12-22"
+    type: PCE
+    title: "Personal Income and Outlays, November 2023 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-01-05"
+    type: NFP
+    title: "Employment Situation, December 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-01-11"
+    type: CPI
+    title: "Consumer Price Index, December 2023 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-01-26"
+    type: PCE
+    title: "Personal Income and Outlays, December 2023 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-01-31"
+    type: FOMC
+    title: FOMC meeting January 30-31, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2024-02-02"
+    type: NFP
+    title: "Employment Situation, January 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-02-13"
+    type: CPI
+    title: "Consumer Price Index, January 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-02-29"
+    type: PCE
+    title: "Personal Income and Outlays, January 2024 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-03-08"
+    type: NFP
+    title: "Employment Situation, February 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-03-12"
+    type: CPI
+    title: "Consumer Price Index, February 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-03-20"
+    type: FOMC
+    title: FOMC meeting March 19-20, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2024-03-29"
+    type: PCE
+    title: "Personal Income and Outlays, February 2024 (08:30 ET; released on Good Friday, NYSE closed)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-04-05"
+    type: NFP
+    title: "Employment Situation, March 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-04-10"
+    type: CPI
+    title: "Consumer Price Index, March 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-04-26"
+    type: PCE
+    title: "Personal Income and Outlays, March 2024 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-05-01"
+    type: FOMC
+    title: FOMC meeting April 30-May 1, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2024-05-03"
+    type: NFP
+    title: "Employment Situation, April 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-05-15"
+    type: CPI
+    title: "Consumer Price Index, April 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-05-31"
+    type: PCE
+    title: "Personal Income and Outlays, April 2024 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-06-07"
+    type: NFP
+    title: "Employment Situation, May 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-06-12"
+    type: FOMC
+    title: FOMC meeting June 11-12, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2024-06-12"
+    type: CPI
+    title: "Consumer Price Index, May 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-06-28"
+    type: PCE
+    title: "Personal Income and Outlays, May 2024 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-07-03"
+    type: EARLY_CLOSE
+    title: "NYSE early close 1:00 p.m. (day before Independence Day)"
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-07-05"
+    type: NFP
+    title: "Employment Situation, June 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-07-11"
+    type: CPI
+    title: "Consumer Price Index, June 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-07-26"
+    type: PCE
+    title: "Personal Income and Outlays, June 2024 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-07-31"
+    type: FOMC
+    title: FOMC meeting July 30-31, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2024-08-02"
+    type: NFP
+    title: "Employment Situation, July 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-08-14"
+    type: CPI
+    title: "Consumer Price Index, July 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-08-30"
+    type: PCE
+    title: "Personal Income and Outlays, July 2024 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-09-06"
+    type: NFP
+    title: "Employment Situation, August 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-09-11"
+    type: CPI
+    title: "Consumer Price Index, August 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-09-18"
+    type: FOMC
+    title: FOMC meeting September 17-18, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2024-09-27"
+    type: PCE
+    title: "Personal Income and Outlays, August 2024 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-10-04"
+    type: NFP
+    title: "Employment Situation, September 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-10-10"
+    type: CPI
+    title: "Consumer Price Index, September 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-10-31"
+    type: PCE
+    title: "Personal Income and Outlays, September 2024 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-11-01"
+    type: NFP
+    title: "Employment Situation, October 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-11-07"
+    type: FOMC
+    title: FOMC meeting November 6-7, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2024-11-13"
+    type: CPI
+    title: "Consumer Price Index, October 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-11-27"
+    type: PCE
+    title: "Personal Income and Outlays, October 2024 (10:00 ET, not 08:30)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-11-29"
+    type: EARLY_CLOSE
+    title: "NYSE early close 1:00 p.m. (day after Thanksgiving)"
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2024-12-06"
+    type: NFP
+    title: "Employment Situation, November 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2024-12-11"
+    type: CPI
+    title: "Consumer Price Index, November 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2024-12-18"
+    type: FOMC
+    title: FOMC meeting December 17-18, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2024-12-20"
+    type: PCE
+    title: "Personal Income and Outlays, November 2024 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2024-12-24"
+    type: EARLY_CLOSE
+    title: "NYSE early close 1:00 p.m. (Christmas Eve)"
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-01-10"
+    type: NFP
+    title: "Employment Situation, December 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2025-01-15"
+    type: CPI
+    title: "Consumer Price Index, December 2024 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2025-01-29"
+    type: FOMC
+    title: FOMC meeting January 28-29, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2025-01-31"
+    type: PCE
+    title: "Personal Income and Outlays, December 2024 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2025-02-07"
+    type: NFP
+    title: "Employment Situation, January 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2025-02-12"
+    type: CPI
+    title: "Consumer Price Index, January 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2025-02-28"
+    type: PCE
+    title: "Personal Income and Outlays, January 2025 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2025-03-07"
+    type: NFP
+    title: "Employment Situation, February 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2025-03-12"
+    type: CPI
+    title: "Consumer Price Index, February 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2025-03-19"
+    type: FOMC
+    title: FOMC meeting March 18-19, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2025-03-28"
+    type: PCE
+    title: "Personal Income and Outlays, February 2025 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2025-04-04"
+    type: NFP
+    title: "Employment Situation, March 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2025-04-10"
+    type: CPI
+    title: "Consumer Price Index, March 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2025-04-30"
+    type: PCE
+    title: "Personal Income and Outlays, March 2025 (10:00 ET, not 08:30)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2025-05-02"
+    type: NFP
+    title: "Employment Situation, April 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2025-05-07"
+    type: FOMC
+    title: FOMC meeting May 6-7, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2025-05-13"
+    type: CPI
+    title: "Consumer Price Index, April 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2025-05-30"
+    type: PCE
+    title: "Personal Income and Outlays, April 2025 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2025-06-06"
+    type: NFP
+    title: "Employment Situation, May 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2025-06-11"
+    type: CPI
+    title: "Consumer Price Index, May 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2025-06-18"
+    type: FOMC
+    title: FOMC meeting June 17-18, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2025-06-27"
+    type: PCE
+    title: "Personal Income and Outlays, May 2025 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2025-07-03"
+    type: NFP
+    title: "Employment Situation, June 2025 (08:30 ET; Thursday, NYSE early close day)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2025-07-03"
+    type: EARLY_CLOSE
+    title: "NYSE early close 1:00 p.m. (day before Independence Day)"
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-07-15"
+    type: CPI
+    title: "Consumer Price Index, June 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2025-07-30"
+    type: FOMC
+    title: FOMC meeting July 29-30, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2025-07-31"
+    type: PCE
+    title: "Personal Income and Outlays, June 2025 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2025-08-01"
+    type: NFP
+    title: "Employment Situation, July 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2025-08-12"
+    type: CPI
+    title: "Consumer Price Index, July 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2025-08-29"
+    type: PCE
+    title: "Personal Income and Outlays, July 2025 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2025-09-05"
+    type: NFP
+    title: "Employment Situation, August 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2025-09-11"
+    type: CPI
+    title: "Consumer Price Index, August 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2025-09-17"
+    type: FOMC
+    title: FOMC meeting September 16-17, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2025-09-26"
+    type: PCE
+    title: "Personal Income and Outlays, August 2025 (08:30 ET)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2025-10-24"
+    type: CPI
+    title: "Consumer Price Index, September 2025 (08:30 ET; delayed by the 2025 shutdown)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2025-10-29"
+    type: FOMC
+    title: FOMC meeting October 28-29, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2025-11-20"
+    type: NFP
+    title: "Employment Situation, September 2025 (08:30 ET; delayed by the 2025 shutdown)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2025-11-28"
+    type: EARLY_CLOSE
+    title: "NYSE early close 1:00 p.m. (day after Thanksgiving)"
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2025-12-05"
+    type: PCE
+    title: "Personal Income and Outlays, September 2025 (10:00 ET, not 08:30; delayed from Oct 31 by the 2025 shutdown)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2025-12-10"
+    type: FOMC
+    title: FOMC meeting December 9-10, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
+  - date: "2025-12-16"
+    type: NFP
+    title: "Employment Situation, November 2025 (08:30 ET; delayed by the 2025 shutdown; first October payroll estimates included, October household data not collected)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2025-12-18"
+    type: CPI
+    title: "Consumer Price Index, November 2025 (08:30 ET; delayed by the 2025 shutdown; October 2025 survey data not collected)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2025-12-24"
+    type: EARLY_CLOSE
+    title: "NYSE early close 1:00 p.m. (Christmas Eve)"
+    source: https://ir.theice.com/press/news-details/2022/NYSE-Group-Announces-2023-2024-and-2025-Holiday-and-Early-Closings-Calendar/default.aspx
+  - date: "2026-01-09"
+    type: NFP
+    title: "Employment Situation, December 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/empsit.htm
+  - date: "2026-01-13"
+    type: CPI
+    title: "Consumer Price Index, December 2025 (08:30 ET)"
+    source: https://www.bls.gov/bls/news-release/cpi.htm
+  - date: "2026-01-22"
+    type: PCE
+    title: "Personal Income and Outlays, October and November 2025 (10:00 ET, not 08:30; combined release delayed by the 2025 shutdown)"
+    source: https://www.bea.gov/news/archive?field_related_product_target_id=476
+  - date: "2026-01-28"
+    type: FOMC
+    title: FOMC meeting January 27-28, decision day
+    source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm
