@@ -52,6 +52,8 @@ Facts (trades, signals, P&L) come from the system's journal and ledgers, never f
 Improvement ideas are applied as versioned rule changes that take effect from the next session, and
 the journal records the change and its reason. Rules are never edited in the middle of a session.
 Session start: read the latest journal entries before proposing strategy changes.
+Journals are committed to git (user decision, 2026-10-07) so the history survives across machines.
+They must never contain credentials or account identifiers.
 
 ## End meaningful work
 
