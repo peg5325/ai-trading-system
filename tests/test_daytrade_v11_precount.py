@@ -111,6 +111,13 @@ def test_boundary_check_counts_dates_and_refuses_bars_in_the_gap(tmp_path):
     early = make_db(tmp_path / "early.sqlite", days=[date(2023, 4, 10)])
     with pytest.raises(V.MaskRefused, match="before_A"):
         V.boundary_check(early)
+    # Segment A is defined by QQQ: ETF-only history before 2023-04-11 is recorded, not refused.
+    qqq_gone = {("QQQ", "2023-04-10", t) for t in range(24 * 60)}
+    etf_early = make_db(tmp_path / "etf_early.sqlite", days=[date(2023, 4, 10)], drop=qqq_gone)
+    out = V.boundary_check(etf_early)
+    assert out["before_A"]["judged_symbols"] == ["QQQ"]
+    assert out["before_A"]["symbols"]["TQQQ"]["regular_session_dates"] == ["2023-04-10"]
+    assert out["gap_A_B"]["judged_symbols"] == ["QQQ", "TQQQ", "SQQQ"]
 
 
 # ---------------------------------------------------------------- lookbacks and the mask
