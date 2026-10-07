@@ -33,3 +33,19 @@ def test_summary_high_low_and_segments():
     assert s["high_close"] == {"t": "09:45", "price": 103.0, "vs_prev_pct": 3.0}
     assert s["low_close"]["t"] == "10:00"
     assert [(g["t"], g["volume"]) for g in s["segments"]] == [("09:30", 15.0), ("10:00", 7.0)]
+
+
+def test_winter_dst_and_close_boundary(tmp_path):
+    # 2026-12-01 is EST (UTC-5): label 23:31 KST = 09:31 ET end -> 09:30 start; 06:00 KST label = 15:59 start kept,
+    # 06:01 KST label = 16:00 start (after the close) dropped
+    log = tmp_path / "candles.jsonl"
+    log.write_text(_row("2026-12-01T21:05:00+00:00", [("2026-12-02T06:01:00.000+09:00", 1, 1, 1),
+                                                     ("2026-12-02T06:00:00.000+09:00", 2, 2, 2),
+                                                     ("2026-12-01T23:31:00.000+09:00", 3, 3, 3)]) + "\n")
+    assert sorted(load_bars(log)["QQQ"]) == ["09:30", "15:59"]
+
+
+def test_missing_log_exits_2(tmp_path):
+    from scripts.market_path import main
+
+    assert main(["--date", "2026-10-06", "--out-root", str(tmp_path)]) == 2

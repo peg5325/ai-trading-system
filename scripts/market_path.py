@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections import defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 NY = ZoneInfo("America/New_York")
 SYMBOLS = ("QQQ", "TQQQ", "SQQQ")
 
@@ -56,20 +58,41 @@ def summarize(b: dict[str, tuple[float, float, float]], prev_close: float | None
     }
 
 
+def prior_closes(db: Path, prev_day: str) -> dict[str, float]:
+    """Last regular-session close of each symbol on `prev_day`, via Paper's read-only bar loader."""
+    from src.daytrade_paper.store import load_bars as paper_bars
+
+    regular = paper_bars(db, prev_day)["regular"]
+    return {s: regular[s][-1].close for s in SYMBOLS if regular.get(s)}
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("--date", required=True)
     p.add_argument("--out-root", type=Path, default=ROOT)
+    p.add_argument("--db", type=Path, help="market_history.sqlite (default <out-root>/data/market_history.sqlite)")
     args = p.parse_args(argv)
     d = args.out_root / "reports" / "daytrade_shadow" / args.date
-    prev = {}
+    candles = d / "candles.jsonl"
+    if not candles.exists():
+        print(f"no shadow candle log: {candles}", file=sys.stderr)
+        return 2
+    prev: dict[str, float] = {}
+    prev_source = "unavailable"
     result = d / "result.json"
-    if result.exists():  # prior close of the signal symbol from the shadow inputs
-        prev["QQQ"] = json.loads(result.read_text()).get("inputs", {}).get("prev_close")
-    bars = load_bars(d / "candles.jsonl")
+    if result.exists():
+        inputs = json.loads(result.read_text()).get("inputs", {})
+        db = args.db or args.out_root / "data" / "market_history.sqlite"
+        if inputs.get("prev_session") and db.exists():
+            prev = prior_closes(db, inputs["prev_session"])
+            prev_source = f"DB regular close {inputs['prev_session']}"
+            if inputs.get("prev_close") is not None and abs(prev.get("QQQ", 0) - inputs["prev_close"]) > 1e-6:
+                print(f"QQQ prior close differs: DB {prev.get('QQQ')} vs shadow {inputs['prev_close']}", file=sys.stderr)
+                return 1
+    bars = load_bars(candles)
     out = {s: summarize(bars[s], prev.get(s)) for s in SYMBOLS if bars.get(s)}
-    print(json.dumps({"date": args.date, "basis": "Toss REST 1m, high/low are 1-minute closes", **out},
-                     ensure_ascii=False, indent=1))
+    print(json.dumps({"date": args.date, "basis": "Toss REST 1m, high/low are 1-minute closes",
+                      "prev_close_source": prev_source, **out}, ensure_ascii=False, indent=1))
     return 0
 
 
