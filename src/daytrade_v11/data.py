@@ -172,10 +172,11 @@ def boundary_check(db: Path | str) -> dict:
                            "rows_before_calendar_start": outside_calendar}
         out[name] = {"start": lo_d.isoformat() if lo_d else None, "end_exclusive": hi_d.isoformat(),
                      "symbols": counts}
-        # Segment A starts at the first QQQ session (the signal and every lookback are QQQ; TQQQ/SQQQ are read
-        # only on scored days), so before_A is judged on QQQ alone and the ETFs' earlier history is recorded only.
-        # The A-B gap is judged on all three symbols.
-        judged = (R.SIGNAL,) if name == "before_A" else R.SYMBOLS
+        # Segment boundaries are QQQ facts (the signal and every lookback are QQQ; TQQQ/SQQQ are read only on
+        # scored days, and their previous-session final bar lies inside the segment). Both windows are therefore
+        # judged on QQQ alone; ETF sessions there (real DB: TQQQ/SQQQ 2023-01-03..2023-04-10 and 2024-07-25,
+        # days with no QQQ data) are recorded only, never read as inputs.
+        judged = (R.SIGNAL,)
         out[name]["judged_symbols"] = list(judged)
         bad = {s: counts[s] for s in judged
                if counts[s]["regular_session_dates"] or counts[s]["rows_before_calendar_start"]}

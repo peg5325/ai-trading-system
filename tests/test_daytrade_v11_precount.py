@@ -117,7 +117,12 @@ def test_boundary_check_counts_dates_and_refuses_bars_in_the_gap(tmp_path):
     out = V.boundary_check(etf_early)
     assert out["before_A"]["judged_symbols"] == ["QQQ"]
     assert out["before_A"]["symbols"]["TQQQ"]["regular_session_dates"] == ["2023-04-10"]
-    assert out["gap_A_B"]["judged_symbols"] == ["QQQ", "TQQQ", "SQQQ"]
+    assert out["gap_A_B"]["judged_symbols"] == ["QQQ"]
+    # Same for the A-B gap: ETF-only rows on 2024-07-25 are recorded, QQQ rows there are refused (above).
+    qqq_gone_gap = {("QQQ", "2024-07-25", t) for t in range(24 * 60)}
+    etf_gap = make_db(tmp_path / "etf_gap.sqlite", days=[date(2024, 7, 25)], drop=qqq_gone_gap)
+    out = V.boundary_check(etf_gap)
+    assert out["gap_A_B"]["symbols"]["SQQQ"]["regular_session_dates"] == ["2024-07-25"]
 
 
 # ---------------------------------------------------------------- lookbacks and the mask
