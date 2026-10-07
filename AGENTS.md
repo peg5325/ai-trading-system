@@ -42,6 +42,11 @@ US close. It goes in `docs/journal/YYYY-MM-DD.md` (Korean, plain language) and m
 4. **What went well** (keep it) and **what went wrong**, each with a concrete idea for improving it.
 5. Before writing a new entry, read the recent entries. Note which past ideas were tried and whether
    they helped.
+6. **How the market moved and why** (user rule, 2026-10-07). The day's price path for QQQ/TQQQ/SQQQ
+   (open, high and low with times, close, change vs. prior close, 30-minute segments with volume) and
+   the reasons: news drivers (macro data, yields, oil, mega-caps, Fed speakers, auctions) and what the
+   volume data shows. Cite sources. Mark inferences as inferences, and say so when no source explains
+   a move. The same summary goes into the post-close briefing to the user.
 
 Facts (trades, signals, P&L) come from the system's journal and ledgers, never from memory.
 Improvement ideas are applied as versioned rule changes that take effect from the next session, and
