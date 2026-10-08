@@ -47,6 +47,10 @@ US close. It goes in `docs/journal/YYYY-MM-DD.md` (Korean, plain language) and m
    the reasons: news drivers (macro data, yields, oil, mega-caps, Fed speakers, auctions) and what the
    volume data shows. Cite sources. Mark inferences as inferences, and say so when no source explains
    a move. The same summary goes into the post-close briefing to the user.
+7. **Hypotheses to test later** (user rule, 2026-10-07). A short table of testable ideas from the day:
+   condition → expected effect → how to check it on the historical 1-minute data, with a status
+   (open / in progress / tested / dropped). Carry open items forward. These are ideas, not rule
+   changes; they are reviewed at version decisions.
 
 Facts (trades, signals, P&L) come from the system's journal and ledgers, never from memory.
 Improvement ideas are applied as versioned rule changes that take effect from the next session, and
