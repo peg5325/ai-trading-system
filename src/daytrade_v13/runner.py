@@ -108,7 +108,7 @@ def regression_one(seg_days: dict[str, list[dict]], v10plus: dict) -> dict:
     counts = {MATCH: 0, INTENDED: 0, MISMATCH: 0, EXCLUDED: 0}
     details: list[dict] = []
     for name, days in seg_days.items():
-        for d, ours in zip(days, v10plus["segments"][name]["days"]):
+        for d, ours in zip(days, v10plus["segments"][name]["days"], strict=True):
             if ours["halted_at_start"] or ours["account_halt"] is not None:
                 counts[EXCLUDED] += 1
                 continue
@@ -128,7 +128,7 @@ def regression_two(capped: dict, v10plus: dict) -> dict:
     bad: list[str] = []
     n = 0
     for name, acc in v10plus["segments"].items():
-        for a, b in zip(capped["segments"][name]["days"], acc["days"]):
+        for a, b in zip(capped["segments"][name]["days"], acc["days"], strict=True):
             n += 1
             if _v10_view(a["trades"]) != _v10_view(b["trades"]) or a["pnl"] != b["pnl"]:
                 bad.append(f"{name} {a['date']}")

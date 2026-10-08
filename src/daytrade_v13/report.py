@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from src.daytrade_v13.day import STOP_REASONS
-from src.daytrade_v13.stats import runs_from_mask
+from src.daytrade_v13.stats import MIN_RUN, runs_from_mask
 
 MORNING = ("S1", "S2", "S3")
 TOP_DAYS = 5
@@ -12,15 +12,30 @@ def _morning(day: dict) -> dict | None:
     return next((t for t in day["trades"] if t["kind"] in MORNING), None)
 
 
+def _s5(day: dict) -> dict | None:
+    return next((t for t in day["trades"] if t["kind"] == "S5"), None)
+
+
+def _aftermath_key(name: str, a: dict, b: dict) -> str:
+    """segment / S5 kind of difference / S5 direction for a nonzero-d day without an added morning trade."""
+    sa, sb = _s5(a), _s5(b)
+    if sa is None and sb is None:
+        return f"{name}/no_S5"
+    if sa is not None and sb is not None:
+        return f"{name}/S5_both/{sa['symbol']}"
+    return f"{name}/S5_only_v1.3-cap/{sa['symbol']}" if sa is not None else f"{name}/S5_only_v1.0+/{sb['symbol']}"
+
+
 def decompose_d(cap: dict, plus: dict, d: dict[str, dict[str, float]], mask: dict) -> dict:
-    """§4: d split into days with a morning trade v1.0+ did not take (by signal, direction, segment) and the rest
-    (S5 / lock / equity aftermath), nonzero-d days, inference-population days, top-day concentration."""
+    """§4: d split into days with a morning trade v1.0+ did not take (by signal, direction, segment) and the
+    nonzero-d rest (S5 / lock / equity aftermath, by segment, S5 presence in each arm and S5 direction),
+    nonzero-d days, inference-population days, top-day concentration."""
     added: dict[str, dict] = {}
-    after = {"days": 0, "d_sum": 0.0, "nonzero_days": 0}
+    after: dict[str, dict] = {}
     nonzero = 0
     all_d: list[float] = []
     for name, acc in cap["segments"].items():
-        for a, b in zip(acc["days"], plus["segments"][name]["days"]):
+        for a, b in zip(acc["days"], plus["segments"][name]["days"], strict=True):
             x = d[name][a["date"]]
             all_d.append(x)
             nonzero += x != 0
@@ -31,12 +46,13 @@ def decompose_d(cap: dict, plus: dict, d: dict[str, dict[str, float]], mask: dic
                 g["days"] += 1
                 g["d_sum"] += x
             elif x != 0:
-                after["days"] += 1
-                after["d_sum"] += x
-    inference = sum(len(r) for name in d for r in runs_from_mask(mask["segments"][name]) if len(r) > 5)
+                g = after.setdefault(_aftermath_key(name, a, b), {"days": 0, "d_sum": 0.0})
+                g["days"] += 1
+                g["d_sum"] += x
+    inference = sum(len(r) for name in d for r in runs_from_mask(mask["segments"][name]) if len(r) > MIN_RUN)
     pos = sorted((x for x in all_d if x > 0), reverse=True)
     absd = sorted((abs(x) for x in all_d), reverse=True)
-    return {"added_morning": dict(sorted(added.items())), "aftermath_nonzero": after,
+    return {"added_morning": dict(sorted(added.items())), "aftermath_nonzero": dict(sorted(after.items())),
             "nonzero_d_days": nonzero, "days": len(all_d), "inference_days": inference,
             "top_days_share_of_positive_d": (sum(pos[:TOP_DAYS]) / sum(pos)) if pos else None,
             "top_days_share_of_abs_d": (sum(absd[:TOP_DAYS]) / sum(absd)) if sum(absd) else None}
@@ -82,7 +98,7 @@ def not_double(v13: dict, cap: dict, rel: float = 1e-9) -> dict:
     reasons: dict[str, int] = {}
     days: list[dict] = []
     for name, acc in v13["segments"].items():
-        for a, b in zip(acc["days"], cap["segments"][name]["days"]):
+        for a, b in zip(acc["days"], cap["segments"][name]["days"], strict=True):
             ra, rb = a["pnl"]["day_return"], b["pnl"]["day_return"]
             if abs(ra - 2 * rb) <= rel * max(abs(ra), abs(2 * rb), 1e-12):
                 continue

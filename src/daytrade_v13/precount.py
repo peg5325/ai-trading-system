@@ -24,7 +24,7 @@ from src.daytrade_paper.situation import (
     opening_signals,
 )
 from src.daytrade_v11.data import SegmentData
-from src.daytrade_v13.day import open_trade, validate_prices
+from src.daytrade_v13.day import STOP_CAP, open_trade, validate_prices
 from src.daytrade_v13.policy import BASE_COSTS, V10_PLUS, V13, V13_CAP
 from src.daytrade_v13.runner import segment_days
 from src.daytrade_v13.stats import MIN_RUN, runs_from_mask
@@ -74,16 +74,17 @@ def morning_candidate(day: str, regular: dict[str, list[Bar]], qqq_pre: list[Bar
     out["label"], out["symbol"] = label, sym
     bar = next(b for b in regular[sym] if b.t == t)
     for pol in (V10_PLUS, V13_CAP, V13):
-        trade, why = open_trade(label, sym, t, bar, stop_raw, None, R.START_EQUITY, inputs["high"], pol,
+        trade, code, _why = open_trade(label, sym, t, bar, stop_raw, None, R.START_EQUITY, inputs["high"], pol,
                                 BASE_COSTS, [])
         out["admit"][pol.name] = trade is not None
         if pol is V13 and trade is not None:
             out["cap70_binds"] = trade["sizing"]["single_cap_binds"]
         if pol is V10_PLUS and trade is None:
-            out["v10_refusal_is_stop_cap"] = "상한" in why
+            out["v10_refusal_code"] = code
     if out["admit"][V13_CAP.name] != out["admit"][V13.name]:
         raise CountInvariantError(f"{day}: v1.3-cap and v1.3 admit differently with nothing open")
-    if out["admit"][V13_CAP.name] and not out["admit"][V10_PLUS.name] and not out["v10_refusal_is_stop_cap"]:
+    if out["admit"][V13_CAP.name] and not out["admit"][V10_PLUS.name] \
+            and out["v10_refusal_code"] != STOP_CAP:
         raise CountInvariantError(f"{day}: v1.0 refused for a reason other than the 1.5% cap but v1.3-cap admits")
     return out
 

@@ -29,6 +29,9 @@ ROOT = Path(__file__).resolve().parents[2]
 V11_MASK_SHA256 = "84d22f461abff1a7e9ef3e4c80d337f5ef12667ea2bef66eb36abcd18404fac2"  # PREREG v1.3 §9
 EVENTS_HISTORY = ROOT / "config" / "daytrade_events_history_v1.yaml"
 EVENTS_LIVE = ROOT / "config" / "daytrade_events_v1.yaml"
+PREREG_V13 = ROOT / "docs" / "research" / "PREREG_DAYTRADE_V1_3_SIZING.md"
+PREREG_V11 = ROOT / "docs" / "research" / "PREREG_DAYTRADE_V1_1_INTRADAY_REVERSAL.md"
+RUNNOTES_V13 = ROOT / "docs" / "research" / "RUNNOTES_DAYTRADE_V1_3.md"
 
 
 class Refused(Exception):
@@ -95,6 +98,8 @@ def manifest(git: dict, args, mask: dict, mask_sha: str, ext: dict, extra: dict)
     return {
         "prereg": "docs/research/PREREG_DAYTRADE_V1_3_SIZING.md",
         "borrowed_framework": "docs/research/PREREG_DAYTRADE_V1_1_INTRADAY_REVERSAL.md §6",
+        "document_sha256": {"prereg_v1_3": sha256_file(PREREG_V13), "prereg_v1_1": sha256_file(PREREG_V11),
+                            "runnotes_v1_3": sha256_file(RUNNOTES_V13) if RUNNOTES_V13.exists() else None},
         "git_commit": git["commit"], "git_dirty_tracked": git["dirty_tracked"], "git_dirty_files": git["dirty_files"],
         "allow_dirty": args.allow_dirty, "allow_missing_vix": args.allow_missing_vix,
         "mask_file": str(args.mask), "mask_sha256": mask_sha,

@@ -7,13 +7,15 @@ the 1.5% refusal restored = v1.0+). Verdict: v1.3-cap vs v1.0+ only, v1.1 §6.4 
 check or failed regression makes the whole run invalid (row 0). Failed runs are written, never deleted.
 
 This computes P&L on historical prices. It refuses unless --i-have-user-approval is passed. No download, no orders.
-Refuses on a dirty tracked worktree unless --allow-dirty. Output is write-once.
+Refuses on a dirty tracked worktree unless --allow-dirty. Output is write-once. If the run raises anything, a
+write-once failure record (verdict row 0, exception, traceback summary, manifest) goes to --out and the exit is 3.
 """
 from __future__ import annotations
 
 import argparse
 import hashlib
 import sys
+import traceback
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -164,18 +166,36 @@ def main(argv=None, expected_mask_sha: str = V11_MASK_SHA256) -> int:
     except (Refused, MaskRefused, InvalidRun) as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return 2
-    result = run_all(seg_days, mask)
     mask_sha = hashlib.sha256(args.mask.read_bytes()).hexdigest()
-    result["manifest"] = manifest(git, args, mask, mask_sha, ext, {
+    man = manifest(git, args, mask, mask_sha, ext, {
         "random_seed": SEED, "bootstrap_B": B, "variants": {k: {"cost_mult": m, "delay_bars": dl, "verdict": u}
                                                             for k, (m, dl, u) in VARIANTS.items()},
         "arms": [p.name for p in ARMS]})
+    try:
+        result = run_all(seg_days, mask)
+    except Exception as exc:  # noqa: BLE001 - a failed run must be written, never lost
+        return write_failure(args.out, exc, man)
+    result["manifest"] = man
     result["schema"] = "daytrade_v13_backtest/v1"
     sha = write_json_once(args.out, result)
     v = result["verdict"]
     print(f"verdict v1.3-cap vs v1.0+: row {v['row']} {v['label']} ({'; '.join(map(str, v['why']))})")
     print(f"result {args.out} sha256 {sha}")
     return 0
+
+
+def write_failure(out: Path, exc: BaseException, man: dict) -> int:
+    """Write-once failure record (verdict row 0) with the exception and a traceback summary; exit 3."""
+    tb = traceback.TracebackException.from_exception(exc)
+    doc = {"schema": "daytrade_v13_backtest_failure/v1",
+           "verdict": {"row": 0, "label": "무효", "why": [f"run failed: {type(exc).__name__}: {exc}"]},
+           "error": {"type": type(exc).__name__, "message": str(exc),
+                     "traceback": [f"{f.filename}:{f.lineno} in {f.name}" for f in tb.stack][-15:],
+                     "formatted": "".join(tb.format())[-8000:]},
+           "manifest": man}
+    sha = write_json_once(out, doc)
+    print(f"run failed ({type(exc).__name__}: {exc}); failure record {out} sha256 {sha}", file=sys.stderr)
+    return 3
 
 
 if __name__ == "__main__":

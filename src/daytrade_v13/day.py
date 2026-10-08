@@ -51,6 +51,12 @@ from src.daytrade_v13.policy import BASE_COSTS, Costs, Policy, finite_positive, 
 ACCOUNT_HALT_LEVEL = 0.65  # 1 - 0.35 (Charter §5)
 EXIT_REASON_KO = {**V10_EXIT_REASON_KO, "ACCOUNT_HALT": "계좌 −35% 중단 → 다음 봉 시가 전량 청산"}
 STOP_REASONS = ("STOP", "STOP_GAP")
+# open_trade refusal codes (the Korean text is for people; code paths use these)
+OPEN_AT_OR_BELOW_STOP = "OPEN_AT_OR_BELOW_STOP"
+STOP_OUT_OF_RANGE = "STOP_OUT_OF_RANGE"
+STOP_CAP = "STOP_CAP"
+NO_SIZE_ROOM = "NO_SIZE_ROOM"
+REFUSAL_CODES = (OPEN_AT_OR_BELOW_STOP, STOP_OUT_OF_RANGE, STOP_CAP, NO_SIZE_ROOM)
 # Keys of a v1.0 trade dict (`simulate._open_trade` + `_close_trade`); extra v1.3 keys are reporting only.
 V10_TRADE_KEYS = ("kind", "symbol", "side", "entry_t", "entry_raw", "entry_fill", "stop", "stop_frac", "notional",
                   "shares", "buy_commission", "sizing_equity", "high_halved", "exit_t", "exit_at", "exit_raw",
@@ -112,34 +118,35 @@ def close_trade(trade: dict, exit_: dict, costs: Costs) -> dict:
 
 def open_trade(kind: str, sym: str, t: int, bar: Bar, stop_raw: float | None, stop_frac_fixed: float | None,
                equity: float, high: bool, policy: Policy, costs: Costs,
-               open_positions: list[dict]) -> tuple[dict | None, str | None]:
+               open_positions: list[dict]) -> tuple[dict | None, str | None, str | None]:
     """`simulate._open_trade` with the v1.3 entry conditions (§2 change 1) and sizing (`policy.size`).
 
     v1.0 order: open <= stop -> no entry; stop distance <= 0 -> no entry; > cap -> no entry (arms with a cap).
     v1.3 adds: finite positive prices (a non-finite/non-positive open or equity invalidates the run, §3) and
     0 < stop < fill.
+    Returns (trade, None, None) or (None, refusal code from REFUSAL_CODES, Korean reason).
     """
     if not finite_positive(bar.open) or not finite_positive(equity):
         raise InvalidRun(f"{sym} {fmt_t(t)}: open {bar.open!r} / equity {equity!r} not a finite positive value")
     if stop_raw is not None and bar.open <= stop_raw:
-        return None, f"진입 시가가 이미 손절가 아래(시가 {bar.open:.4f} ≤ 손절가 {stop_raw:.4f}) → 진입 안 함"
+        return None, OPEN_AT_OR_BELOW_STOP, f"진입 시가가 이미 손절가 아래(시가 {bar.open:.4f} ≤ 손절가 {stop_raw:.4f}) → 진입 안 함"
     fill = buy_fill(bar.open, costs)
     stop = fill * (1 - stop_frac_fixed) if stop_frac_fixed is not None else stop_raw
     if not (isinstance(stop, (int, float)) and math.isfinite(stop)) or not 0 < stop < fill:
-        return None, f"손절가 {stop!r}가 0 < 손절가 < 진입가 {fill:.4f} 조건 밖 → 진입 안 함"
+        return None, STOP_OUT_OF_RANGE, f"손절가 {stop!r}가 0 < 손절가 < 진입가 {fill:.4f} 조건 밖 → 진입 안 함"
     stop_frac = (fill - stop) / fill
     if policy.max_stop_frac is not None and stop_frac > policy.max_stop_frac + 1e-12:
-        return None, f"손절폭 {stop_frac * 100:.2f}% > {policy.max_stop_frac * 100:.1f}% 상한 → 진입 안 함"
+        return None, STOP_CAP, f"손절폭 {stop_frac * 100:.2f}% > {policy.max_stop_frac * 100:.1f}% 상한 → 진입 안 함"
     sz = size(policy, costs, equity, stop_frac, high, sym, open_positions)
     notional = sz["notional"]
     if notional <= 0:
-        return None, f"크기 한도에 여유 없음({', '.join(sz['binding'])}) → 진입 안 함"
+        return None, NO_SIZE_ROOM, f"크기 한도에 여유 없음({', '.join(sz['binding'])}) → 진입 안 함"
     return {"kind": kind, "symbol": sym, "side": "BUY", "entry_t": t, "entry_raw": bar.open,
             "entry_fill": fill, "stop": stop, "stop_frac": stop_frac, "notional": notional,
             "shares": notional / fill, "buy_commission": notional * costs.commission,
             "sizing_equity": equity, "high_halved": high,
             "sizing": {"limits": sz["limits"], "binding": sz["binding"],
-                       "single_cap_binds": sz["single_cap_binds"]}}, None
+                       "single_cap_binds": sz["single_cap_binds"]}}, None, None
 
 
 # ---------------------------------------------------------------- one position (ExitWatcher split into steps)
@@ -293,17 +300,19 @@ def simulate_day(day: str, regular: dict[str, list[Bar]], qqq_pre: list[Bar], pr
     def attempt(intent: dict, signal_t: int, t: int) -> None:
         kind, sym = intent["kind"], intent["symbol"]
         if account.halted:
-            why = "계좌 중단 상태"
+            code, why = "ACCOUNT_HALTED", "계좌 중단 상태"
         elif locked is not None:
-            why = f"하루 잠금({locked['source']} {locked['time']})"
+            code, why = "DAILY_LOCK", f"하루 잠금({locked['source']} {locked['time']})"
         else:
-            trade, why = open_trade(kind, sym, t, bar(sym, t), intent["stop_raw"], intent["stop_frac_fixed"],
-                                    equity_start + realized, high, policy, costs, [p.trade for p in open_pos()])
+            trade, code, why = open_trade(kind, sym, t, bar(sym, t), intent["stop_raw"],
+                                          intent["stop_frac_fixed"], equity_start + realized, high, policy, costs,
+                                          [p.trade for p in open_pos()])
             if trade is not None:
                 trade["signal_t"] = signal_t
                 positions.append(Position(trade, inputs["prev_close"], delay))
                 return
-        base["blocked_entries"].append({"kind": kind, "symbol": sym, "signal_t": signal_t, "fill_t": t, "why": why})
+        base["blocked_entries"].append({"kind": kind, "symbol": sym, "signal_t": signal_t, "fill_t": t,
+                                        "code": code, "why": why})
         base["no_trade_reasons"].append(f"{kind} 신호, 그러나 {why}")
 
     for t in range(R.OPEN, R.FORCED_EXIT + 1):
@@ -312,6 +321,7 @@ def simulate_day(day: str, regular: dict[str, list[Bar]], qqq_pre: list[Bar], pr
             for fill_t, signal_t, intent in pending_entries:
                 base["blocked_entries"].append({"kind": intent["kind"], "symbol": intent["symbol"],
                                                 "signal_t": signal_t, "fill_t": fill_t,
+                                                "code": "PENDING_CANCELLED_ACCOUNT_HALT",
                                                 "why": "계좌 중단: 대기 진입 주문 취소"})
             pending_entries = []
             for p in open_pos():

@@ -29,6 +29,10 @@ from src.daytrade_paper.simulate import run_day
 from src.daytrade_v11 import data as V
 from src.daytrade_v13 import precount as P
 from src.daytrade_v13.day import (
+    NO_SIZE_ROOM,
+    OPEN_AT_OR_BELOW_STOP,
+    STOP_CAP,
+    STOP_OUT_OF_RANGE,
     V10_TRADE_KEYS,
     AccountState,
     InvalidRun,
@@ -350,6 +354,56 @@ def test_account_halt_lifecycle(delay):
     assert operational_violations({"days": [out, bad], "account_halt": acct.halt_event})
 
 
+def _tqqq_stop(reg):
+    return min(b.low for b in reg["TQQQ"] if R.OPEN <= b.t < R.DECISION)
+
+
+def test_account_halt_at_1554_close_liquidates_at_1555_as_account_halt():
+    """Step 1 (halt liquidation) comes before step 2 (15:55 forced exit) in the 15:55 bar."""
+    def tq(t):
+        if t == T(9, 31):
+            return 48.85
+        return 49.1 if t > T(15, 54) else tqqq_default(t)
+    reg, pre = s1_day(tqqq_fn=tq)  # QQQ +0.6%: no S5
+    reg = with_bar(reg, "TQQQ", T(15, 54), 50.3, 50.35, 49.05, 49.1)
+    acct = AccountState(equity=1310.0, hwm=2000.0)
+    out = sim((reg, pre), V13, acct=acct)
+    assert (out["account_halt"]["time"], out["account_halt"]["effective_t"]) == ("15:54", R.FORCED_EXIT)
+    s1 = by_kind(out)["S1"]
+    assert (s1["exit_reason"], s1["exit_time"], s1["exit_raw"]) == ("ACCOUNT_HALT", "15:55", 49.1)
+
+
+@pytest.mark.parametrize("at_stop", [False, True])
+def test_halt_liquidation_with_open_at_or_below_stop_is_stop_gap(at_stop):
+    reg, pre = _halt_day()
+    stop = _tqqq_stop(reg)
+    o = stop if at_stop else stop - 0.3
+    reg = with_bar(reg, "TQQQ", T(14, 46), o, o, o - 0.1, o)
+    out = sim((reg, pre), V13, acct=AccountState(equity=1310.0, hwm=2000.0), delay=1)
+    assert out["account_halt"]["time"] == "14:45"
+    s1 = by_kind(out)["S1"]
+    # without the halt an open exactly at the stop would be an intrabar STOP; the liquidation labels it STOP_GAP
+    assert (s1["exit_reason"], s1["exit_time"], s1["exit_at"], s1["exit_raw"]) == ("STOP_GAP", "14:46", "open", o)
+
+
+def test_delayed_vwap_signal_at_1554_becomes_the_forced_exit():
+    reg, pre = s1_day()
+    reg = with_bar(reg, "TQQQ", T(15, 54), 50.3, 50.3, 49.98, 50.0)  # 15:50 bucket closes under VWAP, above stop
+    now = by_kind(sim((reg, pre), V10_PLUS))["S1"]
+    assert (now["exit_time"], now["exit_reason"]) == ("15:55", "VWAP_5M")
+    late = by_kind(sim((reg, pre), V10_PLUS, delay=1))["S1"]
+    assert (late["exit_time"], late["exit_reason"]) == ("15:55", "FORCED_1555")
+
+
+def test_unknown_risk_mode_uses_the_high_entry_budget():
+    out = sim(lambda: s1_day(qqq_after=lambda t: PREV * 0.97), V13, ext={})
+    assert out["risk_mode"] == "UNKNOWN_TREATED_AS_HIGH"
+    s1, s5 = by_kind(out)["S1"], by_kind(out)["S5"]
+    assert s1["notional"] == pytest.approx(700.0) and s1["high_halved"] is True
+    assert s5["notional"] == pytest.approx((1000 - 700 - 0.7) / 1.001)
+    assert s5["sizing"]["binding"] == ["high_entry_budget"]
+
+
 def test_account_halt_carries_across_days_in_run_account():
     """High-water mark and halt state chain through a segment; v1.3 loses > 35% over gap-stop days."""
     crash = lambda: s1_day(tqqq_fn=lambda t: 15.0 if t >= T(10, 0) else tqqq_default(t))
@@ -381,12 +435,19 @@ def test_invalid_prices_invalidate_the_run():
 
 def test_entry_refuses_stop_outside_zero_and_fill():
     bar = Bar(T(9, 45), 50.0, 50.0, 50.0, 50.0, 1.0)
-    trade, why = open_trade("S1", R.LONG, T(9, 45), bar, -1.0, None, 2000.0, False, V13, BASE_COSTS, [])
-    assert trade is None and "0 < 손절가" in why
-    trade, why = open_trade("S5", R.LONG, T(14, 45), bar, None, 1.5, 2000.0, False, V13, BASE_COSTS, [])
-    assert trade is None and "0 < 손절가" in why
-    trade, why = open_trade("S1", R.LONG, T(9, 45), bar, 50.0, None, 2000.0, False, V13, BASE_COSTS, [])
-    assert trade is None and "진입 시가가 이미 손절가 아래" in why
+    trade, code, why = open_trade("S1", R.LONG, T(9, 45), bar, -1.0, None, 2000.0, False, V13, BASE_COSTS, [])
+    assert trade is None and code == STOP_OUT_OF_RANGE and "0 < 손절가" in why
+    trade, code, why = open_trade("S5", R.LONG, T(14, 45), bar, None, 1.5, 2000.0, False, V13, BASE_COSTS, [])
+    assert trade is None and code == STOP_OUT_OF_RANGE
+    trade, code, why = open_trade("S1", R.LONG, T(9, 45), bar, 50.0, None, 2000.0, False, V13, BASE_COSTS, [])
+    assert trade is None and code == OPEN_AT_OR_BELOW_STOP and "진입 시가가 이미 손절가 아래" in why
+    trade, code, _ = open_trade("S1", R.LONG, T(9, 45), bar, 49.0, None, 2000.0, False, V10_PLUS, BASE_COSTS, [])
+    assert trade is None and code == STOP_CAP
+    held = [{"symbol": R.LONG, "notional": 2000.0, "buy_commission": 2.0}]
+    trade, code, _ = open_trade("S5", R.SHORT, T(14, 45), bar, None, 0.015, 2000.0, False, V13, BASE_COSTS, held)
+    assert trade is None and code == NO_SIZE_ROOM
+    trade, code, why = open_trade("S1", R.LONG, T(9, 45), bar, 49.9, None, 2000.0, False, V13, BASE_COSTS, [])
+    assert trade is not None and code is None and why is None
     with pytest.raises(InvalidRun):
         open_trade("S1", R.LONG, T(9, 45), Bar(T(9, 45), math.nan, 1, 1, 1, 1), 49.0, None, 2000.0, False, V13,
                    BASE_COSTS, [])
@@ -563,7 +624,7 @@ def test_morning_candidate_admission_per_arm():
     assert normal["admit"] == {"v1.0+": True, "v1.3-cap": True, "v1.3": True} and normal["cap70_binds"] is True
     wide = _cand(lambda: wide_stop_day())
     assert wide["admit"] == {"v1.0+": False, "v1.3-cap": True, "v1.3": True} and wide["cap70_binds"] is False
-    assert wide["v10_refusal_is_stop_cap"] is True and wide["s5"] is None
+    assert wide["v10_refusal_code"] == STOP_CAP and wide["s5"] is None
     assert _cand(s2_day)["symbol"] == R.SHORT and _cand(s3_day)["label"] == "S3"
     assert _cand(s1_day, ev={**NO_EVENTS, "fomc": True})["s0"] is True
     assert _cand(lambda: s1_day(qqq_vol=1000.0))["label"] is None
@@ -677,6 +738,25 @@ def test_backtest_script_refuses_without_user_approval(tmp_path, capsys):
     assert "--i-have-user-approval" in capsys.readouterr().err
 
 
+def test_backtest_script_writes_a_failure_record_on_any_exception(tmp_path, monkeypatch, capsys):
+    mod = _load("v13_backtest", "scripts/daytrade_v13_backtest.py")
+    common, mpath, sha = _fixed_mask(tmp_path)
+    out = tmp_path / "r" / "failed.json"
+    argv = [*common, "--mask", str(mpath), "--out", str(out), "--i-have-user-approval"]
+
+    def boom(*_a, **_k):
+        raise ZeroDivisionError("synthetic failure")
+    monkeypatch.setattr(mod, "run_all", boom)
+    assert mod.main(argv, expected_mask_sha=sha) == 3
+    doc = json.loads(out.read_text())
+    assert doc["schema"] == "daytrade_v13_backtest_failure/v1" and doc["verdict"]["row"] == 0
+    assert doc["error"]["type"] == "ZeroDivisionError" and "synthetic failure" in doc["error"]["message"]
+    assert any("boom" in f for f in doc["error"]["traceback"])
+    assert doc["manifest"]["mask_sha256"] == sha and doc["manifest"]["document_sha256"]["prereg_v1_3"]
+    assert "failure record" in capsys.readouterr().err
+    assert mod.main(argv, expected_mask_sha=sha) == 2  # write-once: the failure is never overwritten
+
+
 def test_backtest_script_on_a_synthetic_db(tmp_path):
     mod = _load("v13_backtest", "scripts/daytrade_v13_backtest.py")
     common, mpath, sha = _fixed_mask(tmp_path)
@@ -705,6 +785,10 @@ def test_reports_on_synthetic_arms():
     d = daily_d(cap, plus)
     dec = decompose_d(cap, plus, d, mask)
     assert dec["added_morning"]["A/S1/TQQQ"]["days"] == 2 and dec["inference_days"] == len(builds)
+    after = dec["aftermath_nonzero"]
+    assert all(k.startswith("A/") for k in after)
+    assert after["A/S5_both/SQQQ"]["days"] == 2  # opposite S5 next to the S1 day: cash/sizing aftermath
+    assert sum(g["days"] for g in after.values()) + 2 == dec["nonzero_d_days"]
     assert dec["added_morning"]["A/S1/TQQQ"]["d_sum"] == pytest.approx(d["A"]["2024-01-01"] + d["A"]["2024-01-06"])
     summ = arm_summary(full)["segments"]["A"]
     assert summ["lock_days"] == 2 and summ["lock_by_source"] == {"pre_entry": 0, "close": 2}

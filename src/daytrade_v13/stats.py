@@ -104,7 +104,7 @@ def daily_d(arm: dict, base: dict) -> dict[str, dict[str, float]]:
     for name, acc in arm["segments"].items():
         other = base["segments"][name]["days"]
         out[name] = {}
-        for a, b in zip(acc["days"], other):
+        for a, b in zip(acc["days"], other, strict=True):
             if a["date"] != b["date"]:
                 raise ValueError(f"day order differs: {a['date']} vs {b['date']}")
             out[name][a["date"]] = a["pnl"]["day_return"] - b["pnl"]["day_return"]
