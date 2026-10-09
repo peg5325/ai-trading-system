@@ -256,22 +256,32 @@ def test_launchd_definitions_use_local_runner_without_credentials(tmp_path):
         "freeze-paper-05", "freeze-paper-06", "freeze-paper-07",
         "history-collect-10", "history-collect-13",
         "daytrade-paper-11", "daytrade-paper-14",
+        "daytrade-shadow-21", "daytrade-shadow-compare-11", "daytrade-shadow-compare-14",
     ]
     assert [(job.hour, job.minute) for job in all_jobs] == [
         (21, 1), (22, 1), (22, 1), (23, 1), (22, 11), (23, 11), (5, 20), (6, 20),
         (5, 35), (6, 35), (7, 35), (10, 40), (13, 40), (11, 7), (14, 7),
+        (21, 50), (11, 20), (14, 20),
     ]
     for job in all_jobs:
         payload = plist_payload(job, tmp_path)
         assert payload["Label"].startswith(LABEL_PREFIX)
         assert "TOSS_CLIENT_SECRET" not in str(payload)
         args = payload["ProgramArguments"]
+        shadow = any(a.endswith("run_daytrade_shadow.py") for a in args)
         assert ("--stage" in args or "--postclose" in args
                 or args[-1].endswith("run_freeze_paper_session.py")
                 or args[-1].endswith("run_history_collection.py")
-                or args[1].endswith("run_daytrade_paper.py"))
+                or args[1].endswith("run_daytrade_paper.py") or shadow)
         if args[1].endswith("run_daytrade_paper.py"):
             assert args[2:] == ["--auto", "--out-root", str(tmp_path)]
+        if shadow:
+            tail = args[args.index(next(a for a in args if a.endswith("run_daytrade_shadow.py"))) + 1:]
+            assert tail in (["live", "--out-root", str(tmp_path)], ["compare", "--auto", "--out-root", str(tmp_path)])
+        # only the live shadow run (minute polls, stays awake to the close) is not throttled
+        assert payload["ProcessType"] == ("Standard" if job.name == "daytrade-shadow-21" else "Background")
+    live = next(job for job in all_jobs if job.name == "daytrade-shadow-21")
+    assert live.arguments[:2] == ("/usr/bin/caffeinate", "-i")
 
 
 def test_launchd_write_only_install_generates_valid_plists(tmp_path):
@@ -284,11 +294,11 @@ def test_launchd_write_only_install_generates_valid_plists(tmp_path):
         python=project / ".venv" / "bin" / "python",
         bootstrap=False,
     )
-    assert len(paths) == 15
+    assert len(paths) == 18
     for path in paths:
         payload = plistlib.loads(path.read_bytes())
         assert payload["Label"].startswith(LABEL_PREFIX)
-        assert payload["StartCalendarInterval"]["Minute"] in {1, 7, 11, 20, 35, 40}
+        assert payload["StartCalendarInterval"]["Minute"] in {1, 7, 11, 20, 35, 40, 50}
 
 
 def test_launchd_status_covers_the_freeze_paper_pair_without_launchctl(tmp_path, monkeypatch):

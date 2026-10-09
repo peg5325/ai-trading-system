@@ -14,6 +14,8 @@ class LaunchdJob:
     hour: int
     minute: int
     arguments: tuple[str, ...]
+    # "Background" lets macOS throttle timers and I/O; the live shadow run polls at minute + 4 s.
+    process_type: str = "Background"
 
     @property
     def label(self) -> str:
@@ -25,6 +27,7 @@ def jobs(project_root: Path, python: Path) -> tuple[LaunchdJob, ...]:
     paper = project_root / "scripts" / "run_freeze_paper_session.py"
     collection = project_root / "scripts" / "run_history_collection.py"
     daytrade = (str(python), str(project_root / "scripts" / "run_daytrade_paper.py"))
+    shadow = (str(python), str(project_root / "scripts" / "run_daytrade_shadow.py"))
     return (
         # New York's daylight-saving offset changes the equivalent KST hour.
         # The runner validates the actual NYSE-relative window, so each paired
@@ -52,6 +55,16 @@ def jobs(project_root: Path, python: Path) -> tuple[LaunchdJob, ...]:
         # history-collect receipt is COMPLETE, so it trails each collect slot by ~25 min.
         LaunchdJob("daytrade-paper-11", 11, 7, (*daytrade, "--auto", "--out-root", str(project_root))),
         LaunchdJob("daytrade-paper-14", 14, 7, (*daytrade, "--auto", "--out-root", str(project_root))),
+        # R1 shadow run of the same rules (no orders). 21:50 KST is 08:50 EDT / 07:50 EST, before the
+        # 09:25 ET pre-market cutoff in both DST regimes; the run waits for the session itself, refuses
+        # holidays and weekends, and keeps the Mac awake until the close.
+        LaunchdJob("daytrade-shadow-21", 21, 50,
+                   ("/usr/bin/caffeinate", "-i", *shadow, "live", "--out-root", str(project_root)),
+                   process_type="Standard"),
+        # Compare every finished shadow day with its Paper report and measure the WebSocket log;
+        # trails each Paper slot by ~13 min, and a day with compare.json is skipped.
+        LaunchdJob("daytrade-shadow-compare-11", 11, 20, (*shadow, "compare", "--auto", "--out-root", str(project_root))),
+        LaunchdJob("daytrade-shadow-compare-14", 14, 20, (*shadow, "compare", "--auto", "--out-root", str(project_root))),
     )
 
 
@@ -67,7 +80,7 @@ def plist_payload(job: LaunchdJob, project_root: Path) -> dict[str, Any]:
         },
         "StartCalendarInterval": {"Hour": job.hour, "Minute": job.minute},
         "RunAtLoad": False,
-        "ProcessType": "Background",
+        "ProcessType": job.process_type,
         "StandardOutPath": str(log_dir / f"{job.name}.stdout.log"),
         "StandardErrorPath": str(log_dir / f"{job.name}.stderr.log"),
     }
