@@ -88,6 +88,8 @@ def session_table(index: str, px: pd.DataFrame, divs: dict[str, float], calendar
         values = aux.get(name, {})
         df[f"{name}_p"] = df["p"].map(lambda d, v=values: v.get(d, np.nan) if isinstance(d, str) else np.nan)
     own = {
+        # (a) compares the RAW previous close (stale-open check, §3 ⓐ); the start-date rule's "open = previous
+        # close" share instead counts the dividend-adjusted g == 0 (§3: year stats use the adjusted g).
         "a_open_eq_prev_close": df["open"] == c_p,
         "b_flat_bar": (df["open"] == df["high"]) & (df["open"] == df["low"]) & (df["open"] == df["close"]),
         "c_data_gap": df["prev_row"].isna() | (df["prev_row"] != df["p"]),

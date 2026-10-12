@@ -111,7 +111,7 @@ def test_conditions_use_no_future_information():
     aux["gex"] = dict(zip(dates, rng.normal(0, 2e9, len(dates))))
     cflags = CD.calendar_flags(dates, CONFIG["unscheduled_closures"])
     eflags = CD.event_flags(dates, EVENTS)
-    _, base = _conditions(px, aux, dates, cflags, eflags)
+    t0, base = _conditions(px, aux, dates, cflags, eflags)
     for pos in (40, 211, 380):
         d = dates[pos]
         p2 = px.copy()
@@ -121,10 +121,19 @@ def test_conditions_use_no_future_information():
         on_d = p2["date"] == d
         p2.loc[on_d, ["high", "low", "close"]] = p2.loc[on_d, ["high", "low", "close"]].to_numpy() * [2.0, 0.3, 1.7]
         aux2 = {n: {k: (v * 3 + 7 if k >= d else v) for k, v in m.items()} for n, m in aux.items()}
-        _, alt = _conditions(p2, aux2, dates, cflags, eflags)
+        t2, alt = _conditions(p2, aux2, dates, cflags, eflags)
         for name in base:
             a, b = base[name].iloc[pos], alt[name].iloc[pos]
             assert (pd.isna(a) and pd.isna(b)) or a == b, (name, d)
+        # eligibility of d does not move with d's H/L/C ...
+        assert t0["eligible"].iloc[pos] == t2["eligible"].iloc[pos]
+        # ... except exclusion (b): a flat bar on d (O = H = L = C) is the one same-day input
+        p3 = px.copy()
+        p3.loc[on_d, ["high", "low", "close"]] = float(p3.loc[on_d, "open"].iloc[0])
+        t3, _ = _conditions(p3, aux, dates, cflags, eflags)
+        assert t3["b_flat_bar"].iloc[pos] and not t3["eligible"].iloc[pos]
+        others = [e for e in FT.EXCLUSIONS if e != "b_flat_bar"]
+        assert (t3[others].iloc[pos] == t0[others].iloc[pos]).all()
 
 
 def test_thresholds_use_dev_rows_only():
@@ -507,15 +516,24 @@ def test_binding_and_write_once(tmp_path):
         PL.write_result(out, {"a": 1})
 
 
-# ------------------------------------------------------------------ 9. run order for the GEX family
+# ------------------------------------------------------------------ 9. run order (§3: ① main DEV → ② GEX → ③ HOLDOUT)
 
 
-def _git_repo(tmp_path: Path) -> tuple[Path, str, str]:
+def _git_repo(tmp_path: Path, files: dict[str, str]) -> tuple[Path, str, str]:
+    """A repo whose `main` has a merge commit adding `files`; another branch adds them without merging.
+    Returns (repo, merged commit, unmerged commit)."""
     repo = tmp_path / "repo"
-    repo.mkdir()
+    repo.mkdir(parents=True)
 
     def g(*a):
         return subprocess.run(["git", *a], cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
+
+    def put():
+        for rel, text in files.items():
+            p = repo / rel
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(text)
+        g("add", ".")
 
     g("init", "-q", "-b", "main")
     g("config", "user.email", "t@example.com")
@@ -524,58 +542,144 @@ def _git_repo(tmp_path: Path) -> tuple[Path, str, str]:
     g("add", ".")
     g("commit", "-qm", "init")
     g("checkout", "-qb", "side")
-    p = repo / PL.ADDENDUM["main"]
-    p.parent.mkdir(parents=True)
-    p.write_text("addendum")
-    g("add", ".")
+    put()
     g("commit", "-qm", "addendum")
-    g("rev-parse", "HEAD")
     g("checkout", "-q", "main")
     g("merge", "-q", "--no-ff", "side", "-m", "merge")
     merged = g("rev-parse", "HEAD")
     g("checkout", "-qb", "other", "HEAD~1")
     g("commit", "-q", "--allow-empty", "-m", "unmerged")
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text("addendum2")
-    g("add", ".")
+    put()
     g("commit", "-qm", "unmerged addendum")
-    return repo, merged, g("rev-parse", "HEAD")
+    unmerged = g("rev-parse", "HEAD")
+    g("checkout", "-q", "main")
+    return repo, merged, unmerged
 
 
-def test_gex_run_order(tmp_path):
-    repo, merged, unmerged = _git_repo(tmp_path)
-    res = tmp_path / "dev_result.json"
-    res.write_text(json.dumps({"family": "main", "verdict": "SELECTED", "selected": [3]}))
-    sha = CD.sha256_file(res)
-    kw = {"repo": repo, "main_ref": "main"}
+def _result(tmp_path: Path, name: str, **body) -> tuple[Path, str]:
+    p = tmp_path / name
+    p.write_text(json.dumps(body))
+    return p, CD.sha256_file(p)
+
+
+CFG = "c" * 64
+
+
+def test_gex_gate_main_order(tmp_path):
+    res, sha = _result(tmp_path, "dev_result.json", family="main", verdict="SELECTED", selected=[3],
+                       reproduction={"config_sha256": CFG})
+    repo, merged, unmerged = _git_repo(tmp_path, {PL.ADDENDUM["main"]: f"dev_result {sha}\nselected: [3]\n"})
+    out = tmp_path / "out"
+    kw = {"repo": repo, "main_ref": "main", "config_sha256": CFG, "out_dir": out}
     with pytest.raises(StudyRefused, match="needs the main dev_result"):
         PL.require_main_done(None, None, None, **kw)
     with pytest.raises(StudyRefused, match="hashes to"):
         PL.require_main_done(res, "0" * 64, merged, **kw)
     with pytest.raises(StudyRefused, match="required"):
         PL.require_main_done(res, None, merged, **kw)
+    with pytest.raises(StudyRefused, match="another config"):
+        PL.require_main_done(res, sha, merged, **{**kw, "config_sha256": "d" * 64})
     with pytest.raises(StudyRefused, match="addendum commit is required"):
         PL.require_main_done(res, sha, None, **kw)
     with pytest.raises(StudyRefused, match="not an ancestor"):
         PL.require_main_done(res, sha, unmerged, **kw)
     with pytest.raises(StudyRefused, match="is not in commit"):
         PL.require_main_done(res, sha, merged + "~1", **kw)
-    assert PL.require_main_done(res, sha, merged, **kw).startswith("main addendum merged")
-    nopass = tmp_path / "nopass.json"
-    nopass.write_text(json.dumps({"family": "main", "verdict": "NO_PASS", "selected": []}))
-    assert PL.require_main_done(nopass, CD.sha256_file(nopass), None, **kw) == "main NO_PASS"
-    gexres = tmp_path / "gexres.json"
-    gexres.write_text(json.dumps({"family": "gex", "verdict": "NO_PASS"}))
+    ok = PL.require_main_done(res, sha, merged, **kw)
+    assert ok["condition"] == "main addendum merged" and ok["ref"] == "main" and ok["commit"] == merged
+    # the merged addendum must record this dev_result's SHA
+    other, osha = _result(tmp_path, "other.json", family="main", verdict="SELECTED", selected=[3],
+                          reproduction={"config_sha256": CFG}, x=1)
+    with pytest.raises(StudyRefused, match="does not record the main dev_result"):
+        PL.require_main_done(other, osha, merged, **kw)
+    nopass, nsha = _result(tmp_path, "nopass.json", family="main", verdict="NO_PASS", selected=[],
+                           reproduction={"config_sha256": CFG})
+    assert PL.require_main_done(nopass, nsha, None, **kw)["condition"] == "main NO_PASS"
+    gexres, gsha = _result(tmp_path, "gexres.json", family="gex", verdict="NO_PASS",
+                           reproduction={"config_sha256": CFG})
     with pytest.raises(StudyRefused, match="not the main"):
-        PL.require_main_done(gexres, CD.sha256_file(gexres), None, **kw)
+        PL.require_main_done(gexres, gsha, None, **kw)
+    # once the main HOLDOUT is opened (or GEX was skipped) the GEX family can no longer run
+    for blocker in (out / "main" / "holdout_result.json", out / "gex" / PL.GEX_SKIP_MARKER):
+        blocker.parent.mkdir(parents=True, exist_ok=True)
+        blocker.write_text("{}")
+        with pytest.raises(StudyRefused, match="can no longer run"):
+            PL.require_main_done(nopass, nsha, None, **kw)
+        blocker.unlink()
+
+
+def test_main_holdout_needs_gex_done(tmp_path):
+    gres, gsha = _result(tmp_path, "gex_dev.json", family="gex", verdict="SELECTED", selected=[1],
+                         reproduction={"config_sha256": CFG})
+    repo, merged, unmerged = _git_repo(tmp_path, {PL.ADDENDUM["gex"]: f"gex dev_result {gsha}\nselected: [1]\n"})
+    out = tmp_path / "out"
+    kw = {"repo": repo, "main_ref": "main", "config_sha256": CFG}
+    with pytest.raises(StudyRefused, match="GEX-skip marker"):
+        PL.require_gex_done(out, None, None, None, **kw)
+    with pytest.raises(StudyRefused, match="hashes to"):
+        PL.require_gex_done(out, gres, "0" * 64, merged, **kw)
+    with pytest.raises(StudyRefused, match="another config"):
+        PL.require_gex_done(out, gres, gsha, merged, **{**kw, "config_sha256": "d" * 64})
+    with pytest.raises(StudyRefused, match="addendum commit is required"):
+        PL.require_gex_done(out, gres, gsha, None, **kw)
+    with pytest.raises(StudyRefused, match="not an ancestor"):
+        PL.require_gex_done(out, gres, gsha, unmerged, **kw)
+    assert PL.require_gex_done(out, gres, gsha, merged, **kw)["condition"] == "GEX addendum merged"
+    other, osha = _result(tmp_path, "gex_other.json", family="gex", verdict="SELECTED", selected=[2],
+                          reproduction={"config_sha256": CFG})
+    with pytest.raises(StudyRefused, match="does not record the GEX dev_result"):
+        PL.require_gex_done(out, other, osha, merged, **kw)
+    main_res, msha = _result(tmp_path, "main_dev.json", family="main", verdict="NO_PASS",
+                             reproduction={"config_sha256": CFG})
+    with pytest.raises(StudyRefused, match="not the GEX"):
+        PL.require_gex_done(out, main_res, msha, None, **kw)
+    nopass, nsha = _result(tmp_path, "gex_nopass.json", family="gex", verdict="NO_PASS",
+                           reproduction={"config_sha256": CFG})
+    assert PL.require_gex_done(out, nopass, nsha, None, **kw)["condition"] == "GEX NO_PASS"
+    # the user's write-once skip marker
+    with pytest.raises(StudyRefused, match="approval"):
+        PL.record_gex_skip(out_dir=out, approved=False, reason="user stopped GEX")
+    with pytest.raises(StudyRefused, match="reason"):
+        PL.record_gex_skip(out_dir=out, approved=True, reason=" ")
+    sha, marker = PL.record_gex_skip(out_dir=out, approved=True, reason="user stopped GEX at step 5")
+    assert marker == out / "gex" / PL.GEX_SKIP_MARKER and CD.sha256_file(marker) == sha
+    got = PL.require_gex_done(out, None, None, None, **kw)
+    assert got == {"condition": "GEX skipped by user", "marker_sha256": sha}
+    with pytest.raises(StudyRefused, match="write-once"):
+        PL.record_gex_skip(out_dir=out, approved=True, reason="again")
+    started = tmp_path / "out2"
+    (started / "gex").mkdir(parents=True)
+    (started / "gex" / "precount.json").write_text("{}")
+    with pytest.raises(StudyRefused, match="already started"):
+        PL.record_gex_skip(out_dir=started, approved=True, reason="too late")
+
+
+def test_addendum_ancestry_uses_fetched_remote_ref(tmp_path):
+    repo, merged, unmerged = _git_repo(tmp_path, {PL.ADDENDUM["main"]: "selected: [0]\n"})
+    clone = tmp_path / "clone"
+    subprocess.run(["git", "clone", "-q", str(repo), str(clone)], check=True, capture_output=True)
+    subprocess.run(["git", "fetch", "-q", "origin", "other"], cwd=clone, check=True, capture_output=True)
+    text, info = PL.addendum_merged(merged, "main", repo=clone)
+    assert info == {"commit": merged, "ref": "origin/main", "ref_head": merged} and "selected" in text
+    with pytest.raises(StudyRefused, match="not an ancestor of origin/main"):
+        PL.addendum_merged(unmerged, "main", repo=clone)
+    with pytest.raises(StudyRefused, match="could not fetch"):
+        PL.addendum_merged(merged, "main", repo=clone, main_ref="origin/no-such-branch")
+
+
+def test_selected_line_parsing():
+    assert PL.selected_in_addendum("# addendum\nselected: [12, 3]\n") == [12, 3]
+    for bad in ("no line", "selected: [1]\nselected: [2]", "selected: 1, 2", 'selected: ["a"]'):
+        with pytest.raises(StudyRefused):
+            PL.selected_in_addendum(bad)
 
 
 def test_gex_precount_and_dev_refuse_before_reading_prices(tmp_path, monkeypatch):
     root, sha, _ = synth_root(tmp_path / "d")
     cfg_path, cfg_sha, _ = synth_config(tmp_path, sha)
     monkeypatch.setattr(PL, "load_context", lambda *a, **k: pytest.fail("prices read before the order check"))
-    kw = {"config_path": cfg_path, "config_sha256": cfg_sha, "out_dir": tmp_path / "out", "allow_dirty": True, "root": root,
-              "expected_manifest_sha256": sha}
+    kw = {"config_path": cfg_path, "config_sha256": cfg_sha, "out_dir": tmp_path / "out", "allow_dirty": True,
+          "root": root, "expected_manifest_sha256": sha}
     with pytest.raises(StudyRefused, match="needs the main dev_result"):
         PL.precount_step("gex", **kw)
     pc = tmp_path / "pc.json"
@@ -586,6 +690,44 @@ def test_gex_precount_and_dev_refuse_before_reading_prices(tmp_path, monkeypatch
         PL.dev_step("gex", precount_path=pc, precount_sha256=CD.sha256_file(pc), approved=True, **kw)
     with pytest.raises(StudyRefused, match="another family"):
         PL.dev_step("main", precount_path=pc, precount_sha256=CD.sha256_file(pc), approved=True, **kw)
+    opened = tmp_path / "out" / "main" / "holdout_result.json"
+    opened.parent.mkdir(parents=True)
+    opened.write_text("{}")
+    nopass, nsha = _result(tmp_path, "nopass.json", family="main", verdict="NO_PASS",
+                           reproduction={"config_sha256": cfg_sha})
+    with pytest.raises(StudyRefused, match="can no longer run"):
+        PL.precount_step("gex", main_dev_result=nopass, main_dev_result_sha256=nsha, **kw)
+    with pytest.raises(StudyRefused, match="can no longer run"):
+        PL.dev_step("gex", precount_path=pc, precount_sha256=CD.sha256_file(pc), approved=True,
+                    main_dev_result=nopass, main_dev_result_sha256=nsha, **kw)
+
+
+def test_main_holdout_step_gates_end_to_end(tmp_path):
+    root, sha, _ = synth_root(tmp_path / "d", start="2015-06-01")
+    cfg_path, cfg_sha, cfg = synth_config(tmp_path, sha)
+    pc, pc_sha = _result(tmp_path, "pc.json", family="main", reproduction={"config_sha256": cfg_sha})
+    dev, dev_sha = _result(tmp_path, "dev.json", family="main", verdict="SELECTED", selected=[0, 32],
+                           inputs={"precount_sha256": pc_sha}, reproduction={"config_sha256": cfg_sha})
+    shas = f"{cfg_sha} {pc_sha} {dev_sha} {sha} {cfg['data']['events_yaml_sha256']}"
+    repo, merged, _ = _git_repo(tmp_path, {PL.ADDENDUM["main"]: f"{shas}\nselected: [32, 0]\n",
+                                           "wrong/x.md": "x"})
+    out = tmp_path / "out"
+    kw = {"config_path": cfg_path, "config_sha256": cfg_sha, "precount_path": pc, "precount_sha256": pc_sha,
+          "dev_result_path": dev, "dev_result_sha256": dev_sha, "approved": True, "out_dir": out,
+          "allow_dirty": True, "root": root, "expected_manifest_sha256": sha, "repo": repo, "main_ref": "main"}
+    with pytest.raises(StudyRefused, match="GEX-skip marker"):  # no GEX evidence yet
+        PL.holdout_step("main", addendum_commit=merged, **kw)
+    PL.record_gex_skip(out_dir=out, approved=True, reason="user stopped GEX")
+    res_sha, res_path = PL.holdout_step("main", addendum_commit=merged, **kw)
+    res = json.loads(res_path.read_text())
+    assert CD.sha256_file(res_path) == res_sha and res["run_order"]["condition"] == "GEX skipped by user"
+    assert res["inputs"]["addendum"] == {"commit": merged, "ref": "main", "ref_head": merged}
+    assert set(res["flat_bar_exclusions"]) == {"SPY", "QQQ", "^SOX"}
+    assert res["reproduction"]["seed_variants"]["main_dev_stress_rerun"] == 5
+    # a selection that differs from dev_result is refused (fresh out dir so write-once does not trip first)
+    repo2, merged2, _ = _git_repo(tmp_path / "r2", {PL.ADDENDUM["main"]: f"{shas}\nselected: [0]\n"})
+    with pytest.raises(StudyRefused, match="selected candidates differ"):
+        PL.holdout_step("main", addendum_commit=merged2, **{**kw, "repo": repo2, "out_dir": tmp_path / "o2"})
 
 
 # ------------------------------------------------------------------ 10. actual-ETF conditions

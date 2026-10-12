@@ -27,7 +27,8 @@ def main(argv=None) -> int:
                            precount_path=a.precount, precount_sha256=a.precount_sha256,
                            approved=a.i_have_user_approval, out_dir=a.out_dir, main_dev_result=a.main_dev_result,
                            main_dev_result_sha256=a.main_dev_result_sha256,
-                           main_addendum_commit=a.main_addendum_commit, allow_dirty=a.allow_dirty)
+                           main_addendum_commit=a.main_addendum_commit, allow_dirty=a.allow_dirty,
+                           main_ref=a.main_ref)
     print(f"{out} sha256 {sha}")
     return 0
 

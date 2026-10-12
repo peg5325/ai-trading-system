@@ -60,32 +60,105 @@ def git(*args: str, repo: Path = ROOT) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], cwd=repo, capture_output=True, text=True, check=False)
 
 
-def addendum_merged(commit: str | None, family: str, *, repo: Path = ROOT, main_ref: str = "main") -> str:
-    """The addendum file exists in `commit` and `commit` is an ancestor of main. Returns the file text."""
+MAIN_REF = "origin/main"  # ancestry is checked against the fetched remote main (LOW d)
+GEX_SKIP_MARKER = "skipped_by_user.json"  # <out>/gex/: the user chose not to run the GEX family (§12 step 5)
+
+
+def addendum_merged(commit: str | None, family: str, *, repo: Path = ROOT,
+                    main_ref: str = MAIN_REF) -> tuple[str, dict]:
+    """The addendum file exists in `commit` and `commit` is an ancestor of `main_ref` (fetched first when it is
+    a remote ref). Returns (file text, {"commit", "ref", "ref_head"})."""
     if not commit:
         raise StudyRefused(f"refusing: the merged {family} addendum commit is required")
     shown = git("show", f"{commit}:{ADDENDUM[family]}", repo=repo)
     if shown.returncode != 0:
         raise StudyRefused(f"refusing: {ADDENDUM[family]} is not in commit {commit}")
+    if "/" in main_ref:
+        remote, branch = main_ref.split("/", 1)
+        if git("fetch", "-q", remote, branch, repo=repo).returncode != 0:
+            raise StudyRefused(f"refusing: could not fetch {main_ref} to check the addendum merge")
     if git("merge-base", "--is-ancestor", commit, main_ref, repo=repo).returncode != 0:
         raise StudyRefused(f"refusing: commit {commit} is not an ancestor of {main_ref}")
-    return shown.stdout
+    head = git("rev-parse", main_ref, repo=repo).stdout.strip()
+    return shown.stdout, {"commit": commit, "ref": main_ref, "ref_head": head}
+
+
+def selected_in_addendum(text: str) -> list[int]:
+    """The addendum's machine line `selected: [k, ...]` (JSON list of candidate numbers)."""
+    lines = [ln for ln in text.splitlines() if ln.strip().startswith("selected:")]
+    if len(lines) != 1:
+        raise StudyRefused("refusing: the addendum needs exactly one line `selected: [k, ...]`")
+    try:
+        ks = json.loads(lines[0].split(":", 1)[1])
+    except json.JSONDecodeError as exc:
+        raise StudyRefused("refusing: the addendum `selected:` line is not a JSON list") from exc
+    if not isinstance(ks, list) or not all(isinstance(k, int) for k in ks):
+        raise StudyRefused("refusing: the addendum `selected:` line is not a list of candidate numbers")
+    return ks
 
 
 def require_main_done(main_dev_result: Path | None, main_dev_result_sha256: str | None,
-                      main_addendum_commit: str | None, *, repo: Path = ROOT, main_ref: str = "main") -> str:
-    """§3 run order for `--family gex` precount/dev: the main dev_result SHA must match, and the main result is
-    NO_PASS or the main addendum is merged into main. Returns which condition held."""
+                      main_addendum_commit: str | None, *, config_sha256: str | None, out_dir: Path = OUT_DIR,
+                      repo: Path = ROOT, main_ref: str = MAIN_REF) -> dict:
+    """§3 run order for `--family gex` precount/dev: no main HOLDOUT result and no GEX-skip marker exist yet,
+    the main dev_result SHA and its config SHA match, and the main result is NO_PASS or the main addendum
+    (recording that dev_result SHA) is merged into main. Returns which condition held."""
+    for p in (Path(out_dir) / "main" / "holdout_result.json", Path(out_dir) / "gex" / GEX_SKIP_MARKER):
+        if p.exists():
+            raise StudyRefused(f"refusing: {p} exists; the GEX family can no longer run (§3 order)")
     if main_dev_result is None:
         raise StudyRefused("refusing: --family gex needs the main dev_result.json and its SHA-256")
     check_sha(main_dev_result, main_dev_result_sha256, "main dev_result.json")
     result = read_json(main_dev_result)
     if result.get("family") != "main":
         raise StudyRefused("refusing: the given dev_result.json is not the main family's")
+    if result.get("reproduction", {}).get("config_sha256") != config_sha256:
+        raise StudyRefused("refusing: the main dev_result.json was made with another config")
     if result.get("verdict") == "NO_PASS":
-        return "main NO_PASS"
-    addendum_merged(main_addendum_commit, "main", repo=repo, main_ref=main_ref)
-    return f"main addendum merged at {main_addendum_commit}"
+        return {"condition": "main NO_PASS", "main_dev_result_sha256": main_dev_result_sha256}
+    text, info = addendum_merged(main_addendum_commit, "main", repo=repo, main_ref=main_ref)
+    if main_dev_result_sha256 not in text:
+        raise StudyRefused("refusing: the main addendum does not record the main dev_result SHA-256")
+    return {"condition": "main addendum merged", "main_dev_result_sha256": main_dev_result_sha256, **info}
+
+
+def require_gex_done(out_dir: Path, gex_dev_result: Path | None, gex_dev_result_sha256: str | None,
+                     gex_addendum_commit: str | None, *, config_sha256: str | None, repo: Path = ROOT,
+                     main_ref: str = MAIN_REF) -> dict:
+    """§3 order for the main HOLDOUT: GEX DEV is finished (NO_PASS, or its addendum recording the GEX
+    dev_result SHA is merged), or the user's write-once GEX-skip marker exists."""
+    marker = Path(out_dir) / "gex" / GEX_SKIP_MARKER
+    if gex_dev_result is None:
+        if marker.exists():
+            return {"condition": "GEX skipped by user", "marker_sha256": CD.sha256_file(marker)}
+        raise StudyRefused("refusing: the main HOLDOUT needs the GEX dev_result (NO_PASS or merged GEX addendum) "
+                           f"or the user's GEX-skip marker {marker} (§3 order)")
+    check_sha(gex_dev_result, gex_dev_result_sha256, "GEX dev_result.json")
+    result = read_json(gex_dev_result)
+    if result.get("family") != "gex":
+        raise StudyRefused("refusing: the given GEX dev_result.json is not the GEX family's")
+    if result.get("reproduction", {}).get("config_sha256") != config_sha256:
+        raise StudyRefused("refusing: the GEX dev_result.json was made with another config")
+    if result.get("verdict") == "NO_PASS":
+        return {"condition": "GEX NO_PASS", "gex_dev_result_sha256": gex_dev_result_sha256}
+    text, info = addendum_merged(gex_addendum_commit, "gex", repo=repo, main_ref=main_ref)
+    if gex_dev_result_sha256 not in text:
+        raise StudyRefused("refusing: the GEX addendum does not record the GEX dev_result SHA-256")
+    return {"condition": "GEX addendum merged", "gex_dev_result_sha256": gex_dev_result_sha256, **info}
+
+
+def record_gex_skip(*, out_dir: Path = OUT_DIR, approved: bool, reason: str) -> tuple[str, Path]:
+    """Write-once marker that the user decided not to run the GEX family; refused once GEX has started."""
+    _approval(approved)
+    if not reason.strip():
+        raise StudyRefused("refusing: a reason for skipping the GEX family is required")
+    gex = Path(out_dir) / "gex"
+    for name in ("precount.json", "dev_result.json"):
+        if (gex / name).exists():
+            raise StudyRefused(f"refusing: {gex / name} exists; the GEX family has already started")
+    marker = gex / GEX_SKIP_MARKER
+    return write_result(marker, {"family": "gex", "decision": "GEX skipped by user", "user_approval": True,
+                                 "reason": reason, "git": git_state()}), marker
 
 
 def read_json(path: Path) -> dict:
@@ -103,7 +176,11 @@ def reproduction(config_path: Path, config: dict) -> dict:
     return {"git": git_state(), "config_sha256": CD.sha256_file(config_path),
             "manifest_sha256": config["data"]["manifest_sha256"],
             "events_yaml_sha256": config["data"]["events_yaml_sha256"], "python": platform.python_version(),
-            "numpy": np.__version__, "pandas": pd.__version__, "base_seed": config["stats"]["base_seed"]}
+            "numpy": np.__version__, "pandas": pd.__version__, "base_seed": config["stats"]["base_seed"],
+            "seed_variants": {**config["stats"]["variants"],
+                              # report-only reruns of variants 1/2/3 follow SEED(variant + 4, k)
+                              "main_dev_stress_rerun": 5, "main_dev_sensitivity_rerun": 6,
+                              "main_dev_actual_etf_rerun": 7}}
 
 
 def start_checks(config_path: Path, config_sha256: str | None, out_path: Path, *, allow_dirty: bool,
@@ -458,7 +535,16 @@ def run_dev(config: dict, ctx: dict, family: str, precount: dict) -> dict:
     return {"family": family, "k_active": len(p_main), "bh_rejected": sorted(bh), "by_rejected": sorted(by),
             "survivors": sorted(c["k"] for c in survivors), "selected": selected,
             "verdict": "SELECTED" if selected else "NO_PASS", "candidates": [rows[k] for k in sorted(rows)],
-            "decomposition": decomp, "window": [lo, hi]}
+            "decomposition": decomp, "window": [lo, hi], "flat_bar_exclusions": flat_bar_counts(ctx, lo, hi)}
+
+
+def flat_bar_counts(ctx: dict, lo: str | None, hi: str) -> dict:
+    """Exclusion (b) flat bar uses d's own H/L/C (known only at the close): its count in the window, reported."""
+    out = {}
+    for index, t in ctx["tables"].items():
+        m = t["in_range"] & (t["date"] <= hi) & (t["date"] >= (lo or ""))
+        out[index] = int(t.loc[m, "b_flat_bar"].sum())
+    return out
 
 
 # ------------------------------------------------------------------ HOLDOUT
@@ -498,7 +584,8 @@ def run_holdout(config: dict, ctx: dict, family: str, precount: dict, dev_result
                                             etf_mean=row["actual_etf"]["mean_base"])
     decomp = {index: decomposition(window(t, lo, hi)) for index, t in ctx["tables"].items()}
     return {"family": family, "m": len(selected), "window": [lo, hi],
-            "candidates": [rows[k] for k in selected], "decomposition": decomp}
+            "candidates": [rows[k] for k in selected], "decomposition": decomp,
+            "flat_bar_exclusions": flat_bar_counts(ctx, lo, hi)}
 
 
 # ------------------------------------------------------------------ steps (called by scripts/daily_screen_v1_*.py)
@@ -527,7 +614,7 @@ def precount_step(family: str, *, config_path: Path, config_sha256: str | None, 
                   main_dev_result: Path | None = None, main_dev_result_sha256: str | None = None,
                   main_addendum_commit: str | None = None, allow_dirty: bool = False, root: Path | None = None,
                   expected_manifest_sha256: str | None = None, repo: Path = ROOT,
-                  main_ref: str = "main") -> tuple[str, Path]:
+                  main_ref: str = MAIN_REF) -> tuple[str, Path]:
     """§6: counts, thresholds, sd of R* and power only (no mean return). Writes <out>/<family>/precount.json."""
     family = _family(family)
     out = Path(out_dir) / family / "precount.json"
@@ -535,8 +622,8 @@ def precount_step(family: str, *, config_path: Path, config_sha256: str | None, 
                           expected_manifest_sha256=expected_manifest_sha256)
     order = None
     if family == "gex":
-        order = require_main_done(main_dev_result, main_dev_result_sha256, main_addendum_commit, repo=repo,
-                                  main_ref=main_ref)
+        order = require_main_done(main_dev_result, main_dev_result_sha256, main_addendum_commit,
+                                  config_sha256=config_sha256, out_dir=out_dir, repo=repo, main_ref=main_ref)
     kw = {"root": root, "expected_manifest_sha256": expected_manifest_sha256}
     ctx = load_context(config, f"{family}_dev", gex=family == "gex", with_etf=False, **kw)
     dates = {i: D.holdout_dates(i, family, **kw) for i in config["indices"]}
@@ -557,7 +644,7 @@ def dev_step(family: str, *, config_path: Path, config_sha256: str | None, preco
              main_dev_result: Path | None = None, main_dev_result_sha256: str | None = None,
              main_addendum_commit: str | None = None, allow_dirty: bool = False, root: Path | None = None,
              expected_manifest_sha256: str | None = None, repo: Path = ROOT,
-             main_ref: str = "main") -> tuple[str, Path]:
+             main_ref: str = MAIN_REF) -> tuple[str, Path]:
     """§7: one DEV run per family. Writes <out>/<family>/dev_result.json."""
     family = _family(family)
     _approval(approved)
@@ -567,8 +654,8 @@ def dev_step(family: str, *, config_path: Path, config_sha256: str | None, preco
     pc = _check_precount(precount_path, precount_sha256, family, config_sha256)
     order = None
     if family == "gex":
-        order = require_main_done(main_dev_result, main_dev_result_sha256, main_addendum_commit, repo=repo,
-                                  main_ref=main_ref)
+        order = require_main_done(main_dev_result, main_dev_result_sha256, main_addendum_commit,
+                                  config_sha256=config_sha256, out_dir=out_dir, repo=repo, main_ref=main_ref)
     ctx = load_context(config, f"{family}_dev", gex=family == "gex", with_etf=True, root=root,
                        expected_manifest_sha256=expected_manifest_sha256)
     result = run_dev(config, ctx, family, pc)
@@ -580,10 +667,16 @@ def dev_step(family: str, *, config_path: Path, config_sha256: str | None, preco
 
 def holdout_step(family: str, *, config_path: Path, config_sha256: str | None, precount_path: Path,
                  precount_sha256: str | None, dev_result_path: Path, dev_result_sha256: str | None,
-                 addendum_commit: str | None, approved: bool, out_dir: Path = OUT_DIR, allow_dirty: bool = False,
-                 root: Path | None = None, expected_manifest_sha256: str | None = None, repo: Path = ROOT,
-                 main_ref: str = "main") -> tuple[str, Path]:
-    """§8: one HOLDOUT run per family after its addendum is merged. Writes <out>/<family>/holdout_result.json."""
+                 addendum_commit: str | None, approved: bool, out_dir: Path = OUT_DIR,
+                 gex_dev_result: Path | None = None, gex_dev_result_sha256: str | None = None,
+                 gex_addendum_commit: str | None = None, allow_dirty: bool = False, root: Path | None = None,
+                 expected_manifest_sha256: str | None = None, repo: Path = ROOT,
+                 main_ref: str = MAIN_REF) -> tuple[str, Path]:
+    """§8: one HOLDOUT run per family after its addendum is merged. Writes <out>/<family>/holdout_result.json.
+
+    The addendum must record the config, precount, dev_result, manifest and events-yaml SHA-256 and hold one
+    machine line `selected: [k, ...]` equal (as a set) to the dev_result selection. The main family also needs
+    GEX DEV finished or the user's GEX-skip marker (§3 order: ① main DEV → ② GEX → ③ HOLDOUT)."""
     family = _family(family)
     _approval(approved)
     out = Path(out_dir) / family / "holdout_result.json"
@@ -595,16 +688,24 @@ def holdout_step(family: str, *, config_path: Path, config_sha256: str | None, p
     if dev.get("family") != family or dev["inputs"]["precount_sha256"] != precount_sha256 \
             or dev["reproduction"]["config_sha256"] != config_sha256:
         raise StudyRefused("refusing: dev_result.json is for another family, precount or config")
-    text = addendum_merged(addendum_commit, family, repo=repo, main_ref=main_ref)
+    text, merged = addendum_merged(addendum_commit, family, repo=repo, main_ref=main_ref)
     need = {"config": config_sha256, "precount": precount_sha256, "dev_result": dev_result_sha256,
             "manifest": config["data"]["manifest_sha256"], "events_yaml": config["data"]["events_yaml_sha256"]}
     missing = [k for k, v in need.items() if v not in text]
     if missing:
         raise StudyRefused(f"refusing: the addendum does not record the SHA-256 of {missing}")
+    if sorted(selected_in_addendum(text)) != sorted(dev.get("selected") or []):
+        raise StudyRefused("refusing: the addendum's selected candidates differ from dev_result.json")
+    order = None
+    if family == "main":
+        order = require_gex_done(out_dir, gex_dev_result, gex_dev_result_sha256, gex_addendum_commit,
+                                 config_sha256=config_sha256, repo=repo, main_ref=main_ref)
     ctx = load_context(config, "holdout", gex=family == "gex", with_etf=True, root=root,
                        expected_manifest_sha256=expected_manifest_sha256)
     result = run_holdout(config, ctx, family, pc, dev)
+    result["run_order"] = order
     result["inputs"] = {"precount_sha256": precount_sha256, "dev_result_sha256": dev_result_sha256,
-                        "addendum_commit": addendum_commit}
+                        "addendum": merged}
     result["reproduction"] = reproduction(config_path, config)
     return write_result(out, result), out
+

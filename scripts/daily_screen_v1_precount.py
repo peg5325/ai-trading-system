@@ -27,6 +27,7 @@ def add_main_order(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--main-dev-result", type=Path, help="gex only: main dev_result.json")
     ap.add_argument("--main-dev-result-sha256", help="gex only")
     ap.add_argument("--main-addendum-commit", help="gex only: merged main addendum commit (unless main NO_PASS)")
+    ap.add_argument("--main-ref", default=PL.MAIN_REF, help="ref the addendum must be merged into (fetched)")
 
 
 def main(argv=None) -> int:
@@ -36,7 +37,8 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     sha, out = PL.precount_step(a.family, config_path=a.config, config_sha256=a.config_sha256, out_dir=a.out_dir,
                                 main_dev_result=a.main_dev_result, main_dev_result_sha256=a.main_dev_result_sha256,
-                                main_addendum_commit=a.main_addendum_commit, allow_dirty=a.allow_dirty)
+                                main_addendum_commit=a.main_addendum_commit, allow_dirty=a.allow_dirty,
+                                main_ref=a.main_ref)
     print(f"{out} sha256 {sha}")
     return 0
 
