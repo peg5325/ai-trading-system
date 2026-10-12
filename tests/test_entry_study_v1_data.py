@@ -6,6 +6,7 @@ import argparse
 import random
 import sqlite3
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -377,8 +378,9 @@ def _fixed_files(tmp_path, events_sha=None):
     mask = tmp_path / "mask.json"
     man = tmp_path / "manifest.json"
     gate.write_bytes(M.canonical_bytes({"pairs": {}}))
-    mask.write_bytes(M.canonical_bytes({"pairs": {}, "events_calendar_sha256": events_sha or sha256_file(EVENTS_HISTORY)}))
     man.write_bytes(M.canonical_bytes({"rows": {}}))
+    mask.write_bytes(M.canonical_bytes({"pairs": {}, "events_calendar_sha256": events_sha or sha256_file(EVENTS_HISTORY),
+                                        "gate_sha256": sha256_file(gate), "data_manifest_sha256": sha256_file(man)}))
     return gate, mask, man
 
 
@@ -417,7 +419,7 @@ def test_scripts_refuse_before_touching_data(tmp_path):
         entry_study_v1_dev.main(common)
     with pytest.raises(StudyRefused, match="approval"):
         entry_study_v1_oos.main(["run", *common, "--dev-result", "x", "--dev-result-sha256", "0" * 64,
-                                 "--prepare", "p", "--oos-mask", "m", "--oos-mask-sha256", "0" * 64,
+                                 "--prepare", "p", "--prepare-sha256", "0" * 64, "--oos-mask", "m", "--oos-mask-sha256", "0" * 64,
                                  "--oos-snapshot", "s", "--oos-snapshot-sha256", "0" * 64,
                                  "--snapshot-manifest-path", "x", "--snapshot-hash-field", "y"])
     assert not (tmp_path / "out").exists()
@@ -531,3 +533,113 @@ def test_gate_script_runs_on_a_tiny_database(tmp_path):
     assert entry_study_v1_gate.main(["--db", db, "--out-dir", str(tmp_path / "out")]) == 0
     text = (tmp_path / "out" / "gate.json").read_text(encoding="utf-8")
     assert text.count("DATA_GATE_FAIL") == 3
+
+
+def test_mask_must_record_the_same_gate_and_manifest(tmp_path):
+    _gate, mask, man = _fixed_files(tmp_path)
+    other = tmp_path / "other_gate.json"
+    other.write_bytes(M.canonical_bytes({"pairs": {"x": 1}}))
+    with pytest.raises(DataMismatch, match="gate"):
+        require_dev_inputs(_args(tmp_path, gate=other, gate_sha256=sha256_file(other)))
+    other_man = tmp_path / "other_man.json"
+    other_man.write_bytes(M.canonical_bytes({"rows": {"x": 1}}))
+    with pytest.raises(DataMismatch, match="manifest"):
+        require_dev_inputs(_args(tmp_path, manifest=other_man, data_sha256=sha256_file(other_man)))
+    assert man.exists() and mask.exists()
+
+
+def test_fixed_mask_must_equal_the_rebuilt_mask():
+    from src.entry_study_v1.cli import check_mask_rebuild
+    pairs = {"P": ("REF", "L", "S")}
+    data = {"T": synth_data(SEG)}
+    fixed = M.build_mask(pairs, data, (SEG,), synth_cal(), "0" * 64)
+    check_mask_rebuild(fixed, M.build_mask(pairs, data, (SEG,), synth_cal(), "0" * 64))
+    data["T"]["L"].regular["2024-10-22"] = data["T"]["L"].regular["2024-10-22"][:-1]
+    with pytest.raises(DataMismatch):
+        check_mask_rebuild(fixed, M.build_mask(pairs, data, (SEG,), synth_cal(), "0" * 64))
+
+
+def test_e2_gap_reference_must_be_finite_and_positive():
+    from test_entry_study_v1 import mk, ref_day, t, with_bar
+
+    from src.entry_study_v1 import rules as RL
+    from src.entry_study_v1.bars import InvalidRun
+    p = next(c.params for c in CELLS if c.rule == "E2")
+    bars = with_bar({m: mk(m, 100.0) for m in range(570, 960)}, t("09:44"), 100, 100.2)
+    for bad in (0.0, float("nan"), -1.0, float("inf")):
+        with pytest.raises(InvalidRun):
+            RL.e2(ref_day(bars, [mk(t("08:00"), bad)]), p)
+
+
+def test_oos_snapshot_binding_and_implementation_paths():
+    from types import SimpleNamespace
+
+    from scripts import entry_study_v1_oos as O
+    O.check_snapshot_binding("a" * 64, SimpleNamespace(snapshot_hash="a" * 64))
+    with pytest.raises(DataMismatch):
+        O.check_snapshot_binding("a" * 64, SimpleNamespace(snapshot_hash="b" * 64))
+    root = Path(__file__).resolve().parents[1]
+    for need in ("src/daytrade_paper/rules.py", "src/daytrade_paper/core.py", "src/daytrade_paper/store.py",
+                 "src/history/exchange_calendar.py", "src/entry_study_v1/rules.py", "scripts/entry_study_v1_oos.py"):
+        assert need in O.IMPLEMENTATION_PATHS
+    assert all((root / p).exists() for p in O.IMPLEMENTATION_PATHS)
+
+
+def test_oos_gates_detect_a_change(monkeypatch):
+    from scripts import entry_study_v1_oos as O
+    seg = Segment("OOS", date(2026, 8, 3), date(2026, 10, 9), date(2026, 9, 21), date(2026, 10, 9))
+    data = synth_data(seg)
+    monkeypatch.setattr(O, "OOS_SEGMENT", seg)
+    before = O.oos_gates({"OOS": data}, {"P": ("REF", "L", "S")})
+    assert before["P"]["status"] == "PASS"
+    data["L"].regular["2026-09-22"] = data["L"].regular["2026-09-22"][:-1]
+    after = O.oos_gates({"OOS": data}, {"P": ("REF", "L", "S")})
+    assert after != before
+
+
+def test_oos_calendar_must_exist_and_cover_the_oos_span(tmp_path):
+    import yaml
+
+    from src.entry_study_v1.cli import load_oos_calendar
+    with pytest.raises(StudyRefused, match="does not exist"):
+        load_oos_calendar(tmp_path / "missing.yaml")
+    short = tmp_path / "short.yaml"
+    short.write_text(yaml.safe_dump(synth_cal(end="2026-09-30")), encoding="utf-8")
+    with pytest.raises(StudyRefused, match="coverage"):
+        load_oos_calendar(short)
+    late = tmp_path / "late.yaml"
+    late.write_text(yaml.safe_dump(synth_cal(start="2026-02-01", end="2026-12-31")), encoding="utf-8")
+    with pytest.raises(StudyRefused, match="coverage"):
+        load_oos_calendar(late)
+    good = tmp_path / "good.yaml"
+    good.write_text(yaml.safe_dump(synth_cal()), encoding="utf-8")
+    cal, sha = load_oos_calendar(good)
+    assert sha == sha256_file(good) and cal["coverage"]["end"] == "2026-12-31"
+
+
+def test_oos_prepare_refuses_without_an_oos_calendar(tmp_path):
+    from scripts import entry_study_v1_oos
+    gate, mask, man = _fixed_files(tmp_path)
+    common = ["--db", str(tmp_path / "none.sqlite"), "--gate", str(gate), "--gate-sha256", sha256_file(gate),
+              "--mask", str(mask), "--mask-sha256", sha256_file(mask), "--manifest", str(man),
+              "--data-sha256", sha256_file(man), "--allow-dirty", "--out-dir", str(tmp_path / "out"),
+              "--dev-result", "x", "--dev-result-sha256", "0" * 64,
+              "--oos-events", str(tmp_path / "nope.yaml")]
+    with pytest.raises(StudyRefused, match="does not exist"):
+        entry_study_v1_oos.main(["prepare", *common])
+    assert not (tmp_path / "out").exists()
+
+
+def test_power_table_has_all_cells_and_the_60m_hold():
+    from src.entry_study_v1 import precount as PC
+    counts = {"signals": {"E1:long": {"A": 10, "B": 20, "event_days": 1}}}
+    rows = PC.power_table("P3", counts, 30)
+    assert len(rows) == 10 and rows[0]["n"] == 30 and rows[1]["n"] == 0
+    assert rows[1]["close"]["delta_alpha_0.05"] is None and "60m" in rows[0]
+    assert PC.SD["P3"]["60m"] == pytest.approx(0.0117)
+
+
+def test_e2_pre_cutoff_is_the_paper_constant():
+    from src.daytrade_paper import rules as PR
+    from src.entry_study_v1.config import hhmm
+    assert hhmm(next(c.params for c in CELLS if c.rule == "E2")["pre_cutoff"]) == PR.GAP_PRE_CUTOFF

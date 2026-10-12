@@ -18,7 +18,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.daytrade_paper.external import load_events
 from src.entry_study_v1 import devrun
 from src.entry_study_v1 import gate as G
 from src.entry_study_v1 import mask as M
@@ -27,12 +26,13 @@ from src.entry_study_v1.cli import (
     add_fixed_args,
     cells,
     check_sha,
+    load_oos_calendar,
     pair_symbols,
     reproduction_record,
     require_dev_inputs,
     write_json_once,
 )
-from src.entry_study_v1.config import EVENTS_HISTORY, PREREG_PATH, sha256_file
+from src.entry_study_v1.config import PREREG_PATH
 from src.entry_study_v1.data import (
     DEV_SEGMENTS,
     OOS_END,
@@ -50,9 +50,28 @@ from src.history.oos_unlock import (
 )
 
 SEG_B = DEV_SEGMENTS[1]
-IMPLEMENTATION_PATHS = tuple(sorted(
-    str(p.relative_to(ROOT)) for p in (ROOT / "src" / "entry_study_v1").glob("*.py"))) + (
-    "scripts/entry_study_v1_oos.py",)
+# Everything that affects signals, costs, bars, calendars or the load path.
+IMPLEMENTATION_PATHS = tuple(sorted({
+    *(str(p.relative_to(ROOT)) for p in (ROOT / "src" / "entry_study_v1").glob("*.py")),
+    "scripts/entry_study_v1_oos.py", "src/daytrade_paper/rules.py", "src/daytrade_paper/core.py",
+    "src/daytrade_paper/store.py", "src/daytrade_paper/external.py", "src/history/exchange_calendar.py",
+    "src/history/loader.py", "src/history/oos_guard.py", "src/models.py"}))
+
+
+def check_snapshot_binding(snapshot_file_sha256: str, unlock) -> None:
+    """The snapshot file in use must be the one the verified unlock artifact names."""
+    if snapshot_file_sha256 != unlock.snapshot_hash:
+        raise DataMismatch("oos_snapshot.json hash differs from the snapshot hash in the verified unlock artifact")
+
+
+def oos_gates(seg_data: dict, pairs: dict) -> dict:
+    gates = {}
+    for p, (ref, lo, sh) in pairs.items():
+        syms = (ref, lo, sh)
+        gates[p] = {"g1": G.g1(OOS_SEGMENT, seg_data["OOS"], syms, OOS_EXCLUDED),
+                    "g3": G.g3(OOS_SEGMENT, seg_data["OOS"], syms, OOS_EXCLUDED)}
+        gates[p]["status"] = "PASS" if gates[p]["g1"]["pass"] and gates[p]["g3"]["pass"] else "OOS_INVALID"
+    return gates
 
 
 def _lookback(db, symbols, purpose: str, manifest: dict | None) -> dict:
@@ -83,27 +102,25 @@ def _selected(args):
 
 def prepare(args) -> int:
     _gate, _mask, manifest = require_dev_inputs(args)
+    cal, cal_sha = load_oos_calendar(args.oos_events)  # refuses before any data is read
     sel = _selected(args)
     pairs = pair_symbols({c.pair for c in sel})
     symbols = sorted({s for t in pairs.values() for s in t})
     oos = _oos_rows(args.db, symbols, "coverage")
     seg_data = _joined(_lookback(args.db, symbols, "coverage", manifest), oos)
-    cal = load_events(EVENTS_HISTORY)
-    mask = M.build_mask(pairs, seg_data, (OOS_SEGMENT,), cal, sha256_file(EVENTS_HISTORY), OOS_EXCLUDED)
-    gates = {}
-    for p, (ref, lo, sh) in pairs.items():
-        syms = (ref, lo, sh)
-        gates[p] = {"g1": G.g1(OOS_SEGMENT, seg_data["OOS"], syms, OOS_EXCLUDED),
-                    "g3": G.g3(OOS_SEGMENT, seg_data["OOS"], syms, OOS_EXCLUDED)}
-        gates[p]["status"] = "PASS" if gates[p]["g1"]["pass"] and gates[p]["g3"]["pass"] else "OOS_INVALID"
+    mask = M.build_mask(pairs, seg_data, (OOS_SEGMENT,), cal, cal_sha, OOS_EXCLUDED)
+    gates = oos_gates(seg_data, pairs)
     snapshot = {"window": [OOS_START.isoformat(), OOS_END.isoformat()],
                 "rows": {s: {"sha256": oos[s].row_sha256, "count": oos[s].row_count} for s in symbols}}
     prepared = {"selected": [c.k for c in sel], "gates": gates,
                 "cell_status": {str(c.k): ("OOS_INVALID" if gates[c.pair]["status"] != "PASS" else "READY")
                                 for c in sel},
+                "oos_events_sha256": cal_sha,
                 "reproduction": {**reproduction_record(), "gate_sha256": args.gate_sha256,
                                  "mask_sha256": args.mask_sha256, "data_manifest_sha256": args.data_sha256}}
     out = args.out_dir
+    if any((out / n).exists() for n in ("oos_mask.json", "oos_snapshot.json", "oos_prepare.json")):
+        raise StudyRefused("an OOS output already exists; outputs are write-once")
     print("oos_mask.json sha256", write_json_once(out / "oos_mask.json", mask))
     print("oos_snapshot.json sha256", write_json_once(out / "oos_snapshot.json", snapshot))
     print("oos_prepare.json sha256", write_json_once(out / "oos_prepare.json", prepared))
@@ -113,6 +130,7 @@ def prepare(args) -> int:
 def run(args) -> int:
     _gate, _mask, manifest = require_dev_inputs(args)
     sel = _selected(args)
+    check_sha(args.prepare, args.prepare_sha256, "oos_prepare")
     check_sha(args.oos_mask, args.oos_mask_sha256, "oos_mask")
     check_sha(args.oos_snapshot, args.oos_snapshot_sha256, "oos_snapshot")
     oos_mask = json.loads(args.oos_mask.read_text(encoding="utf-8"))
@@ -120,7 +138,9 @@ def run(args) -> int:
     prepared = json.loads(args.prepare.read_text(encoding="utf-8"))
     grants = dict(kv.split("=", 1) for kv in args.unlock_artifact)
     all_cells = cells()
-    cal = load_events(EVENTS_HISTORY)
+    cal, cal_sha = load_oos_calendar(args.oos_events)
+    if cal_sha != oos_mask["events_calendar_sha256"] or cal_sha != prepared["oos_events_sha256"]:
+        raise DataMismatch("OOS event calendar differs from the one the OOS mask was built with")
     results = {}
     for cell in sel:
         if prepared["cell_status"][str(cell.k)] != "READY":
@@ -131,6 +151,7 @@ def run(args) -> int:
         unlock = load_verified_oos_unlock(grants[str(cell.k)], repo_root=args.repo_root)
         spec = OOSExecutionSpec(cell.strategy_id, PREREG_PATH, "config/entry_study_v1.json",
                                 IMPLEMENTATION_PATHS, args.snapshot_manifest_path, args.snapshot_hash_field)
+        check_snapshot_binding(args.oos_snapshot_sha256, unlock)
         grant = bind_verified_oos_execution(unlock, spec, repo_root=args.repo_root)
         pairs = pair_symbols({cell.pair})
         symbols = sorted(set(pairs[cell.pair]))
@@ -140,9 +161,12 @@ def run(args) -> int:
             if oos[s].row_sha256 != want["sha256"] or oos[s].row_count != want["count"]:
                 raise DataMismatch(f"{s}: OOS rows differ from the fixed snapshot")
         seg_data = _joined(_lookback(args.db, symbols, "performance", manifest), oos)
-        mask = M.build_mask(pairs, seg_data, (OOS_SEGMENT,), cal, sha256_file(EVENTS_HISTORY), OOS_EXCLUDED)
+        mask = M.build_mask(pairs, seg_data, (OOS_SEGMENT,), cal, cal_sha, OOS_EXCLUDED)
         if M.canonical_bytes(mask["pairs"][cell.pair]) != M.canonical_bytes(oos_mask["pairs"][cell.pair]):
             raise DataMismatch("OOS mask rebuilt from the DB differs from the fixed oos_mask.json")
+        again = oos_gates(seg_data, pairs)[cell.pair]
+        if again != prepared["gates"][cell.pair]:
+            raise DataMismatch("OOS G1/G3 recomputed from the loaded rows differ from oos_prepare.json")
         ref, lo, sh = pairs[cell.pair]
         g4 = {lo: G.g4((OOS_SEGMENT,), seg_data, ref, lo, False, OOS_EXCLUDED),
               sh: G.g4((OOS_SEGMENT,), seg_data, ref, sh, True, OOS_EXCLUDED)}
@@ -165,8 +189,10 @@ def main(argv=None) -> int:
         add_fixed_args(sp, approval=(name == "run"))
         sp.add_argument("--dev-result", type=Path, required=True)
         sp.add_argument("--dev-result-sha256", required=True)
+        sp.add_argument("--oos-events", type=Path, default=ROOT / "config" / "daytrade_events_oos_v1.yaml")
     runp = sub.choices["run"]
     runp.add_argument("--prepare", type=Path, required=True, help="oos_prepare.json")
+    runp.add_argument("--prepare-sha256", required=True)
     runp.add_argument("--oos-mask", type=Path, required=True)
     runp.add_argument("--oos-mask-sha256", required=True)
     runp.add_argument("--oos-snapshot", type=Path, required=True)

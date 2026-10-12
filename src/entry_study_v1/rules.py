@@ -6,6 +6,7 @@ Comparisons use float64 values as computed (no rounding). Parameters come from c
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from src.daytrade_paper import rules as R
@@ -70,6 +71,9 @@ def gap_of(day: RefDay, seen: dict[int, Bar], p: dict) -> tuple[float | None, st
     """v1.0 gap exactly as the live Paper computes it (`core.preopen_inputs`)."""
     prior = [PriorSession(day.prev_date, (day.pc_bar,))]
     inp = paper_preopen_inputs(day.day, prior, list(day.pre), sorted(seen.values(), key=lambda b: b.t), {})
+    ref_px = inp["gap_ref_price"]
+    if ref_px is not None and not (math.isfinite(ref_px) and ref_px > 0):
+        raise InvalidRun(f"{day.day}: gap reference price {ref_px!r} is not a finite positive number")
     return inp["gap"], inp["gap_source"]
 
 

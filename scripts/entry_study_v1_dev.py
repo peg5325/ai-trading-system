@@ -13,15 +13,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.daytrade_paper.external import load_events
 from src.entry_study_v1 import devrun
+from src.entry_study_v1 import mask as M
 from src.entry_study_v1.cli import (
     add_fixed_args,
     cells,
+    check_mask_rebuild,
     passing_pairs,
     reproduction_record,
     require_dev_inputs,
     write_json_once,
 )
+from src.entry_study_v1.config import EVENTS_HISTORY, sha256_file
 from src.entry_study_v1.data import DEV_SEGMENTS
 from src.entry_study_v1.pipeline import (
     load_dev_segments,
@@ -39,6 +43,8 @@ def main(argv=None) -> int:
     symbols = sorted({s for t in pairs.values() for s in t})
     seg_data = load_dev_segments(args.db, symbols, purpose="performance")
     verify_against_manifest(seg_data, manifest)  # before any trade is built
+    cal = load_events(EVENTS_HISTORY)
+    check_mask_rebuild(mask, M.build_mask(pairs, seg_data, DEV_SEGMENTS, cal, sha256_file(EVENTS_HISTORY)))
     all_cells = cells()
     results = {p: pair_trades(p, all_cells, mask["pairs"][p], seg_data, DEV_SEGMENTS) for p in pairs}
     out = devrun.run_dev(all_cells, results)

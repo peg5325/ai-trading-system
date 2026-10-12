@@ -70,6 +70,10 @@ def require_dev_inputs(args) -> tuple[dict, dict, dict]:
     gate = json.loads(args.gate.read_text(encoding="utf-8"))
     mask = json.loads(args.mask.read_text(encoding="utf-8"))
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
+    if mask.get("gate_sha256") != args.gate_sha256:
+        raise DataMismatch("mask was built from a different gate.json than --gate-sha256")
+    if mask.get("data_manifest_sha256") != args.data_sha256:
+        raise DataMismatch("mask was built with a different data manifest than --data-sha256")
     if mask["events_calendar_sha256"] != sha256_file(EVENTS_HISTORY):
         raise DataMismatch("event calendar differs from the one the mask was built with")
     if git_state()["dirty_tracked"] and not args.allow_dirty:
@@ -83,6 +87,28 @@ def passing_pairs(gate: dict, mask: dict) -> dict:
     if set(live) != set(mask["pairs"]):
         raise DataMismatch(f"mask pairs {sorted(mask['pairs'])} != gate PASS pairs {sorted(live)}")
     return {p: (m["ref"], m["long"], m["short"]) for p, m in mask["pairs"].items()}
+
+
+def check_mask_rebuild(mask: dict, rebuilt: dict) -> None:
+    """The fixed mask must equal the one rebuilt from the verified DB rows, pair by pair."""
+    if set(rebuilt["pairs"]) != set(mask["pairs"]):
+        raise DataMismatch("rebuilt mask has different pairs than the fixed mask")
+    for p, m in rebuilt["pairs"].items():
+        if canonical_bytes(m) != canonical_bytes(mask["pairs"][p]):
+            raise DataMismatch(f"mask for {p} rebuilt from the DB rows differs from the fixed mask")
+
+
+def load_oos_calendar(path: Path) -> tuple[dict, str]:
+    """The OOS event calendar (separate from the development history file); it must cover the whole OOS span."""
+    from src.daytrade_paper.external import load_events
+    from src.entry_study_v1.data import OOS_END, OOS_START
+    if not Path(path).exists():
+        raise StudyRefused(f"OOS event calendar {path} does not exist; it must be authored (with sources) first")
+    cal = load_events(Path(path))
+    cov = cal.get("coverage") or {}
+    if not (str(cov.get("start")) <= OOS_START.isoformat() and str(cov.get("end")) >= OOS_END.isoformat()):
+        raise StudyRefused(f"OOS event calendar coverage {cov} does not cover {OOS_START}..{OOS_END}")
+    return cal, sha256_file(Path(path))
 
 
 def cells():

@@ -45,9 +45,10 @@ def main(argv=None) -> int:
     seg_data = load_dev_segments(args.db, symbols, purpose="performance")
     cal = load_events(EVENTS_HISTORY)
     mask = M.build_mask(pairs, seg_data, DEV_SEGMENTS, cal, sha256_file(EVENTS_HISTORY))
-    mask["gate_sha256"] = args.gate_sha256
-    mask["reproduction"] = reproduction_record()
     manifest = M.build_manifest(seg_data, DEV_SEGMENTS)
+    mask["gate_sha256"] = args.gate_sha256
+    mask["data_manifest_sha256"] = M.sha256_bytes(M.canonical_bytes(manifest))
+    mask["reproduction"] = reproduction_record()
     print("mask.json sha256", write_json_once(args.out_dir / "mask.json", mask))
     print("data_manifest.json sha256", write_json_once(args.out_dir / "data_manifest.json", manifest))
     for p, m in mask["pairs"].items():
