@@ -20,11 +20,11 @@ from src.longhist import quality as Q
 from src.longhist.loader import (
     SEAL_START,
     ManifestMismatch,
+    _read_verified,
     assert_performance_window,
     load_aux,
     load_daily,
     pinned_manifest_sha256,
-    read_verified,
 )
 from src.models import ET
 
@@ -165,15 +165,15 @@ def test_loader_seal_guard(tmp_path):
 
 def test_manifest_sha_refusal(tmp_path):
     root, sha = _mini_root(tmp_path)
-    assert read_verified("norm/yahoo/SPY_daily.csv", root, sha)
+    assert _read_verified("norm/yahoo/SPY_daily.csv", root, sha)
     with pytest.raises(ManifestMismatch):
-        read_verified("norm/yahoo/SPY_daily.csv", root, "0" * 64)
+        _read_verified("norm/yahoo/SPY_daily.csv", root, "0" * 64)
     with pytest.raises(ManifestMismatch):  # default = pinned SHA in config/longhist_data_v1.json
-        read_verified("norm/yahoo/SPY_daily.csv", root)
+        _read_verified("norm/yahoo/SPY_daily.csv", root)
     with pytest.raises(ManifestMismatch):
         load_daily("SPY", purpose="coverage", root=root)
     with pytest.raises(ManifestMismatch):
-        read_verified("norm/yahoo/QQQ_daily.csv", root, sha)
+        _read_verified("norm/yahoo/QQQ_daily.csv", root, sha)
     p = root / "norm/yahoo/SPY_daily.csv"
     p.write_text(p.read_text().replace("2025-07-18,1.0", "2025-07-18,2.0"))
     with pytest.raises(ManifestMismatch):
@@ -327,3 +327,53 @@ def test_events_yaml_reproducible_from_raw():
         pytest.skip("local longhist data is not the pinned manifest")
     ev = F.events_from_raw(default_root())
     assert yaml.safe_load(EVENTS.read_text()) == yaml.safe_load(yaml.safe_dump(ev, sort_keys=False))
+
+
+# Restricted helpers: only the listed files may reference them (AST: names, attributes, imports).
+RESTRICTED_REFS = {
+    "_read_verified": {os.path.join("src", "longhist", "loader.py")},
+    "read_verified": {os.path.join("src", "longhist", "loader.py")},
+    "coverage_rows": {os.path.join("src", "entry_study_v1", "data.py"),
+                      os.path.join("src", "entry_study_v1", "coverage_read.py")},
+}
+
+
+def _restricted_refs(tree: ast.AST) -> list[tuple[int, str]]:
+    hits = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Name) and n.id in RESTRICTED_REFS:
+            hits.append((n.lineno, n.id))
+        elif isinstance(n, ast.Attribute) and n.attr in RESTRICTED_REFS:
+            hits.append((n.lineno, n.attr))
+        elif isinstance(n, ast.ImportFrom):
+            hits += [(n.lineno, a.name) for a in n.names if a.name in RESTRICTED_REFS]
+    return hits
+
+
+def test_restricted_helpers_only_in_approved_files():
+    """_read_verified (sealed files readable) only in the longhist loader; coverage_rows only in entry data.py."""
+    offenders = []
+    for base in ("src", "scripts", "analysis"):
+        for dirpath, _d, files in os.walk(REPO / base):
+            for name in sorted(files):
+                if not name.endswith(".py"):
+                    continue
+                path = Path(dirpath) / name
+                rel = os.path.relpath(path, REPO)
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+                offenders += [f"{rel}:{ln}: {nm}" for ln, nm in _restricted_refs(tree)
+                              if rel not in RESTRICTED_REFS[nm]]
+    assert offenders == [], offenders
+
+
+def test_restricted_ref_detection_catches_all_forms():
+    src = (
+        "from src.longhist.loader import _read_verified as rv\n"
+        "import src.longhist.loader as L\n"
+        "from src.entry_study_v1.coverage_read import coverage_rows\n"
+        "L._read_verified('norm/yahoo/SPY_daily.csv')\n"
+        "f = coverage_rows\n"
+        "L.read_verified('x')\n"
+    )
+    names = sorted(nm for _, nm in _restricted_refs(ast.parse(src)))
+    assert names == ["_read_verified", "_read_verified", "coverage_rows", "coverage_rows", "read_verified"]

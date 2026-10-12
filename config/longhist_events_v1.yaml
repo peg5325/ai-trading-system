@@ -33,8 +33,9 @@ notes:
   is cross-checked against BLS/BEA (docs/research/DATA_LONGHIST_V1.md).
 types:
   CPI:
-    definition: BLS Consumer Price Index release day (FRED release dates); dates before 1993-01-01 are not used (low confidence);
-      months where FRED lists more than one date are left out and listed under `unresolved`
+    definition: 'BLS Consumer Price Index release day (FRED release dates); dates before 1993-01-01 are not used (low confidence);
+      months where FRED lists more than one date are left out and listed under `unresolved`. Such a month is UNKNOWN, not
+      ''no release'': it must be resolved from BLS/BEA before any event-study use'
     source: FRED release 10 'Consumer Price Index'
     source_url: https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc
     raw_sha256: 580a06e1b2c6081a8c4aaaf5381b7430c9e007a1da2450773e4f6eb16d893a2c
@@ -428,8 +429,9 @@ types:
     - '2026-08-12'
     - '2026-09-11'
   NFP:
-    definition: BLS Employment Situation release day (FRED release dates); dates before 1993-01-01 are not used (low confidence);
-      months where FRED lists more than one date are left out and listed under `unresolved`
+    definition: 'BLS Employment Situation release day (FRED release dates); dates before 1993-01-01 are not used (low confidence);
+      months where FRED lists more than one date are left out and listed under `unresolved`. Such a month is UNKNOWN, not
+      ''no release'': it must be resolved from BLS/BEA before any event-study use'
     source: FRED release 50 'Employment Situation'
     source_url: https://api.stlouisfed.org/fred/release/dates?release_id=50&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc
     raw_sha256: 7c264387e635db4aebec2bfb8e03b93e3c485f9c21270cc49dc20f87c1828621
@@ -838,8 +840,9 @@ types:
     - '2026-09-04'
     - '2026-10-02'
   PCE:
-    definition: BEA Personal Income and Outlays release day (FRED release dates); dates before 1993-01-01 are not used (low
-      confidence); months where FRED lists more than one date are left out and listed under `unresolved`
+    definition: 'BEA Personal Income and Outlays release day (FRED release dates); dates before 1993-01-01 are not used (low
+      confidence); months where FRED lists more than one date are left out and listed under `unresolved`. Such a month is
+      UNKNOWN, not ''no release'': it must be resolved from BLS/BEA before any event-study use'
     source: FRED release 54 'Personal Income and Outlays'
     source_url: https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc
     raw_sha256: c8027bbc859b50a4ed0a441eeb9a281b24d04b3c0bea11e8b6ff26d381a0bd71

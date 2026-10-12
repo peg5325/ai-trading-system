@@ -331,7 +331,8 @@ def events_yaml(fred: dict, fomc: list[dict], fomc_unresolved: list[dict], days:
         kept = [d for d in f["dates"] if d >= FRED_START and d[:7] not in amb_months]
         types[typ] = {"definition": defn + (f"; dates before {FRED_START} are not used (low confidence); months "
                                             "where FRED lists more than one date are left out and listed under "
-                                            "`unresolved`"),
+                                            "`unresolved`. Such a month is UNKNOWN, not 'no release': it must be "
+                                            "resolved from BLS/BEA before any event-study use"),
                       "source": f"FRED release {f['release_id']} '{f['name']}'",
                       "source_url": f["source_url"], "raw_sha256": f["raw_sha256"],
                       "fetched_utc": f["fetched_utc"],

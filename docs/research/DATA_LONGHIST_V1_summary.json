@@ -1987,7 +1987,7 @@
    "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
   }
  ],
- "events_yaml_sha256": "b8b602c713d235802a35ca581645fb327bb6aa89c057cd4deb59edff3b1f7f06",
+ "events_yaml_sha256": "2e46f3d6a687adf528a939b3104330de793fc30a25c14adc0b8d65d3fd84116b",
  "event_crosscheck": [
   {
    "ref_file": "config/daytrade_events_history_v1.yaml",

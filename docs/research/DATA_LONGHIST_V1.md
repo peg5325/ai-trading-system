@@ -107,7 +107,7 @@ Toss는 `candle_history` interval 1d를 `research_load(purpose="coverage")`로 �
 
 ## 5. 이벤트 날짜 (`config/longhist_events_v1.yaml`)
 
-events yaml SHA-256: `b8b602c713d235802a35ca581645fb327bb6aa89c057cd4deb59edff3b1f7f06`
+events yaml SHA-256: `2e46f3d6a687adf528a939b3104330de793fc30a25c14adc0b8d65d3fd84116b`
 
 | 종류 | 출처 | 날짜 수 | 첫날 | 마지막 날 | 기준 달력 기간 안 | 그중 휴장일 | 연간 개수가 기대값과 다른 해(1993~) |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -123,7 +123,7 @@ events yaml SHA-256: `b8b602c713d235802a35ca581645fb327bb6aa89c057cd4deb59edff3b
 **미해결(unresolved) 107건**:
 - FOMC 2003 `September 15 Meeting - 2003` — scheduled-meeting heading without a Statement on the Fed page; not taken as a decision day (https://www.federalreserve.gov/monetarypolicy/fomchistorical2003.htm)
 
-FRED가 한 달에 날짜를 두 개 이상 올린 달(1993-01-01 이후). 어느 쪽이 정규 월간 발표인지 정하지 않고 이 달들의 날짜는 yaml `types.<종류>.dates`에서 모두 뺐다(하나는 계절조정 개정·벤치마크 등 데이터만 갱신한 날일 수 있다). 연구에서 쓰기 전에 BLS·BEA 원문으로 확인해야 한다.
+FRED가 한 달에 날짜를 두 개 이상 올린 달(1993-01-01 이후). 어느 쪽이 정규 월간 발표인지 정하지 않고 이 달들의 날짜는 yaml `types.<종류>.dates`에서 모두 뺐다(하나는 계절조정 개정·벤치마크 등 데이터만 갱신한 날일 수 있다). **이 달들은 '발표 없음'이 아니라 '모름'이다.** 이벤트 연구에 쓰기 전에 BLS·BEA 원문으로 발표일을 확정해야 하며, 그 전에는 이 달을 이벤트 없는 달로 취급하면 안 된다.
 
 | 종류 | 달 | 날짜 |
 | --- | --- | --- |

@@ -71,7 +71,7 @@ def assert_performance_window(start, end) -> None:
             f"(on/after {SEAL_START}). Use purpose='coverage' for date checks only.")
 
 
-def read_verified(rel: str, root: Path | None = None, expected_manifest_sha256: str | None = None) -> bytes:
+def _read_verified(rel: str, root: Path | None = None, expected_manifest_sha256: str | None = None) -> bytes:
     """Bytes of `rel` after checking the manifest against the pinned SHA and the file against the manifest."""
     root = Path(root) if root else default_root()
     expected = expected_manifest_sha256 or pinned_manifest_sha256()
@@ -101,7 +101,7 @@ def load_daily(symbol: str, start=None, end=None, purpose: str = "performance", 
     if purpose == "performance":
         assert_performance_window(start, end)
     s, e = _as_date(start), _as_date(end)
-    data = read_verified(SERIES[symbol], root, expected_manifest_sha256)
+    data = _read_verified(SERIES[symbol], root, expected_manifest_sha256)
     df = pd.read_csv(io.BytesIO(data), dtype={"date": str})
     if s is not None:
         df = df[df["date"] >= s.isoformat()]
@@ -122,4 +122,4 @@ def load_aux(rel: str, *, root: Path | None = None, expected_manifest_sha256: st
     """Session calendar and dividend/split event files (dates, amounts, ratios — no prices), verified."""
     if rel not in AUX_FILES and not (rel.startswith("norm/yahoo/") and rel.endswith(AUX_SUFFIXES)):
         raise ValueError(f"load_aux reads only the session calendar and dividend/split files, not {rel!r}")
-    return pd.read_csv(io.BytesIO(read_verified(rel, root, expected_manifest_sha256)), dtype={"date": str})
+    return pd.read_csv(io.BytesIO(_read_verified(rel, root, expected_manifest_sha256)), dtype={"date": str})
