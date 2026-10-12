@@ -1,0 +1,663 @@
+{
+ "version": "entry-study-v1",
+ "prereg": "docs/research/PREREG_DAYTRADE_ENTRY_STUDY_V1.md",
+ "cells": [
+  {
+   "k": 0,
+   "strategy_id": "entry-study-v1-cell-0",
+   "pair": "P1",
+   "rule": "E1",
+   "side": "long",
+   "etf": "SOXL",
+   "ref": "SMH",
+   "params": {
+    "signal_bar_start": "09:34",
+    "entry": "09:35",
+    "compare": "close_vs_open",
+    "equal": "no_trade"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 1,
+   "strategy_id": "entry-study-v1-cell-1",
+   "pair": "P1",
+   "rule": "E1",
+   "side": "short",
+   "etf": "SOXS",
+   "ref": "SMH",
+   "params": {
+    "signal_bar_start": "09:34",
+    "entry": "09:35",
+    "compare": "close_vs_open",
+    "equal": "no_trade"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 2,
+   "strategy_id": "entry-study-v1-cell-2",
+   "pair": "P1",
+   "rule": "E2",
+   "side": "long",
+   "etf": "SOXL",
+   "ref": "SMH",
+   "params": {
+    "gap_min_abs": 0.003,
+    "pre_cutoff": "09:25",
+    "flow_bar_start": "09:44",
+    "entry": "09:45",
+    "flow": "close_minus_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 3,
+   "strategy_id": "entry-study-v1-cell-3",
+   "pair": "P1",
+   "rule": "E2",
+   "side": "short",
+   "etf": "SOXS",
+   "ref": "SMH",
+   "params": {
+    "gap_min_abs": 0.003,
+    "pre_cutoff": "09:25",
+    "flow_bar_start": "09:44",
+    "entry": "09:45",
+    "flow": "close_minus_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 4,
+   "strategy_id": "entry-study-v1-cell-4",
+   "pair": "P1",
+   "rule": "E3",
+   "side": "long",
+   "etf": "SOXL",
+   "ref": "SMH",
+   "params": {
+    "sigma_sessions": 14,
+    "multiplier": 1.0,
+    "first_check_bar_start": "10:00",
+    "last_check_bar_start": "15:00",
+    "entry": "next_minute_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 5,
+   "strategy_id": "entry-study-v1-cell-5",
+   "pair": "P1",
+   "rule": "E3",
+   "side": "short",
+   "etf": "SOXS",
+   "ref": "SMH",
+   "params": {
+    "sigma_sessions": 14,
+    "multiplier": 1.0,
+    "first_check_bar_start": "10:00",
+    "last_check_bar_start": "15:00",
+    "entry": "next_minute_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 6,
+   "strategy_id": "entry-study-v1-cell-6",
+   "pair": "P1",
+   "rule": "E4",
+   "side": "long",
+   "etf": "SOXL",
+   "ref": "SMH",
+   "params": {
+    "signal_bar_start": "09:59",
+    "entry": "15:30"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 7,
+   "strategy_id": "entry-study-v1-cell-7",
+   "pair": "P1",
+   "rule": "E4",
+   "side": "short",
+   "etf": "SOXS",
+   "ref": "SMH",
+   "params": {
+    "signal_bar_start": "09:59",
+    "entry": "15:30"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 8,
+   "strategy_id": "entry-study-v1-cell-8",
+   "pair": "P1",
+   "rule": "E5",
+   "side": "long",
+   "etf": "SOXL",
+   "ref": "SMH",
+   "params": {
+    "signal_bar_start": "14:44",
+    "entry": "14:45",
+    "threshold": 0.015,
+    "sensitivity_thresholds": [
+     0.01,
+     0.02
+    ]
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 9,
+   "strategy_id": "entry-study-v1-cell-9",
+   "pair": "P1",
+   "rule": "E5",
+   "side": "short",
+   "etf": "SOXS",
+   "ref": "SMH",
+   "params": {
+    "signal_bar_start": "14:44",
+    "entry": "14:45",
+    "threshold": 0.015,
+    "sensitivity_thresholds": [
+     0.01,
+     0.02
+    ]
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 10,
+   "strategy_id": "entry-study-v1-cell-10",
+   "pair": "P2",
+   "rule": "E1",
+   "side": "long",
+   "etf": "TQQQ",
+   "ref": "QQQ",
+   "params": {
+    "signal_bar_start": "09:34",
+    "entry": "09:35",
+    "compare": "close_vs_open",
+    "equal": "no_trade"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 11,
+   "strategy_id": "entry-study-v1-cell-11",
+   "pair": "P2",
+   "rule": "E1",
+   "side": "short",
+   "etf": "SQQQ",
+   "ref": "QQQ",
+   "params": {
+    "signal_bar_start": "09:34",
+    "entry": "09:35",
+    "compare": "close_vs_open",
+    "equal": "no_trade"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 12,
+   "strategy_id": "entry-study-v1-cell-12",
+   "pair": "P2",
+   "rule": "E2",
+   "side": "long",
+   "etf": "TQQQ",
+   "ref": "QQQ",
+   "params": {
+    "gap_min_abs": 0.003,
+    "pre_cutoff": "09:25",
+    "flow_bar_start": "09:44",
+    "entry": "09:45",
+    "flow": "close_minus_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 13,
+   "strategy_id": "entry-study-v1-cell-13",
+   "pair": "P2",
+   "rule": "E2",
+   "side": "short",
+   "etf": "SQQQ",
+   "ref": "QQQ",
+   "params": {
+    "gap_min_abs": 0.003,
+    "pre_cutoff": "09:25",
+    "flow_bar_start": "09:44",
+    "entry": "09:45",
+    "flow": "close_minus_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 14,
+   "strategy_id": "entry-study-v1-cell-14",
+   "pair": "P2",
+   "rule": "E3",
+   "side": "long",
+   "etf": "TQQQ",
+   "ref": "QQQ",
+   "params": {
+    "sigma_sessions": 14,
+    "multiplier": 1.0,
+    "first_check_bar_start": "10:00",
+    "last_check_bar_start": "15:00",
+    "entry": "next_minute_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 15,
+   "strategy_id": "entry-study-v1-cell-15",
+   "pair": "P2",
+   "rule": "E3",
+   "side": "short",
+   "etf": "SQQQ",
+   "ref": "QQQ",
+   "params": {
+    "sigma_sessions": 14,
+    "multiplier": 1.0,
+    "first_check_bar_start": "10:00",
+    "last_check_bar_start": "15:00",
+    "entry": "next_minute_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 16,
+   "strategy_id": "entry-study-v1-cell-16",
+   "pair": "P2",
+   "rule": "E4",
+   "side": "long",
+   "etf": "TQQQ",
+   "ref": "QQQ",
+   "params": {
+    "signal_bar_start": "09:59",
+    "entry": "15:30"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 17,
+   "strategy_id": "entry-study-v1-cell-17",
+   "pair": "P2",
+   "rule": "E4",
+   "side": "short",
+   "etf": "SQQQ",
+   "ref": "QQQ",
+   "params": {
+    "signal_bar_start": "09:59",
+    "entry": "15:30"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 18,
+   "strategy_id": "entry-study-v1-cell-18",
+   "pair": "P2",
+   "rule": "E5",
+   "side": "long",
+   "etf": "TQQQ",
+   "ref": "QQQ",
+   "params": {
+    "signal_bar_start": "14:44",
+    "entry": "14:45",
+    "threshold": 0.015,
+    "sensitivity_thresholds": [
+     0.01,
+     0.02
+    ]
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 19,
+   "strategy_id": "entry-study-v1-cell-19",
+   "pair": "P2",
+   "rule": "E5",
+   "side": "short",
+   "etf": "SQQQ",
+   "ref": "QQQ",
+   "params": {
+    "signal_bar_start": "14:44",
+    "entry": "14:45",
+    "threshold": 0.015,
+    "sensitivity_thresholds": [
+     0.01,
+     0.02
+    ]
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 20,
+   "strategy_id": "entry-study-v1-cell-20",
+   "pair": "P3",
+   "rule": "E1",
+   "side": "long",
+   "etf": "SPXL",
+   "ref": "SPY",
+   "params": {
+    "signal_bar_start": "09:34",
+    "entry": "09:35",
+    "compare": "close_vs_open",
+    "equal": "no_trade"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 21,
+   "strategy_id": "entry-study-v1-cell-21",
+   "pair": "P3",
+   "rule": "E1",
+   "side": "short",
+   "etf": "SPXS",
+   "ref": "SPY",
+   "params": {
+    "signal_bar_start": "09:34",
+    "entry": "09:35",
+    "compare": "close_vs_open",
+    "equal": "no_trade"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 22,
+   "strategy_id": "entry-study-v1-cell-22",
+   "pair": "P3",
+   "rule": "E2",
+   "side": "long",
+   "etf": "SPXL",
+   "ref": "SPY",
+   "params": {
+    "gap_min_abs": 0.003,
+    "pre_cutoff": "09:25",
+    "flow_bar_start": "09:44",
+    "entry": "09:45",
+    "flow": "close_minus_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 23,
+   "strategy_id": "entry-study-v1-cell-23",
+   "pair": "P3",
+   "rule": "E2",
+   "side": "short",
+   "etf": "SPXS",
+   "ref": "SPY",
+   "params": {
+    "gap_min_abs": 0.003,
+    "pre_cutoff": "09:25",
+    "flow_bar_start": "09:44",
+    "entry": "09:45",
+    "flow": "close_minus_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 24,
+   "strategy_id": "entry-study-v1-cell-24",
+   "pair": "P3",
+   "rule": "E3",
+   "side": "long",
+   "etf": "SPXL",
+   "ref": "SPY",
+   "params": {
+    "sigma_sessions": 14,
+    "multiplier": 1.0,
+    "first_check_bar_start": "10:00",
+    "last_check_bar_start": "15:00",
+    "entry": "next_minute_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 25,
+   "strategy_id": "entry-study-v1-cell-25",
+   "pair": "P3",
+   "rule": "E3",
+   "side": "short",
+   "etf": "SPXS",
+   "ref": "SPY",
+   "params": {
+    "sigma_sessions": 14,
+    "multiplier": 1.0,
+    "first_check_bar_start": "10:00",
+    "last_check_bar_start": "15:00",
+    "entry": "next_minute_open"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 26,
+   "strategy_id": "entry-study-v1-cell-26",
+   "pair": "P3",
+   "rule": "E4",
+   "side": "long",
+   "etf": "SPXL",
+   "ref": "SPY",
+   "params": {
+    "signal_bar_start": "09:59",
+    "entry": "15:30"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 27,
+   "strategy_id": "entry-study-v1-cell-27",
+   "pair": "P3",
+   "rule": "E4",
+   "side": "short",
+   "etf": "SPXS",
+   "ref": "SPY",
+   "params": {
+    "signal_bar_start": "09:59",
+    "entry": "15:30"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 28,
+   "strategy_id": "entry-study-v1-cell-28",
+   "pair": "P3",
+   "rule": "E5",
+   "side": "long",
+   "etf": "SPXL",
+   "ref": "SPY",
+   "params": {
+    "signal_bar_start": "14:44",
+    "entry": "14:45",
+    "threshold": 0.015,
+    "sensitivity_thresholds": [
+     0.01,
+     0.02
+    ]
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 29,
+   "strategy_id": "entry-study-v1-cell-29",
+   "pair": "P3",
+   "rule": "E5",
+   "side": "short",
+   "etf": "SPXS",
+   "ref": "SPY",
+   "params": {
+    "signal_bar_start": "14:44",
+    "entry": "14:45",
+    "threshold": 0.015,
+    "sensitivity_thresholds": [
+     0.01,
+     0.02
+    ]
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  }
+ ],
+ "ranking": {
+  "max_cells": 2,
+  "order": [
+   "holm_adjusted_p asc",
+   "mean_net_base_close desc",
+   "n desc",
+   "cell_index asc"
+  ]
+ }
+}
