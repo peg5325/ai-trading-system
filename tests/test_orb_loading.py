@@ -72,6 +72,12 @@ _ALLOWED_COVERAGE_STRING = {
     os.path.join("scripts", "history_eval_slices.py"),        # 검증된 coverage-only 스크립트
     os.path.join("scripts", "resampler_parity_check.py"),     # 검증된 coverage-only 스크립트
     os.path.join("scripts", "prereg_orb_coverage_probe.py"),  # §5.5 봉 개수만 세는 ORB coverage probe
+    # 장기 일봉 품질 점검: Toss 1d를 coverage로 읽고 2025-07-21 이전 날짜만 Yahoo와 가격 비율 대조
+    os.path.join("scripts", "longhist_quality.py"),
+    # 진입 연구 G2: 구간 앞·사이의 정규장 날짜만 센다(가격·수익률 없음)
+    os.path.join("src", "entry_study_v1", "gate.py"),
+    # 진입 연구 coverage 전용 읽기(게이트·manifest·행 해시) — 수익률 계산 없음
+    os.path.join("src", "entry_study_v1", "coverage_read.py"),
 }
 # R5-4/R5-5 후속(같은 원칙 적용) — `src/history/oos_guard.py` 는 예전 소스-텍스트 정규식
 # 스캔 시절엔 이 목록에 있었다(그 파일 docstring/주석이 `purpose='coverage'` 를 언급해서).
@@ -806,6 +812,60 @@ def test_research_load_calls_never_pass_unlock_and_use_intraday_track():
             ),
         ))
     assert offenders == [], offenders
+
+
+# OOS 개봉 경로 이름: 정의처(oos_guard.py) 밖에서는 아래 승인 파일·이름만 허용한다.
+_GRANT_NAMES = frozenset({"research_load_granted", "assert_window_unlocked", "execution_grant"})
+_GRANT_DEFINER = os.path.join("src", "history", "oos_guard.py")
+_ALLOWED_GRANT_USE = {
+    # 진입 연구 OOS 실행(load_symbol grant 분기). 추세 전환 OOS 코드는 이 함수를 거친다.
+    os.path.join("src", "entry_study_v1", "data.py"): frozenset({"research_load_granted", "execution_grant"}),
+}
+
+
+def _grant_refs_in_tree(tree: ast.AST) -> list[tuple[int, str]]:
+    """research_load_granted·assert_window_unlocked·execution_grant 의 이름·속성·import·키워드·매개변수 참조."""
+    hits: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id in _GRANT_NAMES:
+            hits.append((node.lineno, node.id))
+        elif isinstance(node, ast.Attribute) and node.attr in _GRANT_NAMES:
+            hits.append((node.lineno, node.attr))
+        elif isinstance(node, ast.ImportFrom):
+            hits.extend((node.lineno, a.name) for a in node.names if a.name in _GRANT_NAMES)
+        elif isinstance(node, ast.keyword) and node.arg in _GRANT_NAMES:
+            hits.append((getattr(node, "lineno", 0), node.arg))
+        elif isinstance(node, ast.arg) and node.arg in _GRANT_NAMES:
+            hits.append((node.lineno, node.arg))
+    return hits
+
+
+def test_grant_path_names_only_in_approved_files():
+    """OOS grant 경로(research_load_granted·assert_window_unlocked·execution_grant)는 oos_guard.py 와
+    승인 파일의 승인 이름에서만 나타난다(AST — docstring/주석은 대상 아님)."""
+    offenders = []
+    for path in sorted(_orb_scan_py_files()):
+        rel = os.path.relpath(path, REPO)
+        if rel == _GRANT_DEFINER:
+            continue
+        with open(path, encoding="utf-8") as f:
+            tree = ast.parse(f.read(), filename=path)
+        allowed = _ALLOWED_GRANT_USE.get(rel, frozenset())
+        offenders += [f"{rel}:{ln}: {name}" for ln, name in _grant_refs_in_tree(tree) if name not in allowed]
+    assert offenders == [], offenders
+
+
+def test_grant_ref_detection_catches_all_forms():
+    src = (
+        "from src.history.oos_guard import assert_window_unlocked, research_load_granted as rg\n"
+        "import src.history.oos_guard as g\n"
+        "def f(execution_grant=None):\n"
+        "    g.assert_window_unlocked(None, None, track='x', strategy_id=None, execution_grant=None)\n"
+        "    rg(1, 2, 3, start=None, end=None, track='x', strategy_id='s', execution_grant=None)\n"
+    )
+    names = sorted(n for _, n in _grant_refs_in_tree(ast.parse(src)))
+    assert names == ["assert_window_unlocked", "assert_window_unlocked", "execution_grant", "execution_grant",
+                     "execution_grant", "research_load_granted"]
 
 
 def test_research_load_offender_detection_rule_actually_catches_kwargs_and_attribute_and_alias(

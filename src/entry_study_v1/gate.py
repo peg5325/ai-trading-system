@@ -12,7 +12,7 @@ from src.entry_study_v1.bars import candle_bar
 from src.entry_study_v1.data import Segment, SymbolData, et_midnight
 from src.entry_study_v1.mask import is_full_session
 from src.history import exchange_calendar as xcal
-from src.history.oos_guard import research_load
+from src.history.oos_guard import TRACK_INTRADAY, research_load
 
 GATE_SCHEMA = "entry_study_v1_gate/v1"
 G1_MIN = 0.95
@@ -91,7 +91,7 @@ def boundary_dates(db, symbols: tuple[str, ...], segments: tuple[Segment, ...]) 
         for sym in symbols:
             dates: set[str] = set()
             for c in research_load(str(db), sym, "1m", start=et_midnight(lo), end=et_midnight(hi),
-                                   purpose="coverage"):
+                                   purpose="coverage", track=TRACK_INTRADAY):
                 parsed = candle_bar(c)
                 if parsed is not None and parsed[1] == "REGULAR":
                     dates.add(parsed[0])

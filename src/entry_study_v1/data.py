@@ -20,7 +20,13 @@ from src.entry_study_v1.bars import (
     label_minute,
     row_line,
 )
-from src.history.oos_guard import OOSExecutionGrant, research_load
+from src.entry_study_v1.coverage_read import coverage_rows
+from src.history.oos_guard import (
+    TRACK_INTRADAY,
+    OOSExecutionGrant,
+    research_load,
+    research_load_granted,
+)
 from src.models import ET
 
 DEV_CUTOFF = datetime(2026, 1, 21, tzinfo=ET)
@@ -113,8 +119,15 @@ def load_symbol(db, symbol: str, d0: Date, d1: Date, *, purpose: str, dev: bool 
     for lo, hi in month_chunks(d0, d1):
         if dev:
             assert_dev_window(lo, hi)
-        kwargs = {"strategy_id": strategy_id, "execution_grant": grant} if grant is not None else {}
-        for c in research_load(str(db), symbol, "1m", start=lo, end=hi, purpose=purpose, **kwargs):
+        if purpose == "coverage":
+            rows = coverage_rows(db, symbol, lo, hi)
+        elif grant is not None:
+            rows = research_load_granted(str(db), symbol, "1m", start=lo, end=hi, track=TRACK_INTRADAY,
+                                         strategy_id=strategy_id, execution_grant=grant)
+        else:
+            rows = research_load(str(db), symbol, "1m", start=lo, end=hi, purpose="performance",
+                                 track=TRACK_INTRADAY)
+        for c in rows:
             out.row_count += 1
             h.update(row_line(c))
             parsed = candle_bar(c)

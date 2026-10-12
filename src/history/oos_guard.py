@@ -297,3 +297,33 @@ def research_load(
             execution_grant=execution_grant,
         )
     return load_candles(db_path, symbol, interval, start=start, end=end, market=market)
+
+
+def research_load_granted(
+    db_path: str,
+    symbol: str,
+    interval: str,
+    *,
+    start: datetime | None,
+    end: datetime | None,
+    track: str,
+    strategy_id: str | None,
+    execution_grant: OOSExecutionGrant,
+    market: str | None = None,
+) -> list[Candle]:
+    """검증된 실행 grant 로 성과 경로를 여는 유일한 승인 로더.
+
+    `research_load(purpose="performance")` 의 성과 분기와 같다: grant 가 None 이면 거부하고,
+    `assert_window_unlocked` 를 정확히 같은 인자로 먼저 통과한 뒤에만 `load_candles` 로 읽는다.
+    호출 가능한 파일은 경계 테스트(tests/test_orb_loading.py)가 고정한다.
+    """
+    if execution_grant is None:
+        raise OOSLockError("research_load_granted 는 OOSExecutionGrant 가 필요하다(None 거부)")
+    assert_window_unlocked(
+        start,
+        end,
+        track=track,
+        strategy_id=strategy_id,
+        execution_grant=execution_grant,
+    )
+    return load_candles(db_path, symbol, interval, start=start, end=end, market=market)

@@ -26,6 +26,7 @@ from src.history.oos_guard import (
     guard_returns_for_candles,
     overlaps_blind_oos,
     research_load,
+    research_load_granted,
 )
 from src.history.store import ImportStats
 from src.models import Candle
@@ -189,3 +190,35 @@ def test_guard_returns_for_candles(tmp_path):
         strategy_id="p0-us30-orb",
         execution_grant=_valid_grant(),
     )  # 개봉
+
+
+# ---- research_load_granted: 승인된 grant 경로 ----
+
+_OOS_START = datetime(2026, 3, 1, tzinfo=ET)
+_OOS_END = datetime(2026, 4, 1, tzinfo=ET)
+
+
+def test_research_load_granted_valid_grant_opens_oos(tmp_path):
+    db = _make_db(tmp_path)
+    got = research_load_granted(db, "SPY", "1m", start=_OOS_START, end=_OOS_END, track=TRACK_INTRADAY,
+                                strategy_id="p0-us30-orb", execution_grant=_valid_grant())
+    assert len(got) == 1 and got[0].ts_exchange.year == 2026
+
+
+def test_research_load_granted_wrong_strategy_refused(tmp_path):
+    db = _make_db(tmp_path)
+    with pytest.raises(OOSLockError):
+        research_load_granted(db, "SPY", "1m", start=_OOS_START, end=_OOS_END, track=TRACK_INTRADAY,
+                              strategy_id="other-strategy", execution_grant=_valid_grant())
+
+
+def test_research_load_granted_none_grant_refused(tmp_path):
+    db = _make_db(tmp_path)
+    with pytest.raises(OOSLockError):
+        research_load_granted(db, "SPY", "1m", start=_OOS_START, end=_OOS_END, track=TRACK_INTRADAY,
+                              strategy_id="p0-us30-orb", execution_grant=None)
+    # None 은 train 구간에서도 거부(성과 개봉 전용 로더)
+    with pytest.raises(OOSLockError):
+        research_load_granted(db, "SPY", "1m", start=datetime(2025, 11, 1, tzinfo=ET),
+                              end=datetime(2025, 12, 31, tzinfo=ET), track=TRACK_INTRADAY,
+                              strategy_id="p0-us30-orb", execution_grant=None)

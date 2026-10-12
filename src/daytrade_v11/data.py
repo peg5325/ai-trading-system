@@ -133,7 +133,8 @@ def load_segment(db: Path | str, seg: Segment) -> SegmentData:
         h = hashlib.sha256()
         n = 0
         for lo, hi in _month_chunks(seg):
-            for c in research_load(str(db), sym, "1m", start=lo, end=hi, purpose="performance"):
+            for c in research_load(str(db), sym, "1m", start=lo, end=hi, purpose="performance",
+                                 track=TRACK_INTRADAY):
                 n += 1
                 h.update(f"{c.ts_utc.isoformat()}|{c.ts_exchange.isoformat()}|{c.session}|{c.open!r}|"
                          f"{c.high!r}|{c.low!r}|{c.close!r}|{c.volume!r}|{c.market}|{int(c.adjusted)}\n".encode())
@@ -161,7 +162,8 @@ def boundary_check(db: Path | str) -> dict:
         for sym in R.SYMBOLS:
             regular_dates: set[str] = set()
             outside_calendar = 0
-            for c in research_load(str(db), sym, "1m", start=lo, end=_et_midnight(hi_d), purpose="performance"):
+            for c in research_load(str(db), sym, "1m", start=lo, end=_et_midnight(hi_d), purpose="performance",
+                                     track=TRACK_INTRADAY):
                 if c.ts_exchange.date() < xcal.CALENDAR_START:
                     outside_calendar += 1
                     continue
