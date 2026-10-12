@@ -137,6 +137,12 @@
 
 ## 다음 한 가지 작업
 
+(2026-10-12 갱신 2) **추세 전환 연구 v1(T1 갭 메우기·T2 돌파 실패·T3 VWAP 되찾기·T4 반대편 이탈 × 롱·숏 × SOXL/TQQQ, 비용 0.20%) 개발 구간 1회 = NO_PASS.** 기록: [결과](research/RESULT_DAYTRADE_REVERSAL_STUDY_V1.md), [사전등록](research/PREREG_DAYTRADE_REVERSAL_STUDY_V1.md).
+- 사용자 결정(2026-10-12): 4개 모두, 두 쌍만(SPXL/SPXS 제외), 마감 판정 + 30·60분 참고. 사전등록 리뷰 FIX_THEN_LOCK 11건 반영, 코드 리뷰 REQUEST_CHANGES(HIGH: OOS 경로 §5.1 전체 검증 누락) 반영 `bc00d46`, 시험 150개.
+- 손익 전 집계 뒤 사용자 결정 "돌린다". 16칸 모두 Holm p = 1.0(최소 원 p 0.25), T4 4칸·TQQQ T1 롱은 n < 30. 청산 보조(진입 E1~E5에 반전 청산)는 재현 검사 통과, 20칸 중 4칸만 개선(평균 −0.08%p).
+- 누적: 진입 5 + 추세 전환 4 = 장중 신호 9개, 36칸에서 보정 뒤 합격 0. 남은 단서는 사전 지정 (a) SOXL E2 롱(봉인 구간 통과 확률 약 20%).
+- **다음(사용자 결정):** (a) 봉인 구간 확인(이벤트 달력 2026-01~10·부록 PR·unlock·승인 필요) 또는 장중 신호 연구 중단·방향 재설정.
+
 (2026-10-12 갱신) **진입 연구 v1(세 쌍·진입 E1~E5·30/60분·마감) 개발 구간 1회 = NO_PASS. 봉인 구간은 열지 않았다.** 기록: [결과](research/RESULT_DAYTRADE_ENTRY_STUDY_V1.md), [사전등록](research/PREREG_DAYTRADE_ENTRY_STUDY_V1.md).
 - 사용자 결정(2026-10-12): 진입 연구 → 그 뒤 추세 전환. 쌍 SOXL/SOXS(신호 SMH, SOX 대체)·TQQQ/SQQQ(QQQ)·SPXL/SPXS(SPY), 후보 5개 전부, 30/60분·마감 비교.
 - 사전등록 독립 리뷰 FIX_THEN_LOCK → 12건 반영. 구현 `src/entry_study_v1/`(시험 67개), 코드 리뷰 APPROVE(개발 경로) → MEDIUM 6건 반영 `3f0678e`.
