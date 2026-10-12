@@ -24,7 +24,14 @@ import yaml
 from src.history.oos_guard import TRACK_INTRADAY, research_load
 from src.longhist import default_root
 from src.longhist import quality as Q
-from src.longhist.loader import SEAL_START, SERIES, load_aux, load_daily
+from src.longhist.loader import (
+    SEAL_START,
+    SERIES,
+    ManifestMismatch,
+    load_aux,
+    load_daily,
+    pinned_manifest_sha256,
+)
 from src.models import ET
 
 PRICE_END = SEAL_START - timedelta(days=1)  # last date allowed in any price-value check
@@ -54,10 +61,11 @@ def oc_map(df) -> dict[str, tuple[float, float]]:
 
 def run(root: Path, db: Path, events_path: Path) -> dict:
     man_bytes = (root / "manifest.json").read_bytes()
-    man_sha = hashlib.sha256(man_bytes).hexdigest()
+    man_sha = pinned_manifest_sha256()
+    if hashlib.sha256(man_bytes).hexdigest() != man_sha:
+        raise ManifestMismatch("manifest.json differs from config/longhist_data_v1.json")
     man = json.loads(man_bytes)
-    kw = {"root": root, "expected_manifest_sha256": man_sha}
-    cal = list(load_aux("norm/calendar/nyse_sessions.csv", **kw)["date"])
+    cal = list(load_aux("norm/calendar/nyse_sessions.csv", root=root)["date"])
     out: dict = {"manifest_sha256": man_sha, "manifest_files": len(man["files"]),
                  "fetch_failures": man.get("fetch_failures", []), "last_run_utc": man.get("last_run_utc"),
                  "seal_start": SEAL_START.isoformat(), "price_check_end": PRICE_END.isoformat(),
@@ -66,13 +74,13 @@ def run(root: Path, db: Path, events_path: Path) -> dict:
     # 1) coverage (dates only) + OHLC sanity on pre-seal rows
     cov, ohlc = {}, {}
     for sym, rel in SERIES.items():
-        dfc = load_daily(sym, purpose="coverage", **kw)
+        dfc = load_daily(sym, purpose="coverage", root=root)
         c = Q.coverage(list(dfc["date"]), cal)
         meta = man["files"][rel]
         c.update(source=meta["source"], null_rows_dropped=meta.get("null_rows_dropped"),
                  fetch_day_rows_dropped=meta.get("fetch_day_rows_dropped"))
         cov[sym] = c
-        dfp = load_daily(sym, start=dfc["date"].iloc[0], end=PRICE_END, purpose="performance", **kw)
+        dfp = load_daily(sym, start=dfc["date"].iloc[0], end=PRICE_END, purpose="performance", root=root)
         if "open" in dfp and dfp["open"].notna().any():
             px = dfp[["open", "high", "low", "close"]].astype(float)
             px.insert(0, "date", dfp["date"])
@@ -85,8 +93,8 @@ def run(root: Path, db: Path, events_path: Path) -> dict:
     # 2) splits / dividends
     ev = {}
     for sym in YAHOO:
-        sp = load_aux(f"norm/yahoo/{safe(sym)}_splits.csv", **kw)
-        dv = load_aux(f"norm/yahoo/{safe(sym)}_dividends.csv", **kw)
+        sp = load_aux(f"norm/yahoo/{safe(sym)}_splits.csv", root=root)
+        dv = load_aux(f"norm/yahoo/{safe(sym)}_dividends.csv", root=root)
         ev[sym] = {"splits": [f"{d} {int(n) if n == int(n) else n}:{int(m) if m == int(m) else m}"
                               for d, n, m in zip(sp["date"], sp["numerator"], sp["denominator"])],
                    "dividends": len(dv), "div_first": dv["date"].iloc[0] if len(dv) else None,
@@ -100,7 +108,7 @@ def run(root: Path, db: Path, events_path: Path) -> dict:
         candles = research_load(str(db), sym, "1d", purpose="coverage", track=TRACK_INTRADAY)
         t = {c.ts_exchange.date().isoformat(): (c.open, c.close) for c in candles
              if c.ts_exchange.date() < SEAL_START}
-        y = oc_map(load_daily(sym, start="1990-01-01", end=PRICE_END, purpose="performance", **kw))
+        y = oc_map(load_daily(sym, start="1990-01-01", end=PRICE_END, purpose="performance", root=root))
         common = sorted(set(t) & set(y))
         toss[sym] = {"toss_rows_pre_seal": len(t), "toss_first": min(t) if t else None,
                      "toss_last_pre_seal": max(t) if t else None, "overlap": len(common),
@@ -113,8 +121,8 @@ def run(root: Path, db: Path, events_path: Path) -> dict:
     # 4) leveraged-ETF fidelity (data fidelity only, pre-seal)
     fid = []
     for etf, ref, mult in FIDELITY:
-        e = oc_map(load_daily(etf, start="1990-01-01", end=PRICE_END, purpose="performance", **kw))
-        r = oc_map(load_daily(ref, start="1990-01-01", end=PRICE_END, purpose="performance", **kw))
+        e = oc_map(load_daily(etf, start="1990-01-01", end=PRICE_END, purpose="performance", root=root))
+        r = oc_map(load_daily(ref, start="1990-01-01", end=PRICE_END, purpose="performance", root=root))
         fid.append({"etf": etf, "ref": ref, "mult": mult, **Q.fidelity(e, r, mult)})
     out["fidelity"] = fid
 
@@ -185,8 +193,13 @@ def render(o: dict) -> str:
       "로더가 `purpose=\"performance\"`로 봉인 구간에 닿는 요청을 거부한다.")
     a("- 행 수·첫날·마지막 날·결측 같은 **날짜 존재 여부**는 봉인 구간까지 셌다(`purpose=\"coverage\"`). 가격은 보지 않았다.")
     a(f"- 원본·정규화 파일은 git 밖 `data/external/longhist/`에 있고 `manifest.json`이 SHA-256으로 고정한다. "
-      f"manifest SHA-256: `{o['manifest_sha256']}` (파일 {o['manifest_files']}개). 로더는 읽을 때마다 SHA를 대조하고 다르면 거부한다.")
+      f"manifest SHA-256: `{o['manifest_sha256']}` (파일 {o['manifest_files']}개). "
+      "이 값은 `config/longhist_data_v1.json`에 고정돼 있다. 로더는 호출마다 manifest를 이 값과, 읽는 파일을 "
+      "manifest의 SHA와 대조하고 하나라도 다르면 거부한다. `purpose=\"coverage\"`는 날짜 열만 돌려준다.")
     a("- Yahoo는 비공식 API라 원본을 커밋하지 않는다. `close`는 분할만 반영된 원종가, `adjclose`는 받은 날 기준 배당·분할 조정값이다.")
+    a("- 주의: Yahoo `close`·`adjclose`의 **수준**은 받은 날(2026-10-12) 기준으로 조정돼 있어, 봉인 시작일 이전 값에도 "
+      "봉인 구간 이후의 분할(예: TQQQ 2025-11-20, SOXS 2026-03-05·07-15, SPXS 2025-09-29)과 배당이 반영돼 있다. "
+      "같은 날 시가→종가 비율은 영향을 받지 않는다. 가격 수준 자체를 쓰는 연구는 이 점을 감안해야 한다.")
     a(f"- 기준 달력: Yahoo SPY·QQQ 일봉 날짜의 합집합(1999-03-10 이전은 SPY만). "
       f"{o['calendar']['first']} ~ {o['calendar']['last']}, {f(o['calendar']['sessions'])}거래일.")
     if o["fetch_failures"]:
@@ -277,7 +290,8 @@ def render(o: dict) -> str:
           f"{len(e['on_non_session'])}{' (' + ', '.join(e['on_non_session'][:6]) + ')' if e['on_non_session'] else ''} | {offs} |")
     a("")
     a("기대값: CPI·NFP·PCE 연 12회, FOMC 정례회의 연 8회. 다르면 날짜가 틀렸다는 뜻이 아니라 확인 대상이라는 뜻이다"
-      "(셧다운으로 발표가 빠진 해, 1990년대 FRED 기록 방식, 같은 달 두 번 발표 등).")
+      "(셧다운으로 발표가 빠진 해, 1990년대 FRED 기록 방식 등). CPI·NFP·PCE는 1993-01-01 이전 날짜를 쓰지 않고(신뢰도 낮음), "
+      "FRED가 한 달에 두 날짜 이상 올린 달은 날짜 목록에서 뺐으므로 그런 해는 12보다 적게 나온다(아래 미해결 표).")
     a("")
     a(f"**미해결(unresolved) {len(o['events_unresolved'])}건**" + (":" if o["events_unresolved"] else " — 없음."))
     fred_un = [u for u in o["events_unresolved"] if u["type"] != "FOMC"]
@@ -286,7 +300,8 @@ def render(o: dict) -> str:
             a(f"- FOMC {u['year']} `{u['heading']}` — {u['reason']} ({u['source']})")
     if fred_un:
         a("")
-        a("FRED가 한 달에 날짜를 두 개 이상 올린 달(1993-01-29 이후). 어느 쪽이 정규 월간 발표인지는 여기서 정하지 않았다"
+        a("FRED가 한 달에 날짜를 두 개 이상 올린 달(1993-01-01 이후). 어느 쪽이 정규 월간 발표인지 정하지 않고 "
+          "이 달들의 날짜는 yaml `types.<종류>.dates`에서 모두 뺐다"
           "(하나는 계절조정 개정·벤치마크 등 데이터만 갱신한 날일 수 있다). 연구에서 쓰기 전에 BLS·BEA 원문으로 확인해야 한다.")
         a("")
         a("| 종류 | 달 | 날짜 |")
@@ -330,7 +345,10 @@ def render(o: dict) -> str:
     a("## 6. 판단과 남은 일")
     a("")
     a("- 거래일 달력은 Yahoo 날짜에서 유도했다. 독립 공식 달력과의 전 기간 대조는 하지 않았다(2023-04~ 휴장일 대조만 위 표).")
-    a("- CPI·NFP·PCE 날짜는 FRED가 그 발표를 올린 날이다. 2023-04 이전은 BLS·BEA 원문과 대조하지 않았다.")
+    a("- CPI·NFP·PCE 날짜는 FRED가 그 발표를 올린 날이다. 2023-04 이전은 BLS·BEA 원문과 대조하지 않았다. "
+      "모호한 달(미해결 표)은 BLS·BEA 원문으로 확인하기 전까지 이벤트일로 쓰지 않는다.")
+    a("- FOMC 2003-09-15 'Meeting'은 연준 페이지에 성명(Statement)이 없고 다음 날 2003-09-16에 성명이 있어 "
+      "결정일에서 빼고 미해결로 옮겼다(2000년 이후 성명 없는 정례회의 제목은 같은 규칙).")
     a("- `^SOX` 시가 품질, 기준 달력 밖 Cboe 행(휴장일 값)의 처리, VIX 결측일 보충 여부는 사전등록에서 정한다.")
     a("- 이 문서의 어떤 숫자도 전략 성과가 아니다.")
     a("")

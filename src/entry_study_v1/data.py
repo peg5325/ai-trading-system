@@ -20,11 +20,12 @@ from src.entry_study_v1.bars import (
     label_minute,
     row_line,
 )
+from src.entry_study_v1.coverage_read import coverage_rows
 from src.history.oos_guard import (
     TRACK_INTRADAY,
     OOSExecutionGrant,
-    assert_window_unlocked,
     research_load,
+    research_load_granted,
 )
 from src.models import ET
 
@@ -119,12 +120,10 @@ def load_symbol(db, symbol: str, d0: Date, d1: Date, *, purpose: str, dev: bool 
         if dev:
             assert_dev_window(lo, hi)
         if purpose == "coverage":
-            rows = research_load(str(db), symbol, "1m", start=lo, end=hi, purpose="coverage", track=TRACK_INTRADAY)
+            rows = coverage_rows(db, symbol, lo, hi)
         elif grant is not None:
-            # Same as research_load(purpose="performance", strategy_id=..., execution_grant=grant): the gate
-            # runs first with the grant, then the read. research_load never receives a grant argument.
-            assert_window_unlocked(lo, hi, track=TRACK_INTRADAY, strategy_id=strategy_id, execution_grant=grant)
-            rows = research_load(str(db), symbol, "1m", start=lo, end=hi, purpose="coverage", track=TRACK_INTRADAY)
+            rows = research_load_granted(str(db), symbol, "1m", start=lo, end=hi, track=TRACK_INTRADAY,
+                                         strategy_id=strategy_id, execution_grant=grant)
         else:
             rows = research_load(str(db), symbol, "1m", start=lo, end=hi, purpose="performance",
                                  track=TRACK_INTRADAY)

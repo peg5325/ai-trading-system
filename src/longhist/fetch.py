@@ -31,6 +31,7 @@ FRED_RELEASES = {"CPI": 10, "NFP": 50, "PCE": 54, "FOMC_PRESS_RELEASE": 101}
 FED_HIST = "https://www.federalreserve.gov/monetarypolicy/fomchistorical{year}.htm"
 FED_CAL = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 FED_FIRST_YEAR = 1993
+FRED_START = "1993-01-01"  # FRED release dates before this are not used
 FED_HIST_LAST_YEAR = 2020  # later years are on fomccalendars.htm
 MIN_SPACING_S = 1.0
 
@@ -172,6 +173,13 @@ def fetch_dix(http: Http, root: Path, man: Manifest, log) -> None:
     log(f"dix: {len(rows)} rows {rows[0]['date']}..{rows[-1]['date']}")
 
 
+def fred_info(typ: str, rid: int, raw_meta: bytes, raw_dates: bytes, url: str, fetched: str) -> dict:
+    """FRED release metadata + release dates -> info dict used by events_yaml."""
+    meta = N.parse_fred_release(raw_meta)
+    return {"type": typ, "release_id": rid, "name": meta["name"], "dates": N.parse_fred_release_dates(raw_dates),
+            "raw_sha256": sha256_bytes(raw_dates), "source_url": redact(url), "fetched_utc": fetched}
+
+
 def fetch_fred(http: Http, root: Path, man: Manifest, api_key: str, log) -> dict:
     """FRED release metadata + full release-date history per release id. Returns {type: info}."""
     out = {}
@@ -182,7 +190,6 @@ def fetch_fred(http: Http, root: Path, man: Manifest, api_key: str, log) -> dict
         if api_key.encode() in raw_rel:
             raise RuntimeError("FRED response echoes the API key; refusing to store it")
         rel_meta = save_raw(root, "fred", f"release_{rid}_{stamp(fetched)}.json", raw_rel)
-        meta = N.parse_fred_release(raw_rel)
         man.add(rel_meta, kind="raw", source="fred_api", source_url=redact(u_rel), fetched_utc=fetched,
                 rows=1, first_date=None, last_date=None)
         u_dates = (f"https://api.stlouisfed.org/fred/release/dates?release_id={rid}&api_key={api_key}"
@@ -192,47 +199,100 @@ def fetch_fred(http: Http, root: Path, man: Manifest, api_key: str, log) -> dict
         if api_key.encode() in raw_dates:
             raise RuntimeError("FRED response echoes the API key; refusing to store it")
         rel_dates = save_raw(root, "fred", f"release_dates_{rid}_{stamp(fetched2)}.json", raw_dates)
-        dates = N.parse_fred_release_dates(raw_dates)
-        span = {"rows": len(dates), "first_date": dates[0], "last_date": dates[-1]}
-        man.add(rel_dates, kind="raw", source="fred_api", source_url=redact(u_dates), fetched_utc=fetched2, **span)
-        out[typ] = {"release_id": rid, "name": meta["name"], "dates": dates, "raw": rel_dates,
-                    "raw_sha256": sha256_bytes(raw_dates), "source_url": redact(u_dates), "fetched_utc": fetched2}
-        log(f"fred {typ} ({rid} {meta['name']}): {len(dates)} dates {dates[0]}..{dates[-1]}")
+        info = fred_info(typ, rid, raw_rel, raw_dates, u_dates, fetched2)
+        dates = info["dates"]
+        man.add(rel_dates, kind="raw", source="fred_api", source_url=redact(u_dates), fetched_utc=fetched2,
+                rows=len(dates), first_date=dates[0], last_date=dates[-1])
+        out[typ] = info
+        log(f"fred {typ} ({rid} {info['name']}): {len(dates)} dates {dates[0]}..{dates[-1]}")
     return out
 
 
+def fomc_from_pages(hist: list[tuple[int, str, str]], cal_page: str, last_year: int,
+                    unresolved: list[dict] | None = None) -> tuple[list[dict], list[dict]]:
+    """Parse the per-year historical pages [(year, url, html)] and the calendars page."""
+    items, unresolved = [], list(unresolved or [])
+    for year, url, page in hist:
+        it, un = N.parse_fed_historical(page, year, url)
+        items += it
+        unresolved += un
+        if not any(i["type"] == "FOMC" for i in it):
+            unresolved.append({"year": year, "heading": None, "source": url, "reason": "no scheduled meeting parsed"})
+    it, un = N.parse_fed_calendars(cal_page, FED_CAL)
+    it = [i for i in it if FED_HIST_LAST_YEAR < int(i["date"][:4]) <= last_year]
+    items += it
+    unresolved += un
+    for year in range(FED_HIST_LAST_YEAR + 1, last_year + 1):
+        if not any(i["type"] == "FOMC" and i["date"].startswith(str(year)) for i in it):
+            unresolved.append({"year": year, "heading": None, "source": FED_CAL, "reason": "no scheduled meeting parsed"})
+    return sorted(items, key=lambda r: (r["date"], r["type"])), unresolved
+
+
 def fetch_fomc(http: Http, root: Path, man: Manifest, last_year: int, log) -> tuple[list[dict], list[dict]]:
-    items, unresolved = [], []
+    hist, failed = [], []
     for year in range(FED_FIRST_YEAR, FED_HIST_LAST_YEAR + 1):
         url = FED_HIST.format(year=year)
         fetched = N.utc_now()
         try:
             raw = http.get(url)
         except OSError as exc:
-            unresolved.append({"year": year, "heading": None, "source": url, "reason": f"fetch failed: {exc}"})
+            failed.append({"year": year, "heading": None, "source": url, "reason": f"fetch failed: {exc}"})
             continue
         rel = save_raw(root, "fed", f"fomchistorical{year}_{stamp(fetched)}.htm", raw)
-        it, un = N.parse_fed_historical(raw.decode("utf-8", "replace"), year, url)
+        page = raw.decode("utf-8", "replace")
+        it, _ = N.parse_fed_historical(page, year, url)
         man.add(rel, kind="raw", source="federalreserve.gov", source_url=url, fetched_utc=fetched,
                 **_span(sorted(it, key=lambda r: r["date"])))
-        items += it
-        unresolved += un
-        if not any(i["type"] == "FOMC" for i in it):
-            unresolved.append({"year": year, "heading": None, "source": url, "reason": "no scheduled meeting parsed"})
+        hist.append((year, url, page))
     fetched = N.utc_now()
     raw = http.get(FED_CAL)
     rel = save_raw(root, "fed", f"fomccalendars_{stamp(fetched)}.htm", raw)
-    it, un = N.parse_fed_calendars(raw.decode("utf-8", "replace"), FED_CAL)
+    cal_page = raw.decode("utf-8", "replace")
+    it, _ = N.parse_fed_calendars(cal_page, FED_CAL)
     it = [i for i in it if FED_HIST_LAST_YEAR < int(i["date"][:4]) <= last_year]
     man.add(rel, kind="raw", source="federalreserve.gov", source_url=FED_CAL, fetched_utc=fetched,
             **_span(sorted(it, key=lambda r: r["date"])))
-    items += it
-    unresolved += un
-    for year in range(FED_HIST_LAST_YEAR + 1, last_year + 1):
-        if not any(i["type"] == "FOMC" and i["date"].startswith(str(year)) for i in it):
-            unresolved.append({"year": year, "heading": None, "source": FED_CAL, "reason": "no scheduled meeting parsed"})
+    items, unresolved = fomc_from_pages(hist, cal_page, last_year, failed)
     log(f"fed: {len(items)} items, {len(unresolved)} unresolved")
-    return sorted(items, key=lambda r: (r["date"], r["type"])), unresolved
+    return items, unresolved
+
+
+def _latest_raw(man: Manifest, pattern: str) -> str:
+    rels = sorted(r for r in man.data["files"] if re.fullmatch(pattern, r))
+    if not rels:
+        raise FileNotFoundError(f"no raw file matching {pattern} in manifest")
+    return rels[-1]  # names carry a UTC stamp, so the last is the newest
+
+
+def _raw_verified(man: Manifest, rel: str) -> bytes:
+    b = (man.root / rel).read_bytes()
+    if sha256_bytes(b) != man.data["files"][rel]["sha256"]:
+        raise ValueError(f"{rel} differs from manifest.json")
+    return b
+
+
+def events_from_raw(root: Path) -> dict:
+    """Rebuild the events yaml from raw files already listed in manifest.json (no network, no data writes)."""
+    man = Manifest(root)
+    fred = {}
+    for typ, rid in FRED_RELEASES.items():
+        rel_meta = _latest_raw(man, rf"raw/fred/release_{rid}_\d{{8}}T\d{{6}}Z\.json")
+        rel_dates = _latest_raw(man, rf"raw/fred/release_dates_{rid}_\d{{8}}T\d{{6}}Z\.json")
+        entry = man.data["files"][rel_dates]
+        fred[typ] = fred_info(typ, rid, _raw_verified(man, rel_meta), _raw_verified(man, rel_dates),
+                              entry["source_url"], entry["fetched_utc"])
+    fetched = man.data["last_run_utc"]
+    hist = []
+    for year in range(FED_FIRST_YEAR, FED_HIST_LAST_YEAR + 1):
+        rel = _latest_raw(man, rf"raw/fed/fomchistorical{year}_\d{{8}}T\d{{6}}Z\.htm")
+        hist.append((year, FED_HIST.format(year=year), _raw_verified(man, rel).decode("utf-8", "replace")))
+    cal_rel = _latest_raw(man, r"raw/fed/fomccalendars_\d{8}T\d{6}Z\.htm")
+    cal = _raw_verified(man, cal_rel).decode("utf-8", "replace")
+    fomc, unresolved = fomc_from_pages(hist, cal, int(fetched[:4]))
+    days = _raw_verified(man, "norm/calendar/nyse_sessions.csv").decode().split()[1:]
+    ev = events_yaml(fred, fomc, unresolved, days, fetched)
+    ev["fetch_failures"] = man.data.get("fetch_failures", [])
+    return ev
 
 
 def trading_days(root: Path) -> list[str]:
@@ -261,26 +321,36 @@ def events_yaml(fred: dict, fomc: list[dict], fomc_unresolved: list[dict], days:
     first_year, last_year = int(days[0][:4]), int(days[-1][:4])
     ec = N.early_closes(set(days), first_year, last_year)
     types: dict = {}
+    ambiguous: dict[str, list[dict]] = {}
     for typ, defn in (("CPI", "BLS Consumer Price Index release day (FRED release dates)"),
                       ("NFP", "BLS Employment Situation release day (FRED release dates)"),
                       ("PCE", "BEA Personal Income and Outlays release day (FRED release dates)")):
         f = fred[typ]
-        types[typ] = {"definition": defn, "source": f"FRED release {f['release_id']} '{f['name']}'",
+        ambiguous[typ] = N.multi_date_months(f["dates"], FRED_START)
+        amb_months = {m["month"] for m in ambiguous[typ]}
+        kept = [d for d in f["dates"] if d >= FRED_START and d[:7] not in amb_months]
+        types[typ] = {"definition": defn + (f"; dates before {FRED_START} are not used (low confidence); months "
+                                            "where FRED lists more than one date are left out and listed under "
+                                            "`unresolved`"),
+                      "source": f"FRED release {f['release_id']} '{f['name']}'",
                       "source_url": f["source_url"], "raw_sha256": f["raw_sha256"],
                       "fetched_utc": f["fetched_utc"],
-                      "coverage": {"start": f["dates"][0], "end": f["dates"][-1]}, "dates": f["dates"]}
+                      "coverage": {"start": FRED_START, "end": f["dates"][-1]},
+                      "ambiguous_months_excluded": len(amb_months), "dates": kept}
     sched = [i for i in fomc if i["type"] == "FOMC" and i["date"] <= today]
     unsched = [i for i in fomc if i["type"] == "FOMC_UNSCHEDULED" and i["date"] <= today]
     excluded = [i for i in fomc if i["type"].startswith("EXCLUDED") and i["date"] <= today]
     fomc_cov = {"start": f"{FED_FIRST_YEAR}-01-01", "end": today}
     types["FOMC"] = {
         "definition": "decision day = last day of each SCHEDULED FOMC meeting (Federal Reserve pages). "
-                      "Before 1994-02-04 the FOMC did not announce decisions on the meeting day.",
+                      "Before 1994-02-04 the FOMC did not announce decisions on the meeting day. From 2000 "
+                      "a meeting heading without a Statement on the Fed page is moved to `unresolved`.",
         "coverage": fomc_cov,
         "events": [{"date": i["date"], "label": i["label"], "source": i["source"]} for i in sched]}
     types["FOMC_UNSCHEDULED"] = {
         "definition": "unscheduled meetings and conference calls listed on the Fed pages (date = last day). "
-                      "Not every item carried a policy change; not resolved per item.",
+                      "Not every item carried a policy change; not resolved per item. Some fall on weekends "
+                      "or market holidays; a study that uses them maps such a date to the next session.",
         "coverage": fomc_cov,
         "events": [{"date": i["date"], "label": i["label"], "source": i["source"]} for i in unsched]}
     types["EARLY_CLOSE"] = {
@@ -307,8 +377,9 @@ def events_yaml(fred: dict, fomc: list[dict], fomc_unresolved: list[dict], days:
              f"({fp['dates'][0]}..{fp['dates'][-1]}), mostly daily data updates, so it is NOT used for "
              "FOMC decision days. FOMC dates come from federalreserve.gov pages."),
             ("FRED release dates are the dates FRED published the release, which also include "
-             "revision/benchmark-only days; months with more than one date are listed under `unresolved`. "
-             "Only 2023-04..2026-01 is cross-checked against BLS/BEA (docs/research/DATA_LONGHIST_V1.md)."),
+             "revision/benchmark-only days. Only dates from 1993-01-01 are kept; months with more than one "
+             "date are removed from `dates` and listed under `unresolved`. Only 2023-04..2026-01 is "
+             "cross-checked against BLS/BEA (docs/research/DATA_LONGHIST_V1.md)."),
         ],
         "types": types,
         "excluded_fomc_items": [{"date": i["date"], "label": i["label"], "reason": i["type"], "source": i["source"]}
@@ -317,6 +388,6 @@ def events_yaml(fred: dict, fomc: list[dict], fomc_unresolved: list[dict], days:
             {"type": t, "month": m["month"], "dates": m["dates"], "source": fred[t]["source_url"],
              "reason": "FRED lists more than one date in this month; the regular release is not resolved "
                        "(one date may be a revision/benchmark-only publication)"}
-            for t in ("CPI", "NFP", "PCE") for m in N.multi_date_months(fred[t]["dates"], days[0])],
+            for t in ("CPI", "NFP", "PCE") for m in ambiguous[t]],
     }
 

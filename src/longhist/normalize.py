@@ -177,11 +177,21 @@ _HIST_RE = re.compile(
     r"(?: \((?P<tag>[^)]*)\))?(?: (?P<kind>Meeting|Conference Call))? - (?P<y>\d{4})$")
 
 
+STATEMENT_ERA_START = 2000  # the FOMC has issued a statement after every scheduled meeting since 2000
+
+
 def parse_fed_historical(page: str, year: int, url: str) -> tuple[list[dict], list[dict]]:
-    """fomchistoricalYYYY.htm -> (items, unresolved). Item date = last day of the meeting/call."""
+    """fomchistoricalYYYY.htm -> (items, unresolved). Item date = last day of the meeting/call.
+
+    From STATEMENT_ERA_START on, a scheduled "Meeting" heading whose page section lists no "Statement"
+    is not taken as a decision day; it goes to `unresolved` (e.g. 2003-09-15, the day before the
+    2003-09-16 meeting that carries the statement).
+    """
     items, unresolved = [], []
-    for raw in re.findall(r"<h5[^>]*>(.*?)</h5>", page, re.DOTALL):
-        head = _clean(raw)
+    heads = list(re.finditer(r"<h5[^>]*>(.*?)</h5>", page, re.DOTALL))
+    for k, hm in enumerate(heads):
+        head = _clean(hm.group(1))
+        section = _clean(page[hm.end(): heads[k + 1].start() if k + 1 < len(heads) else len(page)])
         m = _HIST_RE.match(head)
         if not m or int(m["y"]) != year:
             unresolved.append({"year": year, "heading": head, "source": url, "reason": "heading not parsed"})
@@ -190,9 +200,16 @@ def parse_fed_historical(page: str, year: int, url: str) -> tuple[list[dict], li
             mon = _month(m["m2"] or m["m1b"] or m["m1"])
             day = int(m["d2"] or m["d1"])
             typ = classify_fomc(m["kind"] or "", m["tag"] or "")
-            items.append({"date": date(year, mon, day).isoformat(), "type": typ, "label": head, "source": url})
+            d = date(year, mon, day).isoformat()
         except ValueError as exc:
             unresolved.append({"year": year, "heading": head, "source": url, "reason": str(exc)})
+            continue
+        if typ == "FOMC" and year >= STATEMENT_ERA_START and not re.search(r"\bStatement\b", section):
+            unresolved.append({"year": year, "heading": head, "date": d, "source": url,
+                               "reason": "scheduled-meeting heading without a Statement on the Fed page; "
+                                         "not taken as a decision day"})
+            continue
+        items.append({"date": d, "type": typ, "label": head, "source": url})
     return items, unresolved
 
 

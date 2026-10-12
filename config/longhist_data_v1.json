@@ -1,0 +1,6 @@
+{
+  "description": "Pinned longhist data manifest (data/external/longhist/manifest.json, not committed). The loader refuses any other manifest unless a caller passes a different expected SHA explicitly (tests only).",
+  "manifest_sha256": "cca29640d110da0445676666012920fec7fedd01d36862db7681fadf36f5cbbf",
+  "pinned_on": "2026-10-12",
+  "fetch_run_utc": "2026-10-12T09:28:51Z"
+}

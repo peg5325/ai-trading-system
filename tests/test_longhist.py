@@ -1,15 +1,19 @@
 """Long-history data foundation: parsers, manifest SHA refusal, seal guard, early-close rules, events yaml."""
 from __future__ import annotations
 
+import ast
 import json
+import os
 import re
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import yaml
 
 from src.history.oos_guard import OOSLockError
+from src.longhist import default_root
 from src.longhist import fetch as F
 from src.longhist import normalize as N
 from src.longhist import quality as Q
@@ -17,9 +21,12 @@ from src.longhist.loader import (
     SEAL_START,
     ManifestMismatch,
     assert_performance_window,
+    load_aux,
     load_daily,
+    pinned_manifest_sha256,
     read_verified,
 )
+from src.models import ET
 
 REPO = Path(__file__).resolve().parents[1]
 EVENTS = REPO / "config" / "longhist_events_v1.yaml"
@@ -75,16 +82,23 @@ def test_parse_dix_and_fred():
 
 
 def test_parse_fed_historical_headings():
-    page = "".join(f"<h5>{h}</h5>" for h in [
-        "January 31-February 1 Meeting - 2017", "April/May 30-1 Meeting - 2017", "March 2 (unscheduled) Meeting - 2017",
-        "March 17-18 (cancelled) Meeting - 2017", "March 19 (notation vote) - 2017", "January 13 Conference Call - 2017",
-        "July 5-6 Meeting - 2017", "Something else - 2017"])
+    heads = ["January 31-February 1 Meeting - 2017", "April/May 30-1 Meeting - 2017",
+             "March 2 (unscheduled) Meeting - 2017", "March 17-18 (cancelled) Meeting - 2017",
+             "March 19 (notation vote) - 2017", "January 13 Conference Call - 2017", "July 5-6 Meeting - 2017",
+             "September 15 Meeting - 2017", "Something else - 2017"]
+    page = "".join(f"<h5>{h}</h5><p>{'Agenda Minutes' if h.startswith('September') else 'Statement Minutes'}</p>"
+                   for h in heads)
     items, un = N.parse_fed_historical(page, 2017, "u")
     got = [(i["date"], i["type"]) for i in items]
     assert got == [("2017-02-01", "FOMC"), ("2017-05-01", "FOMC"), ("2017-03-02", "FOMC_UNSCHEDULED"),
                    ("2017-03-18", "EXCLUDED_CANCELLED"), ("2017-03-19", "EXCLUDED_NOTATION"),
                    ("2017-01-13", "FOMC_UNSCHEDULED"), ("2017-07-06", "FOMC")]
-    assert [u["heading"] for u in un] == ["Something else - 2017"]
+    # a scheduled "Meeting" heading without a Statement (2000+) is unresolved, not a decision day
+    assert [(u["heading"], u.get("date")) for u in un] == [("September 15 Meeting - 2017", "2017-09-15"),
+                                                          ("Something else - 2017", None)]
+    # before 2000 statements were not issued after every meeting: no statement requirement
+    old, un_old = N.parse_fed_historical("<h5>March 28 Meeting - 1995</h5><p>Minutes</p>", 1995, "u")
+    assert [(i["date"], i["type"]) for i in old] == [("1995-03-28", "FOMC")] and un_old == []
 
 
 def test_parse_fed_calendars_panel():
@@ -128,13 +142,24 @@ def test_loader_seal_guard(tmp_path):
     for start, end in [("2025-07-01", "2025-07-21"), ("2025-07-01", None), ("2025-08-01", "2025-09-01"),
                        (None, "2026-08-01")]:
         with pytest.raises(OOSLockError):
-            load_daily("SPY", start, end, "performance", root=root)
+            load_daily("SPY", start, end, "performance", root=root, expected_manifest_sha256=sha)
     df = load_daily("SPY", "2025-07-01", "2025-07-20", "performance", root=root, expected_manifest_sha256=sha)
+    assert list(df["date"]) == ["2025-07-17", "2025-07-18"] and "close" in df
+    # datetime / pandas.Timestamp inputs are normalised with .date()
+    df = load_daily("SPY", datetime(2025, 7, 1, 23, 0, tzinfo=ET), pd.Timestamp("2025-07-18 15:00"), "performance",
+                    root=root, expected_manifest_sha256=sha)
     assert list(df["date"]) == ["2025-07-17", "2025-07-18"]
-    df = load_daily("SPY", purpose="coverage", root=root)
-    assert list(df["date"])[-1] == "2025-07-22"
+    with pytest.raises(OOSLockError):
+        load_daily("SPY", "2025-07-01", pd.Timestamp("2025-07-21 09:30"), "performance", root=root,
+                   expected_manifest_sha256=sha)
+    for bad in ("not-a-date", 20250718, 1.5):
+        with pytest.raises(OOSLockError):
+            load_daily("SPY", "2025-07-01", bad, "performance", root=root, expected_manifest_sha256=sha)
+    # coverage returns dates only, never prices
+    df = load_daily("SPY", purpose="coverage", root=root, expected_manifest_sha256=sha)
+    assert list(df.columns) == ["date"] and list(df["date"])[-1] == "2025-07-22"
     with pytest.raises(ValueError):
-        load_daily("SPY", purpose="backtest", root=root)
+        load_daily("SPY", purpose="backtest", root=root, expected_manifest_sha256=sha)
     assert_performance_window(date(1993, 1, 1), date(2025, 7, 20))
 
 
@@ -143,14 +168,26 @@ def test_manifest_sha_refusal(tmp_path):
     assert read_verified("norm/yahoo/SPY_daily.csv", root, sha)
     with pytest.raises(ManifestMismatch):
         read_verified("norm/yahoo/SPY_daily.csv", root, "0" * 64)
+    with pytest.raises(ManifestMismatch):  # default = pinned SHA in config/longhist_data_v1.json
+        read_verified("norm/yahoo/SPY_daily.csv", root)
     with pytest.raises(ManifestMismatch):
-        read_verified("norm/yahoo/QQQ_daily.csv", root)
+        load_daily("SPY", purpose="coverage", root=root)
+    with pytest.raises(ManifestMismatch):
+        read_verified("norm/yahoo/QQQ_daily.csv", root, sha)
     p = root / "norm/yahoo/SPY_daily.csv"
     p.write_text(p.read_text().replace("2025-07-18,1.0", "2025-07-18,2.0"))
     with pytest.raises(ManifestMismatch):
-        load_daily("SPY", "2025-07-01", "2025-07-18", "performance", root=root)
+        load_daily("SPY", "2025-07-01", "2025-07-18", "performance", root=root, expected_manifest_sha256=sha)
     with pytest.raises(ManifestMismatch):
-        load_daily("SPY", purpose="coverage", root=root)
+        load_daily("SPY", purpose="coverage", root=root, expected_manifest_sha256=sha)
+    with pytest.raises(ValueError):
+        load_aux("norm/yahoo/SPY_daily.csv", root=root, expected_manifest_sha256=sha)
+
+
+def test_pinned_manifest_sha():
+    pin = json.loads((REPO / "config" / "longhist_data_v1.json").read_text())
+    assert pinned_manifest_sha256() == pin["manifest_sha256"]
+    assert re.fullmatch(r"[0-9a-f]{64}", pin["manifest_sha256"])
 
 
 def test_raw_is_immutable_and_url_redacted(tmp_path):
@@ -199,4 +236,94 @@ def test_events_yaml_schema():
     assert all(e["confidence"] == "J" and e["rule"] for e in ev["types"]["EARLY_CLOSE"]["events"])
     for u in ev["unresolved"]:
         assert u["type"] in {"FOMC", "CPI", "NFP", "PCE"} and u["reason"] and u["source"]
+    # FRED dates: from 1993 only, and no month with more than one date (those are only in `unresolved`)
+    for typ in ("CPI", "NFP", "PCE"):
+        dates = ev["types"][typ]["dates"]
+        assert dates[0] >= "1993-01-01" and ev["types"][typ]["coverage"]["start"] == "1993-01-01"
+        months = [d[:7] for d in dates]
+        assert len(months) == len(set(months)), typ
+        amb = [u for u in ev["unresolved"] if u["type"] == typ]
+        assert len(amb) == ev["types"][typ]["ambiguous_months_excluded"]
+        assert not ({u["month"] for u in amb} & set(months))
+    fomc = {e["date"] for e in ev["types"]["FOMC"]["events"]}
+    assert "2003-09-16" in fomc and "2003-09-15" not in fomc
+    assert any(u.get("date") == "2003-09-15" for u in ev["unresolved"] if u["type"] == "FOMC")
     assert ev["trading_day_calendar"]["sessions"] > 8000
+
+
+LONGHIST_LOADERS = {"load_daily", "load_aux"}
+ALLOWED_COVERAGE_LONGHIST = {os.path.join("scripts", "longhist_quality.py")}
+LONGHIST_DEFINER = os.path.join("src", "longhist", "loader.py")
+
+
+def _longhist_offenders(tree: ast.AST, rel: str, allow_coverage: bool) -> list[str]:
+    out = []
+    call_funcs = {id(n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)}
+    for n in ast.walk(tree):
+        name = n.id if isinstance(n, ast.Name) else n.attr if isinstance(n, ast.Attribute) else None
+        if name in LONGHIST_LOADERS and id(n) not in call_funcs:
+            out.append(f"{rel}:{n.lineno}: {name} referenced as a value")
+    for n in ast.walk(tree):
+        if not isinstance(n, ast.Call):
+            continue
+        f = n.func
+        name = f.id if isinstance(f, ast.Name) else f.attr if isinstance(f, ast.Attribute) else None
+        if name not in LONGHIST_LOADERS:
+            continue
+        if any(k.arg is None for k in n.keywords) or any(isinstance(a, ast.Starred) for a in n.args):
+            out.append(f"{rel}:{n.lineno}: */** unpacking into {name}")
+            continue
+        if name == "load_aux":
+            if not allow_coverage:
+                out.append(f"{rel}:{n.lineno}: load_aux outside the approved quality script")
+            continue
+        kw = next((k.value for k in n.keywords if k.arg == "purpose"), n.args[3] if len(n.args) > 3 else None)
+        if kw is None:
+            continue  # default purpose="performance" (fail-closed)
+        lit = kw.value if isinstance(kw, ast.Constant) and isinstance(kw.value, str) else None
+        if lit not in ({"performance", "coverage"} if allow_coverage else {"performance"}):
+            out.append(f"{rel}:{n.lineno}: purpose must be a literal 'performance'"
+                       + (" or 'coverage'" if allow_coverage else ""))
+    return out
+
+
+def test_longhist_coverage_reads_only_in_quality_script():
+    """AST: only scripts/longhist_quality.py may read longhist data with purpose='coverage' or load_aux."""
+    offenders = []
+    for base in ("src", "scripts", "analysis"):
+        for dirpath, _d, files in os.walk(REPO / base):
+            for name in sorted(files):
+                if not name.endswith(".py"):
+                    continue
+                path = Path(dirpath) / name
+                rel = os.path.relpath(path, REPO)
+                if rel == LONGHIST_DEFINER:
+                    continue
+                tree = ast.parse(path.read_text(encoding="utf-8"))
+                offenders += _longhist_offenders(tree, rel, rel in ALLOWED_COVERAGE_LONGHIST)
+    assert offenders == [], offenders
+
+
+def test_longhist_offender_detection_catches_bypasses():
+    src = (
+        "from src.longhist.loader import load_daily, load_aux\n"
+        "P = 'coverage'\n"
+        "load_daily('SPY', None, None, 'coverage')\n"
+        "load_daily('SPY', purpose=P)\n"
+        "load_daily('SPY', **{'purpose': 'coverage'})\n"
+        "load_aux('norm/calendar/nyse_sessions.csv')\n"
+        "f = load_daily\n"
+        "load_daily('SPY', '1993-01-01', '2025-07-18', purpose='performance')\n"
+    )
+    got = _longhist_offenders(ast.parse(src), "x.py", allow_coverage=False)
+    assert len(got) == 5, got
+    assert _longhist_offenders(ast.parse("load_daily('SPY', purpose='coverage')\n"), "q.py", True) == []
+
+
+@pytest.mark.skipif(not (default_root() / "manifest.json").exists(), reason="longhist data not present")
+def test_events_yaml_reproducible_from_raw():
+    """The committed yaml is exactly what the pinned raw files produce (no network)."""
+    if F.sha256_file(default_root() / "manifest.json") != pinned_manifest_sha256():
+        pytest.skip("local longhist data is not the pinned manifest")
+    ev = F.events_from_raw(default_root())
+    assert yaml.safe_load(EVENTS.read_text()) == yaml.safe_load(yaml.safe_dump(ev, sort_keys=False))
