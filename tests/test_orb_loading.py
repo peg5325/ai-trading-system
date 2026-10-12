@@ -74,6 +74,11 @@ _ALLOWED_COVERAGE_STRING = {
     os.path.join("scripts", "prereg_orb_coverage_probe.py"),  # §5.5 봉 개수만 세는 ORB coverage probe
     # 장기 일봉 품질 점검: Toss 1d를 coverage로 읽고 2025-07-21 이전 날짜만 Yahoo와 가격 비율 대조
     os.path.join("scripts", "longhist_quality.py"),
+    # 진입 연구 G2: 구간 앞·사이의 정규장 날짜만 센다(가격·수익률 없음)
+    os.path.join("src", "entry_study_v1", "gate.py"),
+    # 진입 연구 load_symbol: coverage 분기(게이트·manifest·행 해시)와, 검증된 grant로
+    # assert_window_unlocked 를 먼저 통과한 OOS 성과 분기만 coverage 로 읽는다
+    os.path.join("src", "entry_study_v1", "data.py"),
 }
 # R5-4/R5-5 후속(같은 원칙 적용) — `src/history/oos_guard.py` 는 예전 소스-텍스트 정규식
 # 스캔 시절엔 이 목록에 있었다(그 파일 docstring/주석이 `purpose='coverage'` 를 언급해서).
