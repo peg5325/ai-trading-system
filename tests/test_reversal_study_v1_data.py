@@ -118,13 +118,13 @@ def test_only_the_oos_module_may_load_without_the_development_bound():
 # ------------------------------------------------------------------ fixed inputs (hash refusal)
 
 
-def _fixed(tmp_path, monkeypatch, *, gate_pairs=("P1", "P2"), events_sha=None, mask_gate_sha=None):
+def _fixed(tmp_path, monkeypatch, *, gate_pairs=("P1", "P2"), events_sha=None, mask_gate_sha=None, manifest=None):
     gate = tmp_path / "gate.json"
     man = tmp_path / "manifest.json"
     mask = tmp_path / "mask.json"
     gate.write_bytes(M.canonical_bytes({"pairs": {**{p: {"status": "PASS"} for p in gate_pairs},
                                                   "P3": {"status": "DATA_GATE_FAIL"}}}))
-    man.write_bytes(M.canonical_bytes({"rows": {}}))
+    man.write_bytes(M.canonical_bytes(manifest or {"rows": {}}))
     pm = RC.pair_map()
     mask.write_bytes(M.canonical_bytes({
         "pairs": {p: {"ref": pm[p][0], "long": pm[p][1], "short": pm[p][2]} for p in ("P1", "P2")},
@@ -143,7 +143,7 @@ def _argv(tmp_path, gate, mask, man, kind):
     dev_result = ["--dev-result", str(tmp_path / "dev.json"), "--dev-result-sha256", "0" * 64]
     return {
         "precount": common,
-        "dev": [*common, *approval],
+        "dev": [*common, *approval, "--entry-dev-result", str(tmp_path / "entry_dev.json")],
         "oos_prepare": ["prepare", *common, *dev_result],
         "oos_run": ["run", *common, *approval, *dev_result, "--prepare", "p", "--prepare-sha256", "0" * 64,
                     "--oos-mask", "m", "--oos-mask-sha256", "0" * 64, "--oos-snapshot", "s",
@@ -222,10 +222,28 @@ def test_every_script_goes_through_the_shared_verification(tmp_path, monkeypatch
         raise Sentinel
 
     monkeypatch.setattr(C, "prepare_dev", boom)
-    monkeypatch.setattr(O, "require_inputs", boom)
+    monkeypatch.setattr(O, "prepare_dev", boom)  # the OOS commands need the full check, not only (1)-(3)
     gate, mask, man = _fixed(tmp_path, monkeypatch)
     with pytest.raises(Sentinel):
         _main(kind)(_argv(tmp_path, gate, mask, man, kind))
+
+
+def test_oos_prepare_refuses_when_a_non_target_symbol_row_changed(tmp_path, monkeypatch):
+    from scripts import reversal_study_v1_oos
+    db = six_symbol_db(tmp_path)
+    manifest = M.build_manifest(PL.load_dev_segments(db, SIX, purpose="performance"), DEV_SEGMENTS)
+    gate, mask, man = _fixed(tmp_path, monkeypatch, manifest=manifest)
+    con = sqlite3.connect(db)  # QQQ (P2) is not a target of (a), which trades P1
+    con.execute("UPDATE candle_history SET close = close + 0.01 WHERE symbol = 'QQQ' AND ts_exchange < '2024'")
+    con.commit()
+    con.close()
+    dev = tmp_path / "dev.json"
+    dev.write_text(json.dumps({"k_total": 16, "selected_for_oos": []}), encoding="utf-8")
+    argv = ["prepare", "--db", db, "--gate", str(gate), "--mask", str(mask), "--manifest", str(man), "--allow-dirty",
+            "--out-dir", str(tmp_path / "out"), "--dev-result", str(dev), "--dev-result-sha256", sha256_file(dev)]
+    with pytest.raises(DataMismatch, match="QQQ.*differ from data_manifest"):
+        reversal_study_v1_oos.main(argv)
+    assert not (tmp_path / "out").exists()
 
 
 def test_db_row_of_any_of_the_six_symbols_is_checked_against_the_manifest(tmp_path):
@@ -344,12 +362,14 @@ def _oos_files(tmp_path, monkeypatch):
     dev.write_text(json.dumps({"k_total": 16, "selected_for_oos": []}), encoding="utf-8")
     prep = tmp_path / "prep.json"
     prep.write_text(json.dumps({"targets": [{"label": "a", "k": 16}], "gates": {}, "target_status": {"a": "READY"},
-                                "oos_events_sha256": "c" * 64}), encoding="utf-8")
+                                "oos_events_sha256": "c" * 64, "dev_result_sha256": sha256_file(dev)}),
+                    encoding="utf-8")
     omask = tmp_path / "omask.json"
     omask.write_text(json.dumps({"events_calendar_sha256": "c" * 64, "pairs": {}}), encoding="utf-8")
     snap = tmp_path / "snap.json"
     snap.write_text(json.dumps({"rows": {}}), encoding="utf-8")
     monkeypatch.setattr(O, "load_oos_calendar", lambda path: ({}, "c" * 64))
+    monkeypatch.setattr(O, "prepare_dev", lambda args, purpose: ({}, {}, {}, RC.pair_map(), {}))
     common = ["run", "--db", str(tmp_path / "none.sqlite"), "--gate", str(gate), "--mask", str(mask),
               "--manifest", str(man), "--allow-dirty", "--out-dir", str(tmp_path / "out"), "--i-have-user-approval",
               "--dev-result", str(dev), "--dev-result-sha256", sha256_file(dev), "--prepare", str(prep),
@@ -373,7 +393,7 @@ def test_oos_run_without_a_grant_for_a_target_is_refused(tmp_path, monkeypatch):
 def test_oos_prepare_refuses_without_the_oos_event_calendar(tmp_path, monkeypatch):
     from scripts import reversal_study_v1_oos
     gate, mask, man = _fixed(tmp_path, monkeypatch)
-    monkeypatch.setattr(O, "require_inputs", lambda args: ({}, {}, {}, RC.pair_map()))
+    monkeypatch.setattr(O, "prepare_dev", lambda args, purpose: ({}, {}, {}, RC.pair_map(), {}))
     dev = tmp_path / "dev.json"
     dev.write_text("{}", encoding="utf-8")
     argv = ["prepare", "--db", str(tmp_path / "none.sqlite"), "--gate", str(gate), "--mask", str(mask),

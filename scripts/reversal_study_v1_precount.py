@@ -2,7 +2,7 @@
 
 Runs the full §5.1 verification first (fixed gate / mask / manifest hashes from config/reversal_study_v1.json,
 events calendar, DB rows of SMH SOXL SOXS QQQ TQQQ SQQQ against the manifest, P1/P2 mask rebuilt from the verified
-rows). Rows are read with research_load(purpose="coverage") for the hash / mask check; signals use the reference
+rows). Rows are read with research_load(purpose="performance") for the hash / mask check; signals use the reference
 symbols' bars only. No ETF price is used and no return is computed. The count is the user's "run it / stop" input.
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     C.add_fixed_args(ap, approval=False)
     args = ap.parse_args(argv)
-    _gate, mask, _manifest, pairs, seg_data = C.prepare_dev(args, purpose="coverage")
+    _gate, mask, _manifest, pairs, seg_data = C.prepare_dev(args, purpose="performance")
     cells = RC.load_cells()
     out = {"k_total": RC.K_TOTAL, "pairs": {}, "reproduction": C.reproduction_record()}
     for pair in pairs:

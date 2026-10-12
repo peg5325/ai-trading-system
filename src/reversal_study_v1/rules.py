@@ -42,6 +42,8 @@ def _bar(day: RefDay, t: int) -> Bar:
 
 
 def t1(day: RefDay, p: dict) -> Result:
+    if p["fill_equal"] != "filled":
+        raise ValueError(f"unsupported fill_equal {p['fill_equal']!r}")
     first, last = hhmm(p["window_first"]), hhmm(p["window_last"])
     seen = visible(day.bars, OPEN + 1)  # the gap needs the 09:30 open (and PRE bars) only
     if OPEN not in seen:
@@ -198,11 +200,11 @@ def t4(day: RefDay, p: dict) -> Result:
     undefined = first.info.get("sigma_undefined", 0)
     info = {"first_t": t_first, "first_dir": "up" if up else "down"}
     for t in range(t_first + 1, hhmm(p["last_check_bar_start"]) + 1):
+        c = _bar(day, t).close
         sig = sigma_at(day.sigma_days, t, n)
         if sig is None:
             undefined += 1
             continue
-        c = _bar(day, t).close
         upper, lower = bands(day, sig, mult)
         if up and c < lower:
             return Result(Signal("short", t + 1, f"t1={t_first} C({t})={c!r} < L={lower!r}"), "signal",

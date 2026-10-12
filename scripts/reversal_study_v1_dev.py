@@ -28,8 +28,6 @@ from src.reversal_study_v1.pipeline import collect_trades, overlay_report
 
 
 def overlay(args, mask, pairs, seg_data) -> dict:
-    if args.entry_dev_result is None:
-        return {"reported": False, "why": "--entry-dev-result not given"}
     want = RC.frozen_inputs()["entry_dev_result_sha256"]
     got = sha256_file(args.entry_dev_result)
     if got != want:
@@ -44,8 +42,8 @@ def overlay(args, mask, pairs, seg_data) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     C.add_fixed_args(ap, approval=True)
-    ap.add_argument("--entry-dev-result", type=Path, default=None,
-                    help="entry study dev_result.json (enables the §7.5 overlay report)")
+    ap.add_argument("--entry-dev-result", type=Path, required=True,
+                    help="entry study dev_result.json (§7.5 overlay baseline; required)")
     args = ap.parse_args(argv)
     _gate, mask, _manifest, pairs, seg_data = C.prepare_dev(args, purpose="performance")
     cells = RC.load_cells()

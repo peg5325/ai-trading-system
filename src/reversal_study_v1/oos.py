@@ -35,8 +35,8 @@ from src.reversal_study_v1 import config as RC
 from src.reversal_study_v1 import devrun
 from src.reversal_study_v1 import rules as RL
 from src.reversal_study_v1.cli import (
+    prepare_dev,
     reproduction_record,
-    require_inputs,
     write_json_once,
 )
 from src.reversal_study_v1.pipeline import collect_trades
@@ -71,7 +71,8 @@ def targets(dev_result: dict) -> list[Target]:
     if len(sel) > 1:
         raise StudyRefused(f"dev result selects {sel}; at most one cell goes to the OOS")
     if sel:
-        out.append(Target("b", RC.load_cells()[sel[0]], RL.evaluate))
+        cell_b = next(c for c in RC.load_cells() if c.k == sel[0])
+        out.append(Target("b", cell_b, RL.evaluate))
     return out
 
 
@@ -118,7 +119,8 @@ def _load_dev_result(args) -> dict:
 
 
 def prepare(args) -> int:
-    _gate, _mask, manifest, all_pairs = require_inputs(args)
+    # full §5.1 (1)-(5) on the development window before any OOS read
+    _gate, _mask, manifest, all_pairs, _dev_rows = prepare_dev(args, purpose="performance")
     cal, cal_sha = load_oos_calendar(args.oos_events)  # refuses before any data is read
     tgts = targets(_load_dev_result(args))
     pairs = {p: all_pairs[p] for p in sorted({t.pair for t in tgts})}
@@ -134,7 +136,8 @@ def prepare(args) -> int:
                 "gates": gates,
                 "target_status": {t.label: ("READY" if gates[t.pair]["status"] == "PASS" else "OOS_INVALID")
                                   for t in tgts},
-                "oos_events_sha256": cal_sha, "reproduction": reproduction_record()}
+                "oos_events_sha256": cal_sha, "dev_result_sha256": args.dev_result_sha256,
+                "reproduction": reproduction_record()}
     out = args.out_dir
     if any((out / n).exists() for n in ("oos_mask.json", "oos_snapshot.json", "oos_prepare.json")):
         raise StudyRefused("an OOS output already exists; outputs are write-once")
@@ -145,7 +148,7 @@ def prepare(args) -> int:
 
 
 def run(args) -> int:
-    _gate, _mask, manifest, all_pairs = require_inputs(args)
+    _gate, _mask, manifest, all_pairs, _dev_rows = prepare_dev(args, purpose="performance")
     tgts = targets(_load_dev_result(args))
     check_sha(args.prepare, args.prepare_sha256, "oos_prepare")
     check_sha(args.oos_mask, args.oos_mask_sha256, "oos_mask")
@@ -156,6 +159,8 @@ def run(args) -> int:
     if [t["label"] for t in prepared["targets"]] != [t.label for t in tgts] or \
             [t["k"] for t in prepared["targets"]] != [t.cell.k for t in tgts]:
         raise DataMismatch("the OOS targets differ from the prepared ones")
+    if prepared.get("dev_result_sha256") != args.dev_result_sha256:
+        raise DataMismatch("dev_result differs from the one oos_prepare.json was built with")
     grants = dict(kv.split("=", 1) for kv in args.unlock_artifact)
     cal, cal_sha = load_oos_calendar(args.oos_events)
     if cal_sha != oos_mask["events_calendar_sha256"] or cal_sha != prepared["oos_events_sha256"]:
