@@ -1,6 +1,6 @@
 # 사전등록: 일중 추세 전환 신호 연구 v1 (2단계 — 전환을 독립 진입으로)
 
-작성 2026-10-12 · 상태: **초안 1(리뷰 전, 고정 전).** 고정 전까지 T1~T4의 손익은 한 번도 계산하지 않았다. 고정 뒤 바꾸면 v2.
+작성 2026-10-12 · 상태: **초안 2(독립 리뷰 FIX_THEN_LOCK 반영, 고정 전).** 고정 전까지 T1~T4의 손익은 한 번도 계산하지 않았다. 고정 뒤 바꾸면 v2.
 `config/reversal_study_v1.json` SHA-256: (고정 시 기록).
 로드맵: 단계 3(사전등록 검증). 진입 연구 v1이 `NO_PASS`(확인된 진입 없음)로 끝나 그 §9대로 2단계를 **진입 가정 없이** 따로 설계한다(사용자 결정 2026-10-12).
 기준 문서: [진입 연구 v1 사전등록](PREREG_DAYTRADE_ENTRY_STUDY_V1.md)(이하 "진입 연구"). 여기 적지 않은 정의·절차는 진입 연구와 **같다**.
@@ -41,7 +41,8 @@
 
 - **T1:** `|g| < 0.0030`·`g` 정의 불가면 신호 없음. 등호(`C = PC`)는 메운 것으로 본다. 09:30~09:34 봉은 판정하지 않는다(사용자 창 그대로): 그 사이 이미 메웠고 09:35 봉도 넘어 있으면 t = 09:35. 10:29까지 못 메우면 신호 없음.
 - **T2:** 등호(`C = ORH`·`C = ORL`)는 안쪽. **그날 첫 돌파 하나만** 본다(실패 없이 끝나면 두 번째 돌파는 보지 않음). 실패는 "범위 안으로 돌아온 종가"를 **반대쪽 끝을 넘어선 종가까지 포함**해 `C(u) ≤ ORH`(위 돌파)·`C(u) ≥ ORL`(아래 돌파)로 정한다. b = 11:59면 u가 없어 신호 없음.
-- **T3:** VWAP은 09:30 봉부터 누적하고 봉 s의 VWAP에는 봉 s를 포함한다. Σ V = 0이면 그 봉 VWAP 미정의: 아침 90봉 중 하나라도 미정의면 그날 T3 신호 없음(사유 기록), 오후에는 미정의 봉이 연속을 끊는다. 등호(`C = VWAP`)는 어느 쪽도 아니다.
+- **T3:** VWAP은 09:30 봉부터 봉 순서대로 Python float 누적합(Σ TP·V, Σ V)으로 계산하고, 봉 s의 VWAP에는 봉 s를 포함한다(`TP = (H+L+C)÷3`). Σ V = 0이면 그 봉 VWAP 미정의: 아침 90봉 중 하나라도 미정의면 그날 T3 신호 없음(사유 기록).
+  Σ V는 줄지 않으므로 V(09:30) > 0이면 미정의는 생기지 않는다. "오후 미정의 봉이 연속을 끊는다"는 규칙은 도달 불가지만 방어용으로 둔다. 등호(`C = VWAP`)는 어느 쪽도 아니다.
   하락·상승 아침이 동시에 참일 수 없다(72 + 72 > 90). 다섯 봉 연속은 11:00 이전 봉(10:56~10:59)을 포함할 수 있다(t ≥ 11:00만 요구).
 - **T4:** σ(t)가 미정의인 분은 첫 이탈·반대 이탈 모두 판정하지 않는다(진입 연구 E3과 같음). 등호는 안쪽. t₁ = 15:00이면 신호 없음. 첫 이탈 방향의 포지션은 가정하지 않는다(독립 진입).
 - **이벤트일(FOMC·CPI·NFP·PCE):** 같은 규칙. 표시만 하고 "이벤트일 제외" 민감도(보고만)에서 뺀다(진입 연구 §3과 같음).
@@ -93,11 +94,13 @@
   마감 보유 결과(예: SOXL E3 롱 마감 +0.06%, 0.30% 기준)는 봤지만 반대 이탈 뒤 결과는 계산한 적 없다(D).
 - v1.1(S6)은 v1.0 아침 포지션이 있던 날에만 반대 이탈을 봤다(채점일 589일 중 최대 9일, D). T4는 조건 없이 모든 날에서 본다.
 - QQQ/TQQQ/SQQQ 봉인 구간: R1 재생 시험(PR #186)이 v1.0을 돌렸다(접촉 기록, D). Paper·일지가 2026-10-05~10-09를 봤다 → OOS에서 뺀다(§8).
+- **봉인 뒤 구간 접촉(기록된 노출, D):** SMH·SOXL·SOXS 1분봉 2026-07-22 ~ 10-04는 매일 정기 수집(history-collect)됐고, SMH·SOXL은 장전 파이프라인의 시장 묶음에 들어가
+  FREEZE 브리핑용으로 기계가 읽었다(출력은 NO_TRADE, 어시스턴트가 수익률로 살펴보지 않음). R1 그림자·Paper는 QQQ/TQQQ/SQQQ만 썼다(10-05~).
 - T1~T4의 손익은 어느 구간에서도 계산한 적이 없다. §6 집계는 신호 방향을 보므로 이미 본 정보로 기록한다.
 
 ## 6. 실행 전 집계 (손익 없음) — 사용자 보고 후 "돌린다 / 멈춘다"
 
-§5.1 검증 뒤 ref 봉만 읽어(ETF 가격은 읽지 않음) 센다:
+§5.1 검증 뒤 ref 봉으로 센다. ETF 행은 해시·마스크 검증에만 읽고 수익률은 계산하지 않는다:
 
 1. 신호 수: 신호 × 방향 × 쌍 × 구간(A·B), 이벤트일 신호 수, 진입 시각 분포(최소·사분위·최대).
 2. 진단: T1 `|g| ≥ 0.30%` 날 수·PRE 대체 날 수·09:35 전에 이미 메운 날 수·`O`가 이미 PC 반대편인 날 수 / T2 위·아래 첫 돌파 수와 그중 실패 수 /
@@ -149,10 +152,12 @@ holm: K = 16 (fixed; p = None counts in K with adjusted p = 1); order by p asc (
 ### 7.5 청산 덧씌우기 (보고만, 선택·판정에 쓰지 않음)
 
 - 대상: 진입 연구 config의 P1·P2 칸(k = 0~19)이 같은 마스크에서 내는 E1~E5 거래 그대로(진입 연구 코드·파라미터 불변).
-  먼저 마감 보유·0.30% 결과가 진입 연구 `dev_result.json`(SHA-256 `542a9ffdd57fdd8fcda537748f9cba102a0115aef5c39747afef1d08c1d68c3b`, D)과 같은지 확인한다. 다르면 이 보고를 내지 않는다.
+  먼저 k = 0~19마다 `main.n`, `n_by_segment`, `mean_by_segment`, `mean_base`(진입 연구의 0.30% 세트), `mean_stress`, `median_base`가 진입 연구 `dev_result.json`
+  (SHA-256 `542a9ffdd57fdd8fcda537748f9cba102a0115aef5c39747afef1d08c1d68c3b`, D)과 **float 값까지 정확히 같은지** 확인한다. 하나라도 다르면 이 보고를 내지 않는다.
 - 청산 신호(진입 봉 e 이후 ref 봉만, J): 롱 ETF 보유 중 **T3형** = s = t−4..t 다섯 봉 모두 `C(s) < VWAP(s)`(s ≥ e), **T4형** = t ∈ [max(e, 10:00), 15:00]에서 σ(t) 정의되고 `C(t) < L(t)`.
-  인버스 ETF 보유 중은 부등호 반대(`> VWAP`, `> U`). 아침 추세 조건·첫 이탈 조건은 쓰지 않는다. t ≤ 15:53에서 처음 나온 신호의 t+1 시가에 청산, 없으면 15:55.
-- 보고: 칸마다 n, 덧씌운 청산 vs 마감 보유의 평균 순수익(0.20·0.30%)과 거래별 차이 평균, T3형·T4형 청산 비율, 보유 분 중앙값. p·Holm 없음.
+  인버스 ETF 보유 중은 부등호 반대(`> VWAP`, `> U`). 아침 추세 조건·첫 이탈 조건은 쓰지 않는다. **덧씌우기는 하나**: t ≤ 15:53에서 T3형·T4형 중 먼저 나온 신호의
+  t+1 시가에 청산, 없으면 15:55. 같은 t에 둘 다 나오면 사유 `both`, 청산은 같다. VWAP 미정의는 V(09:30) > 0이면 도달 불가다(§3 T3).
+- 보고: 칸마다 n, 덧씌운 청산 vs 마감 보유의 평균 순수익(0.20·0.30%)과 거래별 차이 평균, T3형·T4형·`both`·15:55 청산 비율, 보유 분 중앙값. p·Holm 없음.
 
 ## 8. Blind OOS (한 번만, 최대 2칸)
 
@@ -163,6 +168,9 @@ holm: K = 16 (fixed; p = None counts in K with adjusted p = 1); order by p asc (
 
 - **(a)는 개발 결과를 본 뒤 고른 가설이다.** 진입 연구 20칸 중 0.20% 기준 평균이 가장 컸던 칸이다(0.20%: n 147, +0.37%/거래, A +0.49%·B +0.24%, 원 p 0.16, Holm 1.0; D: RESULT 문서).
   20칸 중 골랐으므로 개발 수치는 선택 편향을 담고 있고 증거로 쓰지 않는다. **봉인 구간이 이 가설의 유일한 검정**이다. E2 정의·파라미터는 바꾸지 않는다.
+- **(a)의 검정력(스크립트, 마스크 전 상한):** OOS 세션 182개 − 10-05~09의 5개 = 177개(조기폐장 0, D: `exchange_calendar`). 예상 거래 ≈ 177 × 147/581(개발 P1 빈도, D) ≈ **45건**.
+  sd 5.75%(§6), 한쪽 α = 0.10, 검정력 80%에서 구별 가능한 효과 ≈ **1.82%/거래**. 개발 추정 +0.37%가 참이라면 `OOS_PASS` 확률 ≈ **20%**.
+  그래서 (a)의 `OOS_FAIL`은 "반증"이 아니라 **"확인 안 됨 — 약 1.8% 미만의 효과는 배제 못 함"**으로 보고한다. 사용자는 이 한계를 알고 개봉을 승인한다.
 - **OOS 데이터(D, 진입 연구 §8과 같음):** 채점일 = 2026-01-21 ~ 2026-10-09의 NYSE 세션에서 **2026-10-05 ~ 10-09를 뺀 날**, 대상 칸의 쌍만. 룩백·PC·σ 14세션은
   개발 구간 B 봉을 써도 된다(결과가 아닌 입력). 봉인(~07-21)과 봉인 뒤(07-22~) 사이 달력 공백이 없어 부트스트랩에서 **하나의 연속 구간**이다. 마스크 조건 ①~⑥은 진입 연구 §5.1과 같다.
 - **OOS 게이트:** 대상 쌍에 G1(≥ 95%)·G3(위반 0)을 `purpose="coverage"`로 적용하고, G4는 개봉 뒤 첫 단계로 계산한다. 실패하면 그 칸 `OOS_INVALID`, 다음 순위로 대체하지 않는다.
@@ -170,12 +178,18 @@ holm: K = 16 (fixed; p = None counts in K with adjusted p = 1); order by p asc (
 - **OOS 통과(칸마다, 진입 연구와 같음):** n ≥ 10 **그리고** 기본 0.20% 평균 > 0 **그리고** 한쪽 블록 부트스트랩 p **< 0.10**(variant 50). n < 10이면 `OOS_INCONCLUSIVE`.
   (a)·(b)는 따로 판정하고 서로 보정하지 않는다(J: 대상 2개로 묶음, 방향은 미리 정한 한쪽 검정, 통과해도 탐색용 Paper 자격일 뿐). 0.30%·0.10%·30/60분은 보고만.
 - **여는 때:** 개발 검정과 판정 보고 **뒤**, 사용자 승인으로 **한 번** 연다. (a)는 항상 있으므로 개발이 `NO_PASS`여도 승인이 있으면 (a)만 연다.
-  열고 나면 2026-01-21 ~ 10-09는 이 연구와 진입 연구 묶음에 대해 **사용 완료**로 기록한다.
+- **봉인 소모는 종목 단위:** OOS grant 아래 실제로 읽은 종목만 2026-01-21 ~ 10-09를 사용 완료로 기록한다(예: (a)만 열면 SMH·SOXL·SOXS 소모, QQQ·TQQQ·SQQQ는 봉인 유지).
+  기록처 = 새 파일 `docs/research/OOS_USAGE_LEDGER.md`(열: 날짜, 연구, 칸, 종목, 구간, unlock artifact SHA-256). 행 추가는 §12의 7단계다(이 문서 고정 때 만들지 않는다).
 
 ### 8.1 개봉 절차 (`OOS_UNLOCK_VERIFICATION_CONTRACT.md` unlock artifact v2, 진입 연구 §8.1과 같은 방식)
 
-1. **고정 설정:** 이 문서와 함께 `config/reversal_study_v1.json`을 고정한다. 내용 = 16칸(k, strategy_id, 신호, 방향, 쌍, ETF, ref, 파라미터, 보유 3개, 주 보유),
-   `oos_designated`((a), 진입 연구 k = 2 파라미터 복사, `source_config_sha256` = `config/entry_study_v1.json` 해시), §8 순위 규칙, 비용 세트 3개, 시드 기준, §5.1 고정 해시 3개.
+1. **고정 설정:** 이 문서와 함께 `config/reversal_study_v1.json`을 고정한다. 내용 = 16칸(k, strategy_id, `rule`(= 신호 T1~T4), side, pair, etf, ref, params, holds 3개, primary_hold),
+   `oos_designated`((a): 진입 연구 k = 2의 params·holds·etf·ref·side·rule 복사, `source_config_sha256` = `config/entry_study_v1.json` 해시; 같음은 이 여섯 필드의
+   canonical JSON 바이트(`sort_keys`) 비교), §8 순위 규칙, 비용 세트 3개(c·s·f 숫자 — config 값이 정본), 시드 기준, §5.1 고정 해시 3개.
+   **params 키:** T1 `gap_min_abs` 0.003, `pre_cutoff` "09:25", `window_first`/`window_last` "09:35"/"10:29", `fill_equal` "filled" ·
+   T2 `or_first`/`or_last` "09:30"/"09:44", `breakout_first`/`breakout_last` "09:45"/"11:59", `fail_within_min` 30, `fail_last` "11:59" ·
+   T3 `morning_first`/`morning_last` "09:30"/"10:59", `morning_frac` 0.80, `run_bars` 5, `reclaim_first`/`reclaim_last` "11:00"/"14:59", `tp` "hlc3" ·
+   T4 `sigma_sessions` 14, `multiplier` 1.0, `first_check_bar_start`/`last_check_bar_start` "10:00"/"15:00".
    실행자는 이 문서에서 **그대로** 옮기고, 고정 시 그 SHA-256을 문서 머리에 적는다.
 2. **선행 조건:** `config/daytrade_events_oos_v1.yaml`(FOMC·CPI·NFP·PCE·조기폐장, 적용 2026-01-21 ~ 2026-10-09, 날짜마다 공식 출처)을 **열기 전에** 작성·커밋한다.
    적용 범위가 OOS를 덮지 않으면 `oos`는 거부한다(진입 연구 `load_oos_calendar` 재사용). 휴장·조기폐장은 `exchange_calendar.py`와 대조.
@@ -192,7 +206,7 @@ holm: K = 16 (fixed; p = None counts in K with adjusted p = 1); order by p asc (
 
 | 결과 | 행동 |
 | --- | --- |
-| §5.1 검증 거부 | 멈춤. 손익 계산 없음. 원인 보고(파일·DB가 바뀌었으면 새 버전에서 새 게이트·마스크) |
+| §5.1 검증 거부 | T1~T4 멈춤, 손익 계산 없음. 원인 보고(파일·DB가 바뀌었으면 새 버전에서 새 게이트·마스크). **(a)는 그래도 열 수 있다**(개발 손익 행에 기대지 않고, OOS 룩백 행은 부록 ③에서 해시) — 사용자 승인 시 |
 | 집계 뒤 "멈춘다" | 멈춤. 손익 계산 없음. OOS도 열지 않음 |
 | 개발 `NO_PASS` | (b) 없음. 사용자 승인 시 (a)만 OOS. 전환 신호 4개는 이 버전으로 종결 |
 | 개발 `DEV_PASS` 1개 이상 | 순위 1위가 (b). 사용자 승인 시 (a)·(b) OOS. 나머지 통과 칸은 이미 본 결과로 기록(봉인 재사용 불가) |
@@ -219,6 +233,7 @@ holm: K = 16 (fixed; p = None counts in K with adjusted p = 1); order by p asc (
 | 비용 | `entry_study_v1.trades.CostSet`·`net_return`·`trade` 재사용, 비용 사전만 새로: `base_0.20`(c, 0, f), `stress_0.30`(c, s, f), `sens_0.10`(c/2, 0, f), c·s·f = `daytrade_paper.rules` 상수 |
 | 통계 | `entry_study_v1.stats`의 `block_bootstrap_p`(시드 직접 전달)·`holm_adjust(k_total=16)`·`dev_pass`·`rank_dev_pass(max_cells=1)`·`oos_verdict`·`power_delta` |
 | `scripts/reversal_study_v1_{precount,dev,oos}.py` | 셋 다 §5.1 검증(①~⑤) 실패면 거부, 깨끗한 작업 트리. `dev`·`oos`는 `--i-have-user-approval` 필수. `oos`는 OOS 달력·OOS 게이트·마스크·칸별 grant 없으면 거부 |
+| unlock 결속 | `IMPLEMENTATION_PATHS` = `src/entry_study_v1/*.py` 전부 + `src/reversal_study_v1/*.py` 전부 + `scripts/reversal_study_v1_oos.py` + `scripts/entry_study_v1_oos.py:54-58`의 공용 의존(`src/daytrade_paper/{rules,core,store,external}.py`, `src/history/{exchange_calendar,loader,oos_guard}.py`, `src/models.py`) |
 
 **필수 시험:**
 1. **미래 정보(신호마다):** 판정 봉 t 뒤(시작 ≥ t+1) ref 봉을 바꿔 넣어도 결과가 같다 — T1, T2(ORH·ORL은 09:45 이후 봉을 바꿔도 불변), **T3(VWAP(t)는 s ≤ t 봉만: 뒤 봉의 가격·거래량을 바꿔도 불변)**, T4(σ는 오늘 봉 불사용), §7.5 청산.
@@ -227,9 +242,11 @@ holm: K = 16 (fixed; p = None counts in K with adjusted p = 1); order by p asc (
 4. **봉인:** 개발 로더가 2026-01-21 이후 요청 → 거부, `research_load(performance)`가 봉인과 겹치면 `OOSLockError`, grant 없는 `oos` → 거부, OOS 마스크에서 2026-10-05~09 제외.
 5. **경계:** T1 `|g|` = 0.0030 정확히·`C = PC`·10:29 마지막·PRE 없음 / T2 `C = ORH`(돌파 아님)·u = b+30(포함)·b+31(제외)·11:59 상한·반대쪽 끝 넘은 종가(실패 포함)·b = 11:59 /
    T3 72/90(참)·71/90(거짓)·`C = VWAP`·4봉 뒤 끊김·10:56~11:00 연속·14:59 마지막·Σ V = 0 / T4 `C = L`·t₂ σ 미정의·t₁ = 15:00 / 보유 자르기 e = 14:56.
-6. **config:** JSON 칸·파라미터 = 문서 표, K = 16, (a) 파라미터 = `config/entry_study_v1.json` k = 2와 바이트 동일.
+6. **config:** JSON 칸·파라미터 키·값 = 문서(§3·§8.1), K = 16, (a)의 params·holds·etf·ref·side·rule canonical JSON 바이트(`sort_keys`) = `config/entry_study_v1.json` k = 2,
+   config 비용 숫자 = `daytrade_paper.rules` 상수에서 만든 값(c, 0, f / c, s, f / c÷2, 0, f).
 7. **덧씌우기 재현:** E1~E5 마감·0.30% 결과 = 진입 연구 `dev_result.json`(P1·P2 20칸).
 8. **통계:** 고정 입력에서 p·Holm 재현(시드), n ≤ 5 구간 제외, 분산 0 → None.
+9. **시드:** 전환 연구 코드는 `stats.seed_for`(BASE_SEED 20261012)를 부르지 않고 `20261013 + 1000·variant + k`를 직접 넘긴다.
 
 **재현 기록(실행 전 채움):** 코드 커밋, config JSON·§5.1 해시·이벤트 달력 SHA-256, 종목·구간별 DB 행 해시, Python·numpy 버전, 시드.
 
@@ -243,6 +260,7 @@ holm: K = 16 (fixed; p = None counts in K with adjusted p = 1); order by p asc (
 | 4 | 개발 검정 한 번(+§7.5 보고) → 판정 | 결과 보고 |
 | 5 | OOS 이벤트 달력 작성 → OOS 게이트·마스크·스냅샷 → 부록 PR 병합 → unlock·grant | **사용자 승인** |
 | 6 | (a)[·(b)] 한 번 개봉 → 판정·보고 | 결과 보고 |
+| 7 | `docs/research/OOS_USAGE_LEDGER.md`에 소모 행 기록(실제로 읽은 종목만) | — |
 
 ## 열린 질문
 
