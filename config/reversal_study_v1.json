@@ -1,0 +1,448 @@
+{
+ "version": "reversal-study-v1",
+ "prereg": "docs/research/PREREG_DAYTRADE_REVERSAL_STUDY_V1.md",
+ "pairs": {
+  "P1": {
+   "ref": "SMH",
+   "long": "SOXL",
+   "short": "SOXS"
+  },
+  "P2": {
+   "ref": "QQQ",
+   "long": "TQQQ",
+   "short": "SQQQ"
+  }
+ },
+ "cells": [
+  {
+   "k": 0,
+   "strategy_id": "reversal-study-v1-cell-0",
+   "pair": "P1",
+   "rule": "T1",
+   "side": "long",
+   "etf": "SOXL",
+   "ref": "SMH",
+   "params": {
+    "gap_min_abs": 0.003,
+    "pre_cutoff": "09:25",
+    "window_first": "09:35",
+    "window_last": "10:29",
+    "fill_equal": "filled"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 1,
+   "strategy_id": "reversal-study-v1-cell-1",
+   "pair": "P1",
+   "rule": "T1",
+   "side": "short",
+   "etf": "SOXS",
+   "ref": "SMH",
+   "params": {
+    "gap_min_abs": 0.003,
+    "pre_cutoff": "09:25",
+    "window_first": "09:35",
+    "window_last": "10:29",
+    "fill_equal": "filled"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 2,
+   "strategy_id": "reversal-study-v1-cell-2",
+   "pair": "P1",
+   "rule": "T2",
+   "side": "long",
+   "etf": "SOXL",
+   "ref": "SMH",
+   "params": {
+    "or_first": "09:30",
+    "or_last": "09:44",
+    "breakout_first": "09:45",
+    "breakout_last": "11:59",
+    "fail_within_min": 30,
+    "fail_last": "11:59"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 3,
+   "strategy_id": "reversal-study-v1-cell-3",
+   "pair": "P1",
+   "rule": "T2",
+   "side": "short",
+   "etf": "SOXS",
+   "ref": "SMH",
+   "params": {
+    "or_first": "09:30",
+    "or_last": "09:44",
+    "breakout_first": "09:45",
+    "breakout_last": "11:59",
+    "fail_within_min": 30,
+    "fail_last": "11:59"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 4,
+   "strategy_id": "reversal-study-v1-cell-4",
+   "pair": "P1",
+   "rule": "T3",
+   "side": "long",
+   "etf": "SOXL",
+   "ref": "SMH",
+   "params": {
+    "morning_first": "09:30",
+    "morning_last": "10:59",
+    "morning_frac": 0.8,
+    "run_bars": 5,
+    "reclaim_first": "11:00",
+    "reclaim_last": "14:59",
+    "tp": "hlc3"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 5,
+   "strategy_id": "reversal-study-v1-cell-5",
+   "pair": "P1",
+   "rule": "T3",
+   "side": "short",
+   "etf": "SOXS",
+   "ref": "SMH",
+   "params": {
+    "morning_first": "09:30",
+    "morning_last": "10:59",
+    "morning_frac": 0.8,
+    "run_bars": 5,
+    "reclaim_first": "11:00",
+    "reclaim_last": "14:59",
+    "tp": "hlc3"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 6,
+   "strategy_id": "reversal-study-v1-cell-6",
+   "pair": "P1",
+   "rule": "T4",
+   "side": "long",
+   "etf": "SOXL",
+   "ref": "SMH",
+   "params": {
+    "sigma_sessions": 14,
+    "multiplier": 1.0,
+    "first_check_bar_start": "10:00",
+    "last_check_bar_start": "15:00"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 7,
+   "strategy_id": "reversal-study-v1-cell-7",
+   "pair": "P1",
+   "rule": "T4",
+   "side": "short",
+   "etf": "SOXS",
+   "ref": "SMH",
+   "params": {
+    "sigma_sessions": 14,
+    "multiplier": 1.0,
+    "first_check_bar_start": "10:00",
+    "last_check_bar_start": "15:00"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 8,
+   "strategy_id": "reversal-study-v1-cell-8",
+   "pair": "P2",
+   "rule": "T1",
+   "side": "long",
+   "etf": "TQQQ",
+   "ref": "QQQ",
+   "params": {
+    "gap_min_abs": 0.003,
+    "pre_cutoff": "09:25",
+    "window_first": "09:35",
+    "window_last": "10:29",
+    "fill_equal": "filled"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 9,
+   "strategy_id": "reversal-study-v1-cell-9",
+   "pair": "P2",
+   "rule": "T1",
+   "side": "short",
+   "etf": "SQQQ",
+   "ref": "QQQ",
+   "params": {
+    "gap_min_abs": 0.003,
+    "pre_cutoff": "09:25",
+    "window_first": "09:35",
+    "window_last": "10:29",
+    "fill_equal": "filled"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 10,
+   "strategy_id": "reversal-study-v1-cell-10",
+   "pair": "P2",
+   "rule": "T2",
+   "side": "long",
+   "etf": "TQQQ",
+   "ref": "QQQ",
+   "params": {
+    "or_first": "09:30",
+    "or_last": "09:44",
+    "breakout_first": "09:45",
+    "breakout_last": "11:59",
+    "fail_within_min": 30,
+    "fail_last": "11:59"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 11,
+   "strategy_id": "reversal-study-v1-cell-11",
+   "pair": "P2",
+   "rule": "T2",
+   "side": "short",
+   "etf": "SQQQ",
+   "ref": "QQQ",
+   "params": {
+    "or_first": "09:30",
+    "or_last": "09:44",
+    "breakout_first": "09:45",
+    "breakout_last": "11:59",
+    "fail_within_min": 30,
+    "fail_last": "11:59"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 12,
+   "strategy_id": "reversal-study-v1-cell-12",
+   "pair": "P2",
+   "rule": "T3",
+   "side": "long",
+   "etf": "TQQQ",
+   "ref": "QQQ",
+   "params": {
+    "morning_first": "09:30",
+    "morning_last": "10:59",
+    "morning_frac": 0.8,
+    "run_bars": 5,
+    "reclaim_first": "11:00",
+    "reclaim_last": "14:59",
+    "tp": "hlc3"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 13,
+   "strategy_id": "reversal-study-v1-cell-13",
+   "pair": "P2",
+   "rule": "T3",
+   "side": "short",
+   "etf": "SQQQ",
+   "ref": "QQQ",
+   "params": {
+    "morning_first": "09:30",
+    "morning_last": "10:59",
+    "morning_frac": 0.8,
+    "run_bars": 5,
+    "reclaim_first": "11:00",
+    "reclaim_last": "14:59",
+    "tp": "hlc3"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 14,
+   "strategy_id": "reversal-study-v1-cell-14",
+   "pair": "P2",
+   "rule": "T4",
+   "side": "long",
+   "etf": "TQQQ",
+   "ref": "QQQ",
+   "params": {
+    "sigma_sessions": 14,
+    "multiplier": 1.0,
+    "first_check_bar_start": "10:00",
+    "last_check_bar_start": "15:00"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  },
+  {
+   "k": 15,
+   "strategy_id": "reversal-study-v1-cell-15",
+   "pair": "P2",
+   "rule": "T4",
+   "side": "short",
+   "etf": "SQQQ",
+   "ref": "QQQ",
+   "params": {
+    "sigma_sessions": 14,
+    "multiplier": 1.0,
+    "first_check_bar_start": "10:00",
+    "last_check_bar_start": "15:00"
+   },
+   "holds": {
+    "30m": 30,
+    "60m": 60,
+    "close": "15:55"
+   },
+   "primary_hold": "close"
+  }
+ ],
+ "oos_designated": {
+  "k": 16,
+  "strategy_id": "reversal-study-v1-oos-a",
+  "pair": "P1",
+  "primary_hold": "close",
+  "source_config": "config/entry_study_v1.json",
+  "source_k": 2,
+  "source_config_sha256": "5c707a558d0f25a541970ac1391c84a7847926b43b5f4e5826ebd94fa23c23b7",
+  "rule": "E2",
+  "side": "long",
+  "etf": "SOXL",
+  "ref": "SMH",
+  "params": {
+   "gap_min_abs": 0.003,
+   "pre_cutoff": "09:25",
+   "flow_bar_start": "09:44",
+   "entry": "09:45",
+   "flow": "close_minus_open"
+  },
+  "holds": {
+   "30m": 30,
+   "60m": 60,
+   "close": "15:55"
+  }
+ },
+ "ranking": {
+  "max_cells": 1,
+  "order": [
+   "holm_adjusted_p asc",
+   "mean_net_base_close desc",
+   "n desc",
+   "cell_index asc"
+  ]
+ },
+ "costs": {
+  "base_0.20": {
+   "c": 0.001,
+   "s": 0.0,
+   "f": 2.06e-05
+  },
+  "stress_0.30": {
+   "c": 0.001,
+   "s": 0.0005,
+   "f": 2.06e-05
+  },
+  "sens_0.10": {
+   "c": 0.0005,
+   "s": 0.0,
+   "f": 2.06e-05
+  }
+ },
+ "seed": {
+  "base": 20261013,
+  "variant_step": 1000,
+  "variants": {
+   "main": 0,
+   "hold_30m": 1,
+   "hold_60m": 2,
+   "stress_0.30": 3,
+   "sens_0.10": 4,
+   "no_event_days": 6,
+   "oos_main": 50
+  }
+ },
+ "frozen_inputs": {
+  "gate_sha256": "1a29540d5ec6c49164241926c25f1544d547c471d52d8ab126b6ad082b1738d6",
+  "mask_sha256": "af56a4590e4478b6d8ef2061b96985a44a3d3eb732c58b88fca8b6728daeeae9",
+  "data_manifest_sha256": "4c35a2df56567aec0c1b38ff3d31dcfcdec19de7fd2d993a06f96b477a53ea9c",
+  "entry_dev_result_sha256": "542a9ffdd57fdd8fcda537748f9cba102a0115aef5c39747afef1d08c1d68c3b"
+ }
+}
