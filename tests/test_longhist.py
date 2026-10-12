@@ -252,7 +252,12 @@ def test_events_yaml_schema():
 
 
 LONGHIST_LOADERS = {"load_daily", "load_aux"}
-ALLOWED_COVERAGE_LONGHIST = {os.path.join("scripts", "longhist_quality.py")}
+ALLOWED_COVERAGE_LONGHIST = {
+    os.path.join("scripts", "longhist_quality.py"),
+    # 일봉 당일 선별 v1(PREREG_DAILY_SAMEDAY_SCREEN_V1 §5.1·§6): 달력·배당은 load_aux(날짜·금액, 가격 없음),
+    # precount의 HOLDOUT 날짜 수는 purpose='coverage'(날짜 열만). 가격은 이 파일도 'performance'만 쓴다.
+    os.path.join("src", "daily_screen_v1", "data.py"),
+}
 LONGHIST_DEFINER = os.path.join("src", "longhist", "loader.py")
 
 
@@ -288,7 +293,7 @@ def _longhist_offenders(tree: ast.AST, rel: str, allow_coverage: bool) -> list[s
 
 
 def test_longhist_coverage_reads_only_in_quality_script():
-    """AST: only scripts/longhist_quality.py may read longhist data with purpose='coverage' or load_aux."""
+    """AST: only ALLOWED_COVERAGE_LONGHIST files may read longhist data with purpose='coverage' or load_aux."""
     offenders = []
     for base in ("src", "scripts", "analysis"):
         for dirpath, _d, files in os.walk(REPO / base):
