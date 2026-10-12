@@ -245,3 +245,112 @@ def test_compare_checks_situation_entry_and_size():
 def test_diff_reports_paths():
     assert diff({"a": [1, {"b": 2}]}, {"a": [1, {"b": 3}]}) == ["/a[1]/b: 2 != 3"]
     assert diff({"data_quality": 1, "x": 1}, {"data_quality": 2, "x": 1}) == []
+
+
+def test_claim_day_allows_one_live_run_per_session(tmp_path):
+    import json
+
+    from scripts.run_daytrade_shadow import claim_day
+    from src.daytrade_paper.store import RunRefused
+
+    day = tmp_path / "2026-10-09"
+    lock = claim_day(day, smoke=False)
+    with pytest.raises(RunRefused, match="live.lock"):  # launchd and a manual start at the same time
+        claim_day(day, smoke=True)
+    lock.close()
+    (day / "events.jsonl").write_text(json.dumps({"event": "START", "smoke": True}) + "\n")
+    claim_day(day, smoke=False).close()  # an earlier smoke run does not block the session
+    with (day / "events.jsonl").open("a") as f:
+        f.write(json.dumps({"event": "START", "logged_utc": "t"}) + "\n")  # no smoke key = a real run
+    with pytest.raises(RunRefused, match="already started"):
+        claim_day(day, smoke=False)
+    claim_day(day, smoke=True).close()
+
+
+def test_compare_auto_does_finished_days_once(tmp_path, monkeypatch):
+    import json
+
+    import scripts.run_daytrade_shadow as shadow
+
+    reg, pre = s1_day(qqq_after=lambda t: PREV * 1.03)
+    result, _ = replay_day("2026-10-05", reg, pre, PRIOR, EXT_OK, NO_EVENTS, 2000.0, **QC)
+    root = tmp_path / "reports" / "daytrade_shadow"
+    for day in ("2026-10-06", "2026-10-07", "2026-10-08"):
+        (root / day).mkdir(parents=True)
+        (root / day / "events.jsonl").write_text("")
+    for day in ("2026-10-06", "2026-10-07"):
+        (root / day / "result.json").write_text(json.dumps(result, default=str))
+    (tmp_path / "reports" / "daytrade_paper").mkdir(parents=True)
+    (tmp_path / "reports" / "daytrade_paper" / "2026-10-06.json").write_text(json.dumps(result, default=str))
+    measured = []
+    monkeypatch.setattr(shadow, "write_measure",
+                        lambda folder, day: measured.append(day) or (folder / "summary.json").write_text("{}"))
+    argv = ["compare", "--auto", "--out-root", str(tmp_path)]
+    assert shadow.main(argv) == 0
+    assert measured == ["2026-10-06", "2026-10-07"]  # every finished day, with or without its Paper report
+    assert json.loads((root / "2026-10-06" / "compare.json").read_text())["pass"] is True
+    assert not (root / "2026-10-07" / "compare.json").exists()  # Paper not written yet: retried next slot
+    measured.clear()
+    assert shadow.main(argv) == 0
+    assert measured == []
+
+
+def test_claim_day_refuses_an_unreadable_events_line(tmp_path):
+    from scripts.run_daytrade_shadow import claim_day
+    from src.daytrade_paper.store import RunRefused
+
+    day = tmp_path / "2026-10-09"
+    day.mkdir()
+    (day / "events.jsonl").write_text('{"event": "START", "sm')  # killed mid-write
+    with pytest.raises(RunRefused, match="unreadable"):
+        claim_day(day, smoke=False)
+    claim_day(day, smoke=True).close()  # the lock was released
+
+
+@pytest.mark.parametrize("day, now, refused", [
+    ("2026-10-09", "2026-10-09T08:50:00-04:00", None),            # 21:50 KST in EDT
+    ("2026-12-14", "2026-12-14T07:50:00-05:00", None),            # 21:50 KST in EST
+    ("2026-10-09", "2026-10-09T09:25:00-04:00", "late start"),    # Mac woke after the cutoff
+    ("2026-10-10", "2026-10-10T08:50:00-04:00", "not an NYSE trading day"),
+    ("2026-10-09", "2026-10-08T23:50:00-04:00", "ET date"),
+])
+def test_check_start_refuses_holidays_late_starts_and_wrong_dates(day, now, refused, monkeypatch):
+    import sys
+    from datetime import datetime
+    from types import ModuleType, SimpleNamespace
+
+    from scripts.run_daytrade_shadow import EVENTS, check_start
+    from src.daytrade_paper.store import RunRefused
+
+    monkeypatch.setitem(sys.modules, "websockets", ModuleType("websockets"))  # not a test dependency
+    args = SimpleNamespace(events=EVENTS, smoke_seconds=None)
+    now_et = datetime.fromisoformat(now)
+    if refused is None:
+        check_start(day, args, now_et)
+    else:
+        with pytest.raises(RunRefused, match=refused):
+            check_start(day, args, now_et)
+
+
+def test_check_start_refuses_without_websockets(monkeypatch):
+    import sys
+    from datetime import datetime
+    from types import SimpleNamespace
+
+    from scripts.run_daytrade_shadow import EVENTS, check_start
+    from src.daytrade_paper.store import RunRefused
+
+    monkeypatch.setitem(sys.modules, "websockets", None)  # import fails
+    with pytest.raises(RunRefused, match="websockets"):
+        check_start("2026-10-09", SimpleNamespace(events=EVENTS, smoke_seconds=None),
+                    datetime.fromisoformat("2026-10-09T08:50:00-04:00"))
+
+
+def test_launchd_live_slot_is_before_the_cutoff_on_the_session_date_in_both_dst_regimes():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    for kst in ("2026-10-09T21:50:00", "2026-12-14T21:50:00"):
+        et = datetime.fromisoformat(kst).replace(tzinfo=ZoneInfo("Asia/Seoul")).astimezone(ZoneInfo("America/New_York"))
+        assert et.date().isoformat() == kst[:10]
+        assert et.hour * 60 + et.minute < R.GAP_PRE_CUTOFF

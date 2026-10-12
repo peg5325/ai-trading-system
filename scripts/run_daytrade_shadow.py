@@ -2,16 +2,18 @@
 
   replay   replay DB sessions minute by minute through the shadow engine and diff against Paper's run_day
   live     run one US session live: Toss REST 1m bars at each minute + WebSocket trades, virtual fills only
-  compare  compare a live shadow result with the Paper report of the same session (written next morning)
+  compare  compare a live shadow result with the Paper report of the same session (written next morning);
+           --auto does every finished day not compared yet and writes its WebSocket measurement (summary.json)
 
 It never calls an order endpoint and never subscribes to personal:order. Outputs go to
-<out-root>/reports/daytrade_shadow/<date>/ (not tracked). Requires `websockets` for `live` (not a
-project dependency; pass it via PYTHONPATH).
+<out-root>/reports/daytrade_shadow/<date>/ (not tracked). `live` needs `websockets` and runs at most once
+per session: live.lock stops a second process and an earlier START in events.jsonl stops a rerun.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
+import fcntl
 import json
 import sys
 import threading
@@ -196,10 +198,71 @@ def prepare(day: str, args) -> tuple[ShadowDay, dict]:
     return eng, meta
 
 
+def claim_day(out_dir: Path, smoke: bool):
+    """Hold live.lock for the run; refuse a second live run of the same session.
+
+    Two processes (launchd and a manual start) would interleave one events.jsonl, and a rerun after a
+    crash cannot catch up a missed decision minute anyway. Smoke runs only need the lock. An unreadable
+    events.jsonl line (a kill mid-write) counts as "maybe started".
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    lock = (out_dir / "live.lock").open("w")
+    try:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RunRefused(f"another live run holds {out_dir / 'live.lock'}") from None
+        events = out_dir / "events.jsonl"
+        if not smoke and events.exists():
+            for line in events.read_text().splitlines():
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    raise RunRefused(f"{events} has an unreadable line; check it before starting again") from None
+                if row.get("event") == "START" and not row.get("smoke"):
+                    raise RunRefused(f"{out_dir.name} was already started at {row.get('logged_utc')}")
+    except BaseException:
+        lock.close()
+        raise
+    return lock
+
+
+def check_start(day: str, args, now_et: datetime) -> None:
+    """Refuse before touching the day folder: no session, a late start, or no WebSocket library.
+
+    launchd fires a missed 21:50 KST slot when the Mac wakes; a start after the 09:25 ET pre-market
+    cutoff would miss the gap source and decision minutes, so it is refused rather than half-run.
+    """
+    cal = load_events(args.events)
+    if not events_for(cal, day)["known"]:
+        raise RunRefused(f"{day} is outside the event calendar coverage {cal['coverage']}")
+    if not is_trading_day(cal, day):
+        raise RunRefused(f"{day} is not an NYSE trading day")
+    if args.smoke_seconds:
+        return
+    if now_et.date().isoformat() != day:
+        raise RunRefused(f"ET date is {now_et.date()}, not {day}")
+    if _minute(now_et) >= R.GAP_PRE_CUTOFF:
+        raise RunRefused(f"late start at {now_et:%H:%M} ET (must start before the 09:25 ET pre-market cutoff)")
+    try:
+        import websockets  # noqa: F401 - the run would silently fall back to REST only
+    except ImportError:
+        raise RunRefused("websockets is not installed in this Python (pip install -r requirements.txt)") from None
+
+
 async def _live(day: str, args) -> int:
     from dotenv import load_dotenv
 
     load_dotenv(args.env_file)
+    check_start(day, args, et_now())
+    lock = claim_day(args.out_root / "reports" / "daytrade_shadow" / day, bool(args.smoke_seconds))
+    try:
+        return await _live_locked(day, args)
+    finally:
+        lock.close()
+
+
+async def _live_locked(day: str, args) -> int:
     from scripts.measure_toss_realtime import _Log, _stream
     from src.config import load_settings
     from src.history.exchange_calendar import regular_close_minute
@@ -207,11 +270,14 @@ async def _live(day: str, args) -> int:
 
     eng, meta = prepare(day, args)
     out_dir = Path(meta["out_dir"])
+    if args.smoke_seconds:  # keep the session's WebSocket logs (and their measurement) free of smoke data
+        out_dir = out_dir / f"smoke-{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}"
     journal = Journal(out_dir / "events.jsonl")
     ws_log = _Log(out_dir)
     close_t = regular_close_minute(date.fromisoformat(day))
     bars = LiveBars(day, close_t)
-    journal.write({"event": "START", "day": day, **{k: v for k, v in meta.items() if k != "external"},
+    journal.write({"event": "START", "day": day, "smoke": bool(args.smoke_seconds),
+                   **{k: v for k, v in meta.items() if k != "external"},
                    "external_values": {k: (v or {}).get("value") for k, v in meta["external"].items()},
                    "orders_sent": 0})
     touched: set[str] = set()
@@ -324,6 +390,47 @@ def compare(shadow: dict, paper: dict) -> dict:
             "opening_diffs": diff(paper.get("opening") or {}, shadow.get("opening") or {})}
 
 
+def write_measure(out_dir: Path, day: str) -> dict:
+    """The `measure_toss_realtime.py analyze` report of a live day, as summary.json in its folder."""
+    from scripts.measure_toss_realtime import analyze
+
+    open_utc = (datetime.combine(date.fromisoformat(day), datetime.min.time(), NY)
+                + timedelta(minutes=R.OPEN)).astimezone(timezone.utc)
+    report = analyze(out_dir, open_utc, list(R.SYMBOLS))
+    (out_dir / "summary.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
+    return report
+
+
+def run_compare_auto(args) -> int:
+    """Measure and compare every finished shadow day that has no compare.json yet (launchd, after Paper)."""
+    root = args.out_root / "reports" / "daytrade_shadow"
+    worst, status = 0, {}
+    folders = sorted(p for p in root.glob("????-??-??") if p.is_dir()) if root.exists() else []
+    for folder in folders:
+        day = folder.name
+        if not (folder / "result.json").exists():
+            status[day] = "NO_RESULT" if (folder / "events.jsonl").exists() else "EMPTY"
+            continue
+        if not (folder / "summary.json").exists():
+            try:
+                write_measure(folder, day)
+            except Exception as exc:  # noqa: BLE001 - a measurement failure must not block the compare
+                print(f"MEASURE_FAILED {day}: {type(exc).__name__}: {exc}", file=sys.stderr)
+                worst = max(worst, 1)
+        if (folder / "compare.json").exists():
+            status[day] = "DONE"
+            continue
+        if not (args.out_root / "reports" / "daytrade_paper" / f"{day}.json").exists():
+            status[day] = "PENDING_PAPER"
+            continue
+        args.date = day
+        code = run_compare(args)
+        status[day] = "PASS" if code == 0 else "FAIL"
+        worst = max(worst, code)
+    print(json.dumps({"auto": status}, ensure_ascii=False))
+    return worst
+
+
 def run_compare(args) -> int:
     day = args.date
     sp = args.out_root / "reports" / "daytrade_shadow" / day / "result.json"
@@ -356,13 +463,18 @@ def main(argv: list[str] | None = None) -> int:
     lv.add_argument("--smoke-seconds", type=float, default=None,
                     help="plumbing check: prepare, one REST poll and N seconds of WebSocket, then exit")
     cp = sub.add_parser("compare")
-    cp.add_argument("--date", required=True)
+    which = cp.add_mutually_exclusive_group(required=True)
+    which.add_argument("--date")
+    which.add_argument("--auto", action="store_true",
+                       help="every finished day without compare.json (also writes the WebSocket summary.json)")
     for p in (rp, lv, cp):
         p.add_argument("--db", type=Path, default=ROOT / "data" / "market_history.sqlite")
         p.add_argument("--events", type=Path, default=EVENTS)
         p.add_argument("--out-root", type=Path, default=ROOT)
     args = ap.parse_args(argv)
     args.out_root = args.out_root.resolve()
+    if args.cmd == "compare" and args.auto:
+        return run_compare_auto(args)
     return {"replay": run_replay, "live": run_live, "compare": run_compare}[args.cmd](args)
 
 
