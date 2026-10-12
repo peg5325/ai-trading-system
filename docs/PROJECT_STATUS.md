@@ -145,7 +145,7 @@
 
 (2026-10-12 갱신) **진입 연구 v1(세 쌍·진입 E1~E5·30/60분·마감) 개발 구간 1회 = NO_PASS. 봉인 구간은 열지 않았다.** 기록: [결과](research/RESULT_DAYTRADE_ENTRY_STUDY_V1.md), [사전등록](research/PREREG_DAYTRADE_ENTRY_STUDY_V1.md).
 - 사용자 결정(2026-10-12): 진입 연구 → 그 뒤 추세 전환. 쌍 SOXL/SOXS(신호 SMH, SOX 대체)·TQQQ/SQQQ(QQQ)·SPXL/SPXS(SPY), 후보 5개 전부, 30/60분·마감 비교.
-- 사전등록 독립 리뷰 FIX_THEN_LOCK → 12건 반영. 구현 `src/entry_study_v1/`(시험 63개, 기존 oos_guard 배선 시험 4개와 함께 67개 통과), 코드 리뷰 APPROVE(개발 경로) → MEDIUM 6건 반영 `3f0678e`.
+- 사전등록 독립 리뷰 FIX_THEN_LOCK → 12건 반영. 구현 `src/entry_study_v1/`(시험 63개, `tests/test_oos_guard_wiring.py` 4개와 함께 67개 통과), 코드 리뷰 APPROVE(개발 경로) → MEDIUM 6건 반영 `3f0678e`.
 - SPXL/SPXS 1분봉 소급 수집 2021-12-01~2026-10-09(각 1,213일, `--completed-through 2026-10-09`). 데이터 게이트에서 P3 탈락(완전한 날 71%/67%, SPXS 거래 없는 분) → 규칙대로 제외(사용자 결정), K = 20.
 - 손익 전 집계 뒤 사용자 결정 "돌린다". 결과: 20칸 모두 Holm p = 1.0, 최소 원 p 0.23(SOXL E2 롱, 마감 순 +0.26%/거래, 두 구간·스트레스 양수, 보정만 탈락). 비용 전 근사 이익 −0.44~+0.57%(14칸 ±0.2% 안). E4는 승률 25~32%.
 - 사용자 결정(2026-10-12): **비용은 왕복 0.20%만(슬리피지 제외)** — Charter v2.4로 새 연구부터 적용, 이 연구 판정은 그대로. 0.20% 참고 보고: 양수 5칸, 두 구간 양수 2칸(SOXL E1·E2 롱), Holm 유의 0.
