@@ -137,6 +137,17 @@
 
 ## 다음 한 가지 작업
 
+(2026-10-09 갱신) **R1 그림자 운용을 launchd 자동 실행으로 옮긴다(사용자 결정 A+C, 2026-10-09). 10-08 미장 그림자 운용은 놓쳤다.**
+- 원인: 그림자 운용만 Claude 세션이 22:05 KST에 직접 시작했다. 10-08 밤 자동 모드 안전 검사가 시작 명령을 "실제 거래"로 보고 거부했고 사람이 없어 놓쳤다
+  (주문은 없는 실행이다). 10-08 Paper는 S4·거래 0이라 대조할 그림자 결과만 비어 있다. 10-09는 사용자 지시로 18:13 KST에 시작했다(엔진은 ET 날짜가 맞으면 09:25 ET까지 스스로 기다린다).
+- 변경: launchd `daytrade-shadow-21`(21:50 KST = 08:50 EDT·07:50 EST, `caffeinate -i`, ProcessType Standard)·`daytrade-shadow-compare-11`·`-14`(Paper 뒤 `compare --auto`: 끝난 날 전부 대조, 웹소켓 측정 `summary.json`).
+  같은 세션의 두 번째 `live`는 `live.lock`·기존 START로 거부한다. `websockets>=14`를 의존성에 넣었다(전에는 job 임시 폴더에서 PYTHONPATH로).
+  독립 리뷰(opus) 조건부 APPROVE 반영: 시작 전 거부(휴장일·ET 날짜 다름·09:25 ET 이후 늦은 시작 — 잠자던 Mac이 깨며 launchd가 놓친 작업을 늦게 실행하는 경우·`websockets` 없음),
+  깨진 `events.jsonl` 줄은 거부, smoke 기록은 `smoke-<UTC>/` 하위 폴더. 관련 시험 53 passed, 전체 2,651 passed·11 skipped·1 failed(기존 main 실패 `test_orb_loading`: `src/daytrade_v11/data.py:136` `track` 생략, 이번 변경과 무관).
+- 운영 주의: `caffeinate -i`는 유휴 잠자기만 막는다. 배터리 상태에서 덮개를 닫으면 장중에 멈출 수 있으니 전원 연결 상태로 둔다.
+- 10-06 원자료 사본으로 자동 측정 = 이전 수동 `analyze` 결과(체결 130,657·호가 46,692·창 일치).
+- **다음:** 10-09 그림자 운용 끝난 뒤(10-10 05:02 KST 이후) 병합 → 운영 체크아웃 main 이동 → `.venv`에 `websockets` 설치 → `install_premarket_launchd.py --install`·`--status`(18개). 첫 자동 실행 10-12(월) 21:50 KST.
+
 (2026-10-08 갱신 3) **v1.3 과거 검증 1회: `v1.3-cap`(손절폭 상한 제거) vs `v1.0+` = 기각(나빠짐). 사전등록대로 상한 제거와 1% 크기 모두 채택하지 않는다.** 기록: [v1.3 실행 기록](research/RUNNOTES_DAYTRADE_V1_3.md).
 - 코드: `src/daytrade_v13/`(세 방식, 크기 7단계·현금 한도, 하루 잠금·계좌 중단, 스트레스, 통계·판정), 시험 86개. 독립 코드 리뷰(opus) APPROVE → 보완 → APPROVE.
   실행 전 집계(손익 없음): 새 진입 34일(S2 21). 사용자 결정 "돌린다"(2026-10-08).
