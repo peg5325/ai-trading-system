@@ -72,6 +72,8 @@ _ALLOWED_COVERAGE_STRING = {
     os.path.join("scripts", "history_eval_slices.py"),        # 검증된 coverage-only 스크립트
     os.path.join("scripts", "resampler_parity_check.py"),     # 검증된 coverage-only 스크립트
     os.path.join("scripts", "prereg_orb_coverage_probe.py"),  # §5.5 봉 개수만 세는 ORB coverage probe
+    # 장기 일봉 품질 점검: Toss 1d를 coverage로 읽고 2025-07-21 이전 날짜만 Yahoo와 가격 비율 대조
+    os.path.join("scripts", "longhist_quality.py"),
 }
 # R5-4/R5-5 후속(같은 원칙 적용) — `src/history/oos_guard.py` 는 예전 소스-텍스트 정규식
 # 스캔 시절엔 이 목록에 있었다(그 파일 docstring/주석이 `purpose='coverage'` 를 언급해서).

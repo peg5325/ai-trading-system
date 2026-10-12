@@ -1,0 +1,2092 @@
+{
+ "manifest_sha256": "cca29640d110da0445676666012920fec7fedd01d36862db7681fadf36f5cbbf",
+ "manifest_files": 86,
+ "fetch_failures": [],
+ "last_run_utc": "2026-10-12T09:28:51Z",
+ "seal_start": "2025-07-21",
+ "price_check_end": "2025-07-20",
+ "calendar": {
+  "first": "1993-01-29",
+  "last": "2026-10-09",
+  "sessions": 8482
+ },
+ "coverage": {
+  "SPY": {
+   "rows": 8482,
+   "first": "1993-01-29",
+   "last": "2026-10-09",
+   "calendar_sessions": 8482,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "yahoo_v8_chart",
+   "null_rows_dropped": 0,
+   "fetch_day_rows_dropped": 0
+  },
+  "QQQ": {
+   "rows": 6940,
+   "first": "1999-03-10",
+   "last": "2026-10-09",
+   "calendar_sessions": 6940,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "yahoo_v8_chart",
+   "null_rows_dropped": 0,
+   "fetch_day_rows_dropped": 0
+  },
+  "^SOX": {
+   "rows": 8164,
+   "first": "1994-05-04",
+   "last": "2026-10-09",
+   "calendar_sessions": 8164,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "yahoo_v8_chart",
+   "null_rows_dropped": 0,
+   "fetch_day_rows_dropped": 0
+  },
+  "SMH": {
+   "rows": 6627,
+   "first": "2000-06-05",
+   "last": "2026-10-09",
+   "calendar_sessions": 6627,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "yahoo_v8_chart",
+   "null_rows_dropped": 0,
+   "fetch_day_rows_dropped": 0
+  },
+  "TQQQ": {
+   "rows": 4191,
+   "first": "2010-02-11",
+   "last": "2026-10-09",
+   "calendar_sessions": 4191,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "yahoo_v8_chart",
+   "null_rows_dropped": 0,
+   "fetch_day_rows_dropped": 0
+  },
+  "SQQQ": {
+   "rows": 4191,
+   "first": "2010-02-11",
+   "last": "2026-10-09",
+   "calendar_sessions": 4191,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "yahoo_v8_chart",
+   "null_rows_dropped": 0,
+   "fetch_day_rows_dropped": 0
+  },
+  "SOXL": {
+   "rows": 4172,
+   "first": "2010-03-11",
+   "last": "2026-10-09",
+   "calendar_sessions": 4172,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "yahoo_v8_chart",
+   "null_rows_dropped": 0,
+   "fetch_day_rows_dropped": 0
+  },
+  "SOXS": {
+   "rows": 4172,
+   "first": "2010-03-11",
+   "last": "2026-10-09",
+   "calendar_sessions": 4172,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "yahoo_v8_chart",
+   "null_rows_dropped": 0,
+   "fetch_day_rows_dropped": 0
+  },
+  "SPXL": {
+   "rows": 4509,
+   "first": "2008-11-05",
+   "last": "2026-10-09",
+   "calendar_sessions": 4509,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "yahoo_v8_chart",
+   "null_rows_dropped": 0,
+   "fetch_day_rows_dropped": 0
+  },
+  "SPXS": {
+   "rows": 4499,
+   "first": "2008-11-19",
+   "last": "2026-10-09",
+   "calendar_sessions": 4499,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "yahoo_v8_chart",
+   "null_rows_dropped": 0,
+   "fetch_day_rows_dropped": 0
+  },
+  "VIX": {
+   "rows": 9291,
+   "first": "1990-01-02",
+   "last": "2026-10-09",
+   "calendar_sessions": 8482,
+   "missing": 3,
+   "extra": 34,
+   "duplicates": 0,
+   "before_calendar": 778,
+   "missing_sample": [
+    "1997-01-31",
+    "1997-11-26",
+    "1999-12-31"
+   ],
+   "extra_sample": [
+    "2004-06-11",
+    "2022-05-30",
+    "2022-06-20",
+    "2022-07-04",
+    "2022-09-05",
+    "2022-11-24",
+    "2023-01-16",
+    "2023-02-20",
+    "2023-05-29",
+    "2023-06-19"
+   ],
+   "source": "cboe_official",
+   "null_rows_dropped": null,
+   "fetch_day_rows_dropped": null
+  },
+  "VIX9D": {
+   "rows": 3965,
+   "first": "2011-01-04",
+   "last": "2026-10-09",
+   "calendar_sessions": 3965,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "cboe_official",
+   "null_rows_dropped": null,
+   "fetch_day_rows_dropped": null
+  },
+  "VIX3M": {
+   "rows": 4291,
+   "first": "2009-09-18",
+   "last": "2026-10-09",
+   "calendar_sessions": 4291,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "cboe_official",
+   "null_rows_dropped": null,
+   "fetch_day_rows_dropped": null
+  },
+  "DIX": {
+   "rows": 3884,
+   "first": "2011-05-02",
+   "last": "2026-10-09",
+   "calendar_sessions": 3884,
+   "missing": 0,
+   "extra": 0,
+   "duplicates": 0,
+   "before_calendar": 0,
+   "missing_sample": [],
+   "extra_sample": [],
+   "source": "squeezemetrics",
+   "null_rows_dropped": null,
+   "fetch_day_rows_dropped": null
+  }
+ },
+ "ohlc_pre_seal": {
+  "SPY": {
+   "rows": 8173,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 0,
+   "flat_first": null,
+   "flat_last": null,
+   "open_equals_prior_close": 159,
+   "open_eq_prev_first": "1993-02-08",
+   "open_eq_prev_last": "2024-12-05",
+   "open_eq_prev_since_2010": 36
+  },
+  "QQQ": {
+   "rows": 6631,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 0,
+   "flat_first": null,
+   "flat_last": null,
+   "open_equals_prior_close": 81,
+   "open_eq_prev_first": "1999-03-17",
+   "open_eq_prev_last": "2024-03-04",
+   "open_eq_prev_since_2010": 35
+  },
+  "^SOX": {
+   "rows": 7855,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 1,
+   "flat_first": "2019-08-13",
+   "flat_last": "2019-08-13",
+   "open_equals_prior_close": 2236,
+   "open_eq_prev_first": "1994-05-05",
+   "open_eq_prev_last": "2012-07-06",
+   "open_eq_prev_since_2010": 4
+  },
+  "SMH": {
+   "rows": 6318,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 0,
+   "flat_first": null,
+   "flat_last": null,
+   "open_equals_prior_close": 119,
+   "open_eq_prev_first": "2000-06-14",
+   "open_eq_prev_last": "2025-03-19",
+   "open_eq_prev_since_2010": 62
+  },
+  "TQQQ": {
+   "rows": 3882,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 0,
+   "flat_first": null,
+   "flat_last": null,
+   "open_equals_prior_close": 19,
+   "open_eq_prev_first": "2012-01-11",
+   "open_eq_prev_last": "2024-12-05",
+   "open_eq_prev_since_2010": 19
+  },
+  "SQQQ": {
+   "rows": 3882,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 0,
+   "flat_first": null,
+   "flat_last": null,
+   "open_equals_prior_close": 55,
+   "open_eq_prev_first": "2010-04-15",
+   "open_eq_prev_last": "2024-10-15",
+   "open_eq_prev_since_2010": 55
+  },
+  "SOXL": {
+   "rows": 3863,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 0,
+   "flat_first": null,
+   "flat_last": null,
+   "open_equals_prior_close": 44,
+   "open_eq_prev_first": "2010-03-18",
+   "open_eq_prev_last": "2024-07-01",
+   "open_eq_prev_since_2010": 44
+  },
+  "SOXS": {
+   "rows": 3863,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 3,
+   "flat_first": "2010-03-17",
+   "flat_last": "2010-03-30",
+   "open_equals_prior_close": 71,
+   "open_eq_prev_first": "2010-03-17",
+   "open_eq_prev_last": "2025-06-03",
+   "open_eq_prev_since_2010": 71
+  },
+  "SPXL": {
+   "rows": 4200,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 0,
+   "flat_first": null,
+   "flat_last": null,
+   "open_equals_prior_close": 24,
+   "open_eq_prev_first": "2009-03-12",
+   "open_eq_prev_last": "2025-04-25",
+   "open_eq_prev_since_2010": 19
+  },
+  "SPXS": {
+   "rows": 4190,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 0,
+   "flat_first": null,
+   "flat_last": null,
+   "open_equals_prior_close": 105,
+   "open_eq_prev_first": "2009-05-15",
+   "open_eq_prev_last": "2025-07-17",
+   "open_eq_prev_since_2010": 102
+  },
+  "VIX": {
+   "rows": 8974,
+   "ohlc_inconsistent_or_null": 47,
+   "non_positive": 0,
+   "flat_bars": 506,
+   "flat_first": "1990-01-02",
+   "flat_last": "2004-06-11",
+   "open_equals_prior_close": 250,
+   "open_eq_prev_first": "1991-09-19",
+   "open_eq_prev_last": "2025-07-17",
+   "open_eq_prev_since_2010": 58
+  },
+  "VIX9D": {
+   "rows": 3656,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 722,
+   "flat_first": "2011-01-04",
+   "flat_last": "2013-11-15",
+   "open_equals_prior_close": 68,
+   "open_eq_prev_first": "2012-09-11",
+   "open_eq_prev_last": "2022-09-21",
+   "open_eq_prev_since_2010": 68
+  },
+  "VIX3M": {
+   "rows": 3982,
+   "ohlc_inconsistent_or_null": 0,
+   "non_positive": 0,
+   "flat_bars": 0,
+   "flat_first": null,
+   "flat_last": null,
+   "open_equals_prior_close": 86,
+   "open_eq_prev_first": "2009-10-19",
+   "open_eq_prev_last": "2025-04-28",
+   "open_eq_prev_since_2010": 85
+  },
+  "DIX": {
+   "rows": 3575,
+   "note": "close-only or no OHLC columns"
+  }
+ },
+ "corporate_actions": {
+  "SPY": {
+   "splits": [],
+   "dividends": 136,
+   "div_first": "1993-03-19",
+   "div_last": "2026-09-18"
+  },
+  "QQQ": {
+   "splits": [
+    "2000-03-20 2:1"
+   ],
+   "dividends": 90,
+   "div_first": "2003-12-24",
+   "div_last": "2026-09-21"
+  },
+  "^SOX": {
+   "splits": [],
+   "dividends": 0,
+   "div_first": null,
+   "div_last": null
+  },
+  "SMH": {
+   "splits": [
+    "2023-05-05 2:1"
+   ],
+   "dividends": 14,
+   "div_first": "2012-12-24",
+   "div_last": "2025-12-22"
+  },
+  "TQQQ": {
+   "splits": [
+    "2011-02-25 2:1",
+    "2012-05-11 2:1",
+    "2014-01-24 2:1",
+    "2017-01-12 2:1",
+    "2018-05-24 3:1",
+    "2021-01-21 2:1",
+    "2022-01-13 2:1",
+    "2025-11-20 2:1"
+   ],
+   "dividends": 22,
+   "div_first": "2014-06-25",
+   "div_last": "2026-09-23"
+  },
+  "SQQQ": {
+   "splits": [
+    "2012-05-11 1:4",
+    "2014-01-24 1:4",
+    "2017-01-12 1:4",
+    "2019-05-24 1:4",
+    "2020-08-18 1:5",
+    "2022-01-13 1:5",
+    "2024-11-07 1:5",
+    "2025-11-20 1:5"
+   ],
+   "dividends": 26,
+   "div_first": "2017-12-26",
+   "div_last": "2026-09-23"
+  },
+  "SOXL": {
+   "splits": [
+    "2015-05-20 4:1",
+    "2021-03-02 15:1"
+   ],
+   "dividends": 32,
+   "div_first": "2010-09-22",
+   "div_last": "2026-09-22"
+  },
+  "SOXS": {
+   "splits": [
+    "2011-02-24 1:5",
+    "2013-08-20 1:4",
+    "2015-05-20 1:4",
+    "2017-05-01 1:5",
+    "2019-06-28 1:10",
+    "2020-08-28 1:12",
+    "2022-03-28 1:10",
+    "2024-04-15 1:10",
+    "2026-03-05 1:20",
+    "2026-07-15 1:10"
+   ],
+   "dividends": 26,
+   "div_first": "2010-12-14",
+   "div_last": "2026-09-22"
+  },
+  "SPXL": {
+   "splits": [
+    "2013-04-02 3:1",
+    "2017-05-01 4:1"
+   ],
+   "dividends": 37,
+   "div_first": "2008-12-17",
+   "div_last": "2026-09-22"
+  },
+  "SPXS": {
+   "splits": [
+    "2011-02-24 1:5",
+    "2013-08-20 1:5",
+    "2017-05-01 1:5",
+    "2021-01-11 1:10",
+    "2025-09-29 1:10"
+   ],
+   "dividends": 23,
+   "div_first": "2018-03-20",
+   "div_last": "2026-09-22"
+  }
+ },
+ "toss_crosscheck": {
+  "SPY": {
+   "toss_rows_pre_seal": 2347,
+   "toss_first": "2016-03-18",
+   "toss_last_pre_seal": "2025-07-18",
+   "overlap": 2347,
+   "toss_only": 0,
+   "yahoo_only_in_toss_span": 0,
+   "close": {
+    "n": 2347,
+    "median_abs_dev": 2.1616842538207948e-08,
+    "max_abs_dev": 0.0005412590542750451,
+    "n_over_0_1pct": 0
+   },
+   "open": {
+    "n": 2347,
+    "median_abs_dev": 2.0613020956794514e-08,
+    "max_abs_dev": 0.013905523403528575,
+    "n_over_0_1pct": 21
+   }
+  },
+  "QQQ": {
+   "toss_rows_pre_seal": 2347,
+   "toss_first": "2016-03-18",
+   "toss_last_pre_seal": "2025-07-18",
+   "overlap": 2347,
+   "toss_only": 0,
+   "yahoo_only_in_toss_span": 0,
+   "close": {
+    "n": 2347,
+    "median_abs_dev": 2.1489990564838024e-08,
+    "max_abs_dev": 5.708444072993757e-08,
+    "n_over_0_1pct": 0
+   },
+   "open": {
+    "n": 2347,
+    "median_abs_dev": 3.538141613024237e-08,
+    "max_abs_dev": 0.008383668102562747,
+    "n_over_0_1pct": 10
+   }
+  },
+  "TQQQ": {
+   "toss_rows_pre_seal": 2347,
+   "toss_first": "2016-03-18",
+   "toss_last_pre_seal": "2025-07-18",
+   "overlap": 2347,
+   "toss_only": 0,
+   "yahoo_only_in_toss_span": 0,
+   "close": {
+    "n": 2347,
+    "median_abs_dev": 2.457131964561654e-08,
+    "max_abs_dev": 0.00014036115535542848,
+    "n_over_0_1pct": 0
+   },
+   "open": {
+    "n": 2347,
+    "median_abs_dev": 2.682994970637509e-08,
+    "max_abs_dev": 0.020536885250250547,
+    "n_over_0_1pct": 1
+   }
+  },
+  "SQQQ": {
+   "toss_rows_pre_seal": 2347,
+   "toss_first": "2016-03-18",
+   "toss_last_pre_seal": "2025-07-18",
+   "overlap": 2347,
+   "toss_only": 0,
+   "yahoo_only_in_toss_span": 0,
+   "close": {
+    "n": 2347,
+    "median_abs_dev": 0.0,
+    "max_abs_dev": 0.0028901734104046506,
+    "n_over_0_1pct": 1
+   },
+   "open": {
+    "n": 2347,
+    "median_abs_dev": 0.0,
+    "max_abs_dev": 0.018842530282637937,
+    "n_over_0_1pct": 1
+   }
+  },
+  "SOXL": {
+   "toss_rows_pre_seal": 2347,
+   "toss_first": "2016-03-18",
+   "toss_last_pre_seal": "2025-07-18",
+   "overlap": 2347,
+   "toss_only": 0,
+   "yahoo_only_in_toss_span": 0,
+   "close": {
+    "n": 2347,
+    "median_abs_dev": 3.788650160263529e-08,
+    "max_abs_dev": 0.0001430932231712978,
+    "n_over_0_1pct": 0
+   },
+   "open": {
+    "n": 2347,
+    "median_abs_dev": 4.828730948425175e-08,
+    "max_abs_dev": 0.027364698754401395,
+    "n_over_0_1pct": 4
+   }
+  },
+  "SOXS": {
+   "toss_rows_pre_seal": 2347,
+   "toss_first": "2016-03-18",
+   "toss_last_pre_seal": "2025-07-18",
+   "overlap": 2347,
+   "toss_only": 0,
+   "yahoo_only_in_toss_span": 0,
+   "close": {
+    "n": 2347,
+    "median_abs_dev": 0.0,
+    "max_abs_dev": 0.0015620827770360668,
+    "n_over_0_1pct": 1
+   },
+   "open": {
+    "n": 2347,
+    "median_abs_dev": 0.0,
+    "max_abs_dev": 0.037164093767867334,
+    "n_over_0_1pct": 20
+   }
+  }
+ },
+ "fidelity": [
+  {
+   "etf": "TQQQ",
+   "ref": "QQQ",
+   "mult": 3,
+   "n": 3882,
+   "corr": 0.9982687354278258,
+   "mean_abs_diff": 0.0009600199509690623,
+   "first": "2010-02-11",
+   "last": "2025-07-18"
+  },
+  {
+   "etf": "SQQQ",
+   "ref": "QQQ",
+   "mult": -3,
+   "n": 3882,
+   "corr": 0.9966760780815517,
+   "mean_abs_diff": 0.0012805016027047712,
+   "first": "2010-02-11",
+   "last": "2025-07-18"
+  },
+  {
+   "etf": "SPXL",
+   "ref": "SPY",
+   "mult": 3,
+   "n": 4200,
+   "corr": 0.9907133408152639,
+   "mean_abs_diff": 0.001218758381211135,
+   "first": "2008-11-05",
+   "last": "2025-07-18"
+  },
+  {
+   "etf": "SPXS",
+   "ref": "SPY",
+   "mult": -3,
+   "n": 4190,
+   "corr": 0.9907755086430756,
+   "mean_abs_diff": 0.0014406037786011332,
+   "first": "2008-11-19",
+   "last": "2025-07-18"
+  },
+  {
+   "etf": "SOXL",
+   "ref": "^SOX",
+   "mult": 3,
+   "n": 3863,
+   "corr": 0.983571779144465,
+   "mean_abs_diff": 0.0053193322297322996,
+   "first": "2010-03-11",
+   "last": "2025-07-18"
+  },
+  {
+   "etf": "SOXS",
+   "ref": "^SOX",
+   "mult": -3,
+   "n": 3863,
+   "corr": 0.9790164319954642,
+   "mean_abs_diff": 0.005751993279447728,
+   "first": "2010-03-11",
+   "last": "2025-07-18"
+  },
+  {
+   "etf": "SOXL",
+   "ref": "SMH",
+   "mult": 3,
+   "n": 3863,
+   "corr": 0.9729208809798745,
+   "mean_abs_diff": 0.007454968068449656,
+   "first": "2010-03-11",
+   "last": "2025-07-18"
+  },
+  {
+   "etf": "SOXS",
+   "ref": "SMH",
+   "mult": -3,
+   "n": 3863,
+   "corr": 0.967566453502202,
+   "mean_abs_diff": 0.00792405013871392,
+   "first": "2010-03-11",
+   "last": "2025-07-18"
+  }
+ ],
+ "events": {
+  "CPI": {
+   "total": 949,
+   "first": "1949-03-24",
+   "last": "2026-09-11",
+   "coverage": {
+    "start": "1949-03-24",
+    "end": "2026-09-11"
+   },
+   "in_calendar_span": 422,
+   "on_non_session": [
+    "1993-04-09",
+    "2017-04-14",
+    "2020-04-10"
+   ],
+   "years_off_expected": {
+    "2000": 13,
+    "2005": 13,
+    "2006": 13,
+    "2007": 13,
+    "2008": 13,
+    "2009": 13,
+    "2010": 13,
+    "2011": 13,
+    "2012": 13,
+    "2013": 13,
+    "2014": 13,
+    "2015": 13,
+    "2017": 13,
+    "2019": 13,
+    "2020": 13,
+    "2021": 13,
+    "2022": 13,
+    "2023": 13,
+    "2024": 13,
+    "2025": 11
+   }
+  },
+  "NFP": {
+   "total": 864,
+   "first": "1955-05-06",
+   "last": "2026-10-02",
+   "coverage": {
+    "start": "1955-05-06",
+    "end": "2026-10-02"
+   },
+   "in_calendar_span": 411,
+   "on_non_session": [
+    "1994-04-01",
+    "1996-04-05",
+    "1999-04-02",
+    "2007-04-06",
+    "2010-04-02",
+    "2012-04-06",
+    "2015-04-03",
+    "2021-04-02",
+    "2023-04-07",
+    "2026-04-03"
+   ],
+   "years_off_expected": {
+    "2002": 13,
+    "2003": 13,
+    "2006": 13,
+    "2012": 13,
+    "2013": 13,
+    "2020": 13,
+    "2024": 13,
+    "2025": 11
+   }
+  },
+  "PCE": {
+   "total": 740,
+   "first": "1966-01-18",
+   "last": "2026-09-30",
+   "coverage": {
+    "start": "1966-01-18",
+    "end": "2026-09-30"
+   },
+   "in_calendar_span": 416,
+   "on_non_session": [
+    "1994-04-01",
+    "2002-03-29",
+    "2012-10-29",
+    "2013-03-29",
+    "2024-03-29"
+   ],
+   "years_off_expected": {
+    "1995": 10,
+    "1997": 13,
+    "1999": 13,
+    "2000": 14,
+    "2001": 13,
+    "2003": 13,
+    "2004": 14,
+    "2006": 13,
+    "2009": 15,
+    "2011": 13,
+    "2013": 13,
+    "2019": 11,
+    "2025": 11
+   }
+  },
+  "FOMC": {
+   "total": 270,
+   "first": "1993-02-03",
+   "last": "2026-09-16",
+   "coverage": {
+    "start": "1993-01-01",
+    "end": "2026-10-12"
+   },
+   "in_calendar_span": 270,
+   "on_non_session": [],
+   "years_off_expected": {
+    "2003": 9,
+    "2020": 7
+   }
+  },
+  "FOMC_UNSCHEDULED": {
+   "total": 48,
+   "first": "1993-01-06",
+   "last": "2020-03-15",
+   "coverage": {
+    "start": "1993-01-01",
+    "end": "2026-10-12"
+   },
+   "in_calendar_span": 47,
+   "on_non_session": [
+    "2001-09-13",
+    "2008-01-21",
+    "2009-02-07",
+    "2010-05-09",
+    "2020-03-15"
+   ]
+  },
+  "EARLY_CLOSE": {
+   "total": 70,
+   "first": "1993-11-26",
+   "last": "2025-12-24",
+   "coverage": {
+    "start": "1993-01-29",
+    "end": "2026-10-09"
+   },
+   "in_calendar_span": 70,
+   "on_non_session": []
+  }
+ },
+ "events_unresolved": [
+  {
+   "type": "CPI",
+   "month": "1996-02",
+   "dates": [
+    "1996-02-01",
+    "1996-02-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2000-09",
+   "dates": [
+    "2000-09-15",
+    "2000-09-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2005-02",
+   "dates": [
+    "2005-02-18",
+    "2005-02-23"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2006-02",
+   "dates": [
+    "2006-02-17",
+    "2006-02-22"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2007-02",
+   "dates": [
+    "2007-02-16",
+    "2007-02-21"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2008-02",
+   "dates": [
+    "2008-02-15",
+    "2008-02-20"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2009-02",
+   "dates": [
+    "2009-02-18",
+    "2009-02-20"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2010-02",
+   "dates": [
+    "2010-02-17",
+    "2010-02-19"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2011-02",
+   "dates": [
+    "2011-02-15",
+    "2011-02-17"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2012-02",
+   "dates": [
+    "2012-02-15",
+    "2012-02-17"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2013-02",
+   "dates": [
+    "2013-02-19",
+    "2013-02-21"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2014-02",
+   "dates": [
+    "2014-02-18",
+    "2014-02-20"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2015-02",
+   "dates": [
+    "2015-02-20",
+    "2015-02-26"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2017-02",
+   "dates": [
+    "2017-02-13",
+    "2017-02-15"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2019-02",
+   "dates": [
+    "2019-02-11",
+    "2019-02-13"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2020-02",
+   "dates": [
+    "2020-02-11",
+    "2020-02-13"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2021-02",
+   "dates": [
+    "2021-02-08",
+    "2021-02-10"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2022-02",
+   "dates": [
+    "2022-02-08",
+    "2022-02-10"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2023-02",
+   "dates": [
+    "2023-02-10",
+    "2023-02-14"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "CPI",
+   "month": "2024-02",
+   "dates": [
+    "2024-02-09",
+    "2024-02-13"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=10&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "NFP",
+   "month": "2002-12",
+   "dates": [
+    "2002-12-06",
+    "2002-12-09"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=50&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "NFP",
+   "month": "2003-10",
+   "dates": [
+    "2003-10-03",
+    "2003-10-10"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=50&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "NFP",
+   "month": "2006-05",
+   "dates": [
+    "2006-05-05",
+    "2006-05-08"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=50&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "NFP",
+   "month": "2012-12",
+   "dates": [
+    "2012-12-07",
+    "2012-12-12"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=50&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "NFP",
+   "month": "2013-05",
+   "dates": [
+    "2013-05-03",
+    "2013-05-06"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=50&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "NFP",
+   "month": "2020-05",
+   "dates": [
+    "2020-05-08",
+    "2020-05-11"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=50&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "NFP",
+   "month": "2024-01",
+   "dates": [
+    "2024-01-05",
+    "2024-01-10"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=50&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1993-03",
+   "dates": [
+    "1993-03-01",
+    "1993-03-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1993-06",
+   "dates": [
+    "1993-06-01",
+    "1993-06-24"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1993-12",
+   "dates": [
+    "1993-12-02",
+    "1993-12-23"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1994-04",
+   "dates": [
+    "1994-04-01",
+    "1994-04-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1994-08",
+   "dates": [
+    "1994-08-01",
+    "1994-08-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1994-12",
+   "dates": [
+    "1994-12-01",
+    "1994-12-23"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1995-07",
+   "dates": [
+    "1995-07-03",
+    "1995-07-31"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1995-10",
+   "dates": [
+    "1995-10-02",
+    "1995-10-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1996-05",
+   "dates": [
+    "1996-05-03",
+    "1996-05-31"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1996-08",
+   "dates": [
+    "1996-08-02",
+    "1996-08-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1997-03",
+   "dates": [
+    "1997-03-03",
+    "1997-03-31"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1997-05",
+   "dates": [
+    "1997-05-01",
+    "1997-05-07"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1997-06",
+   "dates": [
+    "1997-06-02",
+    "1997-06-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1997-08",
+   "dates": [
+    "1997-08-01",
+    "1997-08-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1997-11",
+   "dates": [
+    "1997-11-03",
+    "1997-11-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1998-03",
+   "dates": [
+    "1998-03-02",
+    "1998-03-27"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1998-05",
+   "dates": [
+    "1998-05-01",
+    "1998-05-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1998-08",
+   "dates": [
+    "1998-08-03",
+    "1998-08-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1998-11",
+   "dates": [
+    "1998-11-02",
+    "1998-11-25"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1999-05",
+   "dates": [
+    "1999-05-03",
+    "1999-05-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1999-11",
+   "dates": [
+    "1999-11-02",
+    "1999-11-26"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "1999-12",
+   "dates": [
+    "1999-12-09",
+    "1999-12-23"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2000-04",
+   "dates": [
+    "2000-04-05",
+    "2000-04-12",
+    "2000-04-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2000-08",
+   "dates": [
+    "2000-08-01",
+    "2000-08-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2001-03",
+   "dates": [
+    "2001-03-01",
+    "2001-03-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2001-07",
+   "dates": [
+    "2001-07-02",
+    "2001-07-05",
+    "2001-07-31"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2001-12",
+   "dates": [
+    "2001-12-03",
+    "2001-12-21"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2002-03",
+   "dates": [
+    "2002-03-01",
+    "2002-03-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2002-08",
+   "dates": [
+    "2002-08-02",
+    "2002-08-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2002-11",
+   "dates": [
+    "2002-11-01",
+    "2002-11-27"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2003-03",
+   "dates": [
+    "2003-03-03",
+    "2003-03-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2003-08",
+   "dates": [
+    "2003-08-01",
+    "2003-08-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2003-12",
+   "dates": [
+    "2003-12-23",
+    "2003-12-31"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2004-01",
+   "dates": [
+    "2004-01-05",
+    "2004-01-20"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2004-03",
+   "dates": [
+    "2004-03-01",
+    "2004-03-26"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2004-08",
+   "dates": [
+    "2004-08-03",
+    "2004-08-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2004-12",
+   "dates": [
+    "2004-12-01",
+    "2004-12-23"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2005-09",
+   "dates": [
+    "2005-09-01",
+    "2005-09-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2005-12",
+   "dates": [
+    "2005-12-01",
+    "2005-12-22"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2006-03",
+   "dates": [
+    "2006-03-01",
+    "2006-03-31"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2006-05",
+   "dates": [
+    "2006-05-01",
+    "2006-05-04",
+    "2006-05-26"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2006-08",
+   "dates": [
+    "2006-08-01",
+    "2006-08-31"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2007-03",
+   "dates": [
+    "2007-03-01",
+    "2007-03-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2007-06",
+   "dates": [
+    "2007-06-01",
+    "2007-06-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2007-11",
+   "dates": [
+    "2007-11-01",
+    "2007-11-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2008-05",
+   "dates": [
+    "2008-05-01",
+    "2008-05-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2008-08",
+   "dates": [
+    "2008-08-04",
+    "2008-08-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2009-03",
+   "dates": [
+    "2009-03-02",
+    "2009-03-27"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2009-06",
+   "dates": [
+    "2009-06-01",
+    "2009-06-26"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2009-08",
+   "dates": [
+    "2009-08-04",
+    "2009-08-05",
+    "2009-08-17",
+    "2009-08-20",
+    "2009-08-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2009-10",
+   "dates": [
+    "2009-10-01",
+    "2009-10-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2010-03",
+   "dates": [
+    "2010-03-01",
+    "2010-03-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2010-05",
+   "dates": [
+    "2010-05-03",
+    "2010-05-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2010-08",
+   "dates": [
+    "2010-08-03",
+    "2010-08-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2010-11",
+   "dates": [
+    "2010-11-01",
+    "2010-11-24"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2011-08",
+   "dates": [
+    "2011-08-02",
+    "2011-08-08",
+    "2011-08-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2012-03",
+   "dates": [
+    "2012-03-01",
+    "2012-03-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2012-06",
+   "dates": [
+    "2012-06-01",
+    "2012-06-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2013-03",
+   "dates": [
+    "2013-03-01",
+    "2013-03-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2013-08",
+   "dates": [
+    "2013-08-02",
+    "2013-08-08",
+    "2013-08-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2013-12",
+   "dates": [
+    "2013-12-06",
+    "2013-12-23"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2014-03",
+   "dates": [
+    "2014-03-03",
+    "2014-03-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2014-05",
+   "dates": [
+    "2014-05-01",
+    "2014-05-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2014-08",
+   "dates": [
+    "2014-08-01",
+    "2014-08-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2015-03",
+   "dates": [
+    "2015-03-02",
+    "2015-03-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2015-06",
+   "dates": [
+    "2015-06-01",
+    "2015-06-25"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2015-08",
+   "dates": [
+    "2015-08-03",
+    "2015-08-28"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2016-02",
+   "dates": [
+    "2016-02-01",
+    "2016-02-26"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2016-08",
+   "dates": [
+    "2016-08-02",
+    "2016-08-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2017-03",
+   "dates": [
+    "2017-03-01",
+    "2017-03-31"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2017-05",
+   "dates": [
+    "2017-05-01",
+    "2017-05-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2017-08",
+   "dates": [
+    "2017-08-01",
+    "2017-08-31"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2018-03",
+   "dates": [
+    "2018-03-01",
+    "2018-03-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2019-03",
+   "dates": [
+    "2019-03-01",
+    "2019-03-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2020-10",
+   "dates": [
+    "2020-10-01",
+    "2020-10-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2021-10",
+   "dates": [
+    "2021-10-01",
+    "2021-10-29"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2022-12",
+   "dates": [
+    "2022-12-01",
+    "2022-12-23"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2025-12",
+   "dates": [
+    "2025-12-05",
+    "2025-12-23"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  },
+  {
+   "type": "PCE",
+   "month": "2026-04",
+   "dates": [
+    "2026-04-09",
+    "2026-04-30"
+   ],
+   "source": "https://api.stlouisfed.org/fred/release/dates?release_id=54&api_key=<redacted>&file_type=json&include_release_dates_with_no_data=false&limit=10000&sort_order=asc",
+   "reason": "FRED lists more than one date in this month; the regular release is not resolved (one date may be a revision/benchmark-only publication)"
+  }
+ ],
+ "events_excluded_fomc": [
+  {
+   "date": "2020-03-18",
+   "label": "March 17-18 (cancelled) Meeting - 2020",
+   "reason": "EXCLUDED_CANCELLED",
+   "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+  },
+  {
+   "date": "2020-03-19",
+   "label": "March 19 (notation vote) - 2020",
+   "reason": "EXCLUDED_NOTATION",
+   "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+  },
+  {
+   "date": "2020-03-23",
+   "label": "March 23 (notation vote) - 2020",
+   "reason": "EXCLUDED_NOTATION",
+   "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+  },
+  {
+   "date": "2020-03-31",
+   "label": "March 31 (notation vote) - 2020",
+   "reason": "EXCLUDED_NOTATION",
+   "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+  },
+  {
+   "date": "2020-08-27",
+   "label": "August 27 (notation vote) - 2020",
+   "reason": "EXCLUDED_NOTATION",
+   "source": "https://www.federalreserve.gov/monetarypolicy/fomchistorical2020.htm"
+  },
+  {
+   "date": "2025-08-22",
+   "label": "August 22 (notation vote) - 2025",
+   "reason": "EXCLUDED_NOTATION",
+   "source": "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+  }
+ ],
+ "events_yaml_sha256": "b084cadf998c3725cccdbdccdf00d92e0c24803356e0b59516ab13c96349b329",
+ "event_crosscheck": [
+  {
+   "ref_file": "config/daytrade_events_history_v1.yaml",
+   "type": "CPI",
+   "window": "2023-04-01..2026-01-31",
+   "ours": 34,
+   "reference_count": 33,
+   "matched": 33,
+   "only_ours": [
+    "2024-02-09"
+   ],
+   "only_reference": []
+  },
+  {
+   "ref_file": "config/daytrade_events_history_v1.yaml",
+   "type": "NFP",
+   "window": "2023-04-01..2026-01-31",
+   "ours": 34,
+   "reference_count": 33,
+   "matched": 33,
+   "only_ours": [
+    "2024-01-10"
+   ],
+   "only_reference": []
+  },
+  {
+   "ref_file": "config/daytrade_events_history_v1.yaml",
+   "type": "PCE",
+   "window": "2023-04-01..2026-01-31",
+   "ours": 33,
+   "reference_count": 32,
+   "matched": 32,
+   "only_ours": [
+    "2025-12-23"
+   ],
+   "only_reference": []
+  },
+  {
+   "ref_file": "config/daytrade_events_history_v1.yaml",
+   "type": "FOMC",
+   "window": "2023-04-01..2026-01-31",
+   "ours": 23,
+   "reference_count": 23,
+   "matched": 23,
+   "only_ours": [],
+   "only_reference": []
+  },
+  {
+   "ref_file": "config/daytrade_events_history_v1.yaml",
+   "type": "EARLY_CLOSE",
+   "window": "2023-04-01..2026-01-31",
+   "ours": 8,
+   "reference_count": 8,
+   "matched": 8,
+   "only_ours": [],
+   "only_reference": []
+  },
+  {
+   "ref_file": "config/daytrade_events_history_v1.yaml",
+   "type": "HOLIDAY_IN_OUR_CALENDAR",
+   "window": "2023-04-01..2026-01-31",
+   "checked": 30,
+   "violations": [],
+   "weekday_not_session_not_holiday": []
+  },
+  {
+   "ref_file": "config/daytrade_events_v1.yaml",
+   "type": "CPI",
+   "window": "2026-10-01..2026-10-09",
+   "ours": 0,
+   "reference_count": 0,
+   "matched": 0,
+   "only_ours": [],
+   "only_reference": []
+  },
+  {
+   "ref_file": "config/daytrade_events_v1.yaml",
+   "type": "NFP",
+   "window": "2026-10-01..2026-10-09",
+   "ours": 1,
+   "reference_count": 1,
+   "matched": 1,
+   "only_ours": [],
+   "only_reference": []
+  },
+  {
+   "ref_file": "config/daytrade_events_v1.yaml",
+   "type": "PCE",
+   "window": "2026-10-01..2026-10-09",
+   "ours": 0,
+   "reference_count": 0,
+   "matched": 0,
+   "only_ours": [],
+   "only_reference": []
+  },
+  {
+   "ref_file": "config/daytrade_events_v1.yaml",
+   "type": "FOMC",
+   "window": "2026-10-01..2026-10-09",
+   "ours": 0,
+   "reference_count": 0,
+   "matched": 0,
+   "only_ours": [],
+   "only_reference": []
+  },
+  {
+   "ref_file": "config/daytrade_events_v1.yaml",
+   "type": "EARLY_CLOSE",
+   "window": "2026-10-01..2026-10-09",
+   "ours": 0,
+   "reference_count": 0,
+   "matched": 0,
+   "only_ours": [],
+   "only_reference": []
+  },
+  {
+   "ref_file": "config/daytrade_events_v1.yaml",
+   "type": "HOLIDAY_IN_OUR_CALENDAR",
+   "window": "2026-10-01..2026-10-09",
+   "checked": 0,
+   "violations": [],
+   "weekday_not_session_not_holiday": []
+  }
+ ]
+}
