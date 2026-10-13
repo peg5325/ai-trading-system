@@ -14,15 +14,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date as Date
 
-from .config import V0, EngineConfig
+from .config import V0, EngineConfig, EngineConfigV4
 from .indicators import OPEN_MIN, completed_five, completes_five
 from .risk import START_EQUITY, EntryPlan, RiskManager
-from .universe import ORB_BARS, Candidate, SymbolDay, UniverseFilter
+from .universe import ORB_BARS, Candidate, SniperFilter, SymbolDay, UniverseFilter
 
 BREAKOUT_FROM = 585  # 09:45: breakout bars count from here
 SIGNAL_FIRST = 600  # signal bar start 10:00
-SIGNAL_LAST = 899  # signal bar start 14:59
-LAST_FILL = 900  # no fill after 15:00
+SIGNAL_LAST = 899  # signal bar start 14:59 (config.signal_last; V4: 869)
+LAST_FILL = 900  # no fill after 15:00 (config.last_fill; V4: 870)
 FLATTEN_BEFORE_CLOSE = 10  # 15:50 (early close: close - 10 min)
 NEAR = 0.001  # 0.10% band around ORB / VWAP
 SWING_BARS = 3
@@ -169,8 +169,8 @@ class StrategyEngine:
                             w.short_break = t
                         else:
                             skips["breakout_volume"] = skips.get("breakout_volume", 0) + 1
-            if (pos is not None or not SIGNAL_FIRST <= t <= SIGNAL_LAST or t + 1 > LAST_FILL
-                    or t + 1 >= flat):
+            if (pos is not None or not SIGNAL_FIRST <= t <= self.config.signal_last
+                    or t + 1 > self.config.last_fill or t + 1 >= flat):
                 continue
             if self.risk.kill_switch(day_start_equity, realized, losers):
                 continue
@@ -249,7 +249,9 @@ class StrategyEngine:
 @dataclass
 class DayRecord:
     day: str
-    status: str  # spy_excluded (never without an RS reference) | no_candidates | no_trade | traded
+    # spy_excluded (never without an RS reference) | no_candidates | no_trade | traded
+    # | min_range_after_pick (V4 only: the picked stock failed the minimum range, spec V4 §4.2)
+    status: str
     start_equity: float
     end_equity: float
     ref_end_equity: float
@@ -266,7 +268,8 @@ class BacktestResult:
     not_ready_symbol_days: dict[str, int]
     qqq_buy_hold: dict | None
     start_equity: float
-    filter_symbol_days: dict[str, dict[str, int]] | None = None  # V1 pre-watchlist exclusions (None under V0)
+    filter_symbol_days: dict[str, dict[str, int]] | None = None  # V1 pre-watchlist exclusions (None under V0, V4)
+    sniper: dict | None = None  # V4 only: per-day picks, pick counts, split breaks (spec V4 §6)
 
 
 def first_scored_day(prepared: dict[str, dict[str, SymbolDay]], days: list[str], ref: str | None = "SPY",
@@ -304,7 +307,8 @@ def daily_exclusion(sd: SymbolDay, config: EngineConfig) -> str | None:
 def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[Date],
                  start_equity: float = START_EQUITY, engine: StrategyEngine | None = None,
                  universe_filter: UniverseFilter | None = None,
-                 config: EngineConfig | None = None) -> BacktestResult:
+                 config: EngineConfig | None = None,
+                 benchmark: dict[str, SymbolDay] | None = None) -> BacktestResult:
     """`config` defaults to the engine's (V0 when neither is given). Passing both with different values is an error.
 
     The RS reference is `config.rs_reference`. With None (spec V2 §1.3) no reference is read, the
@@ -312,7 +316,11 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
     `no_candidates`.
 
     The screener follows `config.rvol_min` / `config.gap_band` (None disables; spec V3 §1) unless
-    `universe_filter` is given."""
+    `universe_filter` is given.
+
+    EngineConfigV4 (spec V4 §4): the SniperFilter picks at most one stock (no V1 pre-watchlist exclusions; it needs
+    the daily values itself), then the minimum range is checked on that stock only. `benchmark` (QQQ symbol-days,
+    never a candidate) feeds the 1x buy-and-hold comparison; without it QQQ is taken from `prepared` as before."""
     if engine is None:
         engine = StrategyEngine(config=config or V0)
     elif config is not None and config != engine.config:
@@ -321,7 +329,14 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
     ref = config.rs_reference
     need_rvol = config.rvol_min is not None
     gap = config.gap_band
-    uf = universe_filter or UniverseFilter(config.rvol_min, *(gap if gap is not None else (None, None)))
+    sniper = isinstance(config, EngineConfigV4)
+    if sniper:
+        if universe_filter is not None:
+            raise ValueError("the V4 sniper uses its own screener")
+        uf = SniperFilter(config.rvol_min, config.gap_up_min)
+    else:
+        uf = universe_filter or UniverseFilter(config.rvol_min, *(gap if gap is not None else (None, None)))
+    picks: list[dict] = []
     days = [d.isoformat() for d in trading_days]
     k0 = first_scored_day(prepared, days, ref, need_daily=config.daily_filters, need_rvol=need_rvol)
     scored = days[k0:] if k0 is not None else []
@@ -346,16 +361,28 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
             records.append(DayRecord(d, "spy_excluded", equity, equity, ref_equity, [], 0))
             continue
         rows = {s: p[d] for s, p in prepared.items()}
-        for s in sorted(rows):
-            if rows[s].is_ready(need_rvol):
-                why = daily_exclusion(rows[s], config)
-                if why is not None:
-                    v1_excl[why][s] += 1
-                    del rows[s]
-        wl: list[Candidate] = uf.watchlist(rows, spy)
+        if not sniper:
+            for s in sorted(rows):
+                if rows[s].is_ready(need_rvol):
+                    why = daily_exclusion(rows[s], config)
+                    if why is not None:
+                        v1_excl[why][s] += 1
+                        del rows[s]
+            wl: list[Candidate] = uf.watchlist(rows, spy)
+        else:
+            passing = uf.passing(rows)
+            wl = passing[:1]
         if not wl:
             records.append(DayRecord(d, "no_candidates", equity, equity, ref_equity, [], 0))
             continue
+        if sniper:
+            pick = prepared[wl[0].symbol][d]
+            min_ok = pick.orb_high - pick.orb_low >= config.min_range_atr_mult * pick.daily_atr
+            picks.append({"day": d, "symbol": pick.symbol, "rvol": wl[0].rvol, "gap": wl[0].gap,
+                          "passing": [c.symbol for c in passing], "min_range_ok": min_ok})
+            if not min_ok:
+                records.append(DayRecord(d, "min_range_after_pick", equity, equity, ref_equity, [pick.symbol], 0))
+                continue
         day_trades, day_skips = engine.simulate_day(d, [prepared[c.symbol][d] for c in wl], equity)
         for key, v in day_skips.items():
             skips[key] = skips.get(key, 0) + v
@@ -365,9 +392,23 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
         trades.extend(day_trades)
         records.append(DayRecord(d, "traded" if day_trades else "no_trade", start, equity, ref_equity,
                                  [c.symbol for c in wl], len(day_trades)))
+    sniper_info = None
+    if sniper:
+        counts: dict[str, dict[str, int]] = {s: {"picked": 0, "min_range_after_pick": 0, "passing": 0}
+                                             for s in prepared}
+        for pk in picks:
+            counts[pk["symbol"]]["picked"] += 1
+            counts[pk["symbol"]]["min_range_after_pick"] += not pk["min_range_ok"]
+            for s in pk["passing"]:
+                counts[s]["passing"] += 1
+        sniper_info = {
+            "picks": picks,
+            "per_symbol": counts,
+            "split_breaks": {s: sorted(k for k, sd in p.items() if sd.split_break) for s, p in prepared.items()},
+        }
     return BacktestResult(records, trades, skips, excluded, not_ready,
-                          qqq_buy_hold(prepared.get("QQQ"), scored), start_equity,
-                          v1_excl if config.has_v1_filters else None)
+                          qqq_buy_hold(benchmark if benchmark is not None else prepared.get("QQQ"), scored),
+                          start_equity, v1_excl if config.has_v1_filters and not sniper else None, sniper_info)
 
 
 def qqq_buy_hold(qqq: dict[str, SymbolDay] | None, scored: list[str]) -> dict | None:

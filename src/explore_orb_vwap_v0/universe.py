@@ -47,6 +47,9 @@ class SymbolDay:
     # into today. Not used by the V0 configuration.
     daily_ema: float | None = None
     daily_atr: float | None = None
+    # Spec V4 §3: |open / prior close - 1| >= split_gap (only when prepare_symbol gets split_gap). The day is not a
+    # candidate and every indicator / RVOL history restarts from it.
+    split_break: bool = False
 
     @property
     def ready(self) -> bool:
@@ -79,7 +82,8 @@ def orb(bars: list[Bar]) -> tuple[float, float, float]:
     return max(b.high for b in first), min(b.low for b in first), sum(b.volume for b in first)
 
 
-def prepare_symbol(symbol: str, regular: dict[str, list[Bar]], trading_days: list[Date]) -> dict[str, SymbolDay]:
+def prepare_symbol(symbol: str, regular: dict[str, list[Bar]], trading_days: list[Date],
+                   split_gap: float | None = None) -> dict[str, SymbolDay]:
     """Build SymbolDay for every calendar trading day, in order.
 
     Continuity rules (no filling, no stitching across gaps): the ATR/EMA state is reset whenever the previous
@@ -87,6 +91,10 @@ def prepare_symbol(symbol: str, regular: dict[str, list[Bar]], trading_days: lis
     at its open. Prior close requires the previous trading day to be complete. RVOL uses the 20 most recent
     earlier complete sessions (they need not be consecutive). The daily EMA20 / ATR14 (spec V1 §3.1) follow the
     same reset rule on daily bars built from the complete 1m session; a day gets the values after the prior day.
+
+    `split_gap` (spec V4 §3, None = off as in V0 ~ V3): a complete day whose first open is at least that far from the
+    previous complete close is a data break, handled like a day after an incomplete one (no prior close, ATR/EMA and
+    daily state reset) and the RVOL history is cleared too.
     """
     out: dict[str, SymbolDay] = {}
     state = IndicatorState()
@@ -101,6 +109,11 @@ def prepare_symbol(symbol: str, regular: dict[str, list[Bar]], trading_days: lis
             sd.bars = bars
             sd.close_minute = regular_close_minute(d)
             prev_ok = prev is not None and prev.complete
+            if (prev_ok and split_gap is not None
+                    and abs(bars[0].open / prev.bars[-1].close - 1.0) >= split_gap):
+                sd.split_break = True
+                prev_ok = False
+                orb_vols.clear()
             if not prev_ok:
                 state.reset()
                 daily.reset()
@@ -179,3 +192,27 @@ class UniverseFilter:
                 cands.append(c)
         cands.sort(key=lambda c: (-abs(c.rs), c.symbol))
         return cands[:self.size]
+
+
+class SniperFilter:
+    """Spec V4 §4.1: among ready, daily-ready symbol-days with prior close > prior daily EMA20, gap >= gap_up_min
+    (signed) and RVOL >= rvol_min, keep the single highest RVOL (ties by symbol)."""
+
+    def __init__(self, rvol_min: float, gap_up_min: float) -> None:
+        self.rvol_min, self.gap_up_min = rvol_min, gap_up_min
+
+    def passing(self, day_rows: dict[str, SymbolDay]) -> list[Candidate]:
+        """All passing candidates, highest RVOL first."""
+        cands = []
+        for sym in sorted(day_rows):
+            sd = day_rows[sym]
+            if not sd.daily_ready or sd.direction != 1:
+                continue
+            c = UniverseFilter.metrics(sd, None)
+            if c is not None and c.rvol >= self.rvol_min and c.gap >= self.gap_up_min:
+                cands.append(c)
+        cands.sort(key=lambda c: (-c.rvol, c.symbol))
+        return cands
+
+    def watchlist(self, day_rows: dict[str, SymbolDay], spy: SymbolDay | None = None) -> list[Candidate]:
+        return self.passing(day_rows)[:1]
