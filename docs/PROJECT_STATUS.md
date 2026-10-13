@@ -137,6 +137,12 @@
 
 ## 다음 한 가지 작업
 
+(2026-10-13 갱신) **방법 묶음 A(장기 일봉 당일 거래 선별) 주 DEV 1회 = `SELECTED` 1개: ^SOX 큰 상승 갭(C07) → SOXL 롱.** 기록: [사전등록](research/PREREG_DAILY_SAMEDAY_SCREEN_V1.md), [부록](research/PREREG_DAILY_SAMEDAY_SCREEN_V1_HOLDOUT_ADDENDUM.md). HOLDOUT(2016~2025-07-18)은 아직 열지 않았다.
+- 사용자 결정(2026-10-12): 새 탐색 방법 1~6 모두 진행. 데이터 기반 PR #198(장기 일봉·VIX·GEX·이벤트). 사전등록 리뷰 FIX_THEN_LOCK 반영(^SOX 2009 시작, R* 판정, 실제 ETF 조건), 코드 리뷰 APPROVE + 실행 순서 강제 `bfb8fd9`.
+- 손익 전 집계(`31eb5c89…`) 뒤 사용자 결정 "돌린다". DEV 결과(`3417ca04…`): K=156 중 BH(q=0.10) 기각·생존 1개 — k=128, n 429(2009~2015), 순 평균 +0.81%/거래(비용 0.20%), t 3.58, 승률 61.3%, 부트스트랩 p 0.00016(B 200,000), 반쪽 +1.10/+0.44%, stress +0.71%, 실제 SOXL(2010-03~, n 341) +0.32%. BY 보정으로는 기각 안 됨(참고).
+- 장중/밤사이 분해(DEV): QQQ 장중 누적 −67%·밤사이 +828%, SPY −19%·+608%, ^SOX(2009~2015) +149%·+11%.
+- **다음:** 부록 병합 → GEX 묶음 precount(손익 없음) → 사용자 결정 → GEX DEV → HOLDOUT 1회(사용자 승인).
+
 (2026-10-12 갱신 2) **추세 전환 연구 v1(T1 갭 메우기·T2 돌파 실패·T3 VWAP 되찾기·T4 반대편 이탈 × 롱·숏 × SOXL/TQQQ, 비용 0.20%) 개발 구간 1회 = NO_PASS.** 기록: [결과](research/RESULT_DAYTRADE_REVERSAL_STUDY_V1.md), [사전등록](research/PREREG_DAYTRADE_REVERSAL_STUDY_V1.md).
 - 사용자 결정(2026-10-12): 4개 모두, 두 쌍만(SPXL/SPXS 제외), 마감 판정 + 30·60분 참고. 사전등록 리뷰 FIX_THEN_LOCK 11건 반영, 코드 리뷰 REQUEST_CHANGES(HIGH: OOS 경로 §5.1 전체 검증 누락) 반영 `bc00d46`, 시험 150개(진입 63 + 추세 전환 87).
 - 손익 전 집계 뒤 사용자 결정 "돌린다". 16칸 모두 Holm p = 1.0(최소 원 p 0.25), T4 4칸·TQQQ T1 롱은 n < 30. 청산 보조(진입 E1~E5에 반전 청산)는 재현 검사 통과, 20칸 중 4칸만 개선(평균 −0.08%p).
