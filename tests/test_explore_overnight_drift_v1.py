@@ -126,7 +126,8 @@ def test_disaster_stop_boundary(gap, reason, minute):
 def test_weekend_holding_hours():
     fri, mon = "2024-03-08", "2024-03-11"
     _tr, hold = E.overnight_trade(sd_of(strong_bars(), fri), sd_of(strong_bars(), mon), 2000.0)
-    assert hold.hours == pytest.approx((3 * 24 * 60 + 575 - 951) / 60)
+    # 2024-03-10 is the spring-forward Sunday: one hour less than the wall-clock difference
+    assert hold.hours == pytest.approx((3 * 24 * 60 + 575 - 951) / 60 - 1)
 
 
 # ---------------------------------------------------------------- day loop
@@ -205,4 +206,46 @@ def test_cli_writes_json_once(tmp_path):
     assert isinstance(md, str)
     with pytest.raises(SystemExit):
         cli.run(db, out, start=d1, end=d1 + timedelta(days=1))
+
+
+# ---------------------------------------------------------------- review follow-ups
+def test_benchmark_does_not_need_ema_mid_sample():
+    d = week(2)
+    sd = sd_of(strong_bars(), d[0])
+    sd.daily_ema = None
+    nxt = sd_of(strong_bars(), d[1])
+    assert E.entry_status(sd, nxt) == "daily_not_ready"
+    assert E.entry_status(sd, nxt, filters=False) == "enter"
+
+
+def test_no_entry_when_next_day_is_after_the_dev_window():
+    nxt = sd_of(strong_bars(), "2026-01-21")
+    assert E.entry_status(sd_of(strong_bars(), "2026-01-20"), nxt) == "no_next_day"
+    assert E.entry_status(sd_of(strong_bars(), "2026-01-16"), sd_of(strong_bars(), "2026-01-20")) == "enter"
+
+
+def test_cli_end_to_end_through_loader_and_prepare_symbol(tmp_path):
+    """28 sessions 2024-06-03 .. 07-12 (Juneteenth closed, 07-03 early close, 07-04 closed), one price per day rising
+    0.1 a day (so the 15:50 close equals the open: below_open under the filters), 07-09 missing one bar."""
+    cli = _load_script("explore_overnight_drift_v1")
+    db = str(tmp_path / "m.sqlite")
+    cal = trading_days(date(2024, 6, 3), date(2024, 7, 12))
+    assert len(cal) == 28
+    with HistoryStore(db) as store:
+        for k, d in enumerate(cal):
+            _write_day(store, "QQQ", d, p=100.0 + 0.1 * k, skip_label=700 if d == date(2024, 7, 9) else None)
+        store.commit()
+    out = tmp_path / "out"
+    cli.run(db, out, start=cal[0], end=cal[-1])
+    doc = json.loads((out / cli.OUT_NAME).read_text())
+    st = {r["day"]: r["status"] for r in doc["days"]}
+    # daily EMA20 needs 20 complete sessions -> first scored day is the 21st session (07-02)
+    assert doc["provenance"]["scored_start"] == "2024-07-02"
+    assert st == {"2024-07-02": "below_open", "2024-07-03": "early_close", "2024-07-05": "below_open",
+                  "2024-07-08": "next_incomplete", "2024-07-09": "excluded_incomplete",
+                  "2024-07-10": "daily_not_ready", "2024-07-11": "daily_not_ready", "2024-07-12": "daily_not_ready"}
+    bench = doc["benchmarks"]["no_filter_overnight"]
+    assert bench["trade_count"] == 4  # 07-02, 07-05, 07-10, 07-11 (07-12 has no next day)
+    # complete days with a complete prior day: 07-02, 03, 05, 08, 11, 12 (07-09 incomplete, 07-10 after it)
+    assert doc["benchmarks"]["qqq_return_split"]["days"] == 6
 

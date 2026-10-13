@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date as Date
+from datetime import datetime, timezone
 
+from src.explore_orb_vwap_v0.data_loader import DEV_LAST_DAY
 from src.explore_orb_vwap_v0.indicators import OPEN_MIN
 from src.explore_orb_vwap_v0.risk import (
     COMMISSION,
@@ -25,6 +27,7 @@ from src.explore_orb_vwap_v0.strategy import (
     qqq_buy_hold,
 )
 from src.explore_orb_vwap_v0.universe import SymbolDay
+from src.models import ET
 
 SYMBOL = "QQQ"
 SIGNAL_MIN = 950  # 15:50 bar (its close is the signal)
@@ -44,14 +47,15 @@ def bar(sd: SymbolDay, minute: int):
 def entry_status(sd: SymbolDay, nxt: SymbolDay | None, filters: bool = True) -> str:
     """'enter' or the reason for no entry on day D (spec §4.1), checked in this order:
     excluded_incomplete | daily_not_ready | early_close | no_next_day | next_incomplete | below_ema | below_open |
-    below_vwap. `nxt` None means D+1 is outside the load window (spec §3: no entry on the last day)."""
+    below_vwap. `nxt` None or after 2026-01-20 means D+1 is outside the window (spec §3: no entry on the last day).
+    With `filters` False (no-filter benchmark, spec §6 (2) as amended) the daily EMA20 readiness is not required."""
     if not sd.complete:
         return "excluded_incomplete"
-    if sd.daily_ema is None:
+    if filters and sd.daily_ema is None:
         return "daily_not_ready"
     if sd.close_minute <= ENTRY_MIN:
         return "early_close"
-    if nxt is None:
+    if nxt is None or nxt.day > DEV_LAST_DAY.isoformat():
         return "no_next_day"
     if not nxt.complete:
         return "next_incomplete"
@@ -89,8 +93,16 @@ def overnight_trade(sd: SymbolDay, nxt: SymbolDay, equity: float) -> tuple[Trade
     tr.legs.append(Leg(minute, shares, xraw, xraw - SLIPPAGE, reason))
     tr.exit_reason = reason
     tr.settle(COMMISSION, REF_COST_RATE)
-    days = (Date.fromisoformat(nxt.day) - Date.fromisoformat(sd.day)).days
-    return tr, Hold(sd.day, nxt.day, (days * 24 * 60 + minute - ENTRY_MIN) / 60.0)
+    return tr, Hold(sd.day, nxt.day, elapsed_hours(sd.day, ENTRY_MIN, nxt.day, minute))
+
+
+def elapsed_hours(day0: str, minute0: int, day1: str, minute1: int) -> float:
+    """Real elapsed hours between two ET minutes of day (daylight-saving changes included)."""
+    def at(day: str, minute: int) -> datetime:
+        d = Date.fromisoformat(day)
+        return datetime(d.year, d.month, d.day, minute // 60, minute % 60, tzinfo=ET)
+    # same-tzinfo subtraction is wall-clock arithmetic; compare in UTC to count the DST hour
+    return (at(day1, minute1).astimezone(timezone.utc) - at(day0, minute0).astimezone(timezone.utc)).total_seconds() / 3600.0
 
 
 def first_scored_day(qqq: dict[str, SymbolDay], days: list[str]) -> int | None:

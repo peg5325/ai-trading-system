@@ -50,9 +50,10 @@ def _pct(x) -> str:
 
 def extra_markdown(result, holds, bench_metrics: dict, split: dict) -> str:
     hs = hold_stats(holds)
+    scored = len(result.days)
     out = ["", "## Holding time", "",
-           f"mean {hs['mean_hours']:.2f} h, median {hs['median_hours']:.2f} h, max {hs['max_hours']:.2f} h"
-           if holds else "no trades",
+           (f"mean {hs['mean_hours']:.2f} h, median {hs['median_hours']:.2f} h, max {hs['max_hours']:.2f} h "
+            "(real elapsed time, DST included)") if holds else "no trades",
            "", "## Non-traded day status", "", "| status | days |", "|---|---|"]
     out += [f"| {k} | {v} |" for k, v in result.skips.items()]
     bm = bench_metrics
@@ -60,9 +61,14 @@ def extra_markdown(result, holds, bench_metrics: dict, split: dict) -> str:
             (f"| no-filter overnight (same rules and costs): trades / net P&L / return / ref-cost return | "
              f"{bm['trade_count']} / {bm.get('trade_net_pnl', 0):,.2f} / {_pct(bm.get('cumulative_return'))} / "
              f"{_pct((bm.get('reference_cost') or {}).get('cumulative_return'))} |"),
-            (f"| QQQ split over {split['days']} days: overnight (prior close -> open) / intraday (open -> close) / "
-             f"combined, no costs | {_pct(split['overnight_return'])} / {_pct(split['intraday_return'])} / "
-             f"{_pct(split['combined_return'])} |")]
+            (f"| QQQ split over {split['days']} of {scored} scored days (complete with a complete prior day; "
+             f"includes the first day's overnight gap, so it differs from the 1x hold window): overnight "
+             f"(prior close -> open) / intraday (open -> close) / combined, no costs | "
+             f"{_pct(split['overnight_return'])} / {_pct(split['intraday_return'])} / "
+             f"{_pct(split['combined_return'])} |"),
+            "",
+            ("Trade.initial_stop / risk_per_share hold the gap-stop level (D close x 0.985) and fill minus it; the stop "
+             "is a next-open check, so they are not a risk amount.")]
     return "\n".join(out) + "\n"
 
 
