@@ -51,6 +51,8 @@ def git(*args: str) -> str | None:
 def run(db: str, out_dir: Path, symbols=None, start: Date = LOAD_START, end: Date = DEV_LAST_DAY,
         config: EngineConfig = V0, out_name: str | None = None) -> str:
     symbols = tuple(symbols) if symbols is not None else config.universe
+    if out_name is not None and Path(out_name).name != out_name:
+        raise SystemExit(f"--out-name must be a bare file name, got {out_name!r}")
     out = out_dir / (out_name or DEFAULT_OUT_NAME[config.name])
     if out.exists():
         raise SystemExit(f"{out} already exists; refusing to overwrite")
