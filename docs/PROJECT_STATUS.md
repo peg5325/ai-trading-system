@@ -137,6 +137,8 @@
 
 ## 다음 한 가지 작업
 
+(2026-10-13 갱신 5, 탐색·판정 아님) **V3(장전 스크리너 제거): V3_QQQ −3.40%(381건, PF 0.88, t −0.98), V3_TQQQ −27.01%(249건, PF 0.57, t −3.66).** 비용 전 거래당 +0.0020% / +0.0622%, TQQQ는 주당 비용이 대금의 0.154%. USD 20 위험 도달 0건. V2 +1.01%는 스크리너가 거래를 40건으로 줄인 결과였다. 기록: [V3 명세](research/EXPLORE_ORB_VWAP_PULLBACK_2000USD_V3.md), [V3 결과](research/RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V3.md).
+
 (2026-10-13 갱신 4, 탐색·판정 아님) **V1_LONGONLY에서 QQQ만 고른 V2_QQQ: +1.01%(40건, PF 1.33), 거래당 t 0.67·부트스트랩 P 0.256, 40건 중 33건이 V1_LONGONLY QQQ와 같은 거래, 참고 비용(왕복 0.20%) −6.55%, 같은 구간 QQQ 보유 +88.84%.** 세 번 사후 선택한 결과라 우위 증거가 아니다. 새 코드로 V0·V1·V1_LONGONLY 실데이터 재현 동일. 기록: [V2 명세](research/EXPLORE_ORB_VWAP_PULLBACK_2000USD_V2.md), [V2 결과](research/RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V2.md).
 
 (2026-10-13 갱신 3, 탐색·판정 아님) **V0 결과를 본 뒤 사후 조정한 V1(IWM 제외·소수점·일봉 EMA20 방향·돌파 거래량·최소 범위)도 손실: −4.45%, 롱전용 −2.23%(PF 0.73 / 0.80, 거래 146 / 90).** 비용 전 거래당 −0.0036% / +0.0018%. 새 코드로 V0 실데이터 재현 동일. 기록: [V1 명세](research/EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.md), [V1 결과](research/RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.md).

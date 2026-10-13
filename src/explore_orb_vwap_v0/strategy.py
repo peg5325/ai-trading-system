@@ -270,18 +270,19 @@ class BacktestResult:
 
 
 def first_scored_day(prepared: dict[str, dict[str, SymbolDay]], days: list[str], ref: str | None = "SPY",
-                     need_daily: bool = False) -> int | None:
+                     need_daily: bool = False, need_rvol: bool = True) -> int | None:
     """Index of the first day where the RS reference is complete with a prior close and some symbol is ready.
 
     `ref` None (spec V2 §1.3): the first day some traded symbol is ready, and also daily-ready (prior daily EMA20 /
-    ATR14 known) when `need_daily`. `need_daily` is ignored when a reference is given (V0 / V1 unchanged)."""
+    ATR14 known) when `need_daily`. `need_daily` is ignored when a reference is given (V0 / V1 unchanged).
+    `need_rvol` False (spec V3 §2): readiness does not include the 20-session RVOL base."""
     for k, d in enumerate(days):
         if ref is None:
-            if any(p[d].ready and (not need_daily or p[d].daily_ready) for p in prepared.values()):
+            if any(p[d].is_ready(need_rvol) and (not need_daily or p[d].daily_ready) for p in prepared.values()):
                 return k
             continue
         spy = prepared[ref][d]
-        if spy.complete and spy.prior_close is not None and any(p[d].ready for p in prepared.values()):
+        if spy.complete and spy.prior_close is not None and any(p[d].is_ready(need_rvol) for p in prepared.values()):
             return k
     return None
 
@@ -308,16 +309,21 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
 
     The RS reference is `config.rs_reference`. With None (spec V2 §1.3) no reference is read, the
     "reference incomplete -> spy_excluded" rule does not apply, and days where no traded symbol passes are
-    `no_candidates`."""
+    `no_candidates`.
+
+    The screener follows `config.rvol_min` / `config.gap_band` (None disables; spec V3 §1) unless
+    `universe_filter` is given."""
     if engine is None:
         engine = StrategyEngine(config=config or V0)
     elif config is not None and config != engine.config:
         raise ValueError("run_backtest config differs from the engine config")
     config = engine.config
     ref = config.rs_reference
-    uf = universe_filter or UniverseFilter()
+    need_rvol = config.rvol_min is not None
+    gap = config.gap_band
+    uf = universe_filter or UniverseFilter(config.rvol_min, *(gap if gap is not None else (None, None)))
     days = [d.isoformat() for d in trading_days]
-    k0 = first_scored_day(prepared, days, ref, need_daily=config.daily_filters)
+    k0 = first_scored_day(prepared, days, ref, need_daily=config.daily_filters, need_rvol=need_rvol)
     scored = days[k0:] if k0 is not None else []
     first_data = {s: min((d for d, sd in p.items() if sd.has_data), default=None)
                   for s, p in prepared.items()}
@@ -333,7 +339,7 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
             if first_data[s] is not None and d >= first_data[s]:
                 if not p[d].complete:
                     excluded[s] += 1
-                elif not p[d].ready:
+                elif not p[d].is_ready(need_rvol):
                     not_ready[s] += 1
         spy = prepared[ref][d] if ref is not None else None
         if spy is not None and (not spy.complete or spy.prior_close is None):
@@ -341,7 +347,7 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
             continue
         rows = {s: p[d] for s, p in prepared.items()}
         for s in sorted(rows):
-            if rows[s].ready:
+            if rows[s].is_ready(need_rvol):
                 why = daily_exclusion(rows[s], config)
                 if why is not None:
                     v1_excl[why][s] += 1
