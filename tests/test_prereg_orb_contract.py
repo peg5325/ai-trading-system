@@ -563,6 +563,9 @@ def test_only_registered_development_result_artifacts_may_exist():
         os.path.join(  # 명세 _V3.md(086845f)가 결과보다 먼저 커밋됐다
             "docs", "research", "RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V3.md"
         ),
+        os.path.join(  # 명세 _V4_SNIPER.md(8e068f1)가 결과보다 먼저 커밋됐다
+            "docs", "research", "RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V4_SNIPER.md"
+        ),
     }
     hits = []
     for base in ("docs", "reports", "analysis", "data"):
