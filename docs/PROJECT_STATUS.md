@@ -1,6 +1,6 @@
 # 현재 상태와 세션 인계
 
-갱신일: 2026-10-07
+갱신일: 2026-10-13
 
 ## 정본
 
@@ -136,6 +136,8 @@
     - 그 사이 날짜는 첫 실행 전 `--max-pages`를 넓혀 따라잡는다.
 
 ## 다음 한 가지 작업
+
+(2026-10-13 갱신 6) **사용자 결정: 15분 ORB + VWAP 되돌림 계열 가설 기각·전략 폐기.** V0~V3(여섯 설정) 모두 비용 전 거래당 −0.004% ~ +0.062%로 왕복 0.20%를 넘지 못했다. 이 계열은 더 조정하지 않는다. 기록: [종료 결정](research/DECISION_EXPLORE_ORB_VWAP_PULLBACK_CLOSEOUT.md). 새 가설은 [탐색 명세 틀](research/TEMPLATE_EXPLORE_SPEC.md)로 시작한다. 그 밖의 다음 작업(GEX precount 기록, 10-12 일지, 후보 128 HOLDOUT 결정)은 아래 그대로다.
 
 (2026-10-13 갱신 5, 탐색·판정 아님) **V3(장전 스크리너 제거): V3_QQQ −3.40%(381건, PF 0.88, t −0.98), V3_TQQQ −27.01%(249건, PF 0.57, t −3.66).** 비용 전 거래당 +0.0020% / +0.0622%, TQQQ는 주당 비용이 대금의 0.154%. USD 20 위험 도달 0건. V2 +1.01%는 스크리너가 거래를 40건으로 줄인 결과였다. 기록: [V3 명세](research/EXPLORE_ORB_VWAP_PULLBACK_2000USD_V3.md), [V3 결과](research/RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V3.md).
 
