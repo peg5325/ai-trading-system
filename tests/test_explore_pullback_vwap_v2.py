@@ -238,12 +238,14 @@ def test_overlap_script(tmp_path, capsys):
     b = {"trades": [t("2024-01-02", 601, shares=1.0), t("2024-01-03", 612, shares=4.0),
                     t("2024-01-04", 620, shares=3.0), t("2024-01-03", 611, sym="AMD")]}
     r = ov.overlap(a, b, "QQQ")
-    assert r == {"symbol": "QQQ", "a_trades": 2, "b_trades": 3, "b_shared_with_a": 1,
-                 "b_risk_usd_median": 4.5, "b_risk_usd_max": 6.0}
+    assert r == {"symbol": "QQQ", "a_trades": 2, "b_trades": 3, "b_shared_with_a": 1, "a_only": 1,
+                 "b_risk_usd_min": 1.5, "b_risk_usd_p25": 1.5, "b_risk_usd_median": 4.5,
+                 "b_risk_usd_p75": 6.0, "b_risk_usd_max": 6.0}
     assert ov.overlap(a, {"trades": []}, "QQQ")["b_risk_usd_median"] is None
     pa, pb = tmp_path / "a.json", tmp_path / "b.json"
     pa.write_text(json.dumps(a))
     pb.write_text(json.dumps(b))
     assert ov.main([str(pa), str(pb), "QQQ"]) == 0
     out = capsys.readouterr().out
-    assert "sharing (day, entry_minute) with A: 1 / 3" in out and "median 4.50, max 6.00" in out
+    assert "sharing (day, entry_minute) with A: 1 / 3; A-only trades: 1" in out
+    assert "median 4.50, p75 6.00, max 6.00" in out

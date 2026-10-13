@@ -22,8 +22,11 @@ YEARS = ("2023", "2024", "2025", "2026")
 
 
 def label(doc: dict, path: Path) -> str:
-    """provenance.config_name; the original V0 result.json predates that field, so a missing name means V0."""
-    return (doc.get("provenance") or {}).get("config_name") or "V0"
+    """provenance.config_name; the original V0 result.json predates that field, so only that file name means V0."""
+    name = (doc.get("provenance") or {}).get("config_name")
+    if name:
+        return name
+    return "V0" if path.name == "result.json" else path.stem
 
 
 def _side_table(title: str, rows: dict) -> list[str]:
