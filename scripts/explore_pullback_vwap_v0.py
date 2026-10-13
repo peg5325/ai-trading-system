@@ -78,7 +78,9 @@ def run(db: str, out_dir: Path, symbols=None, start: Date = LOAD_START, end: Dat
     if out.exists():
         raise SystemExit(f"{out} already exists; refusing to overwrite")
     v4 = isinstance(config, EngineConfigV4)
-    bench = (V4_BENCHMARK,) if v4 and V4_BENCHMARK not in symbols else ()
+    if v4 and V4_BENCHMARK in symbols:
+        raise SystemExit(f"{V4_BENCHMARK} is the V4 benchmark and cannot be a candidate (spec V4 §3)")
+    bench = (V4_BENCHMARK,) if v4 else ()
     loader = DataLoader(db, start, end)
     data = loader.load(symbols + bench)
     days = trading_days(start, end)
@@ -124,7 +126,8 @@ def main(argv=None) -> int:
     ap.add_argument("--config", choices=sorted(CLI_PRESETS), default="V0")
     ap.add_argument("--out-name", default=None,
                     help="result JSON file name (default: result.json for V0, "
-                         "EXPLORE_ORB_VWAP_PULLBACK_2000USD_<config>.json for the V1 / V2 / V3 configs)")
+                         "EXPLORE_ORB_VWAP_PULLBACK_2000USD_<config>.json for the V1 / V2 / V3 configs, "
+                         "EXPLORE_ORB_VWAP_PULLBACK_2000USD_V4_SNIPER.json for V4_RVOL_SNIPER)")
     args = ap.parse_args(argv)
     print(run(args.db, args.out_dir, config=CLI_PRESETS[args.config], out_name=args.out_name))
     return 0

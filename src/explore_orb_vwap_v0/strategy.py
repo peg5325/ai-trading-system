@@ -361,19 +361,22 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
             records.append(DayRecord(d, "spy_excluded", equity, equity, ref_equity, [], 0))
             continue
         rows = {s: p[d] for s, p in prepared.items()}
-        for s in sorted(rows) if not sniper else ():
-            if rows[s].is_ready(need_rvol):
-                why = daily_exclusion(rows[s], config)
-                if why is not None:
-                    v1_excl[why][s] += 1
-                    del rows[s]
-        wl: list[Candidate] = uf.watchlist(rows, spy)
+        if not sniper:
+            for s in sorted(rows):
+                if rows[s].is_ready(need_rvol):
+                    why = daily_exclusion(rows[s], config)
+                    if why is not None:
+                        v1_excl[why][s] += 1
+                        del rows[s]
+            wl: list[Candidate] = uf.watchlist(rows, spy)
+        else:
+            passing = uf.passing(rows)
+            wl = passing[:1]
         if not wl:
             records.append(DayRecord(d, "no_candidates", equity, equity, ref_equity, [], 0))
             continue
         if sniper:
             pick = prepared[wl[0].symbol][d]
-            passing = uf.passing(rows)
             min_ok = pick.orb_high - pick.orb_low >= config.min_range_atr_mult * pick.daily_atr
             picks.append({"day": d, "symbol": pick.symbol, "rvol": wl[0].rvol, "gap": wl[0].gap,
                           "passing": [c.symbol for c in passing], "min_range_ok": min_ok})

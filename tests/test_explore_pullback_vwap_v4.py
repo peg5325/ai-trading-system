@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import fields
+from dataclasses import fields, replace
 from datetime import date, timedelta
 
 import pytest
@@ -237,3 +237,53 @@ def test_cli_v4_loads_seven_stocks_plus_qqq_benchmark(tmp_path, monkeypatch):
     assert prov["spec_sha256"] == hashlib.sha256(spec.read_bytes()).hexdigest()
     assert "spec V4" in prov["scored_start_rule"]
     assert doc["sniper_picks"] == []
+
+
+def test_cli_refuses_benchmark_as_v4_candidate(tmp_path):
+    cli = _load_script("explore_pullback_vwap_v0")
+    with pytest.raises(SystemExit):
+        cli.run(str(tmp_path / "m.sqlite"), tmp_path / "o", symbols=V4.universe + ("QQQ",), config=V4)
+
+
+# ---------------------------------------------------------------- review follow-ups
+def test_split_day_through_day_loop_is_not_a_candidate_and_reported():
+    days, reg = _split_days(n=60, k=50)
+    iso = [d.isoformat() for d in days]
+    prepared = {"NVDA": prepare_symbol("NVDA", reg, days, split_gap=V4.split_gap)}
+    res = run_backtest(prepared, days, config=V4)
+    assert res.days[0].day <= iso[50]
+    assert {d.day: d.status for d in res.days}[iso[50]] == "no_candidates"
+    assert res.sniper["split_breaks"] == {"NVDA": [iso[50]]}
+    assert res.not_ready_symbol_days["NVDA"] >= 10  # days 50 .. 59: no prior close / RVOL base after the break
+    md = BacktestReporter(res).markdown()
+    assert "split breaks" in md and iso[50] in md
+
+
+def test_benchmark_feeds_buy_hold_and_is_never_a_candidate():
+    days, reg = _split_days(n=45, k=99)
+    prepared = {"NVDA": prepare_symbol("NVDA", reg, days)}
+    qqq = prepare_symbol("QQQ", {k: _warm_day(p=200.0) for k in reg}, days)
+    res = run_backtest(prepared, days, config=V4, benchmark=qqq)
+    assert res.qqq_buy_hold is not None and res.qqq_buy_hold["first_day"] == res.days[0].day
+    assert all(pk["symbol"] != "QQQ" and "QQQ" not in pk["passing"] for pk in res.sniper["picks"])
+    assert "QQQ" not in res.sniper["per_symbol"]
+
+
+def test_preflight_counts_match_engine():
+    pre = _load_script("explore_v4_preflight")
+    sds = [stock("AMD", 4.0), stock("NVDA", 2.0), stock("TSLA", 1.2)]
+    prepared = {sd.symbol: {DAY: sd} for sd in sds}
+    r = pre.preflight(prepared, [DAY])
+    eng = one_day(V4, sds).sniper["per_symbol"]
+    assert {s: (c["passing"], c["picked"]) for s, c in r["per_symbol"].items()} == {
+        s: (c["passing"], c["picked"]) for s, c in eng.items()}
+    # five[5] (the 09:55 bar) ATR is 2.0 in the synthetic setup; price = 09:59 close
+    assert r["stop_pct"] == [pytest.approx(1.5 * 2.0 / prepared["AMD"][DAY].bars[29].close)]
+
+
+@pytest.mark.parametrize("signal_last, last_fill, trades", [(869, 870, 1), (868, 870, 0), (869, 869, 0)])
+def test_signal_last_and_last_fill_each_bind(signal_last, last_fill, trades):
+    s = v1_sd(_support_at(869), direction=1, symbol="NVDA")
+    s.rvol_base = s.orb_volume / 2.0
+    cfg = replace(V4, signal_last=signal_last, last_fill=last_fill)
+    assert len(one_day(cfg, [s]).trades) == trades
