@@ -6,7 +6,8 @@ request reaching 2026-01-21 00:00 ET. Prints the §4 tables and writes the resul
 
 --config V0 (default, result.json) reproduces V0; V1 / V1_LONGONLY follow docs/research/
 EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.md and write EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1[_LONGONLY].json.
-V1 results are in-sample post-hoc adjustments (spec V1 §0).
+V1 results are in-sample post-hoc adjustments (spec V1 §0). V2_QQQ follows docs/research/
+EXPLORE_ORB_VWAP_PULLBACK_2000USD_V2.md (QQQ only, no SPY loaded) and writes EXPLORE_ORB_VWAP_PULLBACK_2000USD_V2_QQQ.json.
 """
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from src.explore_orb_vwap_v0.config import CONFIGS, V0, EngineConfig
+from src.explore_orb_vwap_v0.config import PRESETS, V0, EngineConfig
 from src.explore_orb_vwap_v0.data_loader import (
     DEV_LAST_DAY,
     LOAD_START,
@@ -34,11 +35,14 @@ from src.history.exchange_calendar import trading_days
 
 SPEC = ROOT / "docs" / "research" / "EXPLORE_ORB_VWAP_PULLBACK_2000USD_V0.md"
 SPEC_V1 = ROOT / "docs" / "research" / "EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.md"
+SPEC_V2 = ROOT / "docs" / "research" / "EXPLORE_ORB_VWAP_PULLBACK_2000USD_V2.md"
 DEFAULT_OUT_NAME = {
     "V0": "result.json",
     "V1": "EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.json",
     "V1_LONGONLY": "EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1_LONGONLY.json",
+    "V2_QQQ": "EXPLORE_ORB_VWAP_PULLBACK_2000USD_V2_QQQ.json",
 }
+SPECS = {"V0": SPEC, "V1": SPEC_V1, "V1_LONGONLY": SPEC_V1, "V2_QQQ": SPEC_V2}
 
 
 def git(*args: str) -> str | None:
@@ -62,7 +66,7 @@ def run(db: str, out_dir: Path, symbols=None, start: Date = LOAD_START, end: Dat
     prepared = {s: prepare_symbol(s, data[s].regular, days) for s in symbols}
     result = run_backtest(prepared, days, config=config)
     reporter = BacktestReporter(result)
-    spec = SPEC if config.name == "V0" else SPEC_V1
+    spec = SPECS.get(config.name, SPEC_V1)
     provenance = {
         "git_head": git("rev-parse", "HEAD"),
         "git_dirty": bool(git("status", "--porcelain")),
@@ -75,6 +79,12 @@ def run(db: str, out_dir: Path, symbols=None, start: Date = LOAD_START, end: Dat
         "symbols": list(symbols),
         "rows_read": {s: data[s].row_count for s in symbols},
     }
+    if config.rs_reference is None:
+        provenance["scored_start_rule"] = ("first trading day on which a traded symbol is complete with prior close, "
+                                           "20-session RVOL base, warm 5m ATR/EMA"
+                                           + (" and prior daily EMA20/ATR14" if config.daily_filters else "")
+                                           + "; no RS reference (spec V2 §1.3)")
+        provenance["scored_start"] = (result.days[0].day if result.days else None)
     out_dir.mkdir(parents=True, exist_ok=True)
     reporter.to_json(out, provenance)
     return reporter.markdown()
@@ -84,12 +94,12 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--db", required=True, help="path to market_history.sqlite")
     ap.add_argument("--out-dir", required=True, type=Path)
-    ap.add_argument("--config", choices=sorted(CONFIGS), default="V0")
+    ap.add_argument("--config", choices=sorted(PRESETS), default="V0")
     ap.add_argument("--out-name", default=None,
                     help="result JSON file name (default: result.json for V0, "
-                         "EXPLORE_ORB_VWAP_PULLBACK_2000USD_<config>.json for the V1 configs)")
+                         "EXPLORE_ORB_VWAP_PULLBACK_2000USD_<config>.json for the V1 / V2 configs)")
     args = ap.parse_args(argv)
-    print(run(args.db, args.out_dir, config=CONFIGS[args.config], out_name=args.out_name))
+    print(run(args.db, args.out_dir, config=PRESETS[args.config], out_name=args.out_name))
     return 0
 
 

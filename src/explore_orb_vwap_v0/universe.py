@@ -128,19 +128,24 @@ class Candidate:
 
 
 class UniverseFilter:
-    """RVOL >= 1.2, 0.3% <= |gap| <= 2.0%, then the top-2 |RS| vs SPY (ties by symbol)."""
+    """RVOL >= 1.2, 0.3% <= |gap| <= 2.0%, then the top-2 |RS| vs SPY (ties by symbol; all RS 0 without SPY)."""
 
     def __init__(self, rvol_min: float = RVOL_MIN, gap_min: float = GAP_MIN, gap_max: float = GAP_MAX,
                  size: int = WATCHLIST_SIZE) -> None:
         self.rvol_min, self.gap_min, self.gap_max, self.size = rvol_min, gap_min, gap_max, size
 
     @staticmethod
-    def metrics(sd: SymbolDay, spy: SymbolDay) -> Candidate | None:
-        """None unless both symbol-days are ready enough (spy only needs complete + prior close)."""
-        if not sd.ready or not spy.complete or spy.prior_close is None or not sd.rvol_base:
+    def metrics(sd: SymbolDay, spy: SymbolDay | None) -> Candidate | None:
+        """None unless both symbol-days are ready enough (spy only needs complete + prior close).
+        `spy` None: no RS reference (spec V2 §1.3), RS is 0."""
+        if not sd.ready or not sd.rvol_base:
+            return None
+        if spy is not None and (not spy.complete or spy.prior_close is None):
             return None
         rvol = sd.orb_volume / sd.rvol_base
         gap = sd.bars[0].open / sd.prior_close - 1.0
+        if spy is None:
+            return Candidate(sd.symbol, rvol, gap, 0.0)
         ret = sd.bars[ORB_BARS - 1].close / sd.prior_close - 1.0
         spy_ret = spy.bars[ORB_BARS - 1].close / spy.prior_close - 1.0
         rs = 0.0 if sd.symbol == RS_REF else ret - spy_ret
@@ -149,7 +154,7 @@ class UniverseFilter:
     def passes(self, c: Candidate) -> bool:
         return c.rvol >= self.rvol_min and self.gap_min <= abs(c.gap) <= self.gap_max
 
-    def watchlist(self, day_rows: dict[str, SymbolDay], spy: SymbolDay) -> list[Candidate]:
+    def watchlist(self, day_rows: dict[str, SymbolDay], spy: SymbolDay | None) -> list[Candidate]:
         cands = []
         for sym in sorted(day_rows):
             c = self.metrics(day_rows[sym], spy)
