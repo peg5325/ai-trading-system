@@ -1,0 +1,1969 @@
+{
+ "version": "daily_screen_v1",
+ "prereg": "docs/research/PREREG_DAILY_SAMEDAY_SCREEN_V1.md",
+ "note": "Transcribed from the PREREG (draft 2). Thresholds are full precision from the DEV rule (§4.1); precount recomputes them, the start dates, half-split dates and the prefilter and stops on any difference.",
+ "data": {
+  "manifest_sha256": "cca29640d110da0445676666012920fec7fedd01d36862db7681fadf36f5cbbf",
+  "events_yaml": "config/longhist_events_v1.yaml",
+  "events_yaml_sha256": "2e46f3d6a687adf528a939b3104330de793fc30a25c14adc0b8d65d3fd84116b"
+ },
+ "indices": {
+  "SPY": {
+   "long_etf": "SPXL",
+   "short_etf": "SPXS",
+   "start": "1995-01-03"
+  },
+  "QQQ": {
+   "long_etf": "TQQQ",
+   "short_etf": "SQQQ",
+   "start": "1999-03-10"
+  },
+  "^SOX": {
+   "long_etf": "SOXL",
+   "short_etf": "SOXS",
+   "start": "2009-01-02"
+  }
+ },
+ "windows": {
+  "main_dev_end": "2015-12-31",
+  "gex_dev_start": "2011-05-02",
+  "gex_dev_end": "2018-12-31",
+  "main_holdout_start": "2016-01-01",
+  "gex_holdout_start": "2019-01-01",
+  "holdout_end": "2025-07-18",
+  "sox_etf_from": "2010-03-11",
+  "holdout_clean": [
+   "2016-01-04",
+   "2023-04-10"
+  ],
+  "holdout_parts_split": "2021-01-01"
+ },
+ "start_rule": {
+  "zero_ratio_lt": 0.05,
+  "sox_tiny_gap": 0.0002,
+  "sox_tiny_ratio_lt": 0.1,
+  "sox_median_vs_smh_ge": 0.5,
+  "smh_from": "2000-06-05",
+  "lookback_skip_sessions": 2,
+  "last_year": 2015
+ },
+ "exclusions": {
+  "max_abs_gap": 0.15,
+  "sox_tiny_gap": 0.0002,
+  "rules": [
+   "a_open_eq_prev_close",
+   "b_flat_bar",
+   "c_data_gap",
+   "d_gap_gt_15pct",
+   "e_sox_tiny_gap"
+  ]
+ },
+ "thresholds": {
+  "vix_t1": 16.0,
+  "vix_t2": 22.26,
+  "vix_n": 5139,
+  "per_index": {
+   "SPY": {
+    "mg": 0.002891600092555735,
+    "qo": 0.0110942834785861,
+    "prng_q20": 0.007150163036146671,
+    "prng_q80": 0.019226990736857467,
+    "n": 5142
+   },
+   "QQQ": {
+    "mg": 0.0039391155111914156,
+    "qo": 0.016840608221241737,
+    "prng_q20": 0.009634803215978132,
+    "prng_q80": 0.030343822407247777,
+    "n": 4089
+   },
+   "^SOX": {
+    "mg": 0.004003308912217229,
+    "qo": 0.01661048903792009,
+    "prng_q20": 0.010769884492368709,
+    "prng_q80": 0.026569762323354007,
+    "n": 1632
+   }
+  },
+  "quantile_method": "numpy.quantile(method='linear')",
+  "doc_rounded_percent": {
+   "vix_t1": 16.0,
+   "vix_t2": 22.26,
+   "SPY": {
+    "mg": 0.289,
+    "qo": 1.109,
+    "prng_q20": 0.715,
+    "prng_q80": 1.923
+   },
+   "QQQ": {
+    "mg": 0.394,
+    "qo": 1.684,
+    "prng_q20": 0.963,
+    "prng_q80": 3.034
+   },
+   "^SOX": {
+    "mg": 0.4,
+    "qo": 1.661,
+    "prng_q20": 1.077,
+    "prng_q80": 2.657
+   }
+  }
+ },
+ "half_split": {
+  "SPY": {
+   "default": "2005-08-17",
+   "C06": "2012-11-07",
+   "C05": "2013-07-08"
+  },
+  "QQQ": {
+   "default": "2007-08-17",
+   "C06": "2012-11-06",
+   "C05": "2013-07-05"
+  },
+  "^SOX": {
+   "default": "2012-06-27",
+   "C06": "2012-11-09",
+   "C05": "2013-07-12"
+  }
+ },
+ "unscheduled_closures": [
+  "2001-09-11",
+  "2001-09-12",
+  "2001-09-13",
+  "2001-09-14",
+  "2004-06-11",
+  "2007-01-02",
+  "2012-10-29",
+  "2012-10-30",
+  "2018-12-05",
+  "2025-01-09"
+ ],
+ "conditions": [
+  {
+   "id": "C01",
+   "n": 1,
+   "family": "F1",
+   "definition": "every eligible session (unconditional; method 5 intraday side)"
+  },
+  {
+   "id": "C02",
+   "n": 2,
+   "family": "F2",
+   "definition": "VIX_p <= t1"
+  },
+  {
+   "id": "C03",
+   "n": 3,
+   "family": "F2",
+   "definition": "t1 < VIX_p <= t2"
+  },
+  {
+   "id": "C04",
+   "n": 4,
+   "family": "F2",
+   "definition": "VIX_p > t2"
+  },
+  {
+   "id": "C05",
+   "n": 5,
+   "family": "F2",
+   "definition": "V9_p / VIX_p > 1"
+  },
+  {
+   "id": "C06",
+   "n": 6,
+   "family": "F2",
+   "definition": "VIX_p / V3_p > 1"
+  },
+  {
+   "id": "C07",
+   "n": 7,
+   "family": "F2",
+   "definition": "g > 0 and |g| >= mg"
+  },
+  {
+   "id": "C08",
+   "n": 8,
+   "family": "F2",
+   "definition": "g > 0 and |g| < mg"
+  },
+  {
+   "id": "C09",
+   "n": 9,
+   "family": "F2",
+   "definition": "g < 0 and |g| < mg"
+  },
+  {
+   "id": "C10",
+   "n": 10,
+   "family": "F2",
+   "definition": "g < 0 and |g| >= mg"
+  },
+  {
+   "id": "C11",
+   "n": 11,
+   "family": "F2",
+   "definition": "poc > 0"
+  },
+  {
+   "id": "C12",
+   "n": 12,
+   "family": "F2",
+   "definition": "poc < 0"
+  },
+  {
+   "id": "C13",
+   "n": 13,
+   "family": "F2",
+   "definition": "poc >= +qo"
+  },
+  {
+   "id": "C14",
+   "n": 14,
+   "family": "F2",
+   "definition": "poc <= -qo"
+  },
+  {
+   "id": "C15",
+   "n": 15,
+   "family": "F2",
+   "definition": "prng >= prng 80% quantile"
+  },
+  {
+   "id": "C16",
+   "n": 16,
+   "family": "F2",
+   "definition": "prng <= prng 20% quantile"
+  },
+  {
+   "id": "C17",
+   "n": 17,
+   "family": "F3",
+   "definition": "Monday"
+  },
+  {
+   "id": "C18",
+   "n": 18,
+   "family": "F3",
+   "definition": "Tuesday"
+  },
+  {
+   "id": "C19",
+   "n": 19,
+   "family": "F3",
+   "definition": "Wednesday"
+  },
+  {
+   "id": "C20",
+   "n": 20,
+   "family": "F3",
+   "definition": "Thursday"
+  },
+  {
+   "id": "C21",
+   "n": 21,
+   "family": "F3",
+   "definition": "Friday"
+  },
+  {
+   "id": "C22",
+   "n": 22,
+   "family": "F3",
+   "definition": "last session of the month or one of its first 3 sessions"
+  },
+  {
+   "id": "C23",
+   "n": 23,
+   "family": "F3",
+   "definition": "a weekday closure lies between d and the next session (unscheduled closures not counted)"
+  },
+  {
+   "id": "C24",
+   "n": 24,
+   "family": "F3",
+   "definition": "monthly option expiry: third Friday, or the session before it when closed"
+  },
+  {
+   "id": "C25",
+   "n": 25,
+   "family": "F3",
+   "definition": "last session of Mar/Jun/Sep/Dec"
+  },
+  {
+   "id": "C26",
+   "n": 26,
+   "family": "F4",
+   "definition": "FOMC decision day (yaml FOMC, scheduled meeting last day, from 1994-02-04)"
+  },
+  {
+   "id": "C27",
+   "n": 27,
+   "family": "F4",
+   "definition": "session before a C26 day"
+  },
+  {
+   "id": "C28",
+   "n": 28,
+   "family": "F4",
+   "definition": "CPI release day (yaml CPI.dates; unresolved months excluded)"
+  },
+  {
+   "id": "C29",
+   "n": 29,
+   "family": "F4",
+   "definition": "NFP release day (yaml NFP.dates; unresolved months excluded)"
+  }
+ ],
+ "gex_conditions": [
+  {
+   "id": "G01",
+   "n": 1,
+   "family": "G",
+   "definition": "GEX_p < 0"
+  },
+  {
+   "id": "G02",
+   "n": 2,
+   "family": "G",
+   "definition": "GEX_p >= 0"
+  },
+  {
+   "id": "G03",
+   "n": 3,
+   "family": "G",
+   "definition": "GEX_p <= GEX DEV 20% quantile (GEX precount)"
+  }
+ ],
+ "candidates": [
+  {
+   "k": 0,
+   "index": "SPY",
+   "condition": "C01",
+   "family": "F1",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 1,
+   "index": "SPY",
+   "condition": "C01",
+   "family": "F1",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 2,
+   "index": "SPY",
+   "condition": "C02",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 3,
+   "index": "SPY",
+   "condition": "C02",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 4,
+   "index": "SPY",
+   "condition": "C03",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 5,
+   "index": "SPY",
+   "condition": "C03",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 6,
+   "index": "SPY",
+   "condition": "C04",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 7,
+   "index": "SPY",
+   "condition": "C04",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 8,
+   "index": "SPY",
+   "condition": "C05",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 9,
+   "index": "SPY",
+   "condition": "C05",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 10,
+   "index": "SPY",
+   "condition": "C06",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 11,
+   "index": "SPY",
+   "condition": "C06",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 12,
+   "index": "SPY",
+   "condition": "C07",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 13,
+   "index": "SPY",
+   "condition": "C07",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 14,
+   "index": "SPY",
+   "condition": "C08",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 15,
+   "index": "SPY",
+   "condition": "C08",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 16,
+   "index": "SPY",
+   "condition": "C09",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 17,
+   "index": "SPY",
+   "condition": "C09",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 18,
+   "index": "SPY",
+   "condition": "C10",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 19,
+   "index": "SPY",
+   "condition": "C10",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 20,
+   "index": "SPY",
+   "condition": "C11",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 21,
+   "index": "SPY",
+   "condition": "C11",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 22,
+   "index": "SPY",
+   "condition": "C12",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 23,
+   "index": "SPY",
+   "condition": "C12",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 24,
+   "index": "SPY",
+   "condition": "C13",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 25,
+   "index": "SPY",
+   "condition": "C13",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 26,
+   "index": "SPY",
+   "condition": "C14",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 27,
+   "index": "SPY",
+   "condition": "C14",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 28,
+   "index": "SPY",
+   "condition": "C15",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 29,
+   "index": "SPY",
+   "condition": "C15",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 30,
+   "index": "SPY",
+   "condition": "C16",
+   "family": "F2",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 31,
+   "index": "SPY",
+   "condition": "C16",
+   "family": "F2",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 32,
+   "index": "SPY",
+   "condition": "C17",
+   "family": "F3",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 33,
+   "index": "SPY",
+   "condition": "C17",
+   "family": "F3",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 34,
+   "index": "SPY",
+   "condition": "C18",
+   "family": "F3",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 35,
+   "index": "SPY",
+   "condition": "C18",
+   "family": "F3",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 36,
+   "index": "SPY",
+   "condition": "C19",
+   "family": "F3",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 37,
+   "index": "SPY",
+   "condition": "C19",
+   "family": "F3",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 38,
+   "index": "SPY",
+   "condition": "C20",
+   "family": "F3",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 39,
+   "index": "SPY",
+   "condition": "C20",
+   "family": "F3",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 40,
+   "index": "SPY",
+   "condition": "C21",
+   "family": "F3",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 41,
+   "index": "SPY",
+   "condition": "C21",
+   "family": "F3",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 42,
+   "index": "SPY",
+   "condition": "C22",
+   "family": "F3",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 43,
+   "index": "SPY",
+   "condition": "C22",
+   "family": "F3",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 44,
+   "index": "SPY",
+   "condition": "C23",
+   "family": "F3",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 45,
+   "index": "SPY",
+   "condition": "C23",
+   "family": "F3",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 46,
+   "index": "SPY",
+   "condition": "C24",
+   "family": "F3",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 47,
+   "index": "SPY",
+   "condition": "C24",
+   "family": "F3",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 48,
+   "index": "SPY",
+   "condition": "C25",
+   "family": "F3",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 49,
+   "index": "SPY",
+   "condition": "C25",
+   "family": "F3",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 50,
+   "index": "SPY",
+   "condition": "C26",
+   "family": "F4",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 51,
+   "index": "SPY",
+   "condition": "C26",
+   "family": "F4",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 52,
+   "index": "SPY",
+   "condition": "C27",
+   "family": "F4",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 53,
+   "index": "SPY",
+   "condition": "C27",
+   "family": "F4",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 54,
+   "index": "SPY",
+   "condition": "C28",
+   "family": "F4",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 55,
+   "index": "SPY",
+   "condition": "C28",
+   "family": "F4",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 56,
+   "index": "SPY",
+   "condition": "C29",
+   "family": "F4",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "k": 57,
+   "index": "SPY",
+   "condition": "C29",
+   "family": "F4",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "k": 58,
+   "index": "QQQ",
+   "condition": "C01",
+   "family": "F1",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 59,
+   "index": "QQQ",
+   "condition": "C01",
+   "family": "F1",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 60,
+   "index": "QQQ",
+   "condition": "C02",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 61,
+   "index": "QQQ",
+   "condition": "C02",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 62,
+   "index": "QQQ",
+   "condition": "C03",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 63,
+   "index": "QQQ",
+   "condition": "C03",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 64,
+   "index": "QQQ",
+   "condition": "C04",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 65,
+   "index": "QQQ",
+   "condition": "C04",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 66,
+   "index": "QQQ",
+   "condition": "C05",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 67,
+   "index": "QQQ",
+   "condition": "C05",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 68,
+   "index": "QQQ",
+   "condition": "C06",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 69,
+   "index": "QQQ",
+   "condition": "C06",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 70,
+   "index": "QQQ",
+   "condition": "C07",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 71,
+   "index": "QQQ",
+   "condition": "C07",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 72,
+   "index": "QQQ",
+   "condition": "C08",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 73,
+   "index": "QQQ",
+   "condition": "C08",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 74,
+   "index": "QQQ",
+   "condition": "C09",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 75,
+   "index": "QQQ",
+   "condition": "C09",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 76,
+   "index": "QQQ",
+   "condition": "C10",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 77,
+   "index": "QQQ",
+   "condition": "C10",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 78,
+   "index": "QQQ",
+   "condition": "C11",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 79,
+   "index": "QQQ",
+   "condition": "C11",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 80,
+   "index": "QQQ",
+   "condition": "C12",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 81,
+   "index": "QQQ",
+   "condition": "C12",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 82,
+   "index": "QQQ",
+   "condition": "C13",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 83,
+   "index": "QQQ",
+   "condition": "C13",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 84,
+   "index": "QQQ",
+   "condition": "C14",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 85,
+   "index": "QQQ",
+   "condition": "C14",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 86,
+   "index": "QQQ",
+   "condition": "C15",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 87,
+   "index": "QQQ",
+   "condition": "C15",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 88,
+   "index": "QQQ",
+   "condition": "C16",
+   "family": "F2",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 89,
+   "index": "QQQ",
+   "condition": "C16",
+   "family": "F2",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 90,
+   "index": "QQQ",
+   "condition": "C17",
+   "family": "F3",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 91,
+   "index": "QQQ",
+   "condition": "C17",
+   "family": "F3",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 92,
+   "index": "QQQ",
+   "condition": "C18",
+   "family": "F3",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 93,
+   "index": "QQQ",
+   "condition": "C18",
+   "family": "F3",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 94,
+   "index": "QQQ",
+   "condition": "C19",
+   "family": "F3",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 95,
+   "index": "QQQ",
+   "condition": "C19",
+   "family": "F3",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 96,
+   "index": "QQQ",
+   "condition": "C20",
+   "family": "F3",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 97,
+   "index": "QQQ",
+   "condition": "C20",
+   "family": "F3",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 98,
+   "index": "QQQ",
+   "condition": "C21",
+   "family": "F3",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 99,
+   "index": "QQQ",
+   "condition": "C21",
+   "family": "F3",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 100,
+   "index": "QQQ",
+   "condition": "C22",
+   "family": "F3",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 101,
+   "index": "QQQ",
+   "condition": "C22",
+   "family": "F3",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 102,
+   "index": "QQQ",
+   "condition": "C23",
+   "family": "F3",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 103,
+   "index": "QQQ",
+   "condition": "C23",
+   "family": "F3",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 104,
+   "index": "QQQ",
+   "condition": "C24",
+   "family": "F3",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 105,
+   "index": "QQQ",
+   "condition": "C24",
+   "family": "F3",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 106,
+   "index": "QQQ",
+   "condition": "C25",
+   "family": "F3",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 107,
+   "index": "QQQ",
+   "condition": "C25",
+   "family": "F3",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 108,
+   "index": "QQQ",
+   "condition": "C26",
+   "family": "F4",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 109,
+   "index": "QQQ",
+   "condition": "C26",
+   "family": "F4",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 110,
+   "index": "QQQ",
+   "condition": "C27",
+   "family": "F4",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 111,
+   "index": "QQQ",
+   "condition": "C27",
+   "family": "F4",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 112,
+   "index": "QQQ",
+   "condition": "C28",
+   "family": "F4",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 113,
+   "index": "QQQ",
+   "condition": "C28",
+   "family": "F4",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 114,
+   "index": "QQQ",
+   "condition": "C29",
+   "family": "F4",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "k": 115,
+   "index": "QQQ",
+   "condition": "C29",
+   "family": "F4",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "k": 116,
+   "index": "^SOX",
+   "condition": "C01",
+   "family": "F1",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 117,
+   "index": "^SOX",
+   "condition": "C01",
+   "family": "F1",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 118,
+   "index": "^SOX",
+   "condition": "C02",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 119,
+   "index": "^SOX",
+   "condition": "C02",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 120,
+   "index": "^SOX",
+   "condition": "C03",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 121,
+   "index": "^SOX",
+   "condition": "C03",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 122,
+   "index": "^SOX",
+   "condition": "C04",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 123,
+   "index": "^SOX",
+   "condition": "C04",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 124,
+   "index": "^SOX",
+   "condition": "C05",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 125,
+   "index": "^SOX",
+   "condition": "C05",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 126,
+   "index": "^SOX",
+   "condition": "C06",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 127,
+   "index": "^SOX",
+   "condition": "C06",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 128,
+   "index": "^SOX",
+   "condition": "C07",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 129,
+   "index": "^SOX",
+   "condition": "C07",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 130,
+   "index": "^SOX",
+   "condition": "C08",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 131,
+   "index": "^SOX",
+   "condition": "C08",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 132,
+   "index": "^SOX",
+   "condition": "C09",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 133,
+   "index": "^SOX",
+   "condition": "C09",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 134,
+   "index": "^SOX",
+   "condition": "C10",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 135,
+   "index": "^SOX",
+   "condition": "C10",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 136,
+   "index": "^SOX",
+   "condition": "C11",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 137,
+   "index": "^SOX",
+   "condition": "C11",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 138,
+   "index": "^SOX",
+   "condition": "C12",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 139,
+   "index": "^SOX",
+   "condition": "C12",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 140,
+   "index": "^SOX",
+   "condition": "C13",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 141,
+   "index": "^SOX",
+   "condition": "C13",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 142,
+   "index": "^SOX",
+   "condition": "C14",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 143,
+   "index": "^SOX",
+   "condition": "C14",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 144,
+   "index": "^SOX",
+   "condition": "C15",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 145,
+   "index": "^SOX",
+   "condition": "C15",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 146,
+   "index": "^SOX",
+   "condition": "C16",
+   "family": "F2",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 147,
+   "index": "^SOX",
+   "condition": "C16",
+   "family": "F2",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 148,
+   "index": "^SOX",
+   "condition": "C17",
+   "family": "F3",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 149,
+   "index": "^SOX",
+   "condition": "C17",
+   "family": "F3",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 150,
+   "index": "^SOX",
+   "condition": "C18",
+   "family": "F3",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 151,
+   "index": "^SOX",
+   "condition": "C18",
+   "family": "F3",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 152,
+   "index": "^SOX",
+   "condition": "C19",
+   "family": "F3",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 153,
+   "index": "^SOX",
+   "condition": "C19",
+   "family": "F3",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 154,
+   "index": "^SOX",
+   "condition": "C20",
+   "family": "F3",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 155,
+   "index": "^SOX",
+   "condition": "C20",
+   "family": "F3",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 156,
+   "index": "^SOX",
+   "condition": "C21",
+   "family": "F3",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 157,
+   "index": "^SOX",
+   "condition": "C21",
+   "family": "F3",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 158,
+   "index": "^SOX",
+   "condition": "C22",
+   "family": "F3",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 159,
+   "index": "^SOX",
+   "condition": "C22",
+   "family": "F3",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 160,
+   "index": "^SOX",
+   "condition": "C23",
+   "family": "F3",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 161,
+   "index": "^SOX",
+   "condition": "C23",
+   "family": "F3",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 162,
+   "index": "^SOX",
+   "condition": "C24",
+   "family": "F3",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 163,
+   "index": "^SOX",
+   "condition": "C24",
+   "family": "F3",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 164,
+   "index": "^SOX",
+   "condition": "C25",
+   "family": "F3",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 165,
+   "index": "^SOX",
+   "condition": "C25",
+   "family": "F3",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 166,
+   "index": "^SOX",
+   "condition": "C26",
+   "family": "F4",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 167,
+   "index": "^SOX",
+   "condition": "C26",
+   "family": "F4",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 168,
+   "index": "^SOX",
+   "condition": "C27",
+   "family": "F4",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 169,
+   "index": "^SOX",
+   "condition": "C27",
+   "family": "F4",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 170,
+   "index": "^SOX",
+   "condition": "C28",
+   "family": "F4",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 171,
+   "index": "^SOX",
+   "condition": "C28",
+   "family": "F4",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "k": 172,
+   "index": "^SOX",
+   "condition": "C29",
+   "family": "F4",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "k": 173,
+   "index": "^SOX",
+   "condition": "C29",
+   "family": "F4",
+   "side": "short",
+   "etf": "SOXS"
+  }
+ ],
+ "gex_candidates": [
+  {
+   "kg": 0,
+   "index": "SPY",
+   "condition": "G01",
+   "family": "G",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "kg": 1,
+   "index": "SPY",
+   "condition": "G01",
+   "family": "G",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "kg": 2,
+   "index": "QQQ",
+   "condition": "G01",
+   "family": "G",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "kg": 3,
+   "index": "QQQ",
+   "condition": "G01",
+   "family": "G",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "kg": 4,
+   "index": "^SOX",
+   "condition": "G01",
+   "family": "G",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "kg": 5,
+   "index": "^SOX",
+   "condition": "G01",
+   "family": "G",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "kg": 6,
+   "index": "SPY",
+   "condition": "G02",
+   "family": "G",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "kg": 7,
+   "index": "SPY",
+   "condition": "G02",
+   "family": "G",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "kg": 8,
+   "index": "QQQ",
+   "condition": "G02",
+   "family": "G",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "kg": 9,
+   "index": "QQQ",
+   "condition": "G02",
+   "family": "G",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "kg": 10,
+   "index": "^SOX",
+   "condition": "G02",
+   "family": "G",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "kg": 11,
+   "index": "^SOX",
+   "condition": "G02",
+   "family": "G",
+   "side": "short",
+   "etf": "SOXS"
+  },
+  {
+   "kg": 12,
+   "index": "SPY",
+   "condition": "G03",
+   "family": "G",
+   "side": "long",
+   "etf": "SPXL"
+  },
+  {
+   "kg": 13,
+   "index": "SPY",
+   "condition": "G03",
+   "family": "G",
+   "side": "short",
+   "etf": "SPXS"
+  },
+  {
+   "kg": 14,
+   "index": "QQQ",
+   "condition": "G03",
+   "family": "G",
+   "side": "long",
+   "etf": "TQQQ"
+  },
+  {
+   "kg": 15,
+   "index": "QQQ",
+   "condition": "G03",
+   "family": "G",
+   "side": "short",
+   "etf": "SQQQ"
+  },
+  {
+   "kg": 16,
+   "index": "^SOX",
+   "condition": "G03",
+   "family": "G",
+   "side": "long",
+   "etf": "SOXL"
+  },
+  {
+   "kg": 17,
+   "index": "^SOX",
+   "condition": "G03",
+   "family": "G",
+   "side": "short",
+   "etf": "SOXS"
+  }
+ ],
+ "candidate_numbering": {
+  "main": "k = 58 * index(SPY 0, QQQ 1, ^SOX 2) + 2 * (condition - 1) + side(long 0, short 1)",
+  "gex": "kg = 6 * (G - 1) + 2 * index + side"
+ },
+ "prefilter": {
+  "min_dev_n": 100,
+  "expected_prefiltered": [
+   [
+    "QQQ",
+    "C25"
+   ],
+   [
+    "SPY",
+    "C25"
+   ],
+   [
+    "^SOX",
+    "C23"
+   ],
+   [
+    "^SOX",
+    "C24"
+   ],
+   [
+    "^SOX",
+    "C25"
+   ],
+   [
+    "^SOX",
+    "C26"
+   ],
+   [
+    "^SOX",
+    "C27"
+   ],
+   [
+    "^SOX",
+    "C28"
+   ],
+   [
+    "^SOX",
+    "C29"
+   ]
+  ],
+  "expected_k": 156
+ },
+ "costs": {
+  "sec_fee_sell": 2.06e-05,
+  "slippage": 0.0,
+  "one_way_commission": {
+   "base": 0.001,
+   "stress": 0.0015,
+   "sensitivity": 0.0005
+  },
+  "formula": "net = (1 + R)(1 - c - f) - (1 + c)"
+ },
+ "stats": {
+  "base_seed": 20261012,
+  "seed_rule": "SEED(variant, k) = 20261012 + 1000 * variant + k",
+  "variants": {
+   "main_dev": 0,
+   "main_dev_stress": 1,
+   "main_dev_sensitivity": 2,
+   "main_dev_actual_etf": 3,
+   "main_dev_rerun": 4,
+   "gex_dev": 10,
+   "gex_dev_rerun": 14,
+   "main_holdout": 50,
+   "main_holdout_rerun": 54,
+   "gex_holdout": 60,
+   "gex_holdout_rerun": 64
+  },
+  "B": 10000,
+  "B_rerun": 200000,
+  "rerun_if_exceed_le": 50,
+  "rerun_variant_offset": 4,
+  "block": 5,
+  "q_bh": 0.1,
+  "by_report_only": true,
+  "holm_alpha": 0.05,
+  "dev_min_n": 100,
+  "holdout_min_n": 50,
+  "M": 5,
+  "M_G": 2,
+  "rank": "stress t desc, n desc, k asc"
+ },
+ "gex": {
+  "g03_quantile": 0.2,
+  "g03_population": "gex of every DIX row dated 2011-05-02..2018-12-31 that is an NYSE session",
+  "half_split": "computed by the GEX precount: eligible GEX-DEV sessions with GEX_p defined, dates[n // 2]"
+ },
+ "outputs": "reports/daily_screen_v1/<family>/{precount,dev_result,holdout_result}.json (write-once)"
+}
