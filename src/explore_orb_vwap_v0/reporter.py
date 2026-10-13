@@ -53,6 +53,20 @@ def cagr(start: float, final: float, first: str, last: str) -> float | None:
     return (final / start) ** (1 / years) - 1
 
 
+def filter_counts(r: BacktestResult) -> dict:
+    """V1 filter counters (spec V1 §4): symbol-days removed before the watchlist (per symbol and total) and
+    signals / beyond-ORB closes rejected inside the day loop (watchlist symbols only)."""
+    fsd = r.filter_symbol_days or {}
+    out: dict = {}
+    for k in ("daily_not_ready", "min_range", "direction_equal"):
+        per = fsd.get(k, {})
+        out[f"{k}_symbol_days"] = {"total": sum(per.values()), "per_symbol": dict(sorted(per.items()))}
+    out["breakout_volume_rejected_closes"] = r.skips.get("breakout_volume", 0)
+    out["direction_filter_signals"] = r.skips.get("direction_filter", 0)
+    out["short_disabled_signals"] = r.skips.get("short_disabled", 0)
+    return out
+
+
 class BacktestReporter:
     def __init__(self, result: BacktestResult) -> None:
         self.r = result
@@ -129,6 +143,7 @@ class BacktestReporter:
             "excluded_symbol_days_total": sum(r.excluded_symbol_days.values()),
             "not_ready_symbol_days": r.not_ready_symbol_days,
             "signal_skips": dict(sorted(r.skips.items())),
+            **({"filter_counts": filter_counts(r)} if r.filter_symbol_days is not None else {}),
         }
 
     def to_json(self, path: Path, provenance: dict) -> dict:
@@ -169,6 +184,16 @@ class BacktestReporter:
             ("TP1 hits", m["tp1_hits"]),
             ("excluded symbol-days (incomplete)", m["excluded_symbol_days_total"]),
         ]
+        fc = m.get("filter_counts")
+        if fc:
+            rows += [
+                ("V1 excluded symbol-days: daily not ready", fc["daily_not_ready_symbol_days"]["total"]),
+                ("V1 excluded symbol-days: min range", fc["min_range_symbol_days"]["total"]),
+                ("V1 excluded symbol-days: prior close = daily EMA20", fc["direction_equal_symbol_days"]["total"]),
+                ("V1 rejected breakout closes (volume)", fc["breakout_volume_rejected_closes"]),
+                ("V1 signals dropped: direction filter", fc["direction_filter_signals"]),
+                ("V1 signals dropped: shorts disabled", fc["short_disabled_signals"]),
+            ]
         out += [f"| {k} | {v} |" for k, v in rows]
         out += ["", "## By symbol", "", "| symbol | trades | win rate | net P&L (USD) | PF |", "|---|---|---|---|---|"]
         for s, st in m["per_symbol"].items():

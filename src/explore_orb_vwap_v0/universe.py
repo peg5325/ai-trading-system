@@ -8,7 +8,13 @@ from src.daytrade_paper.core import Bar
 from src.history.exchange_calendar import regular_close_minute
 
 from .data_loader import is_complete
-from .indicators import FiveBar, IndicatorState, five_minute_bars, vwap_series
+from .indicators import (
+    FiveBar,
+    IndicatorState,
+    daily_bar,
+    five_minute_bars,
+    vwap_series,
+)
 
 ORB_BARS = 15  # 09:30 ~ 09:44
 RVOL_LOOKBACK = 20
@@ -37,11 +43,28 @@ class SymbolDay:
     orb_volume: float = 0.0
     vwap: list[float | None] = field(default_factory=list)
     five: list[FiveBar] = field(default_factory=list)
+    # Daily EMA20 / ATR14 through the PRIOR complete trading day (spec V1 §3.1); None unless seeded and continuous
+    # into today. Not used by the V0 configuration.
+    daily_ema: float | None = None
+    daily_atr: float | None = None
 
     @property
     def ready(self) -> bool:
         """Usable as a candidate today: complete, prior close known, RVOL base known, indicators warm."""
         return self.complete and self.prior_close is not None and self.rvol_base is not None and self.warm
+
+    @property
+    def daily_ready(self) -> bool:
+        """Prior-day daily EMA20, ATR14 and close all known (spec V1 §3.1)."""
+        return self.prior_close is not None and self.daily_ema is not None and self.daily_atr is not None
+
+    @property
+    def direction(self) -> int | None:
+        """Spec V1 §3.2: +1 (long only) if prior close > prior daily EMA20, -1 (short only) if <, 0 if equal (no
+        trade), None when the daily values are not ready."""
+        if not self.daily_ready:
+            return None
+        return 1 if self.prior_close > self.daily_ema else -1 if self.prior_close < self.daily_ema else 0
 
 
 def orb(bars: list[Bar]) -> tuple[float, float, float]:
@@ -56,10 +79,12 @@ def prepare_symbol(symbol: str, regular: dict[str, list[Bar]], trading_days: lis
     Continuity rules (no filling, no stitching across gaps): the ATR/EMA state is reset whenever the previous
     trading day was not complete for this symbol, and a day is `warm` only if the state was seeded and continuous
     at its open. Prior close requires the previous trading day to be complete. RVOL uses the 20 most recent
-    earlier complete sessions (they need not be consecutive).
+    earlier complete sessions (they need not be consecutive). The daily EMA20 / ATR14 (spec V1 §3.1) follow the
+    same reset rule on daily bars built from the complete 1m session; a day gets the values after the prior day.
     """
     out: dict[str, SymbolDay] = {}
     state = IndicatorState()
+    daily = IndicatorState()
     orb_vols: list[float] = []
     prev: SymbolDay | None = None
     for d in trading_days:
@@ -72,6 +97,11 @@ def prepare_symbol(symbol: str, regular: dict[str, list[Bar]], trading_days: lis
             prev_ok = prev is not None and prev.complete
             if not prev_ok:
                 state.reset()
+                daily.reset()
+            if prev_ok:  # each stays None until seeded; daily_ready needs both
+                sd.daily_ema, sd.daily_atr = daily.ema, daily.atr
+            _o, dh, dl, dc = daily_bar(bars)
+            daily.update(dh, dl, dc)
             sd.warm = prev_ok and state.warm
             sd.prior_close = prev.bars[-1].close if prev_ok else None
             if len(orb_vols) >= RVOL_LOOKBACK:
@@ -83,6 +113,7 @@ def prepare_symbol(symbol: str, regular: dict[str, list[Bar]], trading_days: lis
             orb_vols.append(sd.orb_volume)
         else:
             state.reset()
+            daily.reset()
         out[key] = sd
         prev = sd
     return out
