@@ -57,13 +57,14 @@ def month_chunks(d0: Date, d1: Date):
 
 def is_complete(bars: list[Bar], day: Date) -> bool:
     """True only if every regular minute 09:30..close-1 is present exactly once (early closes from the calendar)
-    and every bar has positive prices, high >= low and volume >= 0."""
+    and every bar has positive prices, low <= open/close <= high and volume >= 0."""
     close = regular_close_minute(day)
     if close is None:
         return False
     if [b.t for b in bars] != list(range(OPEN_MIN, close)):
         return False
-    return all(min(b.open, b.high, b.low, b.close) > 0 and b.high >= b.low and b.volume >= 0 for b in bars)
+    return all(min(b.open, b.high, b.low, b.close) > 0 and b.low <= min(b.open, b.close)
+               and max(b.open, b.close) <= b.high and b.volume >= 0 for b in bars)
 
 
 @dataclass

@@ -500,3 +500,18 @@ def test_cli_writes_json_with_provenance(tmp_path):
     assert md == "No scored days.\n"
     with pytest.raises(SystemExit):
         cli.run(db, out, symbols=("SPY",), start=d1, end=d1 + timedelta(days=1))
+
+
+def test_bar_with_open_outside_range_makes_day_incomplete():
+    from datetime import date
+
+    from src.daytrade_paper.core import Bar
+    from src.daytrade_paper.store import regular_close_minute
+    from src.explore_orb_vwap_v0.data_loader import OPEN_MIN, is_complete
+
+    day = date(2025, 3, 3)
+    close = regular_close_minute(day)
+    bars = [Bar(t, 10.0, 10.1, 9.9, 10.0, 100.0) for t in range(OPEN_MIN, close)]
+    assert is_complete(bars, day)
+    bars[5] = Bar(bars[5].t, 10.2, 10.1, 9.9, 10.0, 100.0)  # open above high
+    assert not is_complete(bars, day)
