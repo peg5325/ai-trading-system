@@ -67,6 +67,16 @@ def filter_counts(r: BacktestResult) -> dict:
     return out
 
 
+def sniper_metrics(r: BacktestResult) -> dict:
+    """V4 (spec V4 §6): pick counts per symbol, pick days, split breaks (only symbols that had one)."""
+    sn = r.sniper
+    return {
+        "pick_days": len(sn["picks"]),
+        "per_symbol": sn["per_symbol"],
+        "split_breaks": {s: v for s, v in sn["split_breaks"].items() if v},
+    }
+
+
 class BacktestReporter:
     def __init__(self, result: BacktestResult) -> None:
         self.r = result
@@ -144,6 +154,7 @@ class BacktestReporter:
             "not_ready_symbol_days": r.not_ready_symbol_days,
             "signal_skips": dict(sorted(r.skips.items())),
             **({"filter_counts": filter_counts(r)} if r.filter_symbol_days is not None else {}),
+            **({"sniper": sniper_metrics(r)} if r.sniper is not None else {}),
         }
 
     def to_json(self, path: Path, provenance: dict) -> dict:
@@ -154,6 +165,8 @@ class BacktestReporter:
             "days": [asdict(d) for d in self.r.days],
             "trades": [asdict(t) for t in self.r.trades],
         }
+        if self.r.sniper is not None:
+            doc["sniper_picks"] = self.r.sniper["picks"]
         path.write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
         return doc
 
@@ -199,6 +212,16 @@ class BacktestReporter:
         for s, st in m["per_symbol"].items():
             out.append(f"| {s} | {st['trades']} | {_pct(st['win_rate'])} | {f2(st['net_pnl'])} | "
                        f"{f2(st['profit_factor'])} |")
+        sn = m.get("sniper")
+        if sn:
+            out += ["", "## V4 picks by symbol", "",
+                    ("| symbol | days passing screener | picked (RVOL #1) | picked but min range failed | trades | "
+                     "net P&L (USD) |"), "|---|---|---|---|---|---|"]
+            for s, c in sn["per_symbol"].items():
+                st = m["per_symbol"].get(s, {"trades": 0, "net_pnl": 0.0})
+                out.append(f"| {s} | {c['passing']} | {c['picked']} | {c['min_range_after_pick']} | {st['trades']} | "
+                           f"{f2(st['net_pnl'])} |")
+            out.append(f"\nsplit breaks (|gap| >= 30%): {sn['split_breaks'] or 'none'}")
         out += ["", "## Long / short", "", "| side | trades | win rate | net P&L (USD) | PF |", "|---|---|---|---|---|"]
         for s, st in m["long_short"].items():
             out.append(f"| {s} | {st['trades']} | {_pct(st['win_rate'])} | {f2(st['net_pnl'])} | "
