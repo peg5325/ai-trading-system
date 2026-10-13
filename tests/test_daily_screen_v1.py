@@ -187,8 +187,11 @@ def test_holdout_refused_without_addendum(tmp_path):
         PL.holdout_step("main", addendum_commit="HEAD", approved=False, **kw)
     with pytest.raises(StudyRefused, match="addendum"):
         PL.holdout_step("main", addendum_commit=None, approved=True, **kw)
-    with pytest.raises(StudyRefused, match="not in commit"):  # the addendum file does not exist on this branch
-        PL.holdout_step("main", addendum_commit="HEAD", approved=True, **kw)
+    # the repository's root commit is an ancestor of main and never contains the addendum (branch-independent)
+    root_commit = subprocess.run(["git", "rev-list", "--max-parents=0", "HEAD"], cwd=PL.ROOT, check=True,
+                                 capture_output=True, text=True).stdout.split()[-1]
+    with pytest.raises(StudyRefused, match="not in commit"):
+        PL.holdout_step("main", addendum_commit=root_commit, approved=True, **kw)
 
 
 # ------------------------------------------------------------------ 3. costs and returns

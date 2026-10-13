@@ -1,7 +1,6 @@
 # 부록: 일봉 당일 거래 선별 v1 — 주 묶음 HOLDOUT 선택 고정
 
 사전등록 [PREREG_DAILY_SAMEDAY_SCREEN_V1.md](PREREG_DAILY_SAMEDAY_SCREEN_V1.md) §8의 부록. 내용은 사전등록이 허용한 네 가지뿐이며 규칙·본문은 바꾸지 않는다.
-주 DEV 1회 실행(2026-10-13, 사용자 승인 "돌린다") 판정 `SELECTED`.
 
 ## ① 선택된 후보
 
