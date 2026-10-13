@@ -557,6 +557,9 @@ def test_only_registered_development_result_artifacts_may_exist():
         os.path.join(
             "docs", "research", "RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.md"
         ),
+        os.path.join(  # 명세 _V2.md(5f8678c)가 결과보다 먼저 커밋됐다
+            "docs", "research", "RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V2.md"
+        ),
     }
     hits = []
     for base in ("docs", "reports", "analysis", "data"):

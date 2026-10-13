@@ -137,6 +137,8 @@
 
 ## 다음 한 가지 작업
 
+(2026-10-13 갱신 4, 탐색·판정 아님) **V1_LONGONLY에서 QQQ만 고른 V2_QQQ: +1.01%(40건, PF 1.33), 거래당 t 0.67·부트스트랩 P 0.256, 40건 중 33건이 V1_LONGONLY QQQ와 같은 거래, 참고 비용(왕복 0.20%) −6.55%, 같은 구간 QQQ 보유 +88.84%.** 세 번 사후 선택한 결과라 우위 증거가 아니다. 새 코드로 V0·V1·V1_LONGONLY 실데이터 재현 동일. 기록: [V2 명세](research/EXPLORE_ORB_VWAP_PULLBACK_2000USD_V2.md), [V2 결과](research/RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V2.md).
+
 (2026-10-13 갱신 3, 탐색·판정 아님) **V0 결과를 본 뒤 사후 조정한 V1(IWM 제외·소수점·일봉 EMA20 방향·돌파 거래량·최소 범위)도 손실: −4.45%, 롱전용 −2.23%(PF 0.73 / 0.80, 거래 146 / 90).** 비용 전 거래당 −0.0036% / +0.0018%. 새 코드로 V0 실데이터 재현 동일. 기록: [V1 명세](research/EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.md), [V1 결과](research/RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.md).
 
 (2026-10-13 갱신 2, 탐색·판정 아님) **사용자 지시서 그대로 ORB+VWAP 되돌림 USD 2,000 탐색 1회(사용자 결정 "지시서 그대로 탐색용"): 지시서 비용 −7.78%, Toss 실제 수수료(왕복 0.20%) −70.94%, QQQ 1배 보유 +91.32%.** 비용 전 거래당 +0.0215%(441건). 개별주·실제 공매도·주당 비용은 Charter §3·v2.4 밖이라 판정·Paper 근거가 아니며, 2023-04~2026-01-20 1분봉은 이 계열에 대해 이미 본 데이터다. 기록: [명세](research/EXPLORE_ORB_VWAP_PULLBACK_2000USD_V0.md), [결과](research/RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V0.md). GEX precount 결과 기록과 아래 다음 작업은 그대로 남아 있다.
