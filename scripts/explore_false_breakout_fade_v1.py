@@ -54,14 +54,16 @@ def leg_counts(trades) -> dict[str, dict]:
 
 
 def extra_markdown(result, legs: dict, setups: list[dict]) -> str:
-    out = ["", "## Day status", "", "| status | days |", "|---|---|"]
+    out = ["", "## Non-traded day status", "", "| status | days |", "|---|---|"]
     out += [f"| {k} | {v} |" for k, v in result.skips.items()]
     out += ["", "## Exit legs by reason (every leg)", "",
             "| reason | legs | trades with this leg | P&L before commission (USD) |", "|---|---|---|---|"]
     for k, c in legs.items():
         out.append(f"| {k} | {c['legs']} | {c['trades']} | {c['pnl_before_commission']:,.2f} |")
-    above = sum(1 for s in setups if s["vwap_at_signal"] is not None and s["vwap_at_signal"] >= s["entry_raw"])
-    out += ["", f"setups (traps in window): {len(setups)}; VWAP at the trap bar >= entry open: {above}"]
+    entered = [s for s in setups if s["skipped"] is None]
+    above = sum(1 for s in entered if s["vwap_at_signal"] is not None and s["vwap_at_signal"] >= s["entry_raw"])
+    out += ["", (f"setups (traps in window): {len(setups)}, entered {len(entered)}; "
+                 f"entered with VWAP at the trap bar >= entry open (TP1 on the fill bar): {above}")]
     return "\n".join(out) + "\n"
 
 

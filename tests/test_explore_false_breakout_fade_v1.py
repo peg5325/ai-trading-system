@@ -221,7 +221,7 @@ def test_run_backtest_one_trade_per_day_and_statuses():
     res, setups = E.run_backtest(sds, days)
     assert [d.status for d in res.days] == ["traded", "no_trap", "traded"]
     assert len(res.trades) == 2 and len(setups) == 2
-    assert res.skips == {"no_trap": 1, "traded": 2}
+    assert res.skips == {"no_trap": 1}
     m = BacktestReporter(res).metrics()
     assert m["trade_count"] == 2 and m["long_short"]["short"]["trades"] == 2
 
@@ -236,7 +236,8 @@ def test_preflight_matches_engine_statuses():
         sds[d.isoformat()] = sd
     r = pre.preflight(sds, [d.isoformat() for d in days])
     res, _ = E.run_backtest(sds, days)
-    assert r["counts"] == {"signal": 1, "no_trap": 1} and res.skips == {"traded": 1, "no_trap": 1}
+    assert r["counts"] == {"signal": 1, "no_trap": 1} and res.skips == {"no_trap": 1}
+    assert [d.status for d in res.days] == ["traded", "no_trap"]
     assert r["stop_pct"] == [pytest.approx(0.74 / 100.78)]
 
 
@@ -268,3 +269,100 @@ def test_leg_counts():
     c = cli.leg_counts([tr])
     assert c["tp1_vwap"]["legs"] == 1 and c["tp2_2r"]["trades"] == 1 and c["stop"]["legs"] == 0
     assert c["tp1_vwap"]["pnl_before_commission"] == pytest.approx(-(tr.legs[0].fill - tr.entry_fill) * tr.legs[0].shares)
+
+
+# ---------------------------------------------------------------- review follow-ups
+def _early_close_bars(trap_t):
+    b = flat(780)  # 13:00 close -> flatten 12:50 (770)
+    setb(b, 575, 100, 101, 100, 100)
+    setb(b, 580, 100, 100, 99, 100)
+    setb(b, 590, 100.5, 101.5, 100.4, 101.2)
+    fill_from(b, 591, 101.2)
+    setb(b, trap_t, 101.2, 101.3, 100.6, 100.8)
+    if trap_t + 1 < 780:
+        fill_from(b, trap_t + 1, 100.8)
+    return b
+
+
+@pytest.mark.parametrize("trap_t, status", [(768, "signal"), (769, "late_trap"), (779, "late_trap")])
+def test_early_close_no_fill_at_or_after_flatten(trap_t, status):
+    sd = sd_of(_early_close_bars(trap_t))
+    assert sd.close_minute == 780
+    st, s = E.find_setup(sd)
+    assert st == status
+    if s is not None:
+        plan, _ = E.entry_plan(sd, s, 2000.0)
+        tr = E.simulate_trade(sd, s, plan)
+        assert tr.entry_minute == 769 and (tr.legs[-1].minute, tr.legs[-1].reason) == (770, "flatten")
+
+
+def test_runaway_has_priority_over_a_trap_on_the_same_bar():
+    b = flat()
+    setb(b, 575, 100, 101, 100, 100)
+    setb(b, 580, 100, 100, 99, 100)
+    setb(b, 590, 100.5, 103.5, 100.4, 100.8)  # wick above the runaway level, close back in the range
+    assert E.find_setup(sd_of(b))[0] == "runaway"
+
+
+def _sds(builders):
+    days = _days(len(builders))
+    out = {}
+    for f, d in zip(builders, days):
+        sd = f()
+        sd.day = d.isoformat()
+        out[d.isoformat()] = sd
+    return days, out
+
+
+def _stopped_day():
+    b = fade_bars()
+    setb(b, 595, 101.0, 101.6, 100.9, 101.0)
+    return sd_of(b)
+
+
+def test_equity_compounds_into_next_day_sizing():
+    days, sds = _sds([_stopped_day, _stopped_day])
+    res, _ = E.run_backtest(sds, days)
+    t1, t2 = res.trades
+    assert t1.net_pnl < 0 and res.days[1].start_equity == pytest.approx(2000.0 + t1.net_pnl)
+    assert t2.shares == math.floor(res.days[1].start_equity / t2.entry_fill * 10_000) / 10_000
+    assert t2.shares < t1.shares
+
+
+def test_not_ready_and_incomplete_days_after_start_keep_equity():
+    def incomplete():
+        sd = sd_of(fade_bars())
+        sd.complete = False
+        return sd
+
+    def not_ready():
+        sd = sd_of(fade_bars())
+        sd.daily_atr = None
+        return sd
+
+    days, sds = _sds([lambda: sd_of(fade_bars()), incomplete, not_ready])
+    res, _ = E.run_backtest(sds, days)
+    assert [d.status for d in res.days] == ["traded", "excluded_incomplete", "daily_not_ready"]
+    assert res.excluded_symbol_days == {"QQQ": 1} and res.not_ready_symbol_days == {"QQQ": 1}
+    assert res.days[2].end_equity == res.days[0].end_equity
+
+
+def test_first_scored_day_skips_not_ready_days():
+    def not_ready():
+        sd = sd_of(fade_bars())
+        sd.daily_ema = None
+        return sd
+
+    days, sds = _sds([not_ready, lambda: sd_of(fade_bars()), lambda: sd_of(fade_bars())])
+    res, _ = E.run_backtest(sds, days)
+    assert res.days[0].day == days[1].isoformat() and len(res.days) == 2
+
+
+def test_preflight_matches_engine_on_every_status():
+    pre = _load_script("explore_fade_preflight")
+    days, sds = _sds([lambda: sd_of(fade_bars()), lambda: sd_of(fade_bars(trap=False)),
+                      lambda: sd_of(fade_bars(breakout_high=104.0)), lambda: sd_of(fade_bars(), atr=20.0)])
+    r = pre.preflight(sds, [d.isoformat() for d in days])
+    res, _ = E.run_backtest(sds, days)
+    assert r["counts"] == {"signal": 1, "no_trap": 1, "runaway": 1, "min_range": 1}
+    assert [d.status for d in res.days] == ["traded", "no_trap", "runaway", "min_range"]

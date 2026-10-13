@@ -65,7 +65,8 @@ def find_setup(sd: SymbolDay) -> tuple[str, Setup | None]:
         if swing > sd.orb_high + RUNAWAY_ATR * atr:
             return "runaway", None
         if b.close < sd.orb_high:
-            if b.t > SIGNAL_LAST:
+            # spec §4.2 window; on early-close days also no fill at or after the flatten minute (spec §4.2 (J))
+            if b.t > SIGNAL_LAST or b.t + 1 >= sd.close_minute - FLATTEN_BEFORE_CLOSE:
                 return "late_trap", None
             return "signal", Setup(i, swing)
     return ("no_breakout" if swing is None else "no_trap"), None
@@ -142,8 +143,9 @@ def first_scored_day(qqq: dict[str, SymbolDay], days: list[str]) -> int | None:
 
 def run_backtest(qqq: dict[str, SymbolDay], trading_days: list[Date],
                  start_equity: float = START_EQUITY) -> tuple[BacktestResult, list[dict]]:
-    """Day loop. Returns the shared BacktestResult (statuses: excluded_incomplete | daily_not_ready | min_range |
-    runaway | no_breakout | no_trap | late_trap | stop_beyond_fill | zero_shares | traded) and the per-day setups."""
+    """Day loop. Returns the shared BacktestResult and the per-day setups. Day statuses: excluded_incomplete |
+    daily_not_ready | min_range | runaway | no_breakout | no_trap | late_trap | stop_beyond_fill | zero_shares |
+    traded. `skips` counts the non-traded statuses only (traded days are in the day records)."""
     days = [d.isoformat() for d in trading_days]
     k0 = first_scored_day(qqq, days)
     scored = days[k0:] if k0 is not None else []
@@ -178,7 +180,6 @@ def run_backtest(qqq: dict[str, SymbolDay], trading_days: list[Date],
                     equity += tr.net_pnl
                     ref_equity += tr.ref_pnl
                     records.append(DayRecord(d, "traded", start, equity, ref_equity, [SYMBOL], 1))
-                    counts["traded"] = counts.get("traded", 0) + 1
                     continue
         counts[status] = counts.get(status, 0) + 1
         records.append(DayRecord(d, status, equity, equity, ref_equity, [], 0))
