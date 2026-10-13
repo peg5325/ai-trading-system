@@ -53,6 +53,12 @@ class SymbolDay:
         """Usable as a candidate today: complete, prior close known, RVOL base known, indicators warm."""
         return self.complete and self.prior_close is not None and self.rvol_base is not None and self.warm
 
+    def is_ready(self, need_rvol: bool = True) -> bool:
+        """`ready`, or without the RVOL base requirement when `need_rvol` is False (spec V3 §2)."""
+        if need_rvol:
+            return self.ready
+        return self.complete and self.prior_close is not None and self.warm
+
     @property
     def daily_ready(self) -> bool:
         """Prior-day daily EMA20, ATR14 and close all known (spec V1 §3.1)."""
@@ -122,27 +128,36 @@ def prepare_symbol(symbol: str, regular: dict[str, list[Bar]], trading_days: lis
 @dataclass(frozen=True)
 class Candidate:
     symbol: str
-    rvol: float
+    rvol: float | None  # None only without the RVOL filter when the 20-session base is not known yet
     gap: float
     rs: float
 
 
 class UniverseFilter:
-    """RVOL >= 1.2, 0.3% <= |gap| <= 2.0%, then the top-2 |RS| vs SPY (ties by symbol; all RS 0 without SPY)."""
+    """RVOL >= 1.2, 0.3% <= |gap| <= 2.0%, then the top-2 |RS| vs SPY (ties by symbol; all RS 0 without SPY).
 
-    def __init__(self, rvol_min: float = RVOL_MIN, gap_min: float = GAP_MIN, gap_max: float = GAP_MAX,
-                 size: int = WATCHLIST_SIZE) -> None:
+    `rvol_min` None drops the RVOL rule and the RVOL readiness requirement; `gap_min` / `gap_max` None drop the gap
+    rule (spec V3 §1)."""
+
+    def __init__(self, rvol_min: float | None = RVOL_MIN, gap_min: float | None = GAP_MIN,
+                 gap_max: float | None = GAP_MAX, size: int = WATCHLIST_SIZE) -> None:
+        if (gap_min is None) != (gap_max is None):
+            raise ValueError("gap_min and gap_max must both be set or both be None")
         self.rvol_min, self.gap_min, self.gap_max, self.size = rvol_min, gap_min, gap_max, size
 
     @staticmethod
-    def metrics(sd: SymbolDay, spy: SymbolDay | None) -> Candidate | None:
+    def metrics(sd: SymbolDay, spy: SymbolDay | None, need_rvol: bool = True) -> Candidate | None:
         """None unless both symbol-days are ready enough (spy only needs complete + prior close).
-        `spy` None: no RS reference (spec V2 §1.3), RS is 0."""
-        if not sd.ready or not sd.rvol_base:
+        `spy` None: no RS reference (spec V2 §1.3), RS is 0. `need_rvol` False: the RVOL base may be missing
+        (rvol is then None)."""
+        if need_rvol:
+            if not sd.ready or not sd.rvol_base:
+                return None
+        elif not sd.is_ready(False):
             return None
         if spy is not None and (not spy.complete or spy.prior_close is None):
             return None
-        rvol = sd.orb_volume / sd.rvol_base
+        rvol = sd.orb_volume / sd.rvol_base if sd.rvol_base else None
         gap = sd.bars[0].open / sd.prior_close - 1.0
         if spy is None:
             return Candidate(sd.symbol, rvol, gap, 0.0)
@@ -152,12 +167,14 @@ class UniverseFilter:
         return Candidate(sd.symbol, rvol, gap, rs)
 
     def passes(self, c: Candidate) -> bool:
-        return c.rvol >= self.rvol_min and self.gap_min <= abs(c.gap) <= self.gap_max
+        if self.rvol_min is not None and not c.rvol >= self.rvol_min:
+            return False
+        return self.gap_min is None or self.gap_min <= abs(c.gap) <= self.gap_max
 
     def watchlist(self, day_rows: dict[str, SymbolDay], spy: SymbolDay | None) -> list[Candidate]:
         cands = []
         for sym in sorted(day_rows):
-            c = self.metrics(day_rows[sym], spy)
+            c = self.metrics(day_rows[sym], spy, need_rvol=self.rvol_min is not None)
             if c is not None and self.passes(c):
                 cands.append(c)
         cands.sort(key=lambda c: (-abs(c.rs), c.symbol))
