@@ -4,15 +4,20 @@ Timing: every decision at 1m bar t uses only bars <= t (signal bar t, breakout s
 bars completed by the end of t); the entry fills at the open of bar t+1 plus slippage. Exits are checked from the
 fill bar t+1 onward, in the order: pending EMA20 exit at the open, 15:50 flatten at the open, stop, TP1, then the
 EMA20 check when the bar completes a 5-minute bar (exit at the next 1m open).
+
+`EngineConfig` selects V0 (default, unchanged behaviour) or the V1 additions (spec V1 §3): daily-filter readiness,
+the minimum ORB range and the EMA20 direction-equal exclusion before the watchlist; the breakout volume rule when
+arming breakouts; the direction / allow_short filters on support signals; fractional sizing in the RiskManager.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date as Date
 
+from .config import V0, EngineConfig
 from .indicators import OPEN_MIN, completed_five, completes_five
 from .risk import START_EQUITY, EntryPlan, RiskManager
-from .universe import Candidate, SymbolDay, UniverseFilter
+from .universe import ORB_BARS, Candidate, SymbolDay, UniverseFilter
 
 BREAKOUT_FROM = 585  # 09:45: breakout bars count from here
 SIGNAL_FIRST = 600  # signal bar start 10:00
@@ -26,7 +31,7 @@ SWING_BARS = 3
 @dataclass
 class Leg:
     minute: int
-    shares: int
+    shares: int | float
     raw: float  # price before slippage
     fill: float
     reason: str
@@ -41,7 +46,7 @@ class Trade:
     entry_minute: int
     entry_raw: float
     entry_fill: float
-    shares: int
+    shares: int | float
     initial_stop: float
     risk_per_share: float
     target: float
@@ -73,7 +78,7 @@ class _Watch:
 class _Position:
     watch: _Watch
     trade: Trade
-    remaining: int
+    remaining: int | float
     stop: float
     pending_exit: bool = False
 
@@ -114,9 +119,16 @@ def swing_and_atr(sd: SymbolDay, t: int, side: int) -> tuple[float, float] | Non
     return swing, atr
 
 
+def breakout_volume_ok(sd: SymbolDay, i: int, mult: float | None) -> bool:
+    """Spec V1 §3.3: bar volume >= mult * (09:30~09:44 volume / 15). Always True when the rule is off (V0)."""
+    return mult is None or sd.bars[i].volume >= mult * (sd.orb_volume / ORB_BARS)
+
+
 class StrategyEngine:
-    def __init__(self, risk: RiskManager | None = None, ref_rate: float = 0.001) -> None:
-        self.risk = risk or RiskManager()
+    def __init__(self, risk: RiskManager | None = None, ref_rate: float = 0.001,
+                 config: EngineConfig = V0) -> None:
+        self.config = config
+        self.risk = risk or RiskManager(config=config)
         self.ref_rate = ref_rate
 
     def simulate_day(self, day: str, watch: list[SymbolDay], day_start_equity: float) -> tuple[list[Trade], dict]:
@@ -143,13 +155,20 @@ class StrategyEngine:
                 losers += tr.net_pnl < 0
                 pos.watch.last_exit = t
                 pos = None
+            vol_mult = self.config.breakout_volume_mult
             for w in ws:
                 b = w.sd.bars[i]
                 if t >= BREAKOUT_FROM:
                     if w.long_break is None and b.close > w.sd.orb_high:
-                        w.long_break = t
+                        if breakout_volume_ok(w.sd, i, vol_mult):
+                            w.long_break = t
+                        else:
+                            skips["breakout_volume"] = skips.get("breakout_volume", 0) + 1
                     if w.short_break is None and b.close < w.sd.orb_low:
-                        w.short_break = t
+                        if breakout_volume_ok(w.sd, i, vol_mult):
+                            w.short_break = t
+                        else:
+                            skips["breakout_volume"] = skips.get("breakout_volume", 0) + 1
             if (pos is not None or not SIGNAL_FIRST <= t <= SIGNAL_LAST or t + 1 > LAST_FILL
                     or t + 1 >= flat):
                 continue
@@ -160,6 +179,12 @@ class StrategyEngine:
                     continue
                 side = support_signal(w.sd, i, w.long_break, w.short_break)
                 if side == 0:
+                    continue
+                if self.config.direction_filter and side != w.sd.direction:
+                    skips["direction_filter"] = skips.get("direction_filter", 0) + 1
+                    continue
+                if not self.config.allow_short and side < 0:
+                    skips["short_disabled"] = skips.get("short_disabled", 0) + 1
                     continue
                 sa = swing_and_atr(w.sd, t, side)
                 if sa is None:
@@ -206,10 +231,10 @@ class StrategyEngine:
             raw = min(pos.stop, b.open) if side > 0 else max(pos.stop, b.open)
             return self._exit_all(pos, t, raw, "breakeven" if tr.tp1 else "stop")
         if not tr.tp1 and (b.high >= tr.target if side > 0 else b.low <= tr.target):
-            q = tr.shares // 2 if tr.shares > 1 else tr.shares
+            q = self.risk.tp1_quantity(tr.shares)
             tr.legs.append(Leg(t, q, tr.target, self.risk.exit_fill(side, tr.target), "tp1"))
             tr.tp1 = True
-            pos.remaining -= q
+            pos.remaining = round(pos.remaining - q, 4)  # exact for ints; avoids float drift for fractional
             pos.stop = tr.entry_fill  # breakeven, checked from the next bar (stop was checked above)
             if pos.remaining == 0:
                 tr.exit_reason = "tp1"
@@ -241,6 +266,7 @@ class BacktestResult:
     not_ready_symbol_days: dict[str, int]
     qqq_buy_hold: dict | None
     start_equity: float
+    filter_symbol_days: dict[str, dict[str, int]] | None = None  # V1 pre-watchlist exclusions (None under V0)
 
 
 def first_scored_day(prepared: dict[str, dict[str, SymbolDay]], days: list[str], ref: str = "SPY") -> int | None:
@@ -252,10 +278,30 @@ def first_scored_day(prepared: dict[str, dict[str, SymbolDay]], days: list[str],
     return None
 
 
+def daily_exclusion(sd: SymbolDay, config: EngineConfig) -> str | None:
+    """Spec V1 §3.1~§3.3 pre-watchlist exclusion for a V0-ready symbol-day, or None to keep it."""
+    if not config.daily_filters:
+        return None
+    if not sd.daily_ready:
+        return "daily_not_ready"
+    mult = config.min_range_atr_mult
+    if mult is not None and sd.orb_high - sd.orb_low < mult * sd.daily_atr:
+        return "min_range"
+    if config.direction_filter and sd.direction == 0:
+        return "direction_equal"
+    return None
+
+
 def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[Date],
                  start_equity: float = START_EQUITY, engine: StrategyEngine | None = None,
-                 universe_filter: UniverseFilter | None = None, ref: str = "SPY") -> BacktestResult:
-    engine = engine or StrategyEngine()
+                 universe_filter: UniverseFilter | None = None, ref: str = "SPY",
+                 config: EngineConfig | None = None) -> BacktestResult:
+    """`config` defaults to the engine's (V0 when neither is given). Passing both with different values is an error."""
+    if engine is None:
+        engine = StrategyEngine(config=config or V0)
+    elif config is not None and config != engine.config:
+        raise ValueError("run_backtest config differs from the engine config")
+    config = engine.config
     uf = universe_filter or UniverseFilter()
     days = [d.isoformat() for d in trading_days]
     k0 = first_scored_day(prepared, days, ref)
@@ -268,6 +314,7 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
     skips: dict[str, int] = {}
     excluded = {s: 0 for s in prepared}
     not_ready = {s: 0 for s in prepared}
+    v1_excl = {k: {s: 0 for s in prepared} for k in ("daily_not_ready", "min_range", "direction_equal")}
     for d in scored:
         for s, p in prepared.items():
             if first_data[s] is not None and d >= first_data[s]:
@@ -279,7 +326,14 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
         if not spy.complete or spy.prior_close is None:
             records.append(DayRecord(d, "spy_excluded", equity, equity, ref_equity, [], 0))
             continue
-        wl: list[Candidate] = uf.watchlist({s: p[d] for s, p in prepared.items()}, spy)
+        rows = {s: p[d] for s, p in prepared.items()}
+        for s in sorted(rows):
+            if rows[s].ready:
+                why = daily_exclusion(rows[s], config)
+                if why is not None:
+                    v1_excl[why][s] += 1
+                    del rows[s]
+        wl: list[Candidate] = uf.watchlist(rows, spy)
         if not wl:
             records.append(DayRecord(d, "no_candidates", equity, equity, ref_equity, [], 0))
             continue
@@ -293,7 +347,8 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
         records.append(DayRecord(d, "traded" if day_trades else "no_trade", start, equity, ref_equity,
                                  [c.symbol for c in wl], len(day_trades)))
     return BacktestResult(records, trades, skips, excluded, not_ready,
-                          qqq_buy_hold(prepared.get("QQQ"), scored), start_equity)
+                          qqq_buy_hold(prepared.get("QQQ"), scored), start_equity,
+                          v1_excl if config.has_v1_filters else None)
 
 
 def qqq_buy_hold(qqq: dict[str, SymbolDay] | None, scored: list[str]) -> dict | None:

@@ -549,6 +549,14 @@ def test_only_registered_development_result_artifacts_may_exist():
         os.path.join(
             "docs", "research", "RESULT_P0_US30_ORB_DEVELOPMENT.md"
         ),
+        # 2026-10-13 사용자 지시서 탐색(판정 아님, 개발 구간만, 봉인 미접근). 명세는 결과 전에 커밋됐다:
+        # EXPLORE_ORB_VWAP_PULLBACK_2000USD_V0.md(2f24db0) / _V1.md(e6663a3).
+        os.path.join(
+            "docs", "research", "RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V0.md"
+        ),
+        os.path.join(
+            "docs", "research", "RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.md"
+        ),
     }
     hits = []
     for base in ("docs", "reports", "analysis", "data"):

@@ -52,6 +52,12 @@ def five_minute_bars(bars: list[Bar]) -> list[FiveBar]:
     return out
 
 
+def daily_bar(bars: list[Bar]) -> tuple[float, float, float, float]:
+    """(open, high, low, close) of a complete regular day built from its 1m bars (spec V1 §3.1): first open,
+    session high / low, last close."""
+    return bars[0].open, max(b.high for b in bars), min(b.low for b in bars), bars[-1].close
+
+
 def completed_five(t: int) -> int:
     """Number of today's 5-minute bars complete once the 1m bar starting at minute t has completed."""
     return max(0, (t - OPEN_MIN + 1) // FIVE)
@@ -63,7 +69,8 @@ def completes_five(t: int) -> bool:
 
 
 class IndicatorState:
-    """ATR(14) Wilder and EMA(20) on completed 5-minute bars, continuing across days (spec §3.3).
+    """ATR(14) Wilder and EMA(20) on completed 5-minute bars, continuing across days (spec §3.3). The same rules
+    are reused on daily bars built from 1m bars for the V1 daily EMA20 / ATR14 (spec V1 §3.1).
 
     ATR: true range (the first bar after a reset has no previous close -> high - low); first value = simple mean
     of the first 14 TRs, then atr = (atr * 13 + tr) / 14. EMA: first value = simple mean of the first 20 closes,
