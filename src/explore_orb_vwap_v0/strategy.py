@@ -249,7 +249,7 @@ class StrategyEngine:
 @dataclass
 class DayRecord:
     day: str
-    status: str  # spy_excluded | no_candidates | no_trade | traded
+    status: str  # spy_excluded (never without an RS reference) | no_candidates | no_trade | traded
     start_equity: float
     end_equity: float
     ref_end_equity: float
@@ -269,9 +269,17 @@ class BacktestResult:
     filter_symbol_days: dict[str, dict[str, int]] | None = None  # V1 pre-watchlist exclusions (None under V0)
 
 
-def first_scored_day(prepared: dict[str, dict[str, SymbolDay]], days: list[str], ref: str = "SPY") -> int | None:
-    """Index of the first day where the RS reference is complete with a prior close and some symbol is ready."""
+def first_scored_day(prepared: dict[str, dict[str, SymbolDay]], days: list[str], ref: str | None = "SPY",
+                     need_daily: bool = False) -> int | None:
+    """Index of the first day where the RS reference is complete with a prior close and some symbol is ready.
+
+    `ref` None (spec V2 §1.3): the first day some traded symbol is ready, and also daily-ready (prior daily EMA20 /
+    ATR14 known) when `need_daily`. `need_daily` is ignored when a reference is given (V0 / V1 unchanged)."""
     for k, d in enumerate(days):
+        if ref is None:
+            if any(p[d].ready and (not need_daily or p[d].daily_ready) for p in prepared.values()):
+                return k
+            continue
         spy = prepared[ref][d]
         if spy.complete and spy.prior_close is not None and any(p[d].ready for p in prepared.values()):
             return k
@@ -294,17 +302,22 @@ def daily_exclusion(sd: SymbolDay, config: EngineConfig) -> str | None:
 
 def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[Date],
                  start_equity: float = START_EQUITY, engine: StrategyEngine | None = None,
-                 universe_filter: UniverseFilter | None = None, ref: str = "SPY",
+                 universe_filter: UniverseFilter | None = None,
                  config: EngineConfig | None = None) -> BacktestResult:
-    """`config` defaults to the engine's (V0 when neither is given). Passing both with different values is an error."""
+    """`config` defaults to the engine's (V0 when neither is given). Passing both with different values is an error.
+
+    The RS reference is `config.rs_reference`. With None (spec V2 §1.3) no reference is read, the
+    "reference incomplete -> spy_excluded" rule does not apply, and days where no traded symbol passes are
+    `no_candidates`."""
     if engine is None:
         engine = StrategyEngine(config=config or V0)
     elif config is not None and config != engine.config:
         raise ValueError("run_backtest config differs from the engine config")
     config = engine.config
+    ref = config.rs_reference
     uf = universe_filter or UniverseFilter()
     days = [d.isoformat() for d in trading_days]
-    k0 = first_scored_day(prepared, days, ref)
+    k0 = first_scored_day(prepared, days, ref, need_daily=config.daily_filters)
     scored = days[k0:] if k0 is not None else []
     first_data = {s: min((d for d, sd in p.items() if sd.has_data), default=None)
                   for s, p in prepared.items()}
@@ -322,8 +335,8 @@ def run_backtest(prepared: dict[str, dict[str, SymbolDay]], trading_days: list[D
                     excluded[s] += 1
                 elif not p[d].ready:
                     not_ready[s] += 1
-        spy = prepared[ref][d]
-        if not spy.complete or spy.prior_close is None:
+        spy = prepared[ref][d] if ref is not None else None
+        if spy is not None and (not spy.complete or spy.prior_close is None):
             records.append(DayRecord(d, "spy_excluded", equity, equity, ref_equity, [], 0))
             continue
         rows = {s: p[d] for s, p in prepared.items()}

@@ -1,7 +1,8 @@
-"""Engine configurations: V0 (spec V0, reproduced exactly) and V1 / V1_LONGONLY (spec V1 §1~§3).
+"""Engine configurations: V0 (spec V0, reproduced exactly), V1 / V1_LONGONLY (spec V1 §1~§3) and V2_QQQ (spec V2 §1).
 
 V1 spec: docs/research/EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.md. Every V1 change was chosen after seeing the V0
 result on the same window (spec V1 §0): V1 results are in-sample post-hoc adjustments, not evidence of an edge.
+V2 spec: docs/research/EXPLORE_ORB_VWAP_PULLBACK_2000USD_V2.md (also post-hoc, spec V2 §0).
 """
 from __future__ import annotations
 
@@ -18,6 +19,10 @@ class EngineConfig:
     breakout_volume_mult: float | None  # breakout bar volume >= mult * (OR 15-min volume / 15) (spec V1 §3.3)
     min_range_atr_mult: float | None  # exclude when ORB range < mult * prior daily ATR14 (spec V1 §3.3)
     allow_short: bool
+    # RS reference symbol for the watchlist ranking and the "reference incomplete -> whole day excluded" rule.
+    # None (spec V2 §1.3): no reference is loaded or needed, RS is 0 for every symbol, and the scored days start on
+    # the first day a traded symbol is ready.
+    rs_reference: str | None = "SPY"
 
     @property
     def daily_filters(self) -> bool:
@@ -53,4 +58,8 @@ V1 = EngineConfig(
 
 V1_LONGONLY = replace(V1, name="V1_LONGONLY", allow_short=False)
 
+V2_QQQ = replace(V1_LONGONLY, name="V2_QQQ", universe=("QQQ",), breakout_volume_mult=1.2, rs_reference=None)
+
 CONFIGS = {c.name: c for c in (V0, V1, V1_LONGONLY)}
+# Every preset the CLI accepts. CONFIGS stays the V0/V1 set it was when the V1 results were produced.
+PRESETS = {**CONFIGS, V2_QQQ.name: V2_QQQ}

@@ -1,4 +1,4 @@
-"""Compare 2+ exploratory pullback-VWAP result JSON files as Markdown (spec V1 §4).
+"""Compare 2+ exploratory pullback-VWAP result JSON files as Markdown (spec V1 §4, spec V2 §3).
 
 Reads only the JSON files written by scripts/explore_pullback_vwap_v0.py (no price data). Numbers are copied from
 each file's `metrics`; rounding happens only in this output. Exploratory, not a decision basis.
@@ -18,8 +18,15 @@ def _pct(x) -> str:
     return "n/a" if x is None else f"{x * 100:.2f}%"
 
 
+YEARS = ("2023", "2024", "2025", "2026")
+
+
 def label(doc: dict, path: Path) -> str:
-    return (doc.get("provenance") or {}).get("config_name") or path.stem
+    """provenance.config_name; the original V0 result.json predates that field, so only that file name means V0."""
+    name = (doc.get("provenance") or {}).get("config_name")
+    if name:
+        return name
+    return "V0" if path.name == "result.json" else path.stem
 
 
 def _side_table(title: str, rows: dict) -> list[str]:
@@ -33,20 +40,32 @@ def _side_table(title: str, rows: dict) -> list[str]:
 def compare(paths: list[Path]) -> str:
     docs = [(p, json.loads(p.read_text(encoding="utf-8"))) for p in paths]
     out = ["## Version comparison (exploratory, not a decision basis)", "",
-           ("| config | file | period | cumulative return | CAGR | MDD (USD) | MDD (%) | win rate | PF | trades | "
-            "ref final equity (USD) | ref return | ref PF |"),
-           "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+           ("| config | file | period | trades | win rate | PF | net P&L (USD) | cumulative return | CAGR | "
+            "MDD (USD) | MDD (%) | longest drawdown (trading days) | ref final equity (USD) | ref return | ref PF |"),
+           "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for p, doc in docs:
         m = doc["metrics"]
         if not m.get("period"):
-            out.append(f"| {label(doc, p)} | {p.name} | no scored days |" + " |" * 10)
+            out.append(f"| {label(doc, p)} | {p.name} | no scored days |" + " |" * 12)
             continue
         rc = m["reference_cost"]
         out.append(
             f"| {label(doc, p)} | {p.name} | {m['period']['first_day']} ~ {m['period']['last_day']} | "
-            f"{_pct(m['cumulative_return'])} | {_pct(m['cagr'])} | {_num(m['mdd_usd'])} | {_pct(m['mdd_pct'])} | "
-            f"{_pct(m['trade_win_rate'])} | {_num(m['trade_profit_factor'])} | {m['trade_count']} | "
+            f"{m['trade_count']} | {_pct(m['trade_win_rate'])} | {_num(m['trade_profit_factor'])} | "
+            f"{_num(m['trade_net_pnl'])} | {_pct(m['cumulative_return'])} | {_pct(m['cagr'])} | "
+            f"{_num(m['mdd_usd'])} | {_pct(m['mdd_pct'])} | {m['longest_drawdown_trading_days']} | "
             f"{_num(rc['final_equity'])} | {_pct(rc['cumulative_return'])} | {_num(rc['profit_factor'])} |")
+    out += ["", "## By year", "",
+            "| config | year | trades | net P&L (USD) | return | ref return |", "|---|---|---|---|---|---|"]
+    for p, doc in docs:
+        per_year = doc["metrics"].get("per_year") or {}
+        for y in YEARS:
+            v = per_year.get(y)
+            if v is None:
+                out.append(f"| {label(doc, p)} | {y} | n/a | n/a | n/a | n/a |")
+                continue
+            out.append(f"| {label(doc, p)} | {y} | {v['trades_trades']} | {_num(v['trades_net_pnl'])} | "
+                       f"{_pct(v['return'])} | {_pct(v['ref_return'])} |")
     for p, doc in docs:
         m = doc["metrics"]
         if not m.get("period"):
