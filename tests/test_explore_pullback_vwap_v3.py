@@ -268,7 +268,7 @@ def test_compare_json_out_and_overwrite_refusal(tmp_path, capsys):
     assert md == cmp_mod.compare(paths)
     doc = json.loads(out.read_text())
     assert [c["label"] for c in doc["configs"]] == ["V2_QQQ", "V3_QQQ", "V0"]
-    assert doc["generated_from"] == [str(p) for p in paths]
+    assert doc["generated_from"] == [p.name for p in paths]
     for c, p in zip(doc["configs"], paths):
         m = json.loads(p.read_text())["metrics"]
         assert c["file"] == p.name and c["file_sha256"] == hashlib.sha256(p.read_bytes()).hexdigest()
@@ -283,3 +283,31 @@ def test_compare_json_out_and_overwrite_refusal(tmp_path, capsys):
     with pytest.raises(SystemExit):
         cmp_mod.main([*map(str, paths), "--json-out", str(out)])
     assert out.read_bytes() == before
+
+
+def test_trade_stats_script(tmp_path, capsys):
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "pullback_vwap_trade_stats", Path(__file__).resolve().parents[1] / "scripts" / "pullback_vwap_trade_stats.py")
+    ts = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ts)
+
+    def t(net, shares=2.0, rps=1.0, entry=100.0):
+        return {"net_pnl": net, "side": 1, "entry_raw": entry, "entry_fill": entry, "shares": shares,
+                "risk_per_share": rps, "commission": 0.005 * 2 * shares, "ref_pnl": net - 0.4,
+                "legs": [{"raw": entry + net / shares, "shares": shares}]}
+
+    doc = {"trades": [t(4.0), t(-2.0), t(1.0, shares=20.0)]}
+    s = ts.trade_stats(doc, seed=1, resamples=1000)
+    assert s["n"] == 3 and s["net_sum"] == 3.0 and abs(s["net_mean"] - 1.0) < 1e-12
+    assert abs(s["gross_sum"] - 3.0) < 1e-9
+    assert s["risk_max"] == 20.0 and abs(s["risk_at_target_share"] - 1 / 3) < 1e-12
+    assert 0 < s["bootstrap_p_mean_le_0"] < 1
+    assert ts.trade_stats(doc, seed=1, resamples=1000) == s  # fixed seed -> deterministic
+    assert ts.trade_stats({"trades": []}) == {"n": 0}
+    p = tmp_path / "r.json"
+    p.write_text(json.dumps(doc))
+    assert ts.main([str(p)]) == 0
+    assert "| r.json | 3 | 3.00 |" in capsys.readouterr().out

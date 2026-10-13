@@ -100,7 +100,7 @@ def combined(paths: list[Path]) -> dict:
         configs.append({"label": label(doc, p), "file": p.name, "file_sha256": hashlib.sha256(raw).hexdigest(),
                         "metrics": sub, "per_year": m.get("per_year") or {}})
     return {"status": "exploratory, not a decision basis", "configs": configs,
-            "generated_from": [str(p) for p in paths]}
+            "generated_from": [p.name for p in paths]}
 
 
 def write_json(paths: list[Path], out: Path) -> None:
