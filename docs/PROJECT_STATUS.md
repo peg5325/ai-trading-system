@@ -137,6 +137,8 @@
 
 ## 다음 한 가지 작업
 
+(2026-10-13 갱신 3, 탐색·판정 아님) **V0 결과를 본 뒤 사후 조정한 V1(IWM 제외·소수점·일봉 EMA20 방향·돌파 거래량·최소 범위)도 손실: −4.45%, 롱전용 −2.23%(PF 0.73 / 0.80, 거래 146 / 90).** 비용 전 거래당 −0.0036% / +0.0018%. 새 코드로 V0 실데이터 재현 동일. 기록: [V1 명세](research/EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.md), [V1 결과](research/RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V1.md).
+
 (2026-10-13 갱신 2, 탐색·판정 아님) **사용자 지시서 그대로 ORB+VWAP 되돌림 USD 2,000 탐색 1회(사용자 결정 "지시서 그대로 탐색용"): 지시서 비용 −7.78%, Toss 실제 수수료(왕복 0.20%) −70.94%, QQQ 1배 보유 +91.32%.** 비용 전 거래당 +0.0215%(441건). 개별주·실제 공매도·주당 비용은 Charter §3·v2.4 밖이라 판정·Paper 근거가 아니며, 2023-04~2026-01-20 1분봉은 이 계열에 대해 이미 본 데이터다. 기록: [명세](research/EXPLORE_ORB_VWAP_PULLBACK_2000USD_V0.md), [결과](research/RESULT_EXPLORE_ORB_VWAP_PULLBACK_2000USD_V0.md). GEX precount 결과 기록과 아래 다음 작업은 그대로 남아 있다.
 
 (2026-10-13 갱신) **방법 묶음 A(장기 일봉 당일 거래 선별) 주 DEV 1회 = `SELECTED` 1개: ^SOX 큰 상승 갭(C07) → SOXL 롱.** 기록: [사전등록](research/PREREG_DAILY_SAMEDAY_SCREEN_V1.md), [부록](research/PREREG_DAILY_SAMEDAY_SCREEN_V1_HOLDOUT_ADDENDUM.md). HOLDOUT(2016~2025-07-18)은 아직 열지 않았다.
