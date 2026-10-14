@@ -53,7 +53,10 @@ def group(trades) -> dict:
             "ref_win_rate": sum(x > 0 for x in ref) / n, "ref_sum": sum(ref), "ref_mean": sum(ref) / n,
             "gross_mean_pct": statistics.mean(gross_pct(t) for t in trades),
             "hold_minutes_mean": statistics.mean(t.hold_minutes for t in trades),
-            "hold_minutes_median": statistics.median(t.hold_minutes for t in trades)}
+            "hold_minutes_median": statistics.median(t.hold_minutes for t in trades),
+            "hold_hours_mean": statistics.mean(t.hold_minutes for t in trades) / 60.0,
+            "hold_calendar_days_mean": statistics.mean(
+                (Date.fromisoformat(t.exit_day) - Date.fromisoformat(t.day)).days for t in trades)}
 
 
 def buy_hold(stream) -> dict:
@@ -120,20 +123,22 @@ def markdown(sums: dict, bh: dict) -> str:
                                ("Entry kind", "kinds", ("normal", "switch"))):
         out += ["", f"## {title}", "",
                 ("| config | group | trades | share | win | net sum | net mean | ref win | ref sum | ref mean | "
-                 "pre-cost mean | hold mean (min) | hold median (min) |"),
-                "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+                 "pre-cost mean | hold mean (min) | hold median (min) | hold mean (h) | exit - entry (calendar days) |"),
+                "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
         for name, s in sums.items():
             total = s["metrics"]["trade_count"] or 1
             for g in labels:
                 v = s[key][g]
                 if not v["trades"]:
-                    out.append(f"| {name} | {g} | 0 | 0.00% |" + " n/a |" * 9)
+                    out.append(f"| {name} | {g} | 0 | 0.00% |" + " n/a |" * 11)
                     continue
                 out.append(f"| {name} | {g} | {v['trades']} | {_p(v['trades'] / total)} | {_p(v['win_rate'])} | "
                            f"{_n(v['net_sum'])} | {_n(v['net_mean'])} | {_p(v['ref_win_rate'])} | {_n(v['ref_sum'])} | "
                            f"{_n(v['ref_mean'])} | {_p(v['gross_mean_pct'], 4)} | {v['hold_minutes_mean']:,.1f} | "
-                           f"{v['hold_minutes_median']:,.1f} |")
-    out += ["", "## By year", "", "| config | year | trades | net (USD) | return | MDD % | ref net (USD) | ref return | ref MDD % |",
+                           f"{v['hold_minutes_median']:,.1f} | {v['hold_hours_mean']:,.2f} | "
+                           f"{v['hold_calendar_days_mean']:,.2f} |")
+    out += ["", "## By year (MDD within the year, the year's opening equity as the first peak)", "",
+            "| config | year | trades | net (USD) | return | MDD % | ref net (USD) | ref return | ref MDD % |",
             "|---|---|---|---|---|---|---|---|---|"]
     for name, s in sums.items():
         for y, v in s["years"].items():

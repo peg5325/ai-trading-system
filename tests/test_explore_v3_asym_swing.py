@@ -87,7 +87,7 @@ def test_build_stream_keeps_valid_regular_bars_in_order():
 def test_long_entry_fills_next_open_with_slippage_and_sizing():
     eng = ready_engine()
     eng._on_short(short_bucket(D1, 2, 100.0, 100.5))  # bar 09:40~09:44 up, aligned
-    assert eng.pending_entry == (1, "normal")
+    assert eng.pending_entry[:2] == (1, "normal")
     eng.step(m(D1, 585, 100.6, c=100.6), False)
     tr = eng.pos.trade
     assert (tr.side, tr.entry_minute, tr.entry_raw) == (1, 585, 100.6)
@@ -101,7 +101,7 @@ def test_entry_conditions(direction, sign, o, c, want):
     eng = ready_engine(direction, sign)
     eng.ema9.value, eng.ema21.value = (101.0, 100.0) if sign > 0 else (99.0, 100.0)
     eng._on_short(short_bucket(D1, 2, o, c))
-    assert eng.pending_entry == want
+    assert (eng.pending_entry[:2] if eng.pending_entry else None) == want
 
 
 def test_no_entry_without_volatility_or_before_575_or_on_last_bar_or_before_start():
@@ -110,14 +110,14 @@ def test_no_entry_without_volatility_or_before_575_or_on_last_bar_or_before_star
     assert eng.pending_entry is None
     for minute, day in ((574, D1), (959, D1), (600, "2023-05-08")):
         eng = ready_engine()
-        eng.pending_entry = (1, "normal")
+        eng.pending_entry = (1, "normal", 599)
         eng.step(m(day, minute, 100), False)
         assert eng.pos is None
 
 
 def test_short_entry_and_hard_stop_on_high():
     eng = ready_engine(-1, -1)
-    eng.pending_entry = (-1, "normal")
+    eng.pending_entry = (-1, "normal", 599)
     eng.step(m(D1, 600, 100.0), False)
     tr = eng.pos.trade
     level = tr.entry_fill * 1.003
@@ -132,7 +132,7 @@ def test_short_entry_and_hard_stop_on_high():
 
 def test_hard_stop_gap_fills_at_open():
     eng = ready_engine()
-    eng.pending_entry = (1, "normal")
+    eng.pending_entry = (1, "normal", 599)
     eng.step(m(D1, 600, 100.0), False)
     eng.step(m(D1, 601, 99.0, c=99.0), False)
     assert eng.trades[-1].legs[-1].raw == 99.0
@@ -140,7 +140,7 @@ def test_hard_stop_gap_fills_at_open():
 
 # ---------------------------------------------------------------- gears
 def _long_at_100(eng):
-    eng.pending_entry = (1, "normal")
+    eng.pending_entry = (1, "normal", 599)
     eng.step(m(D1, 600, 100.0), False)
     return eng.pos
 
@@ -188,7 +188,7 @@ def test_swing_holds_overnight_and_flip_switches():
     eng.st.atr.value, eng.st.atr.prev_close, eng.st.prev_close = 1.0, 101.0, 101.0
     eng.atr14.value, eng.atr14.prev_close = 1.0, 101.0
     eng._on_30m(Bucket(D2, 0, 101, 101, 95, 95, 599))  # close below the lower band -> -1
-    assert eng.st_dir == -1 and eng.pending_exit == "st_flip" and eng.pending_entry == (-1, "switch")
+    assert eng.st_dir == -1 and eng.pending_exit == "st_flip" and eng.pending_entry[:2] == (-1, "switch")
     assert eng.cycle_entries == 0
     eng.step(m(D2, 600, 95.0), False)
     assert eng.trades[-1].exit_reason == "st_flip" and eng.pos.trade.side == -1 and eng.pos.trade.kind == "switch"
@@ -219,13 +219,13 @@ def test_cooldown_needs_15_minutes_and_fresh_cross():
     eng._on_short(short_bucket(D1, 10, 100, 99.0))  # cross down
     eng.ema9.value, eng.ema21.value = 101.0, 100.0
     eng._on_short(short_bucket(D1, 11, 100, 101))  # fresh cross up at 10:30
-    assert eng.pending_entry == (1, "normal")
+    assert eng.pending_entry[:2] == (1, "normal")
 
 
 def test_cycle_cap_two_entries():
     eng = ready_engine()
-    for minute in (600, 700):
-        eng.pending_entry = (1, "normal")
+    for minute in (600, 602):  # same 30m bucket (10:00~10:29): no real 30m bar completes in between
+        eng.pending_entry = (1, "normal", 599)
         eng.step(m(D1, minute, 100.0), False)
         eng.pending_exit = "x"
         eng.step(m(D1, minute + 1, 100.0), False)
@@ -269,7 +269,8 @@ def test_mark_day_values_open_position():
     eng.mark_day(m(D1, 959, 101.0))
     mtm, ref, entries, holding = eng.day_end[D1]
     tr = p.trade
-    assert mtm == pytest.approx(2000 + (101.0 - tr.entry_fill) * tr.shares) and holding and entries == 1
+    assert mtm == pytest.approx(2000 + (101.0 - tr.entry_fill) * tr.shares - 0.005 * tr.shares)
+    assert holding and entries == 1
     assert ref == pytest.approx(2000 + (101.0 - 100.0) * tr.shares - 0.001 * tr.shares * 100.0)
 
 
@@ -290,3 +291,93 @@ def test_cli_writes_all_files_once(tmp_path):
     assert doc["provenance"]["spec_path"] == "docs/research/EXPLORE_V3_ASYM_SWING_2000USD.md"
     with pytest.raises(SystemExit):
         cli.run_all(db, out, start=d1, end=d1 + timedelta(days=2))
+
+
+# ---------------------------------------------------------------- review follow-ups
+def test_stale_pending_entry_dropped_when_late_30m_turns_against_it():
+    eng = ready_engine()
+    eng.pending_entry = (1, "normal", 594)
+    eng.st_dir = -1  # what a late-completed 30m bar at this open would have set
+    eng.step(m(D1, 600, 100.0), False)
+    assert eng.pos is None and eng.counts["stale_signal"] == 1
+    eng = ready_engine(vol=False)
+    eng.pending_entry = (1, "normal", 594)
+    eng.step(m(D1, 600, 100.0), False)
+    assert eng.pos is None and eng.counts["stale_signal"] == 1
+
+
+def _flat_swing_long(eng):
+    p = _long_at_100(eng)
+    p.swing = True
+    eng.st.dir, eng.st.upper, eng.st.lower = -1, 100.5, 90.0  # already against the long, no flip on the next bar
+    eng.st_dir = -1
+    eng.st.atr.value, eng.st.atr.prev_close, eng.st.prev_close = 1.0, 99.0, 99.0
+    eng.atr14.value, eng.atr14.prev_close = 1.0, 99.0
+    return p
+
+
+def test_opposite_direction_without_flip_exits_but_does_not_switch():
+    eng = ready_engine()
+    _flat_swing_long(eng)
+    eng._on_30m(Bucket(D1, 2, 99.0, 99.2, 98.8, 99.0, 659))  # stays -1
+    assert eng.st_dir == -1 and eng.pending_exit == "st_flip" and eng.pending_entry is None
+
+
+def test_short_fee_lock_level_and_gap():
+    eng = ready_engine(-1, -1)
+    eng.pending_entry = (-1, "normal", 599)
+    eng.step(m(D1, 600, 100.0), False)
+    p = eng.pos
+    p.swing = True
+    fill = p.trade.entry_fill
+    level = fill * (1 - 0.0022)
+    eng.step(m(D1, 601, fill * 0.995, h=level + 0.01, c=fill * 0.995), False)
+    tr = eng.trades[-1]
+    assert tr.exit_reason == "fee_lock" and tr.legs[-1].raw == pytest.approx(level)
+    assert tr.legs[-1].fill == pytest.approx(level + 0.02)
+    eng = ready_engine(-1, -1)
+    eng.pending_entry = (-1, "normal", 599)
+    eng.step(m(D1, 600, 100.0), False)
+    eng.pos.swing = True
+    eng.step(m(D2, 570, 101.0), False)  # overnight gap above the fee-lock level
+    assert eng.trades[-1].legs[-1].raw == 101.0
+
+
+def test_short_mfe_latch_and_end_of_data_exit():
+    eng = ready_engine(-1, -1)
+    eng.pending_entry = (-1, "normal", 599)
+    eng.step(m(D1, 600, 100.0), False)
+    fill = eng.pos.trade.entry_fill
+    eng.step(m(D1, 601, fill * 0.996, c=fill * 0.9959), False)  # short MFE 0.41% on the close
+    assert eng.pos.swing
+    eng.step(m(D1, 959, fill * 0.996), False)  # swing: held over the day's last bar
+    assert eng.pos is not None
+    eng.step(m(D2, 600, fill * 0.995), True)
+    tr = eng.trades[-1]
+    assert tr.exit_reason == "end_of_data" and tr.swing and tr.legs[-1].raw == pytest.approx(fill * 0.995)
+
+
+def test_real_supertrend_flip_increments_cycle_and_switches():
+    eng = ready_engine()
+    p = _long_at_100(eng)
+    p.swing = True
+    eng.cycle_entries = 2
+    st = eng.st
+    st.dir, st.upper, st.lower = 1, 110.0, 100.0
+    st.atr.value, st.atr.prev_close, st.prev_close = 1.0, 101.0, 101.0
+    eng.atr14.value, eng.atr14.prev_close = 1.0, 101.0
+    cyc = eng.cycle
+    eng._on_30m(Bucket(D1, 1, 101, 101, 95, 95, 629))
+    assert eng.cycle == cyc + 1 and eng.cycle_entries == 0 and eng.pending_entry[:2] == (-1, "switch")
+    eng.step(m(D1, 630, 95.0), False)
+    assert eng.pos.trade.side == -1 and eng.pos.trade.cycle == cyc + 1 and eng.cycle_entries == 1
+    assert eng.pos.trade.signal_minute == 629
+
+
+def test_switch_at_next_day_open_dropped_by_opening_rule():
+    eng = ready_engine()
+    p = _long_at_100(eng)
+    p.swing = True
+    eng.pending_exit, eng.pending_entry = "st_flip", (-1, "switch", 959)
+    eng.step(m(D2, 570, 99.0), False)
+    assert eng.trades[-1].exit_reason == "st_flip" and eng.pos is None and eng.counts["opening_5min"] == 1

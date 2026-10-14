@@ -134,15 +134,18 @@ class Engine:
         self.vol_ok = atr is not None and atr / b.c >= VOL_MIN
         if d is None:
             return
-        if self.st_dir is not None and d != self.st_dir:
+        flipped = self.st_dir is not None and d != self.st_dir
+        if flipped:
             self.cycle += 1
             self.cycle_entries = 0
         self.st_dir = d
         p = self.pos
+        # spec §5.2 (J, review): a gear-2 position exits whenever a completed 30m bar's direction is against it; the
+        # reverse (switch) entry is made only on the bar where the direction actually flipped
         if p is not None and p.swing and d == -p.trade.side and self.pending_exit is None:
             self.pending_exit = "st_flip"
-            if self.vol_ok:
-                self.pending_entry = (d, "switch")
+            if self.vol_ok and flipped:
+                self.pending_entry = (d, "switch", b.last_minute)
 
     def _on_short(self, b: Bucket) -> None:
         e9, e21 = self.ema9.update(b.c), self.ema21.update(b.c)
@@ -174,7 +177,7 @@ class Engine:
             if _utc(now) - _utc(self.last_exit_at) < COOLDOWN or cross is None or _utc(cross) <= _utc(self.last_exit_at):
                 self.counts["cooldown"] = self.counts.get("cooldown", 0) + 1
                 return
-        self.pending_entry = (d, "normal")
+        self.pending_entry = (d, "normal", b.last_minute)
 
     # ---------------------------------------------------------------- fills
     def _exit(self, m: M1, minute: int, raw: float, reason: str, at: datetime) -> None:
@@ -191,7 +194,7 @@ class Engine:
         self.last_exit_at = at
         self.pos = None
 
-    def _enter(self, m: M1, side: int, kind: str) -> None:
+    def _enter(self, m: M1, side: int, kind: str, signal_minute: int | None = None) -> None:
         if m.day < SCORED_START:
             return
         if m.minute < NO_ENTRY_BEFORE:
@@ -201,7 +204,8 @@ class Engine:
             self.counts["last_bar"] = self.counts.get("last_bar", 0) + 1
             return
         if self.cycle_entries >= MAX_ENTRIES_PER_CYCLE:
-            self.counts["cycle_cap"] = self.counts.get("cycle_cap", 0) + 1
+            key = "switch_cycle_cap" if kind == "switch" else "cycle_cap_at_fill"
+            self.counts[key] = self.counts.get(key, 0) + 1
             return
         raw = m.o
         fill = raw + side * SLIPPAGE
@@ -209,7 +213,8 @@ class Engine:
         if shares < MIN_SHARES:
             return
         hs = self.cfg.hard_stop
-        tr = V3Trade(m.day, SYMBOL, side, m.minute - 1, m.minute, raw, fill, shares, fill * (1 - side * hs), fill * hs,
+        sig = m.minute - 1 if signal_minute is None else signal_minute
+        tr = V3Trade(m.day, SYMBOL, side, sig, m.minute, raw, fill, shares, fill * (1 - side * hs), fill * hs,
                      0.0, kind=kind, cycle=self.cycle)
         self.pos = _Pos(tr, m.at())
         self.cycle_entries += 1
@@ -234,10 +239,14 @@ class Engine:
                 self._exit(m, m.minute, m.o, self.pending_exit, m.at())
             self.pending_exit = None
         if self.pending_entry is not None:
-            side, kind = self.pending_entry
+            side, kind, sig = self.pending_entry
             self.pending_entry = None
-            if self.pos is None:
-                self._enter(m, side, kind)
+            # spec §5.1 (J, review): a normal entry queued before a late-completed 30m bar is dropped if that bar
+            # turned the direction against it or failed the volatility filter
+            if kind == "normal" and (side != self.st_dir or not self.vol_ok):
+                self.counts["stale_signal"] = self.counts.get("stale_signal", 0) + 1
+            elif self.pos is None:
+                self._enter(m, side, kind, sig)
         # (3) intrabar
         p = self.pos
         if p is not None:
@@ -278,7 +287,7 @@ class Engine:
         mtm, ref = self.equity, self.ref_equity
         if p is not None:
             tr = p.trade
-            mtm += tr.side * (m.c - tr.entry_fill) * tr.shares
+            mtm += tr.side * (m.c - tr.entry_fill) * tr.shares - COMMISSION * tr.shares  # entry commission paid
             ref += tr.side * (m.c - tr.entry_raw) * tr.shares - REF_COST_RATE * tr.shares * tr.entry_raw
         self.day_end[m.day] = (mtm, ref, self._entries_today.get(m.day, 0), p is not None)
 
