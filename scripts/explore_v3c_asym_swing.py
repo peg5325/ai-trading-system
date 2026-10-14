@@ -35,7 +35,7 @@ STATUS = "exploratory, post-hoc (third pass on the same window), outside the Cha
 EXIT_REASONS = ("hard_stop", "ema_cross", "lock_1", "lock_2", "lock_3", "st_flip", "eod_bull_short", "gap_eod_bull_short",
                 "end_of_data")
 STAGES = ("gear1", "gear2_stage1", "gear2_stage2", "gear2_stage3")
-SKIP_KEYS = ("chase", "no_rebound_confirm", "regime_short_block", "cycle_cap")
+SKIP_KEYS = ("chase", "no_rebound_confirm", "regime_short_block", "cycle_cap", "cooldown", "stale_regime")
 
 
 def git(*args: str) -> str | None:

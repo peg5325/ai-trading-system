@@ -26,7 +26,7 @@ from src.explore_v3_asym_swing.indicators import (
 )
 
 PCTS = (25, 50, 60, 75, 90)
-STRICT_SHORT_VOL = 0.0042
+STRICT_SHORT_VOL = next(c.short_vol_min for c in CONFIGS_C if c.short_regime == "bear_only_vol")
 
 
 def series(stream) -> dict[str, list]:
@@ -35,15 +35,18 @@ def series(stream) -> dict[str, list]:
     a30, a15 = Aggregator(30), Aggregator(15)
     atr, e200 = WilderATR(VOL_ATR), EMA(REGIME_EMA)
     e9, e21 = EMA(9), EMA(21)
-    out: dict[str, list] = {"vol": [], "bear": [], "dist": [], "reb_long": [], "reb_short": []}
+    out: dict[str, list] = {"vol": [], "bear": [], "bear_vol": [], "dist": [], "reb_long": [], "reb_short": []}
     st = {"prev": None, "sign": None}
 
     def on30(b):
         v = atr.update(b.h, b.l, b.c)
         e = e200.update(b.c)
-        if v is not None and e is not None and b.day >= SCORED_START:
-            out["vol"].append(v / b.c)
+        if v is None or b.day < SCORED_START:
+            return
+        out["vol"].append(v / b.c)
+        if e is not None:
             out["bear"].append(b.c < e)
+            out["bear_vol"].append(b.c < e and v / b.c >= STRICT_SHORT_VOL)
 
     def on15(b):
         prev, st["prev"] = st["prev"], b
@@ -102,9 +105,8 @@ def main(argv=None) -> int:
         vp = sum(v >= c.vol_min for v in vols) / len(vols)
         dp = sum(x <= c.max_ema_dist for x in dists) / len(dists)
         print(f"| {c.name} | {c.vol_min * 100:.2f}% | {vp * 100:.1f}% | {c.max_ema_dist * 100:.2f}% | {dp * 100:.1f}% |")
-    bear_vol = [b and v >= STRICT_SHORT_VOL for b, v in zip(s["bear"], vols)]
     print(f"\n- 30m bars in the bear regime (close < EMA{REGIME_EMA}): {_share(s['bear']) * 100:.1f}%")
-    print(f"- bear regime and ATR14/close >= {STRICT_SHORT_VOL * 100:.2f}%: {_share(bear_vol) * 100:.1f}%")
+    print(f"- bear regime and ATR14/close >= {STRICT_SHORT_VOL * 100:.2f}%: {_share(s['bear_vol']) * 100:.1f}%")
     print(f"- 15m bars meeting the long rebound confirmation: {_share(s['reb_long']) * 100:.1f}%")
     print(f"- 15m bars meeting the short rebound confirmation: {_share(s['reb_short']) * 100:.1f}%")
     return 0

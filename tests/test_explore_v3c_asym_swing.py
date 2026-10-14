@@ -134,7 +134,7 @@ def test_pending_short_dropped_when_regime_turns_at_fill():
     eng.pending_entry = (-1, "normal", 599)
     eng.bear = False
     eng.step(m(D1, 600, 100.0), False)
-    assert eng.pos is None and eng.counts["stale_signal"] == 1
+    assert eng.pos is None and eng.counts["stale_regime"] == 1
 
 
 def test_tactical_bull_short_closes_at_day_end_below_stage3():
@@ -168,6 +168,60 @@ def test_tactical_bull_short_missing_last_bar_exits_next_open():
     assert (tr.exit_reason, tr.exit_day, tr.legs[-1].raw) == ("gap_eod_bull_short", D2, 100.5)
 
 
+def _stale_30m_setup(eng, close):
+    """A 30m bucket (09:30-09:59) whose last minute is missing; EMA200 ready at 100.0."""
+    eng.ema200.value = 100.0
+    eng.atr14.value, eng.atr14.prev_close = 0.5, 100.0
+    eng.st.dir, eng.st.upper, eng.st.lower = -1, 200.0, 10.0
+    eng.st.atr.value, eng.st.atr.prev_close, eng.st.prev_close = 0.5, 100.0, 100.0
+    eng.agg30.cur = Bucket(D1, 0, 100.0, 100.0, close, close, 598)
+    eng.aggs.cur = None
+
+
+def test_stale_30m_bucket_turns_regime_at_fill_and_drops_short():
+    eng = eng_ready(-1, -1, bear=True)
+    _stale_30m_setup(eng, 100.5)  # close above EMA200 -> bull when it completes at the next bar
+    eng.pending_entry = (-1, "normal", 598)
+    eng.step(m(D1, 600, 100.5), False)
+    assert not eng.bear and eng.pos is None and eng.counts["stale_regime"] == 1
+
+
+def test_stale_30m_bucket_tags_tactical_short_at_fill():
+    eng = eng_ready(-1, -1, cfg=TAC, bear=True)
+    _stale_30m_setup(eng, 100.5)
+    eng.pending_entry = (-1, "normal", 598)
+    eng.step(m(D1, 600, 100.5), False)
+    assert eng.pos is not None and eng.pos.bull_short
+
+
+def test_stage3_bull_short_missing_last_bar_holds():
+    eng = eng_ready(-1, -1, cfg=TAC, bear=False)
+    p = enter(eng, -1)
+    p.stage, p.swing = 3, True
+    eng.step(m(D1, 950, 98.0), False)  # 15:59 bar missing
+    eng.step(m(D2, 570, 98.0), False)
+    assert eng.pos is p
+
+
+def test_zero_sign_bar_keeps_previous_sign_for_fresh_cross():
+    eng = eng_ready()
+    eng.sign = -1
+    eng.ema9.value = eng.ema21.value = 100.0  # this bar leaves EMA9 == EMA21 -> sign 0, previous sign kept
+    eng._on_short(bucket15(1, 100.0, 100.0))
+    assert eng.sign == -1 and 1 not in eng.last_cross
+    eng.ema9.value, eng.ema21.value = 99.99, 100.0
+    eng.prev15 = Bucket(D1, 1, 100.0, 101.0, 99.8, 100.0, 599)  # breakout impossible
+    eng._on_short(bucket15(2, 100.0, 100.3))  # EMA9 > EMA21 now: a fresh cross from -1
+    assert eng.sign == 1 and eng.pending_entry[:2] == (1, "normal")
+
+
+def test_prev15_carries_across_days():
+    eng = eng_ready()
+    eng.prev15 = Bucket(D1, 25, 100.0, 100.2, 99.8, 100.0, 959)  # previous day's last 15m bar
+    eng._on_short(bucket15(0, 100.0, 100.3, day=D2))
+    assert eng.pending_entry[:2] == (1, "normal") and eng.prev15.day == D2
+
+
 # ---------------------------------------------------------------- three-stage latch (spec §4.3)
 @pytest.mark.parametrize("close_mult, stage", [(1.0046, 1), (1.0076, 2), (1.0126, 3), (1.0124, 2)])
 def test_stage_promotion_and_jump(close_mult, stage):
@@ -194,24 +248,21 @@ def test_stage_floors_long_and_short(stage, lock, reason):
         assert tr.legs[-1].raw == pytest.approx(level) and tr.legs[-1].fill == pytest.approx(level - side * 0.02)
 
 
-def test_stage1_ignores_cross_stage0_does_not():
+@pytest.mark.parametrize("stage, expected", [(0, "ema_cross"), (1, None), (2, None), (3, None)])
+def test_reverse_cross_exits_only_stage0(stage, expected):
     eng = eng_ready()
     p = enter(eng, 1)
+    p.stage, p.swing = stage, stage >= 1
     eng.ema9.value, eng.ema21.value = 99.6, 100.0
     eng._on_short(bucket15(2, 100.0, 99.9))
-    assert eng.pending_exit == "ema_cross"
-    eng = eng_ready()
-    p = enter(eng, 1)
-    p.stage, p.swing = 3, True
-    eng.ema9.value, eng.ema21.value = 99.6, 100.0
-    eng._on_short(bucket15(2, 100.0, 99.9))
-    assert eng.pending_exit is None
+    assert eng.pending_exit == expected
 
 
-def test_stage3_st_flip_exit():
+@pytest.mark.parametrize("stage", [1, 2, 3])
+def test_st_flip_exit_stages_1_to_3(stage):
     eng = eng_ready()
     p = enter(eng, 1)
-    p.stage, p.swing = 3, True
+    p.stage, p.swing = stage, True
     st = eng.st
     st.dir, st.upper, st.lower = 1, 110.0, 100.0
     st.atr.value, st.atr.prev_close, st.prev_close = 1.0, 101.0, 101.0
@@ -248,13 +299,13 @@ def test_cli_writes_all_files_once(tmp_path):
     md = cli.run_all(db, out, start=d1, end=d1 + timedelta(days=2))
     names = {p.name for p in out.iterdir()}
     assert "EXPLORE_V3C_ASYM_SWING.json" in names and len(names) == 4
-    assert "Exit reasons" in md and "no_rebound_confirm" in md and "gear2_stage3" in md
+    assert "Exit reasons" in md and "no_rebound_confirm" in md and "gear2_stage3" in md and "stale_regime" in md
     doc = json.loads((out / "EXPLORE_V3C_ASYM_SWING.json").read_text())
     assert set(doc["configs"]) == {c.name for c in CONFIGS_C}
     one = json.loads((out / "EXPLORE_V3C_ASYM_SWING_V3C_TACTICAL_SHORT.json").read_text())
     assert set(one["stages"]) == {"gear1", "gear2_stage1", "gear2_stage2", "gear2_stage3"}
     assert {"eod_bull_short", "lock_3"} <= set(one["exits"]) and set(one["signal_skips"]) == {
-        "chase", "no_rebound_confirm", "regime_short_block", "cycle_cap"}
+        "chase", "no_rebound_confirm", "regime_short_block", "cycle_cap", "cooldown", "stale_regime"}
     with pytest.raises(SystemExit):
         cli.run_all(db, out, start=d1, end=d1 + timedelta(days=2))
 

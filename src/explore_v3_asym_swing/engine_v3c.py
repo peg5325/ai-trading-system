@@ -65,7 +65,8 @@ class EngineC(EngineB):
     pos_cls = _PosC
 
     def __init__(self, cfg: ConfigC, start_equity: float = 2000.0) -> None:
-        assert cfg.short_regime in SHORT_REGIMES, cfg.short_regime
+        if cfg.short_regime not in SHORT_REGIMES:
+            raise ValueError(f"unknown short_regime {cfg.short_regime!r}")
         super().__init__(cfg, start_equity)
         self.ema200 = EMA(REGIME_EMA)
         self.bear = False  # last completed 30m close < EMA200 (close == EMA200 or not ready counts as bull, spec §4.2)
@@ -162,8 +163,10 @@ class EngineC(EngineB):
         if self.pending_entry is not None:
             side, kind, sig = self.pending_entry
             self.pending_entry = None
-            if kind == "normal" and (side != self.st_dir or not self.vol_ok or (side < 0 and not self._short_ok())):
+            if kind == "normal" and (side != self.st_dir or not self.vol_ok):
                 self._bump("stale_signal")
+            elif kind == "normal" and side < 0 and not self._short_ok():
+                self._bump("stale_regime")  # spec §4.2: dropped like stale_signal, counted separately
             elif self.pos is None:
                 self._enter(m, side, kind, sig)
         # (3) intrabar: stage floor / hard stop, then close-based MFE and stage promotion
