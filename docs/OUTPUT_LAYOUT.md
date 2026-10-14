@@ -53,6 +53,16 @@ _2026-10-14 도입. 이 문서는 git에 올라가지 않는 산출물(`reports/
 `analysis/screener_ranking_h4.py`는 H4 사전등록 v1.4의 확정 실행본이라 고치지 않는다. 다시 실행하면
 예전처럼 `reports/h4_screener_ranking.json`에 쓴다. 정리 대상이면 같은 이동 스크립트로 다시 옮긴다.
 
+`src/entry_study_v1/cli.py`, `src/reversal_study_v1/cli.py`도 고치지 않는다. 두 파일은 OOS 잠금 해제 때
+리뷰받은 구현 commit과 바이트가 같아야 하는 구현 고정 대상이다. 기본 출력은 예전처럼
+`reports/entry_study_v1/`, `reports/reversal_study_v1/`이고, 이동 스크립트가 다시 `reports/research/`로 옮긴다.
+
+사전등록 문서의 경로 문구도 그대로다. 예: `PREREG_DAILY_SAMEDAY_SCREEN_V1.md`·`..._HOLDOUT_ADDENDUM.md`의
+`reports/daily_screen_v1/main/...`은 지금 `reports/research/daily_screen_v1/main/...`에 있고,
+`PREREG_PREMARKET_FREEZE_LONG_PAPER_V1.json`의 `reports/premarket-daily-brief.<YYYYMMDD>.freeze.json`은
+지금 `reports/premarket/days/<YYYYMMDD>/` 아래에 있다. 그 문서의 명령을 그대로 붙여 넣으면 파일이 없다고
+거부하므로(안전한 실패), 경로만 새 구조로 바꿔 실행한다.
+
 ## 옮기는 방법 (원래 체크아웃, 한 번만)
 
 `scripts/migrate_output_layout.py`가 옮긴다. 분류 규칙은 `src/output_layout.py`의 `classify`를 쓴다.
@@ -60,15 +70,24 @@ _2026-10-14 도입. 이 문서는 git에 올라가지 않는 산출물(`reports/
 건드리지 않는다. `.DS_Store`는 건너뛴다. 분류되지 않는 항목은 그 자리에 두고 목록으로 보여 준다.
 옮길 자리에 이미 파일이 있으면 아무것도 옮기지 않고 멈춘다. 같은 디스크 안에서 `os.rename`으로 옮긴다.
 
-1. 이 변경을 main에 병합한다.
-2. 원래 체크아웃(launchd가 도는 곳)을 병합된 main으로 fast-forward 한다.
-3. 미리 보기: `.venv/bin/python scripts/migrate_output_layout.py --root <체크아웃>`
-   옮길 목록, 목적지별 개수, 분류되지 않은 항목이 나온다. 아무것도 바뀌지 않는다.
-4. launchd 작업이 돌지 않는 시간에 실제로 옮긴다:
-   `.venv/bin/python scripts/migrate_output_layout.py --root <체크아웃> --apply`
-   옮긴 항목은 `reports/MOVES.json` 끝에 붙는다. 다시 실행하면 옮길 것이 0개여야 한다.
-5. launchd 정의를 다시 설치한다(로그 폴더가 `reports/premarket/launchd/`로 바뀌었다):
-   `.venv/bin/python scripts/install_premarket_launchd.py --install`
-6. 확인: `.venv/bin/python scripts/install_premarket_launchd.py --status`
+launchd는 원래 체크아웃의 코드를 실행한다. fast-forward 하는 순간 새 코드가 살아나므로, 새 코드가 옛 구조에서
+한 번이라도 돌면 안 된다. 예를 들어 post-close가 옛 자리의 FREEZE brief를 못 찾으면 `MISSING_FREEZE_BRIEF`
+INCOMPLETE 영수증을 영구히 남긴다. 그래서 2~6을 한 번에, 작업을 모두 내린 상태에서 한다.
 
-4와 5 사이에는 launchd 작업이 돌지 않아야 한다. 옛 plist는 옮겨진 `reports/premarket-launchd/`에 로그를 쓰려고 한다.
+**시간대(KST)**: 14:30~21:40 또는 07:45~10:30. 그 밖에는 하지 않는다. `daytrade-shadow-21`(21:50)은 미국 장 마감
+(05:00~06:00)까지 살아 있고, history-collect(10:40·13:40)는 최대 2시간 걸린다.
+
+1. 이 변경을 main에 병합한다.
+2. 돌고 있는 작업이 없는지 확인한다. 아무것도 나오지 않아야 한다:
+   `pgrep -fl 'run_daytrade_shadow|run_premarket_pipeline|run_freeze_paper_session|run_history_collection|run_daytrade_paper'`
+   그다음 작업 18개를 모두 내린다:
+   `for p in ~/Library/LaunchAgents/com.peg5325.ai-trading.premarket.*.plist; do launchctl bootout gui/$(id -u) "$p"; done`
+3. 원래 체크아웃을 병합된 main으로 fast-forward 하고 전체 시험을 돌린다.
+4. 미리 보기: `.venv/bin/python scripts/migrate_output_layout.py --root <체크아웃>`
+   옮길 목록, 목적지별 개수, 분류되지 않은 항목이 나온다. 아무것도 바뀌지 않는다.
+5. 실제로 옮긴다: `.venv/bin/python scripts/migrate_output_layout.py --root <체크아웃> --apply`
+   옮긴 항목은 `reports/MOVES.json` 끝에 붙는다. 다시 실행하면 옮길 것이 0개여야 한다.
+6. launchd 정의를 다시 설치하고 확인한다(로그 폴더가 `reports/premarket/launchd/`로 바뀌었다):
+   `.venv/bin/python scripts/install_premarket_launchd.py --install` → `--status`
+7. `reports/MOVES.json` 사본을 `docs/OUTPUT_LAYOUT_MOVES_2026-10-14.json`으로 커밋한다. `reports/`는 이 기기에만
+   있으므로, 예전 경로 대응표가 기기와 함께 사라지지 않게 하려는 것이다. 경로만 담고 비밀정보는 없다.

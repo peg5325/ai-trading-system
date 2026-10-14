@@ -116,6 +116,7 @@ def test_existing_destination_folder_is_merged_and_ledger_appended(old_layout):
     ledger = json.loads((old_layout / "reports" / "MOVES.json").read_text())
     assert ledger[:len(first)] == first and len(ledger) == len(first) + 1
     assert (old_layout / "reports/premarket/logs/20261014.primary/provider.log").is_file()
+    assert not (old_layout / "reports" / "premarket-operation-logs").exists()   # .DS_Store alone does not keep it
     assert M.build_plan(old_layout).moves == []
 
 

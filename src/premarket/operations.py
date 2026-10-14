@@ -23,7 +23,11 @@ from typing import Any
 
 from src.history.exchange_calendar import is_trading_day
 from src.models import ET
-from src.output_layout import premarket_day_dir, premarket_ledgers_dir, premarket_logs_dir
+from src.output_layout import (
+    premarket_day_dir,
+    premarket_ledgers_dir,
+    premarket_logs_dir,
+)
 from src.premarket.report import json_bytes, write_immutable
 from src.premarket.schedule import build_premarket_schedule, iso_z
 

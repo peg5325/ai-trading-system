@@ -118,7 +118,9 @@ def apply_plan(root: Path, plan: Plan, now: datetime | None = None) -> list[dict
             _append_ledger(root, prior, done)
     for folder in sorted(plan.merged_dirs, key=lambda p: len(p.parts), reverse=True):
         try:
-            folder.rmdir()   # only when empty; a leftover .DS_Store keeps it
+            if [p.name for p in folder.iterdir()] == [".DS_Store"]:
+                (folder / ".DS_Store").unlink()   # Finder metadata alone must not keep an old-name folder
+            folder.rmdir()   # only when empty
         except OSError:
             pass
     return done

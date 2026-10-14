@@ -15,11 +15,10 @@ from src.entry_study_v1.cli import (
     write_json_once,
 )
 from src.entry_study_v1.config import EVENTS_HISTORY, ROOT, sha256_file
-from src.output_layout import research_dir
 from src.reversal_study_v1 import config as RC
 from src.reversal_study_v1.pipeline import check_rebuilt_mask, verified_dev_data
 
-OUT_DIR = research_dir(ROOT, "reversal_study_v1")
+OUT_DIR = ROOT / "reports" / "reversal_study_v1"
 
 __all__ = ["OUT_DIR", "add_fixed_args", "prepare_dev", "reproduction_record", "require_inputs", "write_json_once"]
 
