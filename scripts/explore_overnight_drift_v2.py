@@ -53,14 +53,19 @@ def hold_stats(holds) -> dict:
             "max_hours": max(h) if h else None}
 
 
+def _rt(x):
+    """JSON round trip, so both sides of a comparison have the stored JSON's types."""
+    return json.loads(json.dumps(x))
+
+
 def reproduction(results: dict, v1: dict) -> list[str]:
     """Spec V2 §4: V1_BASE days / trades / metrics and NO_FILTER_BENCH metrics equal the stored V1 result."""
     bad = []
     res, holds = results["V1_BASE"]
     m = {**BacktestReporter(res).metrics(), "holding": hold_stats(holds)}
-    if [asdict(d) for d in res.days] != v1["days"]:
+    if _rt([asdict(d) for d in res.days]) != v1["days"]:
         bad.append("V1_BASE days")
-    if [asdict(t) for t in res.trades] != v1["trades"]:
+    if _rt([asdict(t) for t in res.trades]) != v1["trades"]:
         bad.append("V1_BASE trades")
     if json.loads(json.dumps(m)) != v1["metrics"]:
         bad.append("V1_BASE metrics")
@@ -129,13 +134,17 @@ def markdown(sums: dict, q1: dict, q2: dict, ema50_not_ready: int) -> str:
         a, b = q1["V1_BASE"][k], q1["V2A_EMA20_ONLY"][k]
         fmt = str if k == "trades" else (_p4 if k == "gross" else _p)
         out.append(f"| {lab} | {fmt(a)} | {fmt(b)} | {fmt(_diff(a, b))} |")
-    share = q2["b_better_share"]
-    out += ["", "## Q2 (same entries: V2B 09:31 exit vs V2A 09:35 exit / disaster stop)", "",
-            (f"pairs {q2['pairs']} (unpaired V2A {q2['unpaired_a']}, V2B {q2['unpaired_b']}); "
-             f"mean (09:31 exit - V2A exit) / entry = {_p4(q2['mean_pct'])}, sd {_p4(q2['sd_pct'])}, "
-             f"t {_n(q2['t'])}, 09:31 better in {_p(share)} of pairs. "
-             "Costs are identical for both exits, so the after-cost difference is the same."),
-            "", f"V2C EMA50 not-ready scored days (no entry): {ema50_not_ready}"]
+    out += ["", "## Q2 (same entries: V2B always 09:31 vs V2A 09:35 / 09:31 on a disaster stop)", "",
+            (f"pairs {q2['pairs']} (unpaired V2A {q2['unpaired_a']}, V2B {q2['unpaired_b']}), of which "
+             f"{q2['a_disaster_stop_pairs']} are V2A disaster stops (same 09:31 bar, difference 0). "
+             "Costs are identical for both exits, so the after-cost difference is the same."), "",
+            "| pairs used | n | mean (09:31 - V2A exit) / entry | sd | t | ties | 09:31 better (non-ties) |",
+            "|---|---|---|---|---|---|---|"]
+    for key, lab in (("a_normal_exit", "V2A normal 09:35 exits (09:35 vs 09:31 proper)"), ("all", "all pairs")):
+        s = q2[key]
+        out.append(f"| {lab} | {s['n']} | {_p4(s['mean_pct'])} | {_p4(s['sd_pct'])} | {_n(s['t'])} | {s['ties']} | "
+                   f"{_p(s['b_better_share_of_non_ties'])} |")
+    out += ["", f"V2C EMA50 not-ready scored days (no entry): {ema50_not_ready}"]
     return "\n".join(out) + "\n"
 
 
@@ -170,7 +179,7 @@ def run(db: str, out_dir: Path, v1_json: Path, start: Date = LOAD_START, end: Da
         "v1_json": str(v1_json), "v1_json_sha256": hashlib.sha256(v1_json.read_bytes()).hexdigest(),
         "reproduction": "V1_BASE days/trades/metrics and NO_FILTER_BENCH metrics equal the stored V1 result",
     }
-    out_dir.mkdir(parents=True, exist_ok=True)
+    texts: dict[Path, str] = {}  # build everything first, then write (no partial output set on an error)
     for c in CONFIGS:
         res, holds = results[c.name]
         doc = {"status": "exploratory, post-hoc, not a decision basis (spec V2 §0)",
@@ -178,8 +187,7 @@ def run(db: str, out_dir: Path, v1_json: Path, start: Date = LOAD_START, end: Da
                "metrics": {**sums[c.name]["metrics"], "holding": sums[c.name]["holding"]},
                "days": [asdict(d) for d in res.days], "trades": [asdict(t) for t in res.trades],
                "holds": [asdict(h) for h in holds]}
-        (out_dir / f"{PREFIX}_{c.name}.json").write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n",
-                                                          encoding="utf-8")
+        texts[out_dir / f"{PREFIX}_{c.name}.json"] = json.dumps(doc, indent=1, ensure_ascii=False) + "\n"
     doc = {"status": "exploratory, post-hoc, not a decision basis (spec V2 §0)", "provenance": provenance,
            "configs": {n: {k: v for k, v in s.items() if k != "metrics"} | {
                "metrics": {k: s["metrics"].get(k) for k in (
@@ -188,8 +196,12 @@ def run(db: str, out_dir: Path, v1_json: Path, start: Date = LOAD_START, end: Da
                    "longest_drawdown_trading_days", "trade_avg_win", "trade_avg_loss", "exit_reasons",
                    "day_status", "per_year", "reference_cost", "qqq_buy_hold")}} for n, s in sums.items()},
            "q1": q1, "q2": q2, "ema50_not_ready_days": ema50_not_ready}
-    combined.write_text(json.dumps(doc, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
-    return markdown(sums, q1, q2, ema50_not_ready)
+    texts[combined] = json.dumps(doc, indent=1, ensure_ascii=False) + "\n"
+    md = markdown(sums, q1, q2, ema50_not_ready)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for p, text in texts.items():
+        p.write_text(text, encoding="utf-8")
+    return md
 
 
 def main(argv=None) -> int:

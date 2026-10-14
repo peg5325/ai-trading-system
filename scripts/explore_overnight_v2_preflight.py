@@ -23,6 +23,7 @@ def preflight(qqq: dict, days: list[str]) -> dict:
     ema20 = daily_ema_series(qqq, days, 20)
     ema50 = daily_ema_series(qqq, days, 50)
     k0 = first_scored_day(qqq, days)
+    k0 = len(days) if k0 is None else k0
     out = {}
     for cfg in CONFIGS:
         entry = entry_for(cfg, ema20, ema50)
@@ -32,7 +33,7 @@ def preflight(qqq: dict, days: list[str]) -> dict:
             s = entry(qqq[days[k]], nxt)
             counts[s] = counts.get(s, 0) + 1
         out[cfg.name] = dict(sorted(counts.items()))
-    return {"scored_days": len(days) - k0, "first": days[k0], "counts": out}
+    return {"scored_days": len(days) - k0, "first": days[k0] if k0 < len(days) else None, "counts": out}
 
 
 def main(argv=None) -> int:

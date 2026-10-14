@@ -53,6 +53,8 @@ _작성 2026-10-14. 사용자 지시서(2026-10-14) `EXPLORE_OVERNIGHT_DRIFT_200
 - **Q1:** V1_BASE 대 V2A 차이(거래 수, 수익, MDD, 비용 전 거래당).
 - **Q2:** V2A 대 V2B는 진입이 같은 거래다. 같은 거래의 09:35 청산과 09:31 청산 가격 차이(비용 전, 대금 대비)를 거래별로 짝지어 평균·t를 계산한다
   (슬리피지·수수료는 두 청산에 같으므로 비용 후 차이도 같다).
+  **보완(2026-10-14, 코드 리뷰 지적, 손익 실행 전):** V2A가 비상 손절로 09:31에 판 거래는 두 청산이 같은 봉이라 차이가 0이다. 그 짝을 뺀 계산(09:35 대 09:31 본래 비교)을
+  주 결과로, 전체 짝 계산을 함께 적는다. 동률 수와 동률을 뺀 "09:31이 나은 비율"도 적는다.
 - 설정마다 `scripts/pullback_vwap_trade_stats.py` 거래 통계(seed 20261013).
 - 산출물(로컬, gitignore) `reports/explore_overnight_drift_v2/`: 설정별 `EXPLORE_OVERNIGHT_DRIFT_2000USD_V2_<설정>.json`, 종합
   `EXPLORE_OVERNIGHT_DRIFT_2000USD_V2.json`(설정별 지표·연도별·Q1·Q2), 비교 `EXPLORE_OVERNIGHT_DRIFT_2000USD_V2_COMPARE.json`.

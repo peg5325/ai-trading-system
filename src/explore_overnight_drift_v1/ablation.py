@@ -133,19 +133,33 @@ def gross_pct(t) -> float:
     return sum((leg.raw - t.entry_raw) * leg.shares for leg in t.legs) / (t.shares * t.entry_raw)
 
 
+def _diff_stats(diffs: list[float]) -> dict:
+    n = len(diffs)
+    mean = statistics.mean(diffs) if diffs else None
+    sd = statistics.stdev(diffs) if n > 1 else None
+    ties = sum(x == 0 for x in diffs)
+    return {"n": n, "mean_pct": mean, "sd_pct": sd, "t": mean / (sd / math.sqrt(n)) if sd else None,
+            "ties": ties, "b_better_share_of_non_ties": (sum(x > 0 for x in diffs) / (n - ties)) if n > ties else None}
+
+
 def paired_exit_diff(a_trades, b_trades) -> dict:
     """Spec V2 §5 Q2: trades with the same entry day in both lists; per trade (b exit raw - a exit raw) / entry raw.
-    Positive means b's exit was higher (better for a long)."""
+    Positive means b's exit was higher (better for a long). `all` covers every pair; `a_normal_exit` excludes pairs
+    where a left on its disaster stop (same 09:31 bar as b, so the difference is exactly 0): that block is the
+    09:35-vs-09:31 comparison proper."""
     a = {t.day: t for t in a_trades}
-    diffs = []
+    every, normal = [], []
+    disaster = 0
     for t in b_trades:
         s = a.get(t.day)
         if s is None:
             continue
-        diffs.append((t.legs[-1].raw - s.legs[-1].raw) / s.entry_raw)
-    n = len(diffs)
-    mean = statistics.mean(diffs) if diffs else None
-    sd = statistics.stdev(diffs) if n > 1 else None
+        x = (t.legs[-1].raw - s.legs[-1].raw) / s.entry_raw
+        every.append(x)
+        if s.exit_reason == "disaster_stop":
+            disaster += 1
+        else:
+            normal.append(x)
+    n = len(every)
     return {"pairs": n, "unpaired_a": len(a_trades) - n, "unpaired_b": len(b_trades) - n,
-            "mean_pct": mean, "sd_pct": sd, "t": mean / (sd / math.sqrt(n)) if sd else None,
-            "b_better_share": sum(x > 0 for x in diffs) / n if n else None}
+            "a_disaster_stop_pairs": disaster, "all": _diff_stats(every), "a_normal_exit": _diff_stats(normal)}
