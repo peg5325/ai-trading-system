@@ -6,6 +6,7 @@ existing compare / trade-stats scripts read it. A trade belongs to its entry day
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date as Date
 from datetime import datetime, timezone
@@ -78,7 +79,10 @@ class Hold:
     hours: float
 
 
-def overnight_trade(sd: SymbolDay, nxt: SymbolDay, equity: float) -> tuple[Trade | None, Hold | None]:
+def overnight_trade(sd: SymbolDay, nxt: SymbolDay, equity: float, exit_minute: int = EXIT_MIN,
+                    gap_stop: bool = True) -> tuple[Trade | None, Hold | None]:
+    """V1 defaults: exit at the 09:35 open, or the 09:31 open on a gap of -1.5% or worse. V2 open-exit configs pass
+    exit_minute=STOP_EXIT_MIN, gap_stop=False (always the 09:31 open, reason `open_exit`)."""
     raw = bar(sd, ENTRY_MIN).open
     fill = raw + SLIPPAGE
     shares = round(equity * FRACTION / fill, SHARE_DP)
@@ -88,7 +92,10 @@ def overnight_trade(sd: SymbolDay, nxt: SymbolDay, equity: float) -> tuple[Trade
     stop_level = d_close * (1 + GAP_STOP)
     tr = Trade(sd.day, sd.symbol, SIDE, SIGNAL_MIN, ENTRY_MIN, raw, fill, shares, stop_level, fill - stop_level, 0.0)
     gap = nxt.bars[0].open / d_close - 1.0
-    minute, reason = (STOP_EXIT_MIN, "disaster_stop") if gap <= GAP_STOP else (EXIT_MIN, "overnight_exit")
+    if not gap_stop:
+        minute, reason = exit_minute, "open_exit"
+    else:
+        minute, reason = (STOP_EXIT_MIN, "disaster_stop") if gap <= GAP_STOP else (exit_minute, "overnight_exit")
     xraw = bar(nxt, minute).open
     tr.legs.append(Leg(minute, shares, xraw, xraw - SLIPPAGE, reason))
     tr.exit_reason = reason
@@ -114,9 +121,12 @@ def first_scored_day(qqq: dict[str, SymbolDay], days: list[str]) -> int | None:
 
 
 def run_backtest(qqq: dict[str, SymbolDay], trading_days: list[Date], filters: bool = True,
-                 start_equity: float = START_EQUITY) -> tuple[BacktestResult, list[Hold]]:
+                 start_equity: float = START_EQUITY,
+                 entry: Callable[[SymbolDay, SymbolDay | None], str] | None = None,
+                 exit_minute: int = EXIT_MIN, gap_stop: bool = True) -> tuple[BacktestResult, list[Hold]]:
     """Day loop over the scored days. `filters` False is the no-filter benchmark (spec §6 (2)).
-    `skips` counts the non-traded statuses."""
+    `skips` counts the non-traded statuses. V2 (spec V2 §4): `entry` replaces `entry_status` (the scored start is
+    unchanged), `exit_minute` / `gap_stop` go to `overnight_trade`."""
     days = [d.isoformat() for d in trading_days]
     k0 = first_scored_day(qqq, days)
     equity = ref_equity = start_equity
@@ -131,11 +141,11 @@ def run_backtest(qqq: dict[str, SymbolDay], trading_days: list[Date], filters: b
         d = days[k]
         sd = qqq[d]
         nxt = qqq[days[k + 1]] if k + 1 < len(days) else None
-        status = entry_status(sd, nxt, filters)
+        status = entry(sd, nxt) if entry is not None else entry_status(sd, nxt, filters)
         excluded += status == "excluded_incomplete"
         not_ready += status == "daily_not_ready"
         if status == "enter":
-            tr, hold = overnight_trade(sd, nxt, equity)
+            tr, hold = overnight_trade(sd, nxt, equity, exit_minute, gap_stop)
             if tr is not None:
                 start = equity
                 equity += tr.net_pnl
