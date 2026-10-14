@@ -6,7 +6,7 @@ Run after the US close once the session's 1m bars are in the history DB (read-on
   python scripts/run_daytrade_paper.py --date 2026-10-05 --backfill-check   # data check only, no writes
   python scripts/run_daytrade_paper.py --auto --out-root <checkout>          # launchd: catch up
 
-Writes reports/daytrade_paper/<date>.json (write-once), updates reports/daytrade_paper/ledger.json
+Writes reports/daytrade/paper/<date>.json (write-once), updates reports/daytrade/paper/ledger.json
 and writes docs/journal/<date>.md (facts; the retrospective is left for the assistant).
 No broker or order API is called. --dry-run-dir redirects every output (sanity runs only).
 --out-root moves reports/ and data/external/ (e.g. to the main checkout when run from a worktree).
@@ -53,6 +53,7 @@ from src.daytrade_paper.store import (
     load_bars,
     load_ledger,
 )
+from src.output_layout import daytrade_paper_dir, history_collection_dir
 
 EVENTS = ROOT / "config" / "daytrade_events_v1.yaml"
 PAPER_START = "2026-10-05"  # first session of rules v1.0
@@ -93,7 +94,7 @@ def pending_sessions(cal: dict, ledger: dict, latest: str, first: str = PAPER_ST
 
 def collection_complete(out_root: Path, day: str) -> bool:
     """True when the history-collect receipt for `day` exists and is COMPLETE."""
-    receipt = out_root / "reports" / "history-collection" / f"{day.replace('-', '')}.operation.json"
+    receipt = history_collection_dir(out_root) / f"{day.replace('-', '')}.operation.json"
     try:
         data = json.loads(receipt.read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -105,7 +106,7 @@ def run_auto(args, now: datetime | None = None) -> int:
     out_root = args.out_root.resolve()
     cal = load_events(args.events)
     latest = latest_closed_session(cal, now or datetime.now(timezone.utc))
-    ledger = load_ledger(out_root / "reports" / "daytrade_paper" / "ledger.json")
+    ledger = load_ledger(daytrade_paper_dir(out_root) / "ledger.json")
     todo = pending_sessions(cal, ledger, latest)
     print(json.dumps({"auto": "PENDING" if todo else "UP_TO_DATE", "latest_closed": latest, "pending": todo}))
     for day in todo:
@@ -143,7 +144,7 @@ def main(argv: list[str] | None = None, *, now: datetime | None = None) -> int:
     ap.add_argument("--dry-run-dir", type=Path, default=None,
                     help="write report, ledger, journal and external CSVs under this dir instead")
     ap.add_argument("--out-root", type=Path, default=ROOT,
-                    help="root for reports/daytrade_paper/ and data/external/daytrade_paper/ "
+                    help="root for reports/daytrade/paper/ and data/external/daytrade_paper/ "
                          "(default: this script's repo); journals still go to <script repo>/docs/journal/")
     ap.add_argument("--accept-incomplete", action="store_true",
                     help="live run only: record INCOMPLETE_DATA instead of refusing (exit 3) when data checks fail")
@@ -165,7 +166,7 @@ def run_session(day: str, args) -> int:
         if "/.claude/worktrees/" in f"{out_root}/":
             print(f"WARNING: --out-root {out_root} is inside .claude/worktrees/; outputs are lost "
                   "when the worktree is removed", file=sys.stderr)
-        report_dir = out_root / "reports" / "daytrade_paper"
+        report_dir = daytrade_paper_dir(out_root)
         journal_dir = ROOT / "docs" / "journal"
         ext_dir = out_root / "data" / "external" / "daytrade_paper"
     report_path, journal_path = report_dir / f"{day}.json", journal_dir / f"{day}.md"

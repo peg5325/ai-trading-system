@@ -11,7 +11,7 @@
 |---|---|
 | 입력 | `loop`, `config: RuntimeConfig`, (옵션) `loggers`, `metrics_store`, 주입 가능한 `monotonic`/`sleep`/`now_iso` |
 | 출력 | `run()` → 리포트 경로 `str` |
-| 부수효과 | `status*.json`(atomic write), rotating logs, `metric_cycle` 행, `reports/paper_report_YYYYMMDD.md` |
+| 부수효과 | `status*.json`(atomic write), rotating logs, `metric_cycle` 행, `<reports_dir>/paper_report_YYYYMMDD.md`(기본 `runs/paper/default/reports/`, 2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md) |
 
 ## 3. 파일별 역할
 
@@ -64,7 +64,7 @@ from src.runtime.paper_runtime import PaperRuntime
 
 cfg = load_yaml("config/runtime.yaml")
 runtime = PaperRuntime(loop, cfg, metrics_store=SqliteMetricsStore(cfg.metrics_db))
-report_path = runtime.run(install_signal_handler=True)   # -> reports/paper_report_YYYYMMDD.md
+report_path = runtime.run(install_signal_handler=True)   # -> <reports_dir>/paper_report_YYYYMMDD.md
 ```
 
 ## 7. 테스트

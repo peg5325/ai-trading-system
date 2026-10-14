@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from src.output_layout import premarket_launchd_dir
 from src.premarket.launchd import jobs, plist_payload
 
 
@@ -32,7 +33,7 @@ def _write_plist(path: Path, payload: dict) -> None:
 def install(*, project_root: Path, home: Path, python: Path, bootstrap: bool) -> list[Path]:
     destination = _agent_dir(home)
     destination.mkdir(parents=True, exist_ok=True)
-    (project_root / "reports" / "premarket-launchd").mkdir(parents=True, exist_ok=True)
+    premarket_launchd_dir(project_root).mkdir(parents=True, exist_ok=True)
     paths: list[Path] = []
     uid = str(os.getuid())
     for job in jobs(project_root, python):

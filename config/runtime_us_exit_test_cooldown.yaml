@@ -49,8 +49,8 @@ metrics:
 system_review:
   db: data/system_reviews_us_exit_test_cooldown.sqlite
 logging:
-  dir: logs_us_exit_test_cooldown
+  dir: runs/paper_2026-07/us_exit_test_cooldown/logs
   max_bytes: 1000000
   backup_count: 3
-reports_dir: reports
-status_path: status_us_exit_test_cooldown.json
+reports_dir: runs/paper_2026-07/us_exit_test_cooldown/reports
+status_path: runs/paper_2026-07/us_exit_test_cooldown/status.json

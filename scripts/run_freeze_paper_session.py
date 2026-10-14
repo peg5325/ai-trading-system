@@ -20,6 +20,7 @@ from src.freeze_paper.runner import (
     SKIPPED,
     run_paper_session,
 )
+from src.output_layout import reports_dir
 from src.premarket.operations import trading_day_from_clock
 
 OK_STATUSES = {COMPLETE_STATUS, SKIPPED, NOT_ACTIVATED, DRY_RUN}
@@ -28,7 +29,7 @@ OK_STATUSES = {COMPLETE_STATUS, SKIPPED, NOT_ACTIVATED, DRY_RUN}
 def main(argv: list[str] | None = None, *, now: datetime | None = None) -> int:
     parser = argparse.ArgumentParser(description="FREEZE Paper session runner (post-close)")
     parser.add_argument("--trading-day", help="NYSE day YYYY-MM-DD; default is current ET date")
-    parser.add_argument("--reports-root", type=Path, default=ROOT / "reports",
+    parser.add_argument("--reports-root", type=Path, default=reports_dir(ROOT),
                         help="reports directory; its parent must hold data/, docs/ and config/")
     parser.add_argument("--dry-run", action="store_true",
                         help="no backfill and no writes; print the computed result")

@@ -41,9 +41,9 @@ system_review:
   db: data/system_reviews_us.sqlite
 
 logging:
-  dir: logs_us
+  dir: runs/paper_2026-07/us/logs
   max_bytes: 1000000
   backup_count: 3
 
-reports_dir: reports
-status_path: status_us.json
+reports_dir: runs/paper_2026-07/us/reports
+status_path: runs/paper_2026-07/us/status.json

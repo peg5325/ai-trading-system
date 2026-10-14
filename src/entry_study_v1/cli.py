@@ -17,8 +17,9 @@ from src.entry_study_v1.config import (
     sha256_file,
 )
 from src.entry_study_v1.mask import canonical_bytes, write_once
+from src.output_layout import research_dir
 
-OUT_DIR = ROOT / "reports" / "entry_study_v1"
+OUT_DIR = research_dir(ROOT, "entry_study_v1")
 
 
 def git_state() -> dict:

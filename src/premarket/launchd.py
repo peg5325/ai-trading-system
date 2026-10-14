@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from src.output_layout import premarket_launchd_dir
+
 LABEL_PREFIX = "com.peg5325.ai-trading.premarket"
 
 
@@ -69,7 +71,7 @@ def jobs(project_root: Path, python: Path) -> tuple[LaunchdJob, ...]:
 
 
 def plist_payload(job: LaunchdJob, project_root: Path) -> dict[str, Any]:
-    log_dir = project_root / "reports" / "premarket-launchd"
+    log_dir = premarket_launchd_dir(project_root)
     return {
         "Label": job.label,
         "ProgramArguments": list(job.arguments),

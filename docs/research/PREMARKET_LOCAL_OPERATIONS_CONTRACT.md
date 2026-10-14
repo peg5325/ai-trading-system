@@ -50,7 +50,7 @@ macOS 로컬 시간대(KST)이며 NYSE 휴장일은 실행기가 스스로 skip�
 | freeze | 22:11, 23:11 | FREEZE stage, DST-safe pair |
 | postclose | 05:20, 06:20 | 같은 시점의 ET 날짜 FREEZE 정규장 사후평가, DST-safe pair |
 | freeze-paper | 05:35, 06:35, 07:35 | 같은 ET 날짜의 FREEZE Paper 세션. DST-safe pair + 재시도 slot(EST 17:35 ET). 기록된 세션은 이후 실행에서 no-op |
-| history-collect | 10:40, 13:40 | POST가 닫힌 마지막 NYSE 거래일의 P0-US30 30종 1분봉(PRE/REGULAR/POST)을 공식 backfill 경로로 tail-repair. 공유 market-history lock 아래 실행, 종목별 REGULAR 충족을 `reports/history-collection/YYYYMMDD.operation.json`에 기록. COMPLETE 영수증이 있으면 재시도 slot은 no-op |
+| history-collect | 10:40, 13:40 | POST가 닫힌 마지막 NYSE 거래일의 P0-US30 30종 1분봉(PRE/REGULAR/POST)을 공식 backfill 경로로 tail-repair. 공유 market-history lock 아래 실행, 종목별 REGULAR 충족을 `reports/history-collection/YYYYMMDD.operation.json`에 기록(실행 로그는 `reports/history-collection/logs/YYYYMMDD/`, 2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md). COMPLETE 영수증이 있으면 재시도 slot은 no-op |
 
 history-collect의 기본 40페이지는 약 8 달력일을 다시 읽는다. 더 긴 공백(설치 지연 등)은 그날 영수증이
 생기기 전에 `scripts/run_history_collection.py --max-pages N`으로 한 번 넓혀 실행하거나, 영수증이 이미 있으면
@@ -58,8 +58,9 @@ history-collect의 기본 40페이지는 약 8 달력일을 다시 읽는다. �
 종목별 backfill 오류가 하나라도 있으면 COMPLETE 영수증을 쓰지 않아 재시도 slot이 다시 수집한다.
 
 plist에는 credential을 넣지 않는다. Python CLI가 프로젝트 `.env`를 로드한다. stdout/stderr는
-`reports/premarket-launchd/`에 남고, 생성 산출물과 operation receipt는 `reports/` 및 `data/`
-gitignore 경로에만 보관한다.
+`reports/premarket/launchd/`에 남고, 생성 산출물과 operation receipt는 `reports/premarket/days/YYYYMMDD/`,
+장부는 `reports/premarket/ledgers/`, 단계 실행 로그는 `reports/premarket/logs/YYYYMMDD.<stage>/`, 그리고 `data/`
+gitignore 경로에만 보관한다 (2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md).
 
 설치 후에는 `scripts/install_premarket_launchd.py --status`로 plist 존재와 launchd load 상태를
 확인한다. 실제 Toss OAuth 403은 로컬 코드가 해결할 수 없는 외부 계정/IP/credential 상태이므로
@@ -68,7 +69,8 @@ gitignore 경로에만 보관한다.
 ## FREEZE Paper 세션 실행기
 
 `scripts/run_freeze_paper_session.py [--trading-day YYYY-MM-DD] [--reports-root reports] [--dry-run] [--recompute]`
-는 `src/freeze_paper/runner.py`를 호출한다. 확인 순서와 상태는 다음과 같다.
+는 `src/freeze_paper/runner.py`를 호출한다. `--reports-root`는 여전히 `reports/` 자체를 가리키고, 하위 폴더는
+`src/output_layout.py`가 정한다 (2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md). 확인 순서와 상태는 다음과 같다.
 
 | 상태 | 조건 | 기록 |
 | --- | --- | --- |
@@ -87,11 +89,11 @@ gitignore 경로에만 보관한다.
 - 거래 종목(게이트 통과 종목, 인버스 매핑 `SQQQ`·`SOXS`, 이월된 `UNRESOLVED_EXIT` 종목)만
   공식 tail-repair backfill(`scripts/history_backfill_official.py`)을 현재 가상환경 Python으로 실행해
   보충하고, 1분봉은 blind-OOS 가드 로더(`research_load`)로만 읽는다.
-- `reports/premarket-freeze-paper.YYYYMMDD.json`(+`.md`)은 입력 해시, 게이트, 이벤트, 주문, 체결,
+- `reports/premarket/days/YYYYMMDD/premarket-freeze-paper.YYYYMMDD.json`(+`.md`)은 입력 해시, 게이트, 이벤트, 주문, 체결,
   평가가, 중단, 대조, 공식·stress 파생 비용, `end_state`를 담으며 벽시계 시각이 없다.
-  `reports/premarket-freeze-paper-ledger.json`은 세션 artifact의 재생성 가능한 접기다.
-  `reports/premarket-operation.YYYYMMDD.paper.json`은 최신 실행의 상태·사유·실행 시각·코드 commit이며
-  재시도를 위해 원자적으로 교체된다.
+  `reports/premarket/ledgers/premarket-freeze-paper-ledger.json`은 세션 artifact의 재생성 가능한 접기다.
+  `reports/premarket/days/YYYYMMDD/premarket-operation.YYYYMMDD.paper.json`은 최신 실행의 상태·사유·실행 시각·코드 commit이며
+  재시도를 위해 원자적으로 교체된다. (2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md)
 - `--dry-run`은 backfill과 모든 파일 쓰기를 생략하고 결과만 출력한다.
 - FREEZE snapshot의 `policy_config`가 영수증이 고정한 활성화 config와 다르면 그 세션은
   `NO_TRADE/POLICY_CONFIG_MISMATCH`로 기록한다(건너뛰지 않는다).

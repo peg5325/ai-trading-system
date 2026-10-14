@@ -4,7 +4,7 @@
 컴포넌트 점수가 저널에 남아 있다. 재구성이 그것을 재현하지 못하면, 재구성으로 만든
 어떤 상관도 의미가 없다.
 
-기준(reports/WORKORDER_H2B_BACKFILL.md §3):
+기준(reports/research/h2-h4/WORKORDER_H2B_BACKFILL.md §3):
   - 후보 개수      : 재구성 == 라이브
   - candidate_score: 최대 절대오차 ≤ 1e-6
   - 컴포넌트       : normalized_score/weight/weighted_score 최대 절대오차 ≤ 1e-6

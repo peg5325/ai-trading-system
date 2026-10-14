@@ -631,7 +631,7 @@ def test_auto_stalls_on_an_old_day_the_collector_will_not_fetch(tmp_path, monkey
 def test_auto_refuses_days_outside_the_calendar_before_waiting(tmp_path, monkeypatch, capsys):
     s = _script()
     monkeypatch.setattr(s, "run_session", lambda day, args: 0)
-    ledger = tmp_path / "reports" / "daytrade_paper" / "ledger.json"
+    ledger = tmp_path / "reports" / "daytrade" / "paper" / "ledger.json"
     ledger.parent.mkdir(parents=True)
     store.json.dump({**new_ledger(), "days": [{"date": "2026-12-31"}]}, ledger.open("w"))
     assert s.main(["--auto", "--out-root", str(tmp_path)], now=_utc(2027, 1, 5, 2, 7)) == 2

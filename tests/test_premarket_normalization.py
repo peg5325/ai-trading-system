@@ -12,6 +12,7 @@ import pytest
 from src.history.exchange_calendar import is_trading_day
 from src.history.raw_snapshot import RawSnapshotStore
 from src.models import Candle
+from src.output_layout import classify
 from src.premarket.contract import (
     FREEZE_PAPER_TEMPLATE_ID,
     PremarketConfig,
@@ -791,7 +792,7 @@ def test_20260915_replay_receipt_is_sanitized_and_matches_markdown() -> None:
             ("input", stage["artifacts"]["input_basename"]),
             ("brief", stage["artifacts"]["brief_basename"]),
         ):
-            artifact_path = ROOT / "reports" / basename
+            artifact_path = ROOT / classify(f"reports/{basename}", is_dir=False)
             if not artifact_path.exists():
                 continue
             artifact = json.loads(artifact_path.read_text(encoding="utf-8"))

@@ -8,7 +8,7 @@ READ-ONLY 시장데이터 조회만. 주문 0. 로컬 DB 쓰기 0. 자격증명�
 (라이브 데이터라 daily latest·generated_utc 는 실행 시각에 따라 전진한다 — capability 결론은 불변).
 
 사용:
-    ./.venv/bin/python scripts/phase1a_probe.py --out reports/phase1a_probe/toss_capability_probe.json
+    ./.venv/bin/python scripts/phase1a_probe.py --out reports/research/phase1a_probe/toss_capability_probe.json
 
 요청 파라미터(고정): 아래 상수. spacing 0.4s, daily page cap 13(≈10y), 1m wall 은 targeted
 before-jump(1y/2y/3y/5y), 세션 라벨은 최근 6페이지 집계, split/adjustment 는 알려진 분할일 대조.
@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.config import load_settings
 from src.providers.toss_client import TossClient
 from src.models import classify_session, MARKET_US, exchange_tz
+from src.output_layout import research_dir
 
 ET = ZoneInfo("America/New_York")
 
@@ -58,7 +59,7 @@ def _et_date(ts: str) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Phase 1A Toss capability probe (read-only)")
-    ap.add_argument("--out", default="reports/phase1a_probe/toss_capability_probe.json")
+    ap.add_argument("--out", default=str(research_dir(".", "phase1a_probe") / "toss_capability_probe.json"))
     ap.add_argument("--spacing", type=float, default=SPACING)
     args = ap.parse_args()
 

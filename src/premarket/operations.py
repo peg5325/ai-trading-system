@@ -23,6 +23,7 @@ from typing import Any
 
 from src.history.exchange_calendar import is_trading_day
 from src.models import ET
+from src.output_layout import premarket_day_dir, premarket_ledgers_dir, premarket_logs_dir
 from src.premarket.report import json_bytes, write_immutable
 from src.premarket.schedule import build_premarket_schedule, iso_z
 
@@ -46,29 +47,30 @@ def trading_day_from_clock(now: datetime | None = None) -> date:
 def stage_paths(root: Path, trading_day: date, stage: str) -> dict[str, Path]:
     normalized_stage = _stage(stage)
     stem = f"{trading_day.strftime('%Y%m%d')}.{normalized_stage.lower()}"
-    reports = root / "reports"
+    day_dir = premarket_day_dir(root, trading_day)
     return {
-        "provider": reports / f"premarket-provider-bundle.{stem}.json",
-        "market": reports / f"premarket-market-bundle.{stem}.json",
-        "input": reports / f"premarket-input.{stem}.json",
-        "brief": reports / f"premarket-daily-brief.{stem}.json",
-        "brief_markdown": reports / f"premarket-daily-brief.{stem}.md",
-        "operation": reports / f"premarket-operation.{stem}.json",
+        "provider": day_dir / f"premarket-provider-bundle.{stem}.json",
+        "market": day_dir / f"premarket-market-bundle.{stem}.json",
+        "input": day_dir / f"premarket-input.{stem}.json",
+        "brief": day_dir / f"premarket-daily-brief.{stem}.json",
+        "brief_markdown": day_dir / f"premarket-daily-brief.{stem}.md",
+        "operation": day_dir / f"premarket-operation.{stem}.json",
         "market_raw": root / "data" / "premarket" / "market" / "raw" / stem,
     }
 
 
 def postclose_paths(root: Path, trading_day: date) -> dict[str, Path]:
     date_key = trading_day.strftime("%Y%m%d")
-    reports = root / "reports"
+    day_dir = premarket_day_dir(root, trading_day)
+    ledgers = premarket_ledgers_dir(root)
     return {
         "freeze": stage_paths(root, trading_day, "FREEZE")["brief"],
-        "evaluation": reports / f"premarket-postclose.{date_key}.json",
-        "evaluation_markdown": reports / f"premarket-postclose.{date_key}.md",
-        "ledger": reports / "premarket-postclose-ledger.json",
-        "cumulative": reports / "premarket-postclose-cumulative.json",
-        "cumulative_markdown": reports / "premarket-postclose-cumulative.md",
-        "operation": reports / f"premarket-operation.{date_key}.postclose.json",
+        "evaluation": day_dir / f"premarket-postclose.{date_key}.json",
+        "evaluation_markdown": day_dir / f"premarket-postclose.{date_key}.md",
+        "ledger": ledgers / "premarket-postclose-ledger.json",
+        "cumulative": ledgers / "premarket-postclose-cumulative.json",
+        "cumulative_markdown": ledgers / "premarket-postclose-cumulative.md",
+        "operation": day_dir / f"premarket-operation.{date_key}.postclose.json",
         "raw_snapshots": root / "data" / "raw_snapshots" / f"premarket-postclose-{date_key}",
         "market_db": root / "data" / "market_history.sqlite",
     }
@@ -146,7 +148,7 @@ def run_stage(
         commands,
         root,
         run,
-        log_dir=root / "reports" / "premarket-operation-logs" / f"{trading_day:%Y%m%d}.{stage.lower()}",
+        log_dir=premarket_logs_dir(root) / f"{trading_day:%Y%m%d}.{stage.lower()}",
     )
     if not paths["brief"].exists() or not paths["brief_markdown"].exists():
         return _persist_incomplete(
@@ -267,8 +269,7 @@ def run_postclose(
                 commands,
                 root,
                 run,
-                log_dir=root / "reports" / "premarket-operation-logs"
-                / f"{trading_day:%Y%m%d}.postclose",
+                log_dir=premarket_logs_dir(root) / f"{trading_day:%Y%m%d}.postclose",
             )
     except MarketDbLockTimeout:
         # Not persisted: the paired DST trigger retries once the other job releases the lock.
@@ -389,6 +390,7 @@ def _sanitize_log(value: str, root: Path) -> str:
 
 def write_atomic(path: Path, content: bytes) -> None:
     partial = path.with_name(f".{path.name}.{os.getpid()}.partial")
+    path.parent.mkdir(parents=True, exist_ok=True)
     try:
         with open(partial, "xb") as stream:
             stream.write(content)

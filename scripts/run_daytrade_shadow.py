@@ -6,7 +6,7 @@
            --auto does every finished day not compared yet and writes its WebSocket measurement (summary.json)
 
 It never calls an order endpoint and never subscribes to personal:order. Outputs go to
-<out-root>/reports/daytrade_shadow/<date>/ (not tracked). `live` needs `websockets` and runs at most once
+<out-root>/reports/daytrade/shadow/<date>/ (not tracked). `live` needs `websockets` and runs at most once
 per session: live.lock stops a second process and an earlier START in events.jsonl stops a rerun.
 """
 from __future__ import annotations
@@ -41,6 +41,7 @@ from src.daytrade_paper.store import (
 from src.daytrade_shadow.bars import NY, LiveBars
 from src.daytrade_shadow.engine import ShadowDay
 from src.daytrade_shadow.replay import diff, paper_vs_shadow
+from src.output_layout import daytrade_paper_dir, daytrade_shadow_dir
 
 EVENTS = ROOT / "config" / "daytrade_events_v1.yaml"
 # replay checks logic, not inputs: fixed prior-day values per risk mode (live fetches the real ones)
@@ -181,7 +182,7 @@ def prepare(day: str, args) -> tuple[ShadowDay, dict]:
     prev_day = prev_trading_day(cal, day)
     prev_early = events_for(cal, prev_day)["early_close"]
     data = load_bars(args.db, day)
-    ledger = load_ledger(args.out_root / "reports" / "daytrade_paper" / "ledger.json")
+    ledger = load_ledger(daytrade_paper_dir(args.out_root) / "ledger.json")
     meta = {"prev_day": prev_day, "db_prev_session": data["prev_session"]}
     try:
         equity = check_chain(ledger, day, prev_day)
@@ -190,7 +191,7 @@ def prepare(day: str, args) -> tuple[ShadowDay, dict]:
         last = ledger["days"][-1] if ledger["days"] else None
         equity = float(last["equity_end"]) if last else R.START_EQUITY
         meta["equity_source"] = f"UNVERIFIED: {exc}"
-    out_dir = args.out_root / "reports" / "daytrade_shadow" / day
+    out_dir = daytrade_shadow_dir(args.out_root) / day
     external = fetch_external(day, out_dir / "external")
     eng = ShadowDay(day, data["prior"], external, events, equity, prev_times=data["prev_times"],
                     expected_prev=prev_day, prev_early_close=prev_early)
@@ -255,7 +256,7 @@ async def _live(day: str, args) -> int:
 
     load_dotenv(args.env_file)
     check_start(day, args, et_now())
-    lock = claim_day(args.out_root / "reports" / "daytrade_shadow" / day, bool(args.smoke_seconds))
+    lock = claim_day(daytrade_shadow_dir(args.out_root) / day, bool(args.smoke_seconds))
     try:
         return await _live_locked(day, args)
     finally:
@@ -403,7 +404,7 @@ def write_measure(out_dir: Path, day: str) -> dict:
 
 def run_compare_auto(args) -> int:
     """Measure and compare every finished shadow day that has no compare.json yet (launchd, after Paper)."""
-    root = args.out_root / "reports" / "daytrade_shadow"
+    root = daytrade_shadow_dir(args.out_root)
     worst, status = 0, {}
     folders = sorted(p for p in root.glob("????-??-??") if p.is_dir()) if root.exists() else []
     for folder in folders:
@@ -420,7 +421,7 @@ def run_compare_auto(args) -> int:
         if (folder / "compare.json").exists():
             status[day] = "DONE"
             continue
-        if not (args.out_root / "reports" / "daytrade_paper" / f"{day}.json").exists():
+        if not (daytrade_paper_dir(args.out_root) / f"{day}.json").exists():
             status[day] = "PENDING_PAPER"
             continue
         args.date = day
@@ -433,8 +434,8 @@ def run_compare_auto(args) -> int:
 
 def run_compare(args) -> int:
     day = args.date
-    sp = args.out_root / "reports" / "daytrade_shadow" / day / "result.json"
-    pp = args.out_root / "reports" / "daytrade_paper" / f"{day}.json"
+    sp = daytrade_shadow_dir(args.out_root) / day / "result.json"
+    pp = daytrade_paper_dir(args.out_root) / f"{day}.json"
     for p in (sp, pp):
         if not p.exists():
             print(f"MISSING: {p}", file=sys.stderr)

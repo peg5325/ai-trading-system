@@ -48,7 +48,7 @@ def render(result: dict) -> str:
         "",
         (f"> 탐색용 Paper(규칙 {r['rules_version']}, `{r['contract']}`). 실제 주문 없음. "
          "결과는 우위의 증거가 아니다. 사실 부분은 `scripts/run_daytrade_paper.py`가 "
-         f"`reports/daytrade_paper/{r['date']}.json`에서 자동 생성했다."),
+         f"`reports/daytrade/paper/{r['date']}.json`에서 자동 생성했다."),
         "",
         "## 요약",
         "",

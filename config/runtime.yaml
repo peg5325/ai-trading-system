@@ -28,9 +28,9 @@ candles:
   db: data/market.sqlite
 
 logging:
-  dir: logs
+  dir: runs/paper_2026-07/default/logs
   max_bytes: 1000000
   backup_count: 3
 
-reports_dir: reports
-status_path: status.json
+reports_dir: runs/paper_2026-07/default/reports
+status_path: runs/paper_2026-07/default/status.json

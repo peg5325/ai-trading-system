@@ -36,7 +36,7 @@
 5. **웹소켓 감시(기록만).** R0 측정 코드를 재사용해 체결·호가를 받고, 손절가 도달 시각을 기록한다. 판단·가상 청산은 REST 봉 기준(Paper와 같게)이다.
    같은 연결로 매일 `analyze`를 돌려 누락률·`STALE` 후보 숫자를 쌓는다(사용자 결정: STALE은 하루 더 측정 후 결정).
 6. **가상 체결 저널.** append-only JSONL(`reports/daytrade_shadow/<date>.jsonl`, git 밖): 판단 시각, 입력 요약, 상황, 진입·청산(시각·가격·수량·사유), 웹소켓 손절 감지 시각.
-7. **대조 보고.** D+1 Paper 실행 뒤 `reports/daytrade_paper/<date>.json`과 비교: 상황·진입 시각·명목·손절가·청산 시각·사유. 결과를 일지에 붙인다.
+7. **대조 보고.** D+1 Paper 실행 뒤 `reports/daytrade/paper/<date>.json`과 비교(2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md): 상황·진입 시각·명목·손절가·청산 시각·사유. 결과를 일지에 붙인다.
 8. **실행.** launchd 1개(22:20 KST 시작, 장 마감 뒤 종료), `caffeinate`. 실패해도 Paper에 영향 없음.
 
 ## 4. 갈라질 수 있는 곳(미리 정한 처리)
@@ -94,8 +94,8 @@ Paper는 지금 5세션 정상 주행 점검(10-05~10-09, 계약 §7) 중이라 
 1. `websockets` 설치: `pip install --target <job tmp>/wslib websockets`(프로젝트 의존성 아님).
 2. 22:15 KST 무렵(09:15 ET, 09:25 ET 전) 원래 체크아웃에서 백그라운드로:
    `PYTHONPATH=<job tmp>/wslib caffeinate -i .venv/bin/python scripts/run_daytrade_shadow.py live`
-   → `reports/daytrade_shadow/<date>/`에 `events.jsonl`(판단·가상 체결), `result.json`(장 마감 뒤), 웹소켓·REST 로그.
-3. 장 마감 뒤 측정: `.venv/bin/python scripts/measure_toss_realtime.py analyze --out-dir reports/daytrade_shadow/<date> --open-utc <date>T13:30:00+00:00`
+   → `reports/daytrade/shadow/<date>/`에 `events.jsonl`(판단·가상 체결), `result.json`(장 마감 뒤), 웹소켓·REST 로그 (2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md).
+3. 장 마감 뒤 측정: `.venv/bin/python scripts/measure_toss_realtime.py analyze --out-dir reports/daytrade/shadow/<date> --open-utc <date>T13:30:00+00:00`
    (누락률·`stale_any_frame` → `STALE` 결정 근거).
 4. 다음 날 11:07 KST Paper 실행 뒤: `.venv/bin/python scripts/run_daytrade_shadow.py compare --date <date>` → `compare.json`(통과 = 상황·진입 시각·수량 일치).
 

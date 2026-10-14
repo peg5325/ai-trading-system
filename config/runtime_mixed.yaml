@@ -33,9 +33,9 @@ system_review:
   db: data/system_reviews_mixed.sqlite   # System Review Engine 운영 회고 로그
 
 logging:
-  dir: logs_mixed
+  dir: runs/paper_2026-07/mixed/logs
   max_bytes: 1000000
   backup_count: 3
 
-reports_dir: reports
-status_path: status_mixed.json
+reports_dir: runs/paper_2026-07/mixed/reports
+status_path: runs/paper_2026-07/mixed/status.json

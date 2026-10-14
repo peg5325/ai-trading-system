@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from src.freeze_paper.binding import ContractBinding
+from src.output_layout import premarket_day_relpath
 from src.premarket.contract import sha256_payload
 from src.premarket.operations import OPERATION_SCHEMA, stage_paths
 from src.premarket.planner import BRIEF_SCHEMA
@@ -66,9 +67,11 @@ class GateResult:
 
 
 def freeze_paths(trading_day: date, reports_root: Path) -> tuple[Path, Path]:
-    """(brief, operation receipt) paths; names come from src.premarket.operations."""
+    """(brief, operation receipt) paths; names come from src.premarket.operations, the day
+    folder under reports_root from src.output_layout."""
     names = stage_paths(Path("."), trading_day, "FREEZE")
-    return reports_root / names["brief"].name, reports_root / names["operation"].name
+    day_dir = reports_root / premarket_day_relpath(trading_day)
+    return day_dir / names["brief"].name, day_dir / names["operation"].name
 
 
 def evaluate_gates(trading_day: date | str, reports_root: Path,

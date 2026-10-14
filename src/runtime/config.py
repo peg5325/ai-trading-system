@@ -9,8 +9,15 @@ from pathlib import Path
 
 from src.exits.generator import ExitConfig
 from src.market_context.models import MarketContextConfig
+from src.output_layout import paper_run_dir
 from src.risk.reentry_cooldown import ReentryCooldownConfig
 from src.shadow.models import ShadowConfig
+
+# Relative to the working directory, as before; folder rules live in src/output_layout.py.
+_DEFAULT_RUN = paper_run_dir(Path(), "default")
+DEFAULT_LOG_DIR = str(_DEFAULT_RUN / "logs")
+DEFAULT_REPORTS_DIR = str(_DEFAULT_RUN / "reports")
+DEFAULT_STATUS_PATH = str(_DEFAULT_RUN / "status.json")
 
 
 @dataclass
@@ -48,11 +55,11 @@ class RuntimeConfig:
     slippage_bps: float = 5.0
     fee_bps: float = 2.0
     # logging / ops artifacts
-    log_dir: str = "logs"
+    log_dir: str = DEFAULT_LOG_DIR
     log_max_bytes: int = 1_000_000
     log_backup_count: int = 3
-    reports_dir: str = "reports"
-    status_path: str = "status.json"
+    reports_dir: str = DEFAULT_REPORTS_DIR
+    status_path: str = DEFAULT_STATUS_PATH
     # session isolation (v2.1 Phase 1) — 미지정 시 startup guard 비활성(기존 config 무영향)
     session_id: str | None = None
     run_id: str | None = None
@@ -133,11 +140,11 @@ class RuntimeConfig:
             metrics_db=d.get("metrics", {}).get("db", "data/metrics.sqlite"),
             slippage_bps=float(paper.get("slippage_bps", 5.0)),
             fee_bps=float(paper.get("fee_bps", 2.0)),
-            log_dir=logging_.get("dir", "logs"),
+            log_dir=logging_.get("dir", DEFAULT_LOG_DIR),
             log_max_bytes=int(logging_.get("max_bytes", 1_000_000)),
             log_backup_count=int(logging_.get("backup_count", 3)),
-            reports_dir=d.get("reports_dir", "reports"),
-            status_path=d.get("status_path", "status.json"),
+            reports_dir=d.get("reports_dir", DEFAULT_REPORTS_DIR),
+            status_path=d.get("status_path", DEFAULT_STATUS_PATH),
             session_id=session.get("id"),
             run_id=session.get("run_id"),
             parent_run_id=session.get("parent_run_id"),

@@ -8,7 +8,7 @@
     python analysis/score_analysis.py \
         datasets/dataset_us_exit_test_2000usd.jsonl \
         datasets/dataset_krx_exit_test_session004.jsonl \
-        --window 30 --out reports/score_correlation.md
+        --window 30 --out reports/research/h2-h4/score_correlation.md
 
 의존: numpy, scipy. (표만 필요하면 --no-corr 로 scipy 없이도 구동)
 데이터 한계(작성 시점): 컴포넌트 하위점수(Trend/Momentum/Volume...)가 데이터셋에 없어

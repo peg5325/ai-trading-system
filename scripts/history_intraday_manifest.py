@@ -10,7 +10,7 @@ DB 는 mode=ro 로만 연다(원본 무변경). 실제 bulk 미실행 — 수집
       --report docs/research/P0_US30_INTRADAY_1M_REPORT.md \
       --code-commit <sha> --as-of 2026-07-21 \
       --sessions PRE,REGULAR,POST \
-      --raw-manifest reports/raw_snapshot_manifest.json \
+      --raw-manifest reports/data-ops/raw_snapshot_manifest.json \
       --params-json '{"gap_skip_minutes":200,"page_size":200,"interval":"1m"}'
 """
 import argparse

@@ -274,14 +274,14 @@ def test_compare_auto_does_finished_days_once(tmp_path, monkeypatch):
 
     reg, pre = s1_day(qqq_after=lambda t: PREV * 1.03)
     result, _ = replay_day("2026-10-05", reg, pre, PRIOR, EXT_OK, NO_EVENTS, 2000.0, **QC)
-    root = tmp_path / "reports" / "daytrade_shadow"
+    root = tmp_path / "reports" / "daytrade" / "shadow"
     for day in ("2026-10-06", "2026-10-07", "2026-10-08"):
         (root / day).mkdir(parents=True)
         (root / day / "events.jsonl").write_text("")
     for day in ("2026-10-06", "2026-10-07"):
         (root / day / "result.json").write_text(json.dumps(result, default=str))
-    (tmp_path / "reports" / "daytrade_paper").mkdir(parents=True)
-    (tmp_path / "reports" / "daytrade_paper" / "2026-10-06.json").write_text(json.dumps(result, default=str))
+    (tmp_path / "reports" / "daytrade" / "paper").mkdir(parents=True)
+    (tmp_path / "reports" / "daytrade" / "paper" / "2026-10-06.json").write_text(json.dumps(result, default=str))
     measured = []
     monkeypatch.setattr(shadow, "write_measure",
                         lambda folder, day: measured.append(day) or (folder / "summary.json").write_text("{}"))

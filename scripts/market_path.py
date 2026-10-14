@@ -17,6 +17,9 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+from src.output_layout import daytrade_shadow_dir
+
 NY = ZoneInfo("America/New_York")
 SYMBOLS = ("QQQ", "TQQQ", "SQQQ")
 
@@ -72,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out-root", type=Path, default=ROOT)
     p.add_argument("--db", type=Path, help="market_history.sqlite (default <out-root>/data/market_history.sqlite)")
     args = p.parse_args(argv)
-    d = args.out_root / "reports" / "daytrade_shadow" / args.date
+    d = daytrade_shadow_dir(args.out_root) / args.date
     candles = d / "candles.jsonl"
     if not candles.exists():
         print(f"no shadow candle log: {candles}", file=sys.stderr)

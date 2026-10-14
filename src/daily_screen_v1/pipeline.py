@@ -23,9 +23,10 @@ from src.daily_screen_v1.data import StudyRefused
 from src.entry_study_v1.mask import canonical_bytes, write_once
 from src.entry_study_v1.stats import holm_adjust, power_delta
 from src.longhist.loader import pinned_manifest_sha256
+from src.output_layout import research_dir
 
 ROOT = CD.ROOT
-OUT_DIR = ROOT / "reports" / "daily_screen_v1"
+OUT_DIR = research_dir(ROOT, "daily_screen_v1")
 FAMILIES = ("main", "gex")
 ADDENDUM = {"main": "docs/research/PREREG_DAILY_SAMEDAY_SCREEN_V1_HOLDOUT_ADDENDUM.md",
             "gex": "docs/research/PREREG_DAILY_SAMEDAY_SCREEN_V1_GEX_ADDENDUM.md"}

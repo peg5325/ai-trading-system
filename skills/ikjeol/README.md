@@ -59,7 +59,8 @@ PR을 실제로 읽고 코멘트를 등록하려면 각 도구에 GitHub 접근�
 - 이 저장소 `.mcp.json` 에 GitHub PAT가 평문으로 커밋되어 있다. 공개 저장소이므로 **해당 토큰은
   이미 노출된 것으로 간주하고 GitHub에서 즉시 폐기(revoke) 후 재발급**하고, 새 토큰은 커밋되지 않는
   로컬 설정(예: Claude Code `.claude/settings.local.json` env, 또는 셸 환경변수)에 두는 것을 권장한다.
-- `.env`(TOSS 키), `status*.json`·`logs*/`·`reports/`·`data/`(계좌·시세)는 커밋 금지 대상이다.
+- `.env`(TOSS 키), `runs/`(Paper 세션의 `status.json`·`logs/`)·`status*.json`·`logs*/`·`reports/`·`data/`(계좌·시세)는
+  커밋 금지 대상이다 (2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md).
 
 ## 도구 전환 주의 (Gemini)
 

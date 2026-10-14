@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 """H2-b 재현성 분석 — vwap_position/volume 의 음(−)의 예측력이 재현되는가.
 
-작업지시서: reports/WORKORDER_H2B_BACKFILL.md · 선행: reports/h2_h3_preliminary_s001.md
+작업지시서: reports/research/h2-h4/WORKORDER_H2B_BACKFILL.md · 선행: reports/research/h2-h4/h2_h3_preliminary_s001.md
+(2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md)
 
 read-only 연구 산출물. 매매 로직·스코어 가중치·runtime config 를 일절 건드리지 않는다.
 "재현됨"도 "재현 안 됨"도 똑같이 성공이며, 결과에 따라 스코어를 고치지 않는다.
 
 산출:
-  reports/h2b_backfill_validation.md    (사람용)
-  reports/h2b_backfill_validation.json  (작업지시서 §6 스키마)
+  reports/research/h2-h4/h2b_backfill_validation.md    (사람용)
+  reports/research/h2-h4/h2b_backfill_validation.json  (작업지시서 §6 스키마)
   datasets/h2b_candidates_<range>.jsonl (후보 데이터셋)
 
 재현 커맨드는 리포트 말미에 자동 기록된다.
@@ -23,6 +24,7 @@ import subprocess
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
+from pathlib import Path
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _REPO_ROOT)
@@ -39,6 +41,9 @@ from src.history.correlation import (
     loso_sign_stability,
     spearman,
 )
+from src.output_layout import H2_H4, research_dir
+
+H2_H4_DIR = research_dir(Path(), H2_H4)
 
 
 def _repo_path(rel: str) -> str:
@@ -69,7 +74,7 @@ H2B_FEATURES = ("vwap_position", "volume")
 # s001 에서 한쪽 지평만 유의 → 위양성 후보.
 SUSPECT_FEATURES = ("momentum", "volatility")
 
-# 선행 관측(reports/h2_h3_preliminary_s001.md §1) — 재현 여부는 이 값과의 **방향 비교**다.
+# 선행 관측(reports/research/h2-h4/h2_h3_preliminary_s001.md §1) — 재현 여부는 이 값과의 **방향 비교**다.
 # 이 기준선이 없으면 "유의함"이 곧 "재현됨"으로 오독된다.
 S001_BASELINE = {
     ("vwap_position", 30): -0.329, ("vwap_position", 60): -0.285,
@@ -686,7 +691,7 @@ def render_md(payload: dict, cmd: str) -> str:
     A("")
     A(f"> 생성: {meta['generated_at']} · 커밋 `{meta['producer_commit'][:12]}` · "
       f"DB `{meta['db']}` · interval {meta['interval']}")
-    A(f"> 작업지시서: `reports/WORKORDER_H2B_BACKFILL.md` · 선행: `reports/h2_h3_preliminary_s001.md`")
+    A(f"> 작업지시서: `{H2_H4_DIR / 'WORKORDER_H2B_BACKFILL.md'}` · 선행: `{H2_H4_DIR / 'h2_h3_preliminary_s001.md'}`")
     A("")
     A("> **read-only 연구 산출물.** 매매 로직·스코어 가중치·runtime config 변경 0건.")
     A("> \"재현됨\"과 \"재현 안 됨\"은 똑같이 성공이며, 결과에 따라 스코어를 고치지 않았다.")
@@ -911,8 +916,8 @@ def main(argv: list[str]) -> int:
                          "포함하면 발견과 재현이 겹쳐 순환 검증이 된다)")
     ap.add_argument("--parity-journal", default="data/journal_us_phase6_s001.sqlite")
     ap.add_argument("--parity-market", default="data/market_us_phase6_s001.sqlite")
-    ap.add_argument("--out-md", default="reports/h2b_backfill_validation.md")
-    ap.add_argument("--out-json", default="reports/h2b_backfill_validation.json")
+    ap.add_argument("--out-md", default=str(H2_H4_DIR / "h2b_backfill_validation.md"))
+    ap.add_argument("--out-json", default=str(H2_H4_DIR / "h2b_backfill_validation.json"))
     ap.add_argument("--out-jsonl", default=None)
     args = ap.parse_args(argv)
 

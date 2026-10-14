@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 """H3 국면 조인 — 클린 백필 후보에 look-ahead 없는 시장 국면 라벨을 붙인다.
 
-작업지시서: reports/WORKORDER_H3_REGIME.md · 선행: reports/h2b_backfill_validation.md
+작업지시서: reports/research/h2-h4/WORKORDER_H3_REGIME.md · 선행: reports/research/h2-h4/h2b_backfill_validation.md
+(2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md)
 
 read-only 연구 산출물. 매매 로직·스코어 가중치·runtime config 를 일절 건드리지 않고,
 국면 게이트를 **활성화하지 않는다**(오프라인 라벨 부착만).

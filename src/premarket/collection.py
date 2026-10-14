@@ -21,6 +21,7 @@ from typing import Any
 from src.history import exchange_calendar as cal
 from src.history.completed_session import SCOPE_POST, last_completed_trading_day
 from src.history.daily_manifest import read_p0_universe
+from src.output_layout import history_collection_dir, history_collection_logs_dir
 from src.premarket.operations import (
     MARKET_DB_LOCK_TIMEOUT_SECONDS,
     OPERATION_SCHEMA,
@@ -49,8 +50,8 @@ BACKFILL_TIMEOUT_SECONDS = 2 * 60 * 60
 def collection_paths(root: Path, trading_day: date) -> dict[str, Path]:
     key = trading_day.strftime("%Y%m%d")
     return {
-        "operation": root / "reports" / "history-collection" / f"{key}.operation.json",
-        "logs": root / "reports" / "history-collection-logs" / key,
+        "operation": history_collection_dir(root) / f"{key}.operation.json",
+        "logs": history_collection_logs_dir(root) / key,
         "market_db": root / "data" / "market_history.sqlite",
         "raw_snapshots": root / "data" / "raw_snapshots",
     }

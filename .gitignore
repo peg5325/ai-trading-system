@@ -24,6 +24,8 @@ status_*.json
 logs/
 logs_*/
 reports/
+# runs: paper runtime 세션 출력(logs/, status.json, reports/) — docs/OUTPUT_LAYOUT.md
+runs/
 data/
 *.sqlite
 *.sqlite3

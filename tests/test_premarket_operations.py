@@ -238,12 +238,12 @@ def test_runner_preserves_redacted_failure_log(tmp_path):
         now=datetime(2026, 9, 24, 12, 1, tzinfo=timezone.utc),
     )
     assert result["status"] == "INCOMPLETE"
-    log = tmp_path / "reports" / "premarket-operation-logs" / "20260924.primary" / "provider.log"
+    log = tmp_path / "reports" / "premarket" / "logs" / "20260924.primary" / "provider.log"
     content = log.read_text(encoding="utf-8")
     assert "secret-token" not in content
     assert "api_key=abc" not in content
     assert "<REDACTED>" in content
-    receipt = tmp_path / "reports" / "premarket-operation.20260924.primary.json"
+    receipt = tmp_path / "reports" / "premarket" / "days" / "20260924" / "premarket-operation.20260924.primary.json"
     assert receipt.exists()
 
 

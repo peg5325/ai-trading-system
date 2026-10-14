@@ -151,9 +151,9 @@ config 승인 목록과 영수증을 **함께** 추가한다. 이때 활성화 c
 - 배당락일: 영수증 `spy_ex_dividend_dates_in_window`는 `spy_ex_dividend_source` 기준의 **전수 목록**이다(빈 목록도
   명시값). 3·6·9·12월 셋째 금요일 ±2 NYSE 거래일 구간이 평가 구간과 겹치는데 목록에 그 구간의 날짜가 없으면
   `INCONCLUSIVE_BENCHMARK/UNLISTED_EXPECTED_EX_DATE`다.
-- 출력: FINAL은 `reports/premarket-freeze-paper-evaluation.<first>_<last>.json`(+`.md`) write-once(다르면
-  `DATA_DRIFT`), INTERIM은 `reports/premarket-freeze-paper-evaluation.interim.<first>_<through>.json`(+`.md`)으로
-  재생성 가능. 벽시계 시각이 없어 같은 입력이면 byte-identical이다.
+- 출력: FINAL은 `reports/premarket/ledgers/premarket-freeze-paper-evaluation.<first>_<last>.json`(+`.md`) write-once(다르면
+  `DATA_DRIFT`), INTERIM은 `reports/premarket/ledgers/premarket-freeze-paper-evaluation.interim.<first>_<through>.json`(+`.md`)으로
+  재생성 가능. 벽시계 시각이 없어 같은 입력이면 byte-identical이다 (2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md).
 
 ## 5. 테스트
 

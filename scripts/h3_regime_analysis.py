@@ -2,7 +2,8 @@
 """H3 국면 예측력 분석 — 시장 국면이 후보 forward return 을 **거래당 비용을 넘는 크기로**
 예측하는가.
 
-작업지시서: reports/WORKORDER_H3_REGIME.md · 선행: reports/h2b_backfill_validation.md
+작업지시서: reports/research/h2-h4/WORKORDER_H3_REGIME.md · 선행: reports/research/h2-h4/h2b_backfill_validation.md
+(2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md)
 입력: datasets/h3_regime_joined.jsonl (scripts/h3_regime_join.py 산출)
 
 read-only 연구 산출물. 매매 로직·스코어 가중치·runtime config 를 일절 건드리지 않고,
@@ -33,6 +34,7 @@ import subprocess
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
+from pathlib import Path
 
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _REPO_ROOT)
@@ -45,6 +47,9 @@ from src.history.correlation import (
     sign_test,
     spearman,
 )
+from src.output_layout import H2_H4, research_dir
+
+H2_H4_DIR = research_dir(Path(), H2_H4)
 
 # ---------------------------------------------------------------------------
 # 판정 상수
@@ -1352,11 +1357,11 @@ def main(argv: list[str]) -> int:
                     help="발견 표본일(2026-07-15)을 포함(기본 제외)")
     ap.add_argument("--parity-journal", default="data/journal_us_phase6_s001.sqlite")
     ap.add_argument("--parity-market", default="data/market_us_phase6_s001.sqlite")
-    ap.add_argument("--out-md", default="reports/h3_regime_validation.md")
-    ap.add_argument("--out-json", default="reports/h3_regime_validation.json")
+    ap.add_argument("--out-md", default=str(H2_H4_DIR / "h3_regime_validation.md"))
+    ap.add_argument("--out-json", default=str(H2_H4_DIR / "h3_regime_validation.json"))
     ap.add_argument("--title", default="H3 국면 예측력 검증 리포트")
-    ap.add_argument("--workorder", default="reports/WORKORDER_H3_REGIME.md")
-    ap.add_argument("--predecessor", default="reports/h2b_backfill_validation.md")
+    ap.add_argument("--workorder", default=str(H2_H4_DIR / "WORKORDER_H3_REGIME.md"))
+    ap.add_argument("--predecessor", default=str(H2_H4_DIR / "h2b_backfill_validation.md"))
     args = ap.parse_args(argv)
 
     joined = _repo_path(args.joined)
