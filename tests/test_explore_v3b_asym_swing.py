@@ -211,3 +211,48 @@ def test_group_stats_and_preflight_series():
     vols, dists = pre.series(stream)
     # one day = 13 30m bars (ATR14 never ready) and 26 15m bars (EMA21 ready from the 21st -> 6 distances)
     assert vols == [] and len(dists) == 6 and all(x >= 0 for x in dists)
+
+
+# ---------------------------------------------------------------- review follow-ups: short side
+def short_at_100(eng):
+    eng.pending_entry = (-1, "normal", 599)
+    eng.step(m(D1, 600, 100.0), False)
+    return eng.pos
+
+
+@pytest.mark.parametrize("stage, cfg, mult, reason", [(0, CFG, 1.0045, "hard_stop"),
+                                                       (1, CONFIGS_B[1], 1.001, "lock_1"),
+                                                       (1, CFG, 1.0, "lock_1"),
+                                                       (2, CFG, 0.9965, "lock_2")])
+def test_short_stage_levels(stage, cfg, mult, reason):
+    eng = eng_ready(-1, -1, cfg=cfg)
+    p = short_at_100(eng)
+    p.stage, p.swing = stage, stage >= 1
+    fill = p.trade.entry_fill
+    level = fill * mult
+    eng.step(m(D1, 601, fill * 0.99, h=level + 0.001, c=fill * 0.99), False)
+    tr = eng.trades[-1]
+    assert (tr.exit_reason, tr.stage) == (reason, stage)
+    assert tr.legs[-1].raw == pytest.approx(level) and tr.legs[-1].fill == pytest.approx(level + 0.02)
+
+
+def test_short_gap_fill_and_entry_anti_chase():
+    eng = eng_ready(-1, -1)
+    p = short_at_100(eng)
+    p.stage, p.swing = 2, True
+    eng.step(m(D2, 570, 101.0), False)  # gap above the lock_2 level -> open
+    assert eng.trades[-1].legs[-1].raw == 101.0
+    eng = eng_ready(-1, -1)
+    eng._on_short(bucket15(1, 100.0, 99.5))  # distance ~0.48%
+    assert eng.pending_entry[:2] == (-1, "normal")
+    eng = eng_ready(-1, -1)
+    eng._on_short(bucket15(1, 100.0, 99.0))  # ~0.97% > 0.60%
+    assert eng.pending_entry is None and eng.counts["chase"] == 1
+
+
+def test_promotion_floor_applies_from_next_bar():
+    eng = eng_ready()
+    p = long_at_100(eng)
+    fill = p.trade.entry_fill
+    eng.step(m(D1, 601, fill, low=fill * 0.999, c=fill * 1.0051), False)  # low below the new 0% floor, close promotes
+    assert eng.pos is p and p.stage == 1

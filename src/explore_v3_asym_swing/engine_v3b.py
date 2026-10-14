@@ -3,6 +3,9 @@
 Stage 0 (gear 1): hard stop + 15m reverse cross, held overnight (no end-of-day exit). Stage 1 (MFE >= latch_1): floor
 at lock_1, crosses ignored. Stage 2 (MFE >= latch_2): floor at lock_2. Stages 1-2 also exit when a completed 30m bar's
 direction is against the position (no switch). One entry per SuperTrend cycle; anti-chase distance to the 15m EMA21.
+
+Order at one 1m close (same as V3A): the close-based stage promotion (step 3) happens before the buckets completed by
+that bar are handled (step 5), so those bucket checks already see the new stage; the new floor applies from the next bar.
 """
 from __future__ import annotations
 
@@ -51,6 +54,11 @@ CONFIGS_B = (
 @dataclass
 class V3BTrade(V3Trade):
     stage: int = 0  # stage at exit (0 = gear 1)
+
+
+@dataclass
+class _PosB(_Pos):
+    stage: int = 0
 
 
 class EngineB(Engine):
@@ -127,9 +135,7 @@ class EngineB(Engine):
         sig = m.minute - 1 if signal_minute is None else signal_minute
         tr = V3BTrade(m.day, SYMBOL, side, sig, m.minute, raw, fill, shares, fill * (1 - side * hs), fill * hs, 0.0,
                       kind=kind, cycle=self.cycle)
-        p = _Pos(tr, m.at())
-        p.stage = 0
-        self.pos = p
+        self.pos = _PosB(tr, m.at())
         self.cycle_entries += 1
         self._entries_today[m.day] = self._entries_today.get(m.day, 0) + 1
 
