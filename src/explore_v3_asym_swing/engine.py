@@ -292,9 +292,11 @@ class Engine:
         self.day_end[m.day] = (mtm, ref, self._entries_today.get(m.day, 0), p is not None)
 
 
-def run(stream: list[M1], cfg: Config, calendar_days: list[str], start_equity: float = 2000.0) -> BacktestResult:
-    """Run one config over the stream; day records for the calendar days from SCORED_START."""
-    eng = Engine(cfg, start_equity)
+def run(stream: list[M1], cfg: Config, calendar_days: list[str], start_equity: float = 2000.0,
+        engine_cls=None) -> BacktestResult:
+    """Run one config over the stream; day records for the calendar days from SCORED_START. `engine_cls` (default
+    Engine) lets V3B (spec EXPLORE_V3B_ASYM_SWING_2000USD.md) reuse the loop."""
+    eng = (engine_cls or Engine)(cfg, start_equity)
     n = len(stream)
     for i, m in enumerate(stream):
         eng.step(m, i == n - 1)
