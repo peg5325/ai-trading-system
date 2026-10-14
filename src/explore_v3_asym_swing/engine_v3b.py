@@ -62,6 +62,9 @@ class _PosB(_Pos):
 
 
 class EngineB(Engine):
+    trade_cls = V3BTrade  # V3C swaps in its own trade / position records
+    pos_cls = _PosB
+
     def _bump(self, key: str) -> None:
         self.counts[key] = self.counts.get(key, 0) + 1
 
@@ -133,9 +136,9 @@ class EngineB(Engine):
             return
         hs = self.cfg.hard_stop
         sig = m.minute - 1 if signal_minute is None else signal_minute
-        tr = V3BTrade(m.day, SYMBOL, side, sig, m.minute, raw, fill, shares, fill * (1 - side * hs), fill * hs, 0.0,
-                      kind=kind, cycle=self.cycle)
-        self.pos = _PosB(tr, m.at())
+        tr = self.trade_cls(m.day, SYMBOL, side, sig, m.minute, raw, fill, shares, fill * (1 - side * hs), fill * hs,
+                            0.0, kind=kind, cycle=self.cycle)
+        self.pos = self.pos_cls(tr, m.at())
         self.cycle_entries += 1
         self._entries_today[m.day] = self._entries_today.get(m.day, 0) + 1
 
