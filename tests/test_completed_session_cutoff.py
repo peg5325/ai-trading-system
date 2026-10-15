@@ -191,7 +191,7 @@ def test_validate_rejects_non_trading_day():
 def test_validate_rejects_out_of_calendar_range():
     now = _utc("2026-07-20T20:30")
     with pytest.raises(cal.CalendarRangeError):
-        validate_completed_through(date(2022, 12, 31), now)  # CALENDAR_START 이전
+        validate_completed_through(date(2020, 12, 31), now)  # CALENDAR_START 이전
 
 
 # --------------------------------------------------------------------------

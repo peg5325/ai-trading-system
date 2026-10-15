@@ -268,8 +268,8 @@ def test_previous_trading_day_skips_early_close_day_is_still_a_trading_day():
 def test_previous_trading_day_propagates_calendar_range_error_at_the_boundary():
     """R4-7(lane3 q-2) — docstring 이 "캘린더 artifact 커버 구간 밖으로 벗어나면
     `cal.is_trading_day` 가 그대로 `CalendarRangeError` 를 던진다(fail-closed)"고 적었는데,
-    그 예외를 삼키고 전날을 반환하는 변조가 테스트 없이 생존했다. 2023-01-03 의 직전
-    거래일을 역방향으로 걸어가면 2023-01-02(신정 관찰 휴장)·2023-01-01(신정, 주말)을 지나
-    캘린더 커버 구간(2023-01-01~) 밖인 2022-12-31 에서 실제로 예외가 전파돼야 한다."""
+    그 예외를 삼키고 전날을 반환하는 변조가 테스트 없이 생존했다. 2021-01-04(월) 의 직전
+    거래일을 역방향으로 걸어가면 01-03(일)·01-02(토)·01-01(신정 휴장)을 지나
+    캘린더 커버 구간(2021-01-01~, 2026-10-15 확장) 밖인 2020-12-31 에서 실제로 예외가 전파돼야 한다."""
     with pytest.raises(CalendarRangeError):
-        w.previous_trading_day(date(2023, 1, 3))
+        w.previous_trading_day(date(2021, 1, 4))

@@ -9,7 +9,7 @@ candle 마다 market 을 두고, 세션 분류를 market 별로 수행한다.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
 
 ET = ZoneInfo("America/New_York")
@@ -36,6 +36,20 @@ def market_from_currency(currency: str) -> str:
     return MARKET_KR if str(currency).upper() == "KRW" else MARKET_US
 
 
+def _us_early_close(d: date) -> bool:
+    """NYSE 조기폐장(13:00 ET 마감)일인가. 캘린더 artifact 구간 밖이면 False(고정 창 유지).
+
+    수집(ingest)이 캘린더 구간 밖 일자(예: 2027-01-01)에서 깨지지 않도록 예외를 삼킨다 —
+    구간 밖 조기폐장일은 상수 확장 전까지 REGULAR 09:30–16:00 으로 라벨된다.
+    `src.history` 패키지가 이 모듈을 import 하므로 순환을 피하려고 지연 import 한다.
+    """
+    from src.history import exchange_calendar as cal
+
+    if not (cal.CALENDAR_START <= d <= cal.CALENDAR_END):
+        return False
+    return cal.is_early_close(d)
+
+
 def classify_session(ts_exchange: datetime, market: str = MARKET_US) -> str:
     """거래소 로컬 시각을 market 별 세션으로 분류한다."""
     minutes = ts_exchange.hour * 60 + ts_exchange.minute
@@ -48,10 +62,13 @@ def classify_session(ts_exchange: datetime, market: str = MARKET_US) -> str:
         if 15 * 60 + 30 <= minutes < 18 * 60:
             return SESSION_POST
         return SESSION_CLOSED
-    # US: PRE 04:00–09:30, REGULAR 09:30–16:00, POST 16:00–20:00, 그 외 OVERNIGHT
+    # US: PRE 04:00–09:30, REGULAR 09:30–16:00, POST 16:00–20:00, 그 외 OVERNIGHT.
+    # NYSE 조기폐장일은 REGULAR 09:30–13:00, POST 13:00–20:00(사용자 결정 2026-10-15).
     if 4 * 60 <= minutes < 9 * 60 + 30:
         return SESSION_PRE
     if 9 * 60 + 30 <= minutes < 16 * 60:
+        if minutes >= 13 * 60 and _us_early_close(ts_exchange.date()):
+            return SESSION_POST
         return SESSION_REGULAR
     if 16 * 60 <= minutes < 20 * 60:
         return SESSION_POST
@@ -88,6 +105,9 @@ def in_eod_flatten_window(candle: "Candle", minutes_before_close: int) -> bool:
     # 1) 정규장 마감 창 (KR/US 공통, 각 시장 close time 기준)
     if candle.session == SESSION_REGULAR:
         close_min = _REGULAR_CLOSE_MIN.get(market)
+        # 조기폐장일 REGULAR 는 13:00 에 끝난다(classify_session 과 같은 기준) — 그 마감 기준 N분 전 창.
+        if market == MARKET_US and _us_early_close(ts.date()):
+            close_min = 13 * 60
         if close_min is not None and 0 <= (close_min - mod) <= minutes_before_close:
             return True
     # 2) US 애프터마켓/심야 (기존 레버리지 정책 호환)
