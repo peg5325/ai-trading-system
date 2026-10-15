@@ -87,7 +87,8 @@ def _row(sym: str, iso_et: str, session: str) -> dict:
 
 
 def _make_db(tmp_path):
-    db = tmp_path / "market_history.sqlite"
+    (tmp_path / "data").mkdir()
+    db = tmp_path / "data" / "market_history.sqlite"
     HistoryStore(str(db)).close()          # canonical schema + indexes
     rows = [
         _row("QQQ", "2022-11-25T12:59", "REGULAR"),
@@ -173,3 +174,85 @@ def test_relabel_apply_targets_only_and_is_idempotent(tmp_path, capsys):
     again = json.loads(capsys.readouterr().out)
     assert again["target_rows"] == 0 and again["updated_rows"] == 0
     assert {r[:4]: r for r in _dump(db)} == after
+
+
+def _backup_of(db, tmp_path):
+    backup = tmp_path / "backup.sqlite"
+    backup.write_bytes(db.read_bytes())
+    return backup
+
+
+def test_relabel_receipt_records_backup_check(tmp_path, capsys):
+    db = _make_db(tmp_path)
+    backup = _backup_of(db, tmp_path)
+    assert relabel.main(["--db", str(db), "--root", str(tmp_path), "--apply",
+                         "--backup-verified", str(backup)]) == 0
+    out = json.loads(capsys.readouterr().out)
+    check = out["backup_check"]
+    assert check["quick_check"] == "ok" and check["size_bytes"] == backup.stat().st_size
+    assert check["mtime_utc"]
+    iv = out["independent_verification"]
+    assert iv["remaining_regular_at_or_after_1300"] == 0
+    assert iv["updated_rows_seen"] == 3 and iv["classify_sample_checked"] == 3
+    assert iv["classify_sample_mismatch"] == []
+
+
+@pytest.mark.parametrize("content", [b"not a sqlite database" * 100, b""])
+def test_relabel_refuses_corrupt_or_non_history_backup(tmp_path, content):
+    db = _make_db(tmp_path)
+    before = _dump(db)
+    bad = tmp_path / "bad_backup.sqlite"
+    bad.write_bytes(content)      # garbage bytes, or an empty file (valid SQLite, but no candle_history)
+    with pytest.raises(SystemExit):
+        relabel.main(["--db", str(db), "--root", str(tmp_path), "--apply", "--backup-verified", str(bad)])
+    assert _dump(db) == before
+
+
+def test_relabel_refuses_db_outside_root_data(tmp_path, capsys):
+    db = _make_db(tmp_path)
+    other_root = tmp_path / "other_root"
+    other_root.mkdir()
+    with pytest.raises(SystemExit):
+        relabel.main(["--db", str(db), "--root", str(other_root)])
+    assert relabel.main(["--db", str(db), "--root", str(other_root), "--allow-db-outside-root"]) == 0
+    assert json.loads(capsys.readouterr().out)["target_rows"] == 3
+
+
+def test_relabel_prints_receipt_even_when_receipt_write_fails(tmp_path, capsys, monkeypatch):
+    db = _make_db(tmp_path)
+    backup = _backup_of(db, tmp_path)
+
+    def fail(path, receipt):
+        raise OSError("disk full")
+    monkeypatch.setattr(relabel, "write_receipt", fail)
+    rc = relabel.main(["--db", str(db), "--root", str(tmp_path), "--apply", "--backup-verified", str(backup)])
+    captured = capsys.readouterr()
+    assert rc != 0
+    out = json.loads(captured.out)
+    assert out["updated_rows"] == 3 and out["receipt_path"]
+    assert "disk full" in captured.err
+    assert sum(1 for r in _dump(db) if r[4] == "POST") == 4    # committed: 3 relabeled + existing 16:00 POST
+
+
+def test_relabel_rolls_back_when_independent_verification_fails(tmp_path, monkeypatch):
+    db = _make_db(tmp_path)
+    backup = _backup_of(db, tmp_path)
+    before = _dump(db)
+    monkeypatch.setattr(relabel, "independent_verify", lambda *a: {
+        "remaining_regular_at_or_after_1300": 1, "updated_rows_seen": 3,
+        "classify_sample_checked": 0, "classify_sample_mismatch": []})
+    with pytest.raises(RuntimeError, match="verification failed"):
+        relabel.main(["--db", str(db), "--root", str(tmp_path), "--apply", "--backup-verified", str(backup)])
+    assert _dump(db) == before
+
+
+def test_out_of_calendar_fallback_warns_once(monkeypatch, caplog):
+    from src import models
+    monkeypatch.setattr(models, "_fallback_warned", False)
+    with caplog.at_level("WARNING", logger="src.models"):
+        assert classify_session(_et("2027-11-26T14:00"), MARKET_US) == SESSION_REGULAR
+        assert classify_session(_et("2027-12-01T14:00"), MARKET_US) == SESSION_REGULAR
+        assert classify_session(_et("2022-11-25T14:00"), MARKET_US) == SESSION_POST
+    warnings = [r for r in caplog.records if r.name == "src.models" and r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "2027-11-26" in warnings[0].getMessage() and "2026-12-31" in warnings[0].getMessage()

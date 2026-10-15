@@ -8,6 +8,7 @@ candle 마다 market 을 두고, 세션 분류를 market 별로 수행한다.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from zoneinfo import ZoneInfo
@@ -36,16 +37,31 @@ def market_from_currency(currency: str) -> str:
     return MARKET_KR if str(currency).upper() == "KRW" else MARKET_US
 
 
+_log = logging.getLogger(__name__)
+_calendar = None              # src.history.exchange_calendar, cached after the first lookup
+_fallback_warned = False      # out-of-calendar fallback warning emitted (once per process)
+
+
 def _us_early_close(d: date) -> bool:
     """NYSE 조기폐장(13:00 ET 마감)일인가. 캘린더 artifact 구간 밖이면 False(고정 창 유지).
 
     수집(ingest)이 캘린더 구간 밖 일자(예: 2027-01-01)에서 깨지지 않도록 예외를 삼킨다 —
     구간 밖 조기폐장일은 상수 확장 전까지 REGULAR 09:30–16:00 으로 라벨된다.
-    `src.history` 패키지가 이 모듈을 import 하므로 순환을 피하려고 지연 import 한다.
+    `src.history` 패키지가 이 모듈을 import 하므로 순환을 피하려고 지연 import 하고, 첫 호출 뒤에는
+    모듈 참조를 캐시한다. 구간 밖 폴백은 프로세스당 한 번 warning 으로 남긴다.
     """
-    from src.history import exchange_calendar as cal
+    global _calendar, _fallback_warned
+    cal = _calendar
+    if cal is None:
+        from src.history import exchange_calendar as cal
 
+        _calendar = cal
     if not (cal.CALENDAR_START <= d <= cal.CALENDAR_END):
+        if not _fallback_warned:
+            _fallback_warned = True
+            _log.warning("classify_session: %s is outside the NYSE calendar (%s..%s); early closes are not "
+                         "applied, US REGULAR stays 09:30-16:00 until the calendar is extended",
+                         d.isoformat(), cal.CALENDAR_START.isoformat(), cal.CALENDAR_END.isoformat())
         return False
     return cal.is_early_close(d)
 
