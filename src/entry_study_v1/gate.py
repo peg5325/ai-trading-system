@@ -82,7 +82,8 @@ def g4(segs: tuple[Segment, ...], seg_data: dict[str, dict[str, SymbolData]], re
 
 def boundary_dates(db, symbols: tuple[str, ...], segments: tuple[Segment, ...]) -> dict:
     """G2 (report only): regular-session dates, no prices, before the first segment and in gaps between segments."""
-    windows = {f"before_{segments[0].name}": (xcal.CALENDAR_START, segments[0].data_start)}
+    # Frozen window start: the calendar start before its 2026-10-15 extension (keeps G2 reports reproducible).
+    windows = {f"before_{segments[0].name}": (xcal.CALENDAR_V1_START, segments[0].data_start)}
     for a, b in pairwise(segments):
         windows[f"gap_{a.name}_{b.name}"] = (a.data_end + timedelta(days=1), b.data_start)
     out: dict = {}

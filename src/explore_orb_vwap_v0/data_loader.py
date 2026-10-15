@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 from src.daytrade_paper.core import Bar
 from src.entry_study_v1.bars import candle_bar
-from src.history.exchange_calendar import CALENDAR_START, regular_close_minute
+from src.history.exchange_calendar import CALENDAR_V1_START, regular_close_minute
 from src.history.oos_guard import TRACK_INTRADAY, research_load
 from src.models import ET
 
@@ -23,9 +23,10 @@ from .indicators import OPEN_MIN
 
 DEV_CUTOFF = datetime(2026, 1, 21, tzinfo=ET)
 DEV_LAST_DAY = Date(2026, 1, 20)
-# The exchange calendar (used to class sessions and early closes) starts 2023-01-01; earlier bars cannot be
-# classified, so loading starts there. SPY 1m data starts 2023-04-03, so earlier days could not be scored anyway.
-LOAD_START = CALENDAR_START
+# The exchange calendar (used to class sessions and early closes) started 2023-01-01 when this loader was frozen
+# (CALENDAR_V1_START; extended to 2021-01-01 on 2026-10-15); earlier bars could not be classified, so loading
+# starts there. SPY 1m data started 2023-04-03, so earlier days could not be scored anyway.
+LOAD_START = CALENDAR_V1_START
 UNIVERSE = ("QQQ", "SPY", "IWM", "AMD", "AAPL", "AMZN", "PLTR")
 
 

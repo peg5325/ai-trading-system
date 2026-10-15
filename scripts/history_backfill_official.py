@@ -6,7 +6,7 @@
 공식 경로의 fail-closed 계약:
 - `--completed-through YYYY-MM-DD` 가 **필수**다. 없으면 자격증명/ API/DB 접근 전에 exit 2.
 - 요청 cutoff 가 실행 시점 NYSE 의 마지막 **완료** 거래일보다 늦으면(진행 중/미래 세션) exit 2.
-  · 완료 경계는 저장 결정자 classify_session 의 고정 창과 일치: regular/1d 16:00 ET,
+  · 완료 경계는 저장 결정자 classify_session 의 정상일 창 끝과 일치: regular/1d 16:00 ET,
     POST(기본 1m) 20:00 ET, OVERNIGHT 익일 04:00 ET. 조기폐장일에도 앞당기지 않는다.
   · 주말·휴장·DST 는 exchange_calendar + tz-aware ET 로 판정. 현재시각은 주입 가능
     (main(argv, now_utc=...)) — 코드 내부에서 임의 고정하지 않는다.

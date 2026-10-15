@@ -58,9 +58,48 @@ def test_normal_trading_day():
 
 def test_out_of_range_fail_closed():
     with pytest.raises(cal.CalendarRangeError):
-        cal.is_trading_day(date(2022, 12, 31))            # 커버 구간 이전
+        cal.is_trading_day(date(2020, 12, 31))            # 커버 구간 이전(2021-01-01~)
     with pytest.raises(cal.CalendarRangeError):
         cal.is_trading_day(date(2027, 1, 1))              # 커버 구간 이후
+
+
+def test_calendar_range_starts_2021_and_v1_start_is_frozen():
+    assert cal.CALENDAR_START == date(2021, 1, 1)
+    assert cal.CALENDAR_V1_START == date(2023, 1, 1)
+    assert cal.is_trading_day(date(2021, 1, 4)) is True
+
+
+# NYSE 2021·2022: 휴장 9일씩, 조기폐장은 Black Friday 만(07-03 이 주말, 12-24 는 관찰 휴장/토요일).
+_HOLIDAYS_2021_2022 = [
+    "2021-01-01", "2021-01-18", "2021-02-15", "2021-04-02", "2021-05-31",
+    "2021-07-05", "2021-09-06", "2021-11-25", "2021-12-24",
+    "2022-01-17", "2022-02-21", "2022-04-15", "2022-05-30", "2022-06-20",
+    "2022-07-04", "2022-09-05", "2022-11-24", "2022-12-26",
+]
+
+
+@pytest.mark.parametrize("iso", _HOLIDAYS_2021_2022)
+def test_2021_2022_full_holidays(iso):
+    d = date.fromisoformat(iso)
+    assert d.weekday() < 5                                 # 관찰일은 평일
+    assert cal.is_holiday(d) is True
+    assert cal.expected_regular_minutes(d) == 0
+
+
+def test_2021_2022_early_closes_and_open_days():
+    assert cal.early_close_days(date(2021, 1, 1), date(2022, 12, 31)) == [
+        date(2021, 11, 26), date(2022, 11, 25)]
+    assert cal.holidays_in_range(date(2021, 1, 1), date(2022, 12, 31)) == [
+        date.fromisoformat(x) for x in _HOLIDAYS_2021_2022]
+    assert cal.regular_close_minute(date(2022, 11, 25)) == 13 * 60
+    # 개장일: Juneteenth 는 2022 부터(2021-06-18 금 개장), 2022-01-01(토) 신정은 전일 관찰 없음.
+    assert cal.is_trading_day(date(2021, 6, 18)) is True
+    assert cal.is_trading_day(date(2021, 12, 31)) is True
+    assert cal.is_early_close(date(2021, 12, 31)) is False
+    assert cal.is_early_close(date(2022, 7, 1)) is False   # 07-03 이 일요일 → 조기폐장 없음
+    assert cal.is_early_close(date(2022, 12, 23)) is False
+    assert len(cal.trading_days(date(2021, 1, 1), date(2021, 12, 31))) == 252
+    assert len(cal.trading_days(date(2022, 1, 1), date(2022, 12, 31))) == 251
 
 
 def test_max_consecutive_nontrading_mlk_long_weekend():

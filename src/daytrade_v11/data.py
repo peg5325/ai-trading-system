@@ -164,7 +164,7 @@ def boundary_check(db: Path | str) -> dict:
             outside_calendar = 0
             for c in research_load(str(db), sym, "1m", start=lo, end=_et_midnight(hi_d), purpose="performance",
                                      track=TRACK_INTRADAY):
-                if c.ts_exchange.date() < xcal.CALENDAR_START:
+                if c.ts_exchange.date() < xcal.CALENDAR_V1_START:  # frozen pre-2026-10-15 calendar start
                     outside_calendar += 1
                     continue
                 parsed = candle_bar(c)

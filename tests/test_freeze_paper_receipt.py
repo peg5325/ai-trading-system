@@ -116,9 +116,9 @@ def test_config_listing_a_single_stock_leveraged_etf_is_rejected(tmp_path):
         validate_receipt(receipt_payload(root), root=root)
 
 
-@pytest.mark.parametrize("first", ["2026-12-24", "2023-01-03"])
+@pytest.mark.parametrize("first", ["2026-12-24", "2021-01-04"])
 def test_sessions_or_window_outside_the_tracked_calendar_are_rejected(tmp_path, first):
-    # 2026-12-24 needs sessions in 2027; 2023-01-03 needs a window start in 2022.
+    # 2026-12-24 needs sessions in 2027; 2021-01-04 needs a window start in 2020 (calendar starts 2021-01-01).
     root = make_root(tmp_path)
     receipt = receipt_payload(root, scheduled_sessions=[], window_start_close_date="2000-01-01")
     receipt["first_session"] = first
