@@ -94,8 +94,9 @@ AI 는 자문 → RiskManager 가 결정 → OrderManager 가 실행 → Broker 
 ### 보안·운영
 - **시크릿 노출.** 토큰/`TOSS_CLIENT_ID`/`TOSS_CLIENT_SECRET`/OpenAI 키가 코드·테스트·설정에
   하드코딩되거나 `.env`가 커밋에 포함됐는가.
-- **운영 산출물 노출.** `status*.json`·`logs*/`·`reports/`·`data/`(계좌·시세)가 `.gitignore`에서
-  빠졌는가.
+- **운영 산출물 노출.** `runs/`·`status*.json`·`logs*/`·`reports/`·`data/`(계좌·시세)가 `.gitignore`에서
+  빠졌는가. 출력 폴더를 `src/output_layout.py` 밖에서 하드코딩했는가
+  (2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md).
 - **관측 실패가 매매를 중단시키는가.** runtime 의 헬스/메트릭 실패는 매매를 멈추면 안 된다.
 - `ingest` 의 rate-limit 가드를 제거·완화했는가.
 

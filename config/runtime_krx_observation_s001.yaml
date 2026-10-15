@@ -72,9 +72,9 @@ system_review:
   db: data/system_reviews_krx_observation_s001.sqlite
 
 logging:
-  dir: logs_krx_observation_s001
+  dir: runs/paper_2026-07/krx_observation_s001/logs
   max_bytes: 1000000
   backup_count: 3
 
-reports_dir: reports
-status_path: status_krx_observation_s001.json
+reports_dir: runs/paper_2026-07/krx_observation_s001/reports
+status_path: runs/paper_2026-07/krx_observation_s001/status.json

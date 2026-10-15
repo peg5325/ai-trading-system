@@ -202,8 +202,9 @@ PaperTradingLoop 을 감싼 운영 런타임. **실주문 없음, 안정성·데
 ```
 - 상태관리 run/stop/pause/resume, 운영 config(runtime.yaml)
 - 로그 rotation(runtime/error/trade/review.log), 매 Cycle Health Check + status.json 대시보드
+  (기본 `runs/paper/default/{logs/,status.json}`, 세션별 경로는 `config/runtime*.yaml`; 2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md)
 - Recovery(API/Network/AI/SQLite Lock 자동 복구 — 생존 우선), Graceful Shutdown(flush+report)
-- 종료 리포트 자동 생성(reports/paper_report_YYYYMMDD.md): Cycle/AI/Order/Exception/지연/자원
+- 종료 리포트 자동 생성(`<reports_dir>/paper_report_YYYYMMDD.md`, 기본 `runs/paper/default/reports/`, 2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md): Cycle/AI/Order/Exception/지연/자원
 
 ## AI Learning Dataset Builder (완료)
 Journal(+Candle)을 읽는 **read-only batch processor**. 실시간 매매에 관여하지 않음.

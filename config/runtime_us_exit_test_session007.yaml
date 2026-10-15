@@ -50,9 +50,9 @@ system_review:
   db: data/system_reviews_us_exit_test_session007.sqlite
 
 logging:
-  dir: logs_us_exit_test_session007
+  dir: runs/paper_2026-07/us_exit_test_session007/logs
   max_bytes: 1000000
   backup_count: 3
 
-reports_dir: reports
-status_path: status_us_exit_test_session007.json
+reports_dir: runs/paper_2026-07/us_exit_test_session007/reports
+status_path: runs/paper_2026-07/us_exit_test_session007/status.json

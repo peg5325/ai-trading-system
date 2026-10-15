@@ -56,6 +56,7 @@ from src.freeze_paper.reconcile import reconcile_state
 from src.history.exchange_calendar import is_trading_day
 from src.history.oos_guard import TRACK_INTRADAY, research_load
 from src.models import ET
+from src.output_layout import premarket_day_dir, premarket_ledgers_dir, premarket_logs_dir, reports_dir
 from src.premarket.contract import load_config, sha256_payload
 from src.premarket.operations import (
     MARKET_DB_LOCK_TIMEOUT_SECONDS,
@@ -94,17 +95,17 @@ BarLoader = Callable[[Path, str, datetime, datetime], list]
 
 def paper_paths(root: Path, trading_day: date) -> dict[str, Path]:
     key = trading_day.strftime("%Y%m%d")
-    reports = root / "reports"
+    day_dir = premarket_day_dir(root, trading_day)
     return {
-        "session": reports / f"premarket-freeze-paper.{key}.json",
-        "session_markdown": reports / f"premarket-freeze-paper.{key}.md",
-        "drift": reports / f"premarket-freeze-paper.{key}.drift.json",
-        "alert": reports / f"premarket-freeze-paper.{key}.alert.json",
-        "ledger": reports / "premarket-freeze-paper-ledger.json",
-        "operation": reports / f"premarket-operation.{key}.paper.json",
+        "session": day_dir / f"premarket-freeze-paper.{key}.json",
+        "session_markdown": day_dir / f"premarket-freeze-paper.{key}.md",
+        "drift": day_dir / f"premarket-freeze-paper.{key}.drift.json",
+        "alert": day_dir / f"premarket-freeze-paper.{key}.alert.json",
+        "ledger": premarket_ledgers_dir(root) / "premarket-freeze-paper-ledger.json",
+        "operation": day_dir / f"premarket-operation.{key}.paper.json",
         "market_db": root / "data" / "market_history.sqlite",
         "raw_snapshots": root / "data" / "raw_snapshots" / f"premarket-freeze-paper-{key}",
-        "logs": reports / "premarket-operation-logs" / f"{key}.paper",
+        "logs": premarket_logs_dir(root) / f"{key}.paper",
     }
 
 
@@ -219,7 +220,7 @@ def _run_scheduled(*, trading_day: date, root: Path, paths: Mapping[str, Path],
         return _result(INCOMPLETE, trading_day, ["NOTHING_TO_RECOMPUTE"])
 
     start_state = prev_artifact["end_state"] if prev_artifact else new_account_state(binding)
-    gate = bind_policy_config(evaluate_gates(trading_day, root / "reports", binding), root)
+    gate = bind_policy_config(evaluate_gates(trading_day, reports_dir(root), binding), root)
     symbols = sorted(set(_gate_symbols(gate, start_state)) | set(start_state["positions"]))
     if any(not SYMBOL_PATTERN.match(sym) for sym in symbols):
         return finish(INCOMPLETE, ["INVALID_SYMBOL"])
@@ -299,7 +300,7 @@ def _maybe_lock(root: Path, enabled: bool, timeout_seconds: float) -> Iterator[N
 def bind_policy_config(gate: GateResult, root: Path) -> GateResult:
     """NO_TRADE unless the FREEZE snapshot was built with the activation config the
     receipt pins (compared as sha256_payload of PremarketConfig.to_dict())."""
-    brief_path, _ = freeze_paths(date.fromisoformat(gate.trading_day), root / "reports")
+    brief_path, _ = freeze_paths(date.fromisoformat(gate.trading_day), reports_dir(root))
     brief = _read_json(brief_path)
     if brief is None:
         return gate
@@ -370,7 +371,7 @@ def build_session_artifact(*, trading_day: date, index: int, binding: ContractBi
     orders = [o for o in state["orders"] if o["client_order_id"] not in prior_order_ids]
     fills = [f for f in state["fills"] if f["trading_day"] == day]
     session = state["session"]
-    brief_path, receipt_path = freeze_paths(trading_day, root / "reports")
+    brief_path, receipt_path = freeze_paths(trading_day, reports_dir(root))
     artifact = {
         "schema": SESSION_SCHEMA,
         "trading_day": day,

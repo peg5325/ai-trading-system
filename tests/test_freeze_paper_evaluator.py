@@ -313,7 +313,7 @@ def test_cli_reads_spy_closes_from_the_market_db(good_window, tmp_path, capsys):
     assert evaluate_freeze_paper_window.main(["--root", str(root)]) == 0
     printed = json.loads(capsys.readouterr().out)
     assert (printed["label"], printed["outcome"]) == ("FINAL", ELIGIBLE_FOR_LIVE_REVIEW)
-    assert (root / "reports" / printed["path"]).is_file()
+    assert (root / "reports" / "premarket" / "ledgers" / printed["path"]).is_file()
 
 
 def _resign(path, mutate):
@@ -334,7 +334,7 @@ def test_final_requires_all_ten_verified_sessions(good_window, tmp_path):
     assert partial["label"] == "INTERIM"
     json_path, _ = write_evaluation(root, partial)
     assert json_path.name.startswith("premarket-freeze-paper-evaluation.interim.")
-    assert not (root / "reports" / "premarket-freeze-paper-evaluation.20261001_20261014.json"
+    assert not (root / "reports" / "premarket" / "ledgers" / "premarket-freeze-paper-evaluation.20261001_20261014.json"
                 ).exists()
     # account (9 sessions) is never compared with SPY through the 10th close
     assert partial["metrics"]["excess_vs_spy_tr_pct_points"] is None

@@ -103,7 +103,7 @@ def render_report_md(manifest, r1, r2, inv_post, ff_post, prov):
         a(f"- 수집분에는 미완성 진행일 **{rm['date']}** 일봉 {rm['removed_rows']}개(30종목)가 "
           f"포함돼 있었다(정규장 미완료·거래량 극소).")
         a(f"- `{rm['action']}` 로 제거 → 1d {rm['rows_1d_after']:,}행, integrity `{rm['integrity_after']}`. "
-          f"1m 무변경. 감사 로그 `{rm['audit_basename']}`(reports/, gitignore).")
+          f"1m 무변경. 감사 로그 `{rm['audit_basename']}`(reports/data-ops/, gitignore).")
         a(f"- 정책: 수집 CLI 에는 완료-거래일 컷오프가 없으므로 **수집 후 as_of 초과 봉 제거**가 "
           f"표준 절차. 같은 날짜 partial→완성 갱신은 store.py first-write-wins(동일 source·adjusted "
           f"유지) 때문에 in-place 로 안 되며 **삭제 후 재수집**이 필요(별도 정책).")

@@ -160,8 +160,8 @@ def write_freeze(reports: Path, *, regime: str | None = None, watchlist: list[di
     if resign:
         artifact.pop("artifact_sha256", None)
         artifact["artifact_sha256"] = sha256_payload(artifact)
-    reports.mkdir(parents=True, exist_ok=True)
     brief_path, receipt_path = freeze_paths(date.fromisoformat(day), reports)
+    brief_path.parent.mkdir(parents=True, exist_ok=True)
     content = json_bytes(artifact)
     brief_path.write_bytes(content)
     receipt = {

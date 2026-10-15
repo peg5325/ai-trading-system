@@ -78,7 +78,7 @@ def parse_args(argv=None):
     p.add_argument("--vix9d-csv", type=Path, required=True)
     p.add_argument("--dix-csv", type=Path, default=None, help="GEX (record only; must match the mask's snapshot)")
     p.add_argument("--events", type=Path, default=EVENTS_HISTORY)
-    p.add_argument("--mask", type=Path, required=True, help="fixed v1.1 mask (reports/daytrade_v11/v11_mask.json)")
+    p.add_argument("--mask", type=Path, required=True, help="fixed v1.1 mask (reports/daytrade/v11/v11_mask.json)")
     p.add_argument("--out", type=Path, required=True, help="result JSON (write-once)")
     p.add_argument("--allow-dirty", action="store_true")
     p.add_argument("--allow-missing-vix", action="store_true")

@@ -45,8 +45,8 @@
 
 ## 5. 산출물
 
-- `reports/daytrade_paper/YYYY-MM-DD.json`(gitignore): 규칙 버전, 입력값, 상황 라벨과 이유, 체결, 손익, QQQ·TQQQ 시가→종가 비교, 데이터 품질. 한 번 쓰면 덮어쓰지 않는다.
-- `reports/daytrade_paper/ledger.json`: 날짜별 누적.
+- `reports/daytrade/paper/YYYY-MM-DD.json`(gitignore, 2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md): 규칙 버전, 입력값, 상황 라벨과 이유, 체결, 손익, QQQ·TQQQ 시가→종가 비교, 데이터 품질. 한 번 쓰면 덮어쓰지 않는다.
+- `reports/daytrade/paper/ledger.json`: 날짜별 누적.
 - `docs/journal/YYYY-MM-DD.md`: AGENTS.md 일지 형식. 사실 부분은 자동 생성, 회고(잘한 점·잘못한 점·개선안·지난 개선안 점검)는 assistant가 쓴다.
 - 1분봉이 불완전하면(정규장 390개 미만, 09:30·15:59 누락) `INCOMPLETE_DATA`로 기록하고 거래를 만들지 않는다.
 
@@ -105,7 +105,7 @@
 - 원장 연속성: 원장에 기록이 있으면(첫 실행 이후) 달력상 직전 NYSE 거래일이 원장 마지막 날이어야 한다. 아니면 거부하고 빠진 날을 먼저 돌리게 한다.
 - 실제 실행에서 데이터 품질이 실패하면 exit 3으로 거부하고 아무것도 쓰지 않는다(외부 CSV도 받지 않는다). `--accept-incomplete`를 주면 `INCOMPLETE_DATA`로 기록한다. dry-run은 그대로 기록한다.
 - `--backfill-check`: 해당 날짜 봉을 DB에서 읽어 위 데이터 품질 검사만 하고 결과를 출력한다. 아무것도 쓰지 않고 외부 데이터도 받지 않으며 원장·write-once는 보지 않는다. 통과면 0, 실패면 3.
-- `--out-root`: `reports/daytrade_paper/`와 `data/external/daytrade_paper/`의 루트(기본: 스크립트가 있는 저장소). 일지는 항상 스크립트 저장소의 `docs/journal/`에 쓴다. 루트가 `.claude/worktrees/` 안이면 경고한다.
+- `--out-root`: `reports/daytrade/paper/`와 `data/external/daytrade_paper/`의 루트(기본: 스크립트가 있는 저장소). 일지는 항상 스크립트 저장소의 `docs/journal/`에 쓴다. 루트가 `.claude/worktrees/` 안이면 경고한다.
 - 쓰기 순서는 리포트 → 일지 → 원장 행(마지막)이다. 리포트를 만든 뒤 어떤 예외가 나면 이번 실행이 만든 리포트·일지를 지우고 예외를 다시 올린다(재실행이 write-once에 막히지 않게).
 - `--auto`(launchd `daytrade-paper-11` 11:07 KST, `daytrade-paper-14` 14:07 KST 재시도, 2026-10-05 추가): 원장 마지막 날 다음부터
   (원장이 비면 2026-10-05부터) 마감 1시간이 지난 마지막 거래일까지 빠진 세션을 오래된 순서로 실행하고, 처음 실패한 세션에서 멈춘다.
@@ -114,7 +114,7 @@
   exit 4는 사람이 필요하다: 수집기가 다시 받지 않는 지난 날의 영수증이 없음(`STALLED`), 또는 수집이 끝난 데이터가 품질 검사에 실패함(`NEEDS_HUMAN`).
   달력 범위 밖 날짜는 영수증을 보기 전에 exit 2로 거부한다(2026-12-31 전에 달력을 늘린다).
 - 자동 실행은 일지 사실 부분을 원래 체크아웃의 `docs/journal/`에 추적되지 않는 파일로 쓴다. 회고를 붙여 PR로 커밋한 뒤 원래 체크아웃을
-  병합된 main으로 옮기기 전에, 같은 이름의 추적되지 않는 일지 파일을 `reports/daytrade_paper/journal-autogen/`로 옮긴다(안 옮기면 checkout이 막힌다).
+  병합된 main으로 옮기기 전에, 같은 이름의 추적되지 않는 일지 파일을 `reports/daytrade/paper/journal-autogen/`로 옮긴다(안 옮기면 checkout이 막힌다).
 
 ## 7. 정상 주행 점검 판정 (2026-10-05 사용자 결정, 첫 세션 결과를 보기 전 고정)
 

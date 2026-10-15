@@ -79,8 +79,9 @@ python scripts/inspect_cli.py summary
 python scripts/inspect_cli.py pnl          # 실현손익(FIFO): 승률/PF/Expectancy/보유시간
 ```
 
-운영 산출물: `status*.json`(실시간 대시보드), `logs*/`(rotation), `reports/`(종료 리포트),
-`data/`(SQLite). — **모두 `.gitignore` 처리(계좌/시세 데이터 보호).**
+운영 산출물: `runs/<batch>/<session>/` 아래 `status.json`(실시간 대시보드)·`logs/`(rotation)·`reports/`(종료 리포트),
+그 밖의 산출물은 `reports/`, `data/`(SQLite). — **모두 `.gitignore` 처리(계좌/시세 데이터 보호).**
+폴더 규칙은 `src/output_layout.py` 한 곳에 있다 (2026-10-14부터 경로 변경, docs/OUTPUT_LAYOUT.md).
 
 ### 성능 평가 — Realized PnL Engine (FIFO)
 BUY/SELL 을 **FIFO 로 매칭**해 실현손익을 계산하는 **단일 엔진**(실거래/Paper/Backtest 공용).

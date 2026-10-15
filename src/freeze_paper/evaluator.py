@@ -26,6 +26,7 @@ from src.freeze_paper.spy import (
 from src.freeze_paper.spy import (
     shift_trading_days as _shift_trading_days,
 )
+from src.output_layout import premarket_ledgers_dir
 from src.pnl.fifo import FifoMatcher
 from src.pnl.metrics import summarize
 from src.premarket.contract import sha256_payload
@@ -229,7 +230,8 @@ def evaluation_paths(root: Path, evaluation: Mapping) -> tuple[Path, Path]:
     last = evaluation["window"]["end_close_date"].replace("-", "")
     kind = "" if evaluation["label"] == FINAL else "interim."
     stem = f"premarket-freeze-paper-evaluation.{kind}{first}_{last}"
-    return root / "reports" / f"{stem}.json", root / "reports" / f"{stem}.md"
+    ledgers = premarket_ledgers_dir(root)
+    return ledgers / f"{stem}.json", ledgers / f"{stem}.md"
 
 
 def write_evaluation(root: Path, evaluation: Mapping) -> tuple[Path, Path]:

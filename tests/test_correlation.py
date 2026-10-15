@@ -1,7 +1,7 @@
 """Spearman/다중검정/부호안정성 수치 검증.
 
 핵심: scipy 없이 구현한 p값이 **scipy 산출값과 일치**하는지를 고정한다.
-기준점은 선행 리포트 `reports/h2_h3_preliminary_s001.md` §1 의 (rho, n) → p 로,
+기준점은 선행 리포트 `reports/research/h2-h4/h2_h3_preliminary_s001.md` §1 의 (rho, n) → p 로,
 그 표는 scipy.stats.spearmanr 로 만들어졌다. 우리 구현이 같은 답을 내야
 "scipy 없이도 같은 결론"이라고 말할 수 있다.
 """
@@ -67,7 +67,7 @@ def test_student_t_two_sided_reference_values():
 # 표본 수 주의: 선행 리포트는 30m 완결 156건 / 60m 완결 140건이다.
 # 지평마다 n 이 다르므로 지평을 섞어 n 을 재사용하면 p 가 어긋난다.
 @pytest.mark.parametrize("rho,n,expected_p", [
-    # reports/h2_h3_preliminary_s001.md §1 (scipy 산출) 재현
+    # reports/research/h2-h4/h2_h3_preliminary_s001.md §1 (scipy 산출) 재현
     (-0.162, 156, 0.044),    # volume 30m
     (0.178, 156, 0.026),     # momentum 30m
     (-0.329, 156, 0.000),    # vwap_position 30m

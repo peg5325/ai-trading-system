@@ -5,7 +5,7 @@
 알 수 없다.** 그래서 국면 계산은 `src.market_context.builder` 를 재사용하고, 그 재사용이
 라이브를 정말 재현하는지를 여기서 고정한다.
 
-기준(reports/WORKORDER_H3_REGIME.md §2-1): 라이브 저널의 benchmark_context 를
+기준(reports/research/h2-h4/WORKORDER_H3_REGIME.md §2-1): 라이브 저널의 benchmark_context 를
 오차 ≤ 1e-6 으로 재현.
 
 --------------------------------------------------------------------------------

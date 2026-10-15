@@ -48,9 +48,9 @@ system_review:
   db: data/system_reviews_krx_exit_test.sqlite
 
 logging:
-  dir: logs_krx_exit_test
+  dir: runs/paper_2026-07/krx_exit_test/logs
   max_bytes: 1000000
   backup_count: 3
 
-reports_dir: reports
-status_path: status_krx_exit_test.json
+reports_dir: runs/paper_2026-07/krx_exit_test/reports
+status_path: runs/paper_2026-07/krx_exit_test/status.json
