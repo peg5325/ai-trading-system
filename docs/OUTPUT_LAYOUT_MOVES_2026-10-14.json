@@ -1,0 +1,3192 @@
+[
+ {
+  "old": "logs",
+  "new": "runs/paper_2026-07/default/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "logs_krx",
+  "new": "runs/paper_2026-07/krx/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "logs_krx_exit_test_session004",
+  "new": "runs/paper_2026-07/krx_exit_test_session004/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "logs_krx_exit_test_session006",
+  "new": "runs/paper_2026-07/krx_exit_test_session006/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "logs_krx_observation_s001",
+  "new": "runs/paper_2026-07/krx_observation_s001/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "logs_krx_s002",
+  "new": "runs/paper_2026-07/krx_s002/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "logs_mixed",
+  "new": "runs/paper_2026-07/mixed/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "logs_us",
+  "new": "runs/paper_2026-07/us/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "logs_us_exit_test_2000usd",
+  "new": "runs/paper_2026-07/us_exit_test_2000usd/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "logs_us_exit_test_session007",
+  "new": "runs/paper_2026-07/us_exit_test_session007/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "logs_us_phase6_eodguard_s001",
+  "new": "runs/paper_2026-07/us_phase6_eodguard_s001/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "logs_us_phase6_s001",
+  "new": "runs/paper_2026-07/us_phase6_s001/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "status.json",
+  "new": "runs/paper_2026-07/default/status.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "status_krx.json",
+  "new": "runs/paper_2026-07/krx/status.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "status_krx_exit_test_session004.json",
+  "new": "runs/paper_2026-07/krx_exit_test_session004/status.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "status_krx_exit_test_session006.json",
+  "new": "runs/paper_2026-07/krx_exit_test_session006/status.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "status_krx_observation_s001.json",
+  "new": "runs/paper_2026-07/krx_observation_s001/status.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "status_krx_s002.json",
+  "new": "runs/paper_2026-07/krx_s002/status.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "status_mixed.json",
+  "new": "runs/paper_2026-07/mixed/status.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "status_us.json",
+  "new": "runs/paper_2026-07/us/status.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "status_us_exit_test_2000usd.json",
+  "new": "runs/paper_2026-07/us_exit_test_2000usd/status.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "status_us_exit_test_session007.json",
+  "new": "runs/paper_2026-07/us_exit_test_session007/status.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "status_us_phase6_s001.json",
+  "new": "runs/paper_2026-07/us_phase6_s001/status.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/CROSS_SESSION_ANALYSIS.md",
+  "new": "reports/archive/2026-07_paper_sessions/CROSS_SESSION_ANALYSIS.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/DECISION_MEMO_AB.md",
+  "new": "reports/archive/2026-07_paper_sessions/DECISION_MEMO_AB.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/INSTRUMENTATION_SPEC.md",
+  "new": "reports/archive/2026-07_paper_sessions/INSTRUMENTATION_SPEC.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/NEXT_SESSION_IMPROVEMENTS.md",
+  "new": "reports/archive/2026-07_paper_sessions/NEXT_SESSION_IMPROVEMENTS.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/P0_US30_DAILY_10Y_POST_TAIL_MANIFEST.json",
+  "new": "reports/data-ops/P0_US30_DAILY_10Y_POST_TAIL_MANIFEST.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/P0_US30_INTRADAY_1M_CANONICAL_POST_TAIL_MANIFEST.json",
+  "new": "reports/data-ops/P0_US30_INTRADAY_1M_CANONICAL_POST_TAIL_MANIFEST.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/P0_US30_INTRADAY_1M_CANONICAL_POST_TAIL_REPORT.md",
+  "new": "reports/data-ops/P0_US30_INTRADAY_1M_CANONICAL_POST_TAIL_REPORT.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/P0_US30_ORB_CLEAN_EXTERNAL_REPLICA_RECEIPT.json",
+  "new": "reports/data-ops/P0_US30_ORB_CLEAN_EXTERNAL_REPLICA_RECEIPT.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/P0_US30_ORB_CLEAN_RAW_EXTERNAL_REPLICA_RECEIPT.json",
+  "new": "reports/data-ops/P0_US30_ORB_CLEAN_RAW_EXTERNAL_REPLICA_RECEIPT.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/P0_US30_ORB_CLEAN_SNAPSHOT_RECEIPT.json",
+  "new": "reports/data-ops/P0_US30_ORB_CLEAN_SNAPSHOT_RECEIPT.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/PROMPT_h2b_backfill_cc.md",
+  "new": "reports/research/h2-h4/PROMPT_h2b_backfill_cc.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/SESSION_001_FINAL.md",
+  "new": "reports/archive/2026-07_paper_sessions/SESSION_001_FINAL.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/SESSION_003_FINAL.md",
+  "new": "reports/archive/2026-07_paper_sessions/SESSION_003_FINAL.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/SESSION_004_FINAL.md",
+  "new": "reports/archive/2026-07_paper_sessions/SESSION_004_FINAL.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/SESSION_005_FINAL.md",
+  "new": "reports/archive/2026-07_paper_sessions/SESSION_005_FINAL.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/SESSION_006R_FINAL.md",
+  "new": "reports/archive/2026-07_paper_sessions/SESSION_006R_FINAL.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/SESSION_007_FINAL.md",
+  "new": "reports/archive/2026-07_paper_sessions/SESSION_007_FINAL.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/SESSION_KRX_OBSERVATION_S001_FINAL.md",
+  "new": "reports/archive/2026-07_paper_sessions/SESSION_KRX_OBSERVATION_S001_FINAL.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/SESSION_PHASE6_S001_FINAL.md",
+  "new": "reports/archive/2026-07_paper_sessions/SESSION_PHASE6_S001_FINAL.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/WORKORDER_H2B_BACKFILL.md",
+  "new": "reports/research/h2-h4/WORKORDER_H2B_BACKFILL.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/WORKORDER_H3B_LONGHORIZON.md",
+  "new": "reports/research/h2-h4/WORKORDER_H3B_LONGHORIZON.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/WORKORDER_H3_REGIME.md",
+  "new": "reports/research/h2-h4/WORKORDER_H3_REGIME.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/daily_screen_v1",
+  "new": "reports/research/daily_screen_v1",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/daytrade_paper",
+  "new": "reports/daytrade/paper",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/daytrade_shadow",
+  "new": "reports/daytrade/shadow",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/daytrade_v11",
+  "new": "reports/daytrade/v11",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/daytrade_v13",
+  "new": "reports/daytrade/v13",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/design_delta_review.md",
+  "new": "reports/archive/2026-07_paper_sessions/design_delta_review.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/entry_study_v1",
+  "new": "reports/research/entry_study_v1",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/exit_and_slicing_analysis.md",
+  "new": "reports/archive/2026-07_paper_sessions/exit_and_slicing_analysis.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_false_breakout_fade_v1",
+  "new": "reports/research/explore_false_breakout_fade_v1",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_overnight_drift_v1",
+  "new": "reports/research/explore_overnight_drift_v1",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_overnight_drift_v2",
+  "new": "reports/research/explore_overnight_drift_v2",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_pullback_vwap_v0",
+  "new": "reports/research/explore_pullback_vwap_v0",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_pullback_vwap_v0_repro",
+  "new": "reports/research/explore_pullback_vwap_v0_repro",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_pullback_vwap_v1",
+  "new": "reports/research/explore_pullback_vwap_v1",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_pullback_vwap_v2",
+  "new": "reports/research/explore_pullback_vwap_v2",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_pullback_vwap_v3",
+  "new": "reports/research/explore_pullback_vwap_v3",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_pullback_vwap_v4",
+  "new": "reports/research/explore_pullback_vwap_v4",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_v3_asym_swing",
+  "new": "reports/research/explore_v3_asym_swing",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_v3b_asym_swing",
+  "new": "reports/research/explore_v3b_asym_swing",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/explore_v3c_asym_swing",
+  "new": "reports/research/explore_v3c_asym_swing",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/h2_h3_preliminary_s001.md",
+  "new": "reports/research/h2-h4/h2_h3_preliminary_s001.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/h2b_backfill_validation.json",
+  "new": "reports/research/h2-h4/h2b_backfill_validation.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/h2b_backfill_validation.md",
+  "new": "reports/research/h2-h4/h2b_backfill_validation.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/h3_regime_validation.json",
+  "new": "reports/research/h2-h4/h3_regime_validation.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/h3_regime_validation.md",
+  "new": "reports/research/h2-h4/h3_regime_validation.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/h3b_longhorizon_validation.json",
+  "new": "reports/research/h2-h4/h3b_longhorizon_validation.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/h3b_longhorizon_validation.md",
+  "new": "reports/research/h2-h4/h3b_longhorizon_validation.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/h4_screener_ranking.json",
+  "new": "reports/research/h2-h4/h4_screener_ranking.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/history-collection-logs",
+  "new": "reports/history-collection/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/history_external_replica_receipt.20260722T160829Z.json",
+  "new": "reports/data-ops/history_external_replica_receipt.20260722T160829Z.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/history_external_replica_receipt.20260726T030228Z.json",
+  "new": "reports/data-ops/history_external_replica_receipt.20260726T030228Z.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/krx_exit_test_session004_reviews.jsonl",
+  "new": "reports/archive/2026-07_paper_sessions/krx_exit_test_session004_reviews.jsonl",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/krx_exit_test_session004_rule_improvement.json",
+  "new": "reports/archive/2026-07_paper_sessions/krx_exit_test_session004_rule_improvement.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/krx_exit_test_session004_system_review.json",
+  "new": "reports/archive/2026-07_paper_sessions/krx_exit_test_session004_system_review.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/krx_reviews_session002.jsonl",
+  "new": "reports/archive/2026-07_paper_sessions/krx_reviews_session002.jsonl",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/krx_rule_improvement_session002.json",
+  "new": "reports/archive/2026-07_paper_sessions/krx_rule_improvement_session002.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/p0_us30_1m_bulk.p0-us30-1m-20260721-r82.coverage-remediation.json",
+  "new": "reports/data-ops/p0_us30_1m_bulk.p0-us30-1m-20260721-r82.coverage-remediation.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/p0_us30_1m_bulk.p0-us30-1m-20260721-r82.json",
+  "new": "reports/data-ops/p0_us30_1m_bulk.p0-us30-1m-20260721-r82.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/p0_us30_1m_bulk.p0-us30-1m-20260721-r82.stderr.log",
+  "new": "reports/data-ops/p0_us30_1m_bulk.p0-us30-1m-20260721-r82.stderr.log",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/p0_us30_1m_bulk.p0-us30-1m-20260721-r82.xly-resume.json",
+  "new": "reports/data-ops/p0_us30_1m_bulk.p0-us30-1m-20260721-r82.xly-resume.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/p0_us30_daily_10y_backfill.20260722.json",
+  "new": "reports/data-ops/p0_us30_daily_10y_backfill.20260722.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/p0_us30_daily_10y_backfill.20260722.log",
+  "new": "reports/data-ops/p0_us30_daily_10y_backfill.20260722.log",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/p0_us30_daily_partial_removal_audit.20260722.json",
+  "new": "reports/data-ops/p0_us30_daily_partial_removal_audit.20260722.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/paper_report_20260707.md",
+  "new": "reports/archive/2026-07_paper_sessions/paper_report_20260707.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/paper_report_20260708.md",
+  "new": "reports/archive/2026-07_paper_sessions/paper_report_20260708.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/paper_report_20260709.md",
+  "new": "reports/archive/2026-07_paper_sessions/paper_report_20260709.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/paper_report_20260710.md",
+  "new": "reports/archive/2026-07_paper_sessions/paper_report_20260710.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/paper_report_20260715.md",
+  "new": "reports/archive/2026-07_paper_sessions/paper_report_20260715.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/paper_report_20260716.md",
+  "new": "reports/archive/2026-07_paper_sessions/paper_report_20260716.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/paper_report_unknown.md",
+  "new": "reports/archive/2026-07_paper_sessions/paper_report_unknown.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/paper_trading_session_002_krx_20260708.md",
+  "new": "reports/archive/2026-07_paper_sessions/paper_trading_session_002_krx_20260708.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/phase6_us_baseline_launch_preflight.md",
+  "new": "reports/archive/2026-07_paper_sessions/phase6_us_baseline_launch_preflight.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/phase6_us_eodguard_launch_preflight.md",
+  "new": "reports/archive/2026-07_paper_sessions/phase6_us_eodguard_launch_preflight.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/preflight_report_20260707.md",
+  "new": "reports/archive/2026-07_paper_sessions/preflight_report_20260707.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.fixed.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.fixed.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.fixed.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.fixed.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.v2.corrected.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.v2.corrected.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.v2.corrected.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.v2.corrected.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.v2.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.v2.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.v2.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.v2.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.v3.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.v3.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.v3.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.v3.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.v4.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.v4.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.v4.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.v4.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.v5.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.v5.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.freeze.v5.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.freeze.v5.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.fixed.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.fixed.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.fixed.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.fixed.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.v2.corrected.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.v2.corrected.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.v2.corrected.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.v2.corrected.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.v2.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.v2.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.v2.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.v2.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.v3.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.v3.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.v3.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.v3.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.v4.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.v4.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.v4.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.v4.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.v5.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.v5.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.primary.v5.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.primary.v5.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.fixed.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.fixed.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.fixed.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.fixed.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.v2.corrected.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.v2.corrected.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.v2.corrected.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.v2.corrected.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.v2.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.v2.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.v2.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.v2.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.v3.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.v3.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.v3.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.v3.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.v4.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.v4.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.v4.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.v4.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.v5.json",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.v5.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260915.verification.v5.md",
+  "new": "reports/premarket/days/20260915/premarket-daily-brief.20260915.verification.v5.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260917.freeze.json",
+  "new": "reports/premarket/days/20260917/premarket-daily-brief.20260917.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260917.freeze.md",
+  "new": "reports/premarket/days/20260917/premarket-daily-brief.20260917.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260918.freeze.json",
+  "new": "reports/premarket/days/20260918/premarket-daily-brief.20260918.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260918.freeze.md",
+  "new": "reports/premarket/days/20260918/premarket-daily-brief.20260918.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260918.primary.json",
+  "new": "reports/premarket/days/20260918/premarket-daily-brief.20260918.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260918.primary.md",
+  "new": "reports/premarket/days/20260918/premarket-daily-brief.20260918.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260918.verification.json",
+  "new": "reports/premarket/days/20260918/premarket-daily-brief.20260918.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260918.verification.md",
+  "new": "reports/premarket/days/20260918/premarket-daily-brief.20260918.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260921.freeze.json",
+  "new": "reports/premarket/days/20260921/premarket-daily-brief.20260921.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260921.freeze.md",
+  "new": "reports/premarket/days/20260921/premarket-daily-brief.20260921.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260921.primary.json",
+  "new": "reports/premarket/days/20260921/premarket-daily-brief.20260921.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260921.primary.md",
+  "new": "reports/premarket/days/20260921/premarket-daily-brief.20260921.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260921.verification.json",
+  "new": "reports/premarket/days/20260921/premarket-daily-brief.20260921.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260921.verification.md",
+  "new": "reports/premarket/days/20260921/premarket-daily-brief.20260921.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260924.primary.json",
+  "new": "reports/premarket/days/20260924/premarket-daily-brief.20260924.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260924.primary.md",
+  "new": "reports/premarket/days/20260924/premarket-daily-brief.20260924.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260928.freeze.json",
+  "new": "reports/premarket/days/20260928/premarket-daily-brief.20260928.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260928.freeze.md",
+  "new": "reports/premarket/days/20260928/premarket-daily-brief.20260928.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260928.primary.retry1.json",
+  "new": "reports/premarket/days/20260928/premarket-daily-brief.20260928.primary.retry1.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260928.primary.retry1.md",
+  "new": "reports/premarket/days/20260928/premarket-daily-brief.20260928.primary.retry1.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260928.verification.json",
+  "new": "reports/premarket/days/20260928/premarket-daily-brief.20260928.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260928.verification.md",
+  "new": "reports/premarket/days/20260928/premarket-daily-brief.20260928.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260929.freeze.json",
+  "new": "reports/premarket/days/20260929/premarket-daily-brief.20260929.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260929.freeze.md",
+  "new": "reports/premarket/days/20260929/premarket-daily-brief.20260929.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260929.primary.json",
+  "new": "reports/premarket/days/20260929/premarket-daily-brief.20260929.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260929.primary.md",
+  "new": "reports/premarket/days/20260929/premarket-daily-brief.20260929.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260929.verification.json",
+  "new": "reports/premarket/days/20260929/premarket-daily-brief.20260929.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260929.verification.md",
+  "new": "reports/premarket/days/20260929/premarket-daily-brief.20260929.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260930.freeze.json",
+  "new": "reports/premarket/days/20260930/premarket-daily-brief.20260930.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260930.freeze.md",
+  "new": "reports/premarket/days/20260930/premarket-daily-brief.20260930.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260930.primary.json",
+  "new": "reports/premarket/days/20260930/premarket-daily-brief.20260930.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260930.primary.md",
+  "new": "reports/premarket/days/20260930/premarket-daily-brief.20260930.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260930.verification.json",
+  "new": "reports/premarket/days/20260930/premarket-daily-brief.20260930.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20260930.verification.md",
+  "new": "reports/premarket/days/20260930/premarket-daily-brief.20260930.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261001.freeze.json",
+  "new": "reports/premarket/days/20261001/premarket-daily-brief.20261001.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261001.freeze.md",
+  "new": "reports/premarket/days/20261001/premarket-daily-brief.20261001.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261001.primary.json",
+  "new": "reports/premarket/days/20261001/premarket-daily-brief.20261001.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261001.primary.md",
+  "new": "reports/premarket/days/20261001/premarket-daily-brief.20261001.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261001.verification.json",
+  "new": "reports/premarket/days/20261001/premarket-daily-brief.20261001.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261001.verification.md",
+  "new": "reports/premarket/days/20261001/premarket-daily-brief.20261001.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261002.freeze.json",
+  "new": "reports/premarket/days/20261002/premarket-daily-brief.20261002.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261002.freeze.md",
+  "new": "reports/premarket/days/20261002/premarket-daily-brief.20261002.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261002.primary.json",
+  "new": "reports/premarket/days/20261002/premarket-daily-brief.20261002.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261002.primary.md",
+  "new": "reports/premarket/days/20261002/premarket-daily-brief.20261002.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261002.verification.json",
+  "new": "reports/premarket/days/20261002/premarket-daily-brief.20261002.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261002.verification.md",
+  "new": "reports/premarket/days/20261002/premarket-daily-brief.20261002.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261005.freeze.json",
+  "new": "reports/premarket/days/20261005/premarket-daily-brief.20261005.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261005.freeze.md",
+  "new": "reports/premarket/days/20261005/premarket-daily-brief.20261005.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261005.primary.json",
+  "new": "reports/premarket/days/20261005/premarket-daily-brief.20261005.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261005.primary.md",
+  "new": "reports/premarket/days/20261005/premarket-daily-brief.20261005.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261005.verification.json",
+  "new": "reports/premarket/days/20261005/premarket-daily-brief.20261005.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261005.verification.md",
+  "new": "reports/premarket/days/20261005/premarket-daily-brief.20261005.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261006.freeze.json",
+  "new": "reports/premarket/days/20261006/premarket-daily-brief.20261006.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261006.freeze.md",
+  "new": "reports/premarket/days/20261006/premarket-daily-brief.20261006.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261006.primary.json",
+  "new": "reports/premarket/days/20261006/premarket-daily-brief.20261006.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261006.primary.md",
+  "new": "reports/premarket/days/20261006/premarket-daily-brief.20261006.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261006.verification.json",
+  "new": "reports/premarket/days/20261006/premarket-daily-brief.20261006.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261006.verification.md",
+  "new": "reports/premarket/days/20261006/premarket-daily-brief.20261006.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261007.freeze.json",
+  "new": "reports/premarket/days/20261007/premarket-daily-brief.20261007.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261007.freeze.md",
+  "new": "reports/premarket/days/20261007/premarket-daily-brief.20261007.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261007.primary.json",
+  "new": "reports/premarket/days/20261007/premarket-daily-brief.20261007.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261007.primary.md",
+  "new": "reports/premarket/days/20261007/premarket-daily-brief.20261007.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261007.verification.json",
+  "new": "reports/premarket/days/20261007/premarket-daily-brief.20261007.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261007.verification.md",
+  "new": "reports/premarket/days/20261007/premarket-daily-brief.20261007.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261008.freeze.json",
+  "new": "reports/premarket/days/20261008/premarket-daily-brief.20261008.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261008.freeze.md",
+  "new": "reports/premarket/days/20261008/premarket-daily-brief.20261008.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261008.primary.json",
+  "new": "reports/premarket/days/20261008/premarket-daily-brief.20261008.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261008.primary.md",
+  "new": "reports/premarket/days/20261008/premarket-daily-brief.20261008.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261008.verification.json",
+  "new": "reports/premarket/days/20261008/premarket-daily-brief.20261008.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261008.verification.md",
+  "new": "reports/premarket/days/20261008/premarket-daily-brief.20261008.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261009.freeze.json",
+  "new": "reports/premarket/days/20261009/premarket-daily-brief.20261009.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261009.freeze.md",
+  "new": "reports/premarket/days/20261009/premarket-daily-brief.20261009.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261009.primary.json",
+  "new": "reports/premarket/days/20261009/premarket-daily-brief.20261009.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261009.primary.md",
+  "new": "reports/premarket/days/20261009/premarket-daily-brief.20261009.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261009.verification.json",
+  "new": "reports/premarket/days/20261009/premarket-daily-brief.20261009.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261009.verification.md",
+  "new": "reports/premarket/days/20261009/premarket-daily-brief.20261009.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261012.freeze.json",
+  "new": "reports/premarket/days/20261012/premarket-daily-brief.20261012.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261012.freeze.md",
+  "new": "reports/premarket/days/20261012/premarket-daily-brief.20261012.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261012.primary.json",
+  "new": "reports/premarket/days/20261012/premarket-daily-brief.20261012.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261012.primary.md",
+  "new": "reports/premarket/days/20261012/premarket-daily-brief.20261012.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261012.verification.json",
+  "new": "reports/premarket/days/20261012/premarket-daily-brief.20261012.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261012.verification.md",
+  "new": "reports/premarket/days/20261012/premarket-daily-brief.20261012.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261013.freeze.json",
+  "new": "reports/premarket/days/20261013/premarket-daily-brief.20261013.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261013.freeze.md",
+  "new": "reports/premarket/days/20261013/premarket-daily-brief.20261013.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261013.primary.json",
+  "new": "reports/premarket/days/20261013/premarket-daily-brief.20261013.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261013.primary.md",
+  "new": "reports/premarket/days/20261013/premarket-daily-brief.20261013.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261013.verification.json",
+  "new": "reports/premarket/days/20261013/premarket-daily-brief.20261013.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261013.verification.md",
+  "new": "reports/premarket/days/20261013/premarket-daily-brief.20261013.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261014.freeze.json",
+  "new": "reports/premarket/days/20261014/premarket-daily-brief.20261014.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261014.freeze.md",
+  "new": "reports/premarket/days/20261014/premarket-daily-brief.20261014.freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261014.primary.json",
+  "new": "reports/premarket/days/20261014/premarket-daily-brief.20261014.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261014.primary.md",
+  "new": "reports/premarket/days/20261014/premarket-daily-brief.20261014.primary.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261014.verification.json",
+  "new": "reports/premarket/days/20261014/premarket-daily-brief.20261014.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-daily-brief.20261014.verification.md",
+  "new": "reports/premarket/days/20261014/premarket-daily-brief.20261014.verification.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-freeze-paper-ledger.json",
+  "new": "reports/premarket/ledgers/premarket-freeze-paper-ledger.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-freeze-paper.20261001.json",
+  "new": "reports/premarket/days/20261001/premarket-freeze-paper.20261001.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-freeze-paper.20261001.md",
+  "new": "reports/premarket/days/20261001/premarket-freeze-paper.20261001.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.freeze.fixed.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.freeze.fixed.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.freeze.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.freeze.v2.corrected.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.freeze.v2.corrected.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.freeze.v2.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.freeze.v2.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.freeze.v3.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.freeze.v3.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.freeze.v4.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.freeze.v4.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.freeze.v5.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.freeze.v5.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.primary.fixed.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.primary.fixed.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.primary.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.primary.v2.corrected.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.primary.v2.corrected.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.primary.v2.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.primary.v2.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.primary.v3.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.primary.v3.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.primary.v4.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.primary.v4.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.primary.v5.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.primary.v5.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.verification.fixed.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.verification.fixed.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.verification.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.verification.v2.corrected.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.verification.v2.corrected.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.verification.v2.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.verification.v2.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.verification.v3.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.verification.v3.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.verification.v4.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.verification.v4.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260915.verification.v5.json",
+  "new": "reports/premarket/days/20260915/premarket-input.20260915.verification.v5.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260917.freeze.json",
+  "new": "reports/premarket/days/20260917/premarket-input.20260917.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260918.freeze.json",
+  "new": "reports/premarket/days/20260918/premarket-input.20260918.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260918.primary.json",
+  "new": "reports/premarket/days/20260918/premarket-input.20260918.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260918.verification.json",
+  "new": "reports/premarket/days/20260918/premarket-input.20260918.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260921.freeze.json",
+  "new": "reports/premarket/days/20260921/premarket-input.20260921.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260921.primary.json",
+  "new": "reports/premarket/days/20260921/premarket-input.20260921.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260921.verification.json",
+  "new": "reports/premarket/days/20260921/premarket-input.20260921.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260924.primary.json",
+  "new": "reports/premarket/days/20260924/premarket-input.20260924.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260928.freeze.json",
+  "new": "reports/premarket/days/20260928/premarket-input.20260928.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260928.primary.retry1.json",
+  "new": "reports/premarket/days/20260928/premarket-input.20260928.primary.retry1.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260928.verification.json",
+  "new": "reports/premarket/days/20260928/premarket-input.20260928.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260929.freeze.json",
+  "new": "reports/premarket/days/20260929/premarket-input.20260929.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260929.primary.json",
+  "new": "reports/premarket/days/20260929/premarket-input.20260929.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260929.verification.json",
+  "new": "reports/premarket/days/20260929/premarket-input.20260929.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260930.freeze.json",
+  "new": "reports/premarket/days/20260930/premarket-input.20260930.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260930.primary.json",
+  "new": "reports/premarket/days/20260930/premarket-input.20260930.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20260930.verification.json",
+  "new": "reports/premarket/days/20260930/premarket-input.20260930.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261001.freeze.json",
+  "new": "reports/premarket/days/20261001/premarket-input.20261001.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261001.primary.json",
+  "new": "reports/premarket/days/20261001/premarket-input.20261001.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261001.verification.json",
+  "new": "reports/premarket/days/20261001/premarket-input.20261001.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261002.freeze.json",
+  "new": "reports/premarket/days/20261002/premarket-input.20261002.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261002.primary.json",
+  "new": "reports/premarket/days/20261002/premarket-input.20261002.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261002.verification.json",
+  "new": "reports/premarket/days/20261002/premarket-input.20261002.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261005.freeze.json",
+  "new": "reports/premarket/days/20261005/premarket-input.20261005.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261005.primary.json",
+  "new": "reports/premarket/days/20261005/premarket-input.20261005.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261005.verification.json",
+  "new": "reports/premarket/days/20261005/premarket-input.20261005.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261006.freeze.json",
+  "new": "reports/premarket/days/20261006/premarket-input.20261006.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261006.primary.json",
+  "new": "reports/premarket/days/20261006/premarket-input.20261006.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261006.verification.json",
+  "new": "reports/premarket/days/20261006/premarket-input.20261006.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261007.freeze.json",
+  "new": "reports/premarket/days/20261007/premarket-input.20261007.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261007.primary.json",
+  "new": "reports/premarket/days/20261007/premarket-input.20261007.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261007.verification.json",
+  "new": "reports/premarket/days/20261007/premarket-input.20261007.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261008.freeze.json",
+  "new": "reports/premarket/days/20261008/premarket-input.20261008.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261008.primary.json",
+  "new": "reports/premarket/days/20261008/premarket-input.20261008.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261008.verification.json",
+  "new": "reports/premarket/days/20261008/premarket-input.20261008.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261009.freeze.json",
+  "new": "reports/premarket/days/20261009/premarket-input.20261009.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261009.primary.json",
+  "new": "reports/premarket/days/20261009/premarket-input.20261009.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261009.verification.json",
+  "new": "reports/premarket/days/20261009/premarket-input.20261009.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261012.freeze.json",
+  "new": "reports/premarket/days/20261012/premarket-input.20261012.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261012.primary.json",
+  "new": "reports/premarket/days/20261012/premarket-input.20261012.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261012.verification.json",
+  "new": "reports/premarket/days/20261012/premarket-input.20261012.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261013.freeze.json",
+  "new": "reports/premarket/days/20261013/premarket-input.20261013.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261013.primary.json",
+  "new": "reports/premarket/days/20261013/premarket-input.20261013.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261013.verification.json",
+  "new": "reports/premarket/days/20261013/premarket-input.20261013.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261014.freeze.json",
+  "new": "reports/premarket/days/20261014/premarket-input.20261014.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261014.primary.json",
+  "new": "reports/premarket/days/20261014/premarket-input.20261014.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-input.20261014.verification.json",
+  "new": "reports/premarket/days/20261014/premarket-input.20261014.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-launchd",
+  "new": "reports/premarket/launchd",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.freeze.fixed.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.freeze.fixed.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.freeze.fixed.json.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.freeze.fixed.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.freeze.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.freeze.v2.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.freeze.v2.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.freeze.v2.json.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.freeze.v2.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.primary.fixed.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.primary.fixed.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.primary.fixed.json.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.primary.fixed.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.primary.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.primary.json.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.primary.v2.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.primary.v2.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.primary.v2.json.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.primary.v2.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.verification.fixed.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.verification.fixed.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.verification.fixed.json.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.verification.fixed.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.verification.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.verification.json.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.verification.v2.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.verification.v2.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260915.verification.v2.json.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-market-bundle.20260915.verification.v2.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260917.freeze.json",
+  "new": "reports/premarket/days/20260917/premarket-market-bundle.20260917.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260917.freeze.receipt.json",
+  "new": "reports/premarket/days/20260917/premarket-market-bundle.20260917.freeze.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260918.freeze.json",
+  "new": "reports/premarket/days/20260918/premarket-market-bundle.20260918.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260918.freeze.receipt.json",
+  "new": "reports/premarket/days/20260918/premarket-market-bundle.20260918.freeze.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260918.primary.json",
+  "new": "reports/premarket/days/20260918/premarket-market-bundle.20260918.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260918.primary.receipt.json",
+  "new": "reports/premarket/days/20260918/premarket-market-bundle.20260918.primary.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260918.verification.json",
+  "new": "reports/premarket/days/20260918/premarket-market-bundle.20260918.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260918.verification.receipt.json",
+  "new": "reports/premarket/days/20260918/premarket-market-bundle.20260918.verification.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260921.freeze.json",
+  "new": "reports/premarket/days/20260921/premarket-market-bundle.20260921.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260921.freeze.receipt.json",
+  "new": "reports/premarket/days/20260921/premarket-market-bundle.20260921.freeze.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260921.primary.json",
+  "new": "reports/premarket/days/20260921/premarket-market-bundle.20260921.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260921.primary.receipt.json",
+  "new": "reports/premarket/days/20260921/premarket-market-bundle.20260921.primary.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260921.verification.json",
+  "new": "reports/premarket/days/20260921/premarket-market-bundle.20260921.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260921.verification.receipt.json",
+  "new": "reports/premarket/days/20260921/premarket-market-bundle.20260921.verification.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260924.primary.json",
+  "new": "reports/premarket/days/20260924/premarket-market-bundle.20260924.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260924.primary.receipt.json",
+  "new": "reports/premarket/days/20260924/premarket-market-bundle.20260924.primary.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260928.freeze.json",
+  "new": "reports/premarket/days/20260928/premarket-market-bundle.20260928.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260928.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20260928/premarket-market-bundle.20260928.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260928.primary.retry1.json",
+  "new": "reports/premarket/days/20260928/premarket-market-bundle.20260928.primary.retry1.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260928.primary.retry1.receipt.json",
+  "new": "reports/premarket/days/20260928/premarket-market-bundle.20260928.primary.retry1.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260928.verification.json",
+  "new": "reports/premarket/days/20260928/premarket-market-bundle.20260928.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260928.verification.json.receipt.json",
+  "new": "reports/premarket/days/20260928/premarket-market-bundle.20260928.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260929.freeze.json",
+  "new": "reports/premarket/days/20260929/premarket-market-bundle.20260929.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260929.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20260929/premarket-market-bundle.20260929.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260929.primary.json",
+  "new": "reports/premarket/days/20260929/premarket-market-bundle.20260929.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260929.primary.json.receipt.json",
+  "new": "reports/premarket/days/20260929/premarket-market-bundle.20260929.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260929.verification.json",
+  "new": "reports/premarket/days/20260929/premarket-market-bundle.20260929.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260929.verification.json.receipt.json",
+  "new": "reports/premarket/days/20260929/premarket-market-bundle.20260929.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260930.freeze.json",
+  "new": "reports/premarket/days/20260930/premarket-market-bundle.20260930.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260930.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20260930/premarket-market-bundle.20260930.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260930.primary.json",
+  "new": "reports/premarket/days/20260930/premarket-market-bundle.20260930.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260930.primary.json.receipt.json",
+  "new": "reports/premarket/days/20260930/premarket-market-bundle.20260930.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260930.verification.json",
+  "new": "reports/premarket/days/20260930/premarket-market-bundle.20260930.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20260930.verification.json.receipt.json",
+  "new": "reports/premarket/days/20260930/premarket-market-bundle.20260930.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261001.freeze.json",
+  "new": "reports/premarket/days/20261001/premarket-market-bundle.20261001.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261001.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261001/premarket-market-bundle.20261001.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261001.primary.json",
+  "new": "reports/premarket/days/20261001/premarket-market-bundle.20261001.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261001.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261001/premarket-market-bundle.20261001.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261001.verification.json",
+  "new": "reports/premarket/days/20261001/premarket-market-bundle.20261001.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261001.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261001/premarket-market-bundle.20261001.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261002.freeze.json",
+  "new": "reports/premarket/days/20261002/premarket-market-bundle.20261002.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261002.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261002/premarket-market-bundle.20261002.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261002.primary.json",
+  "new": "reports/premarket/days/20261002/premarket-market-bundle.20261002.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261002.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261002/premarket-market-bundle.20261002.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261002.verification.json",
+  "new": "reports/premarket/days/20261002/premarket-market-bundle.20261002.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261002.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261002/premarket-market-bundle.20261002.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261005.freeze.json",
+  "new": "reports/premarket/days/20261005/premarket-market-bundle.20261005.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261005.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261005/premarket-market-bundle.20261005.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261005.primary.json",
+  "new": "reports/premarket/days/20261005/premarket-market-bundle.20261005.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261005.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261005/premarket-market-bundle.20261005.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261005.verification.json",
+  "new": "reports/premarket/days/20261005/premarket-market-bundle.20261005.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261005.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261005/premarket-market-bundle.20261005.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261006.freeze.json",
+  "new": "reports/premarket/days/20261006/premarket-market-bundle.20261006.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261006.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261006/premarket-market-bundle.20261006.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261006.primary.json",
+  "new": "reports/premarket/days/20261006/premarket-market-bundle.20261006.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261006.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261006/premarket-market-bundle.20261006.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261006.verification.json",
+  "new": "reports/premarket/days/20261006/premarket-market-bundle.20261006.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261006.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261006/premarket-market-bundle.20261006.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261007.freeze.json",
+  "new": "reports/premarket/days/20261007/premarket-market-bundle.20261007.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261007.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261007/premarket-market-bundle.20261007.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261007.primary.json",
+  "new": "reports/premarket/days/20261007/premarket-market-bundle.20261007.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261007.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261007/premarket-market-bundle.20261007.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261007.verification.json",
+  "new": "reports/premarket/days/20261007/premarket-market-bundle.20261007.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261007.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261007/premarket-market-bundle.20261007.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261008.freeze.json",
+  "new": "reports/premarket/days/20261008/premarket-market-bundle.20261008.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261008.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261008/premarket-market-bundle.20261008.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261008.primary.json",
+  "new": "reports/premarket/days/20261008/premarket-market-bundle.20261008.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261008.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261008/premarket-market-bundle.20261008.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261008.verification.json",
+  "new": "reports/premarket/days/20261008/premarket-market-bundle.20261008.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261008.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261008/premarket-market-bundle.20261008.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261009.freeze.json",
+  "new": "reports/premarket/days/20261009/premarket-market-bundle.20261009.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261009.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261009/premarket-market-bundle.20261009.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261009.primary.json",
+  "new": "reports/premarket/days/20261009/premarket-market-bundle.20261009.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261009.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261009/premarket-market-bundle.20261009.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261009.verification.json",
+  "new": "reports/premarket/days/20261009/premarket-market-bundle.20261009.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261009.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261009/premarket-market-bundle.20261009.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261012.freeze.json",
+  "new": "reports/premarket/days/20261012/premarket-market-bundle.20261012.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261012.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261012/premarket-market-bundle.20261012.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261012.primary.json",
+  "new": "reports/premarket/days/20261012/premarket-market-bundle.20261012.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261012.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261012/premarket-market-bundle.20261012.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261012.verification.json",
+  "new": "reports/premarket/days/20261012/premarket-market-bundle.20261012.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261012.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261012/premarket-market-bundle.20261012.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261013.freeze.json",
+  "new": "reports/premarket/days/20261013/premarket-market-bundle.20261013.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261013.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261013/premarket-market-bundle.20261013.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261013.primary.json",
+  "new": "reports/premarket/days/20261013/premarket-market-bundle.20261013.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261013.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261013/premarket-market-bundle.20261013.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261013.verification.json",
+  "new": "reports/premarket/days/20261013/premarket-market-bundle.20261013.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261013.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261013/premarket-market-bundle.20261013.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261014.freeze.json",
+  "new": "reports/premarket/days/20261014/premarket-market-bundle.20261014.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261014.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261014/premarket-market-bundle.20261014.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261014.primary.json",
+  "new": "reports/premarket/days/20261014/premarket-market-bundle.20261014.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261014.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261014/premarket-market-bundle.20261014.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261014.verification.json",
+  "new": "reports/premarket/days/20261014/premarket-market-bundle.20261014.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-market-bundle.20261014.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261014/premarket-market-bundle.20261014.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation-logs",
+  "new": "reports/premarket/logs",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260924.primary.json",
+  "new": "reports/premarket/days/20260924/premarket-operation.20260924.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260928.freeze.json",
+  "new": "reports/premarket/days/20260928/premarket-operation.20260928.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260928.postclose.json",
+  "new": "reports/premarket/days/20260928/premarket-operation.20260928.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260928.primary.json",
+  "new": "reports/premarket/days/20260928/premarket-operation.20260928.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260928.verification.json",
+  "new": "reports/premarket/days/20260928/premarket-operation.20260928.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260929.freeze.json",
+  "new": "reports/premarket/days/20260929/premarket-operation.20260929.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260929.postclose.json",
+  "new": "reports/premarket/days/20260929/premarket-operation.20260929.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260929.primary.json",
+  "new": "reports/premarket/days/20260929/premarket-operation.20260929.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260929.verification.json",
+  "new": "reports/premarket/days/20260929/premarket-operation.20260929.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260930.freeze.json",
+  "new": "reports/premarket/days/20260930/premarket-operation.20260930.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260930.paper.json",
+  "new": "reports/premarket/days/20260930/premarket-operation.20260930.paper.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260930.postclose.json",
+  "new": "reports/premarket/days/20260930/premarket-operation.20260930.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260930.primary.json",
+  "new": "reports/premarket/days/20260930/premarket-operation.20260930.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20260930.verification.json",
+  "new": "reports/premarket/days/20260930/premarket-operation.20260930.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261001.freeze.json",
+  "new": "reports/premarket/days/20261001/premarket-operation.20261001.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261001.paper.json",
+  "new": "reports/premarket/days/20261001/premarket-operation.20261001.paper.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261001.postclose.json",
+  "new": "reports/premarket/days/20261001/premarket-operation.20261001.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261001.primary.json",
+  "new": "reports/premarket/days/20261001/premarket-operation.20261001.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261001.verification.json",
+  "new": "reports/premarket/days/20261001/premarket-operation.20261001.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261002.freeze.json",
+  "new": "reports/premarket/days/20261002/premarket-operation.20261002.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261002.paper.json",
+  "new": "reports/premarket/days/20261002/premarket-operation.20261002.paper.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261002.postclose.json",
+  "new": "reports/premarket/days/20261002/premarket-operation.20261002.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261002.primary.json",
+  "new": "reports/premarket/days/20261002/premarket-operation.20261002.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261002.verification.json",
+  "new": "reports/premarket/days/20261002/premarket-operation.20261002.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261005.freeze.json",
+  "new": "reports/premarket/days/20261005/premarket-operation.20261005.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261005.paper.json",
+  "new": "reports/premarket/days/20261005/premarket-operation.20261005.paper.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261005.postclose.json",
+  "new": "reports/premarket/days/20261005/premarket-operation.20261005.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261005.primary.json",
+  "new": "reports/premarket/days/20261005/premarket-operation.20261005.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261005.verification.json",
+  "new": "reports/premarket/days/20261005/premarket-operation.20261005.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261006.freeze.json",
+  "new": "reports/premarket/days/20261006/premarket-operation.20261006.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261006.paper.json",
+  "new": "reports/premarket/days/20261006/premarket-operation.20261006.paper.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261006.postclose.json",
+  "new": "reports/premarket/days/20261006/premarket-operation.20261006.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261006.primary.json",
+  "new": "reports/premarket/days/20261006/premarket-operation.20261006.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261006.verification.json",
+  "new": "reports/premarket/days/20261006/premarket-operation.20261006.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261007.freeze.json",
+  "new": "reports/premarket/days/20261007/premarket-operation.20261007.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261007.paper.json",
+  "new": "reports/premarket/days/20261007/premarket-operation.20261007.paper.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261007.postclose.json",
+  "new": "reports/premarket/days/20261007/premarket-operation.20261007.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261007.primary.json",
+  "new": "reports/premarket/days/20261007/premarket-operation.20261007.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261007.verification.json",
+  "new": "reports/premarket/days/20261007/premarket-operation.20261007.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261008.freeze.json",
+  "new": "reports/premarket/days/20261008/premarket-operation.20261008.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261008.paper.json",
+  "new": "reports/premarket/days/20261008/premarket-operation.20261008.paper.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261008.postclose.json",
+  "new": "reports/premarket/days/20261008/premarket-operation.20261008.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261008.primary.json",
+  "new": "reports/premarket/days/20261008/premarket-operation.20261008.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261008.verification.json",
+  "new": "reports/premarket/days/20261008/premarket-operation.20261008.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261009.freeze.json",
+  "new": "reports/premarket/days/20261009/premarket-operation.20261009.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261009.paper.json",
+  "new": "reports/premarket/days/20261009/premarket-operation.20261009.paper.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261009.postclose.json",
+  "new": "reports/premarket/days/20261009/premarket-operation.20261009.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261009.primary.json",
+  "new": "reports/premarket/days/20261009/premarket-operation.20261009.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261009.verification.json",
+  "new": "reports/premarket/days/20261009/premarket-operation.20261009.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261012.freeze.json",
+  "new": "reports/premarket/days/20261012/premarket-operation.20261012.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261012.paper.json",
+  "new": "reports/premarket/days/20261012/premarket-operation.20261012.paper.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261012.postclose.json",
+  "new": "reports/premarket/days/20261012/premarket-operation.20261012.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261012.primary.json",
+  "new": "reports/premarket/days/20261012/premarket-operation.20261012.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261012.verification.json",
+  "new": "reports/premarket/days/20261012/premarket-operation.20261012.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261013.freeze.json",
+  "new": "reports/premarket/days/20261013/premarket-operation.20261013.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261013.paper.json",
+  "new": "reports/premarket/days/20261013/premarket-operation.20261013.paper.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261013.postclose.json",
+  "new": "reports/premarket/days/20261013/premarket-operation.20261013.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261013.primary.json",
+  "new": "reports/premarket/days/20261013/premarket-operation.20261013.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261013.verification.json",
+  "new": "reports/premarket/days/20261013/premarket-operation.20261013.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261014.freeze.json",
+  "new": "reports/premarket/days/20261014/premarket-operation.20261014.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261014.paper.json",
+  "new": "reports/premarket/days/20261014/premarket-operation.20261014.paper.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261014.postclose.json",
+  "new": "reports/premarket/days/20261014/premarket-operation.20261014.postclose.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261014.primary.json",
+  "new": "reports/premarket/days/20261014/premarket-operation.20261014.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-operation.20261014.verification.json",
+  "new": "reports/premarket/days/20261014/premarket-operation.20261014.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose-cumulative.json",
+  "new": "reports/premarket/ledgers/premarket-postclose-cumulative.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose-cumulative.md",
+  "new": "reports/premarket/ledgers/premarket-postclose-cumulative.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose-ledger.json",
+  "new": "reports/premarket/ledgers/premarket-postclose-ledger.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20260921.json",
+  "new": "reports/premarket/days/20260921/premarket-postclose.20260921.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20260921.md",
+  "new": "reports/premarket/days/20260921/premarket-postclose.20260921.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20260928.json",
+  "new": "reports/premarket/days/20260928/premarket-postclose.20260928.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20260928.md",
+  "new": "reports/premarket/days/20260928/premarket-postclose.20260928.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20260929.json",
+  "new": "reports/premarket/days/20260929/premarket-postclose.20260929.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20260929.md",
+  "new": "reports/premarket/days/20260929/premarket-postclose.20260929.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20260930.json",
+  "new": "reports/premarket/days/20260930/premarket-postclose.20260930.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20260930.md",
+  "new": "reports/premarket/days/20260930/premarket-postclose.20260930.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261001.json",
+  "new": "reports/premarket/days/20261001/premarket-postclose.20261001.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261001.md",
+  "new": "reports/premarket/days/20261001/premarket-postclose.20261001.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261002.json",
+  "new": "reports/premarket/days/20261002/premarket-postclose.20261002.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261002.md",
+  "new": "reports/premarket/days/20261002/premarket-postclose.20261002.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261005.json",
+  "new": "reports/premarket/days/20261005/premarket-postclose.20261005.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261005.md",
+  "new": "reports/premarket/days/20261005/premarket-postclose.20261005.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261006.json",
+  "new": "reports/premarket/days/20261006/premarket-postclose.20261006.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261006.md",
+  "new": "reports/premarket/days/20261006/premarket-postclose.20261006.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261007.json",
+  "new": "reports/premarket/days/20261007/premarket-postclose.20261007.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261007.md",
+  "new": "reports/premarket/days/20261007/premarket-postclose.20261007.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261008.json",
+  "new": "reports/premarket/days/20261008/premarket-postclose.20261008.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261008.md",
+  "new": "reports/premarket/days/20261008/premarket-postclose.20261008.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261009.json",
+  "new": "reports/premarket/days/20261009/premarket-postclose.20261009.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261009.md",
+  "new": "reports/premarket/days/20261009/premarket-postclose.20261009.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261012.json",
+  "new": "reports/premarket/days/20261012/premarket-postclose.20261012.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261012.md",
+  "new": "reports/premarket/days/20261012/premarket-postclose.20261012.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261013.json",
+  "new": "reports/premarket/days/20261013/premarket-postclose.20261013.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261013.md",
+  "new": "reports/premarket/days/20261013/premarket-postclose.20261013.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261014.json",
+  "new": "reports/premarket/days/20261014/premarket-postclose.20261014.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-postclose.20261014.md",
+  "new": "reports/premarket/days/20261014/premarket-postclose.20261014.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260914.primary.corrected.json",
+  "new": "reports/premarket/days/20260914/premarket-provider-bundle.20260914.primary.corrected.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260914.primary.corrected.receipt.json",
+  "new": "reports/premarket/days/20260914/premarket-provider-bundle.20260914.primary.corrected.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260914.primary.fred-audited.json",
+  "new": "reports/premarket/days/20260914/premarket-provider-bundle.20260914.primary.fred-audited.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260914.primary.fred-audited.receipt.json",
+  "new": "reports/premarket/days/20260914/premarket-provider-bundle.20260914.primary.fred-audited.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260914.primary.fred-validation.json",
+  "new": "reports/premarket/days/20260914/premarket-provider-bundle.20260914.primary.fred-validation.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260914.primary.fred-validation.receipt.json",
+  "new": "reports/premarket/days/20260914/premarket-provider-bundle.20260914.primary.fred-validation.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260914.primary.json",
+  "new": "reports/premarket/days/20260914/premarket-provider-bundle.20260914.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260914.primary.receipt.json",
+  "new": "reports/premarket/days/20260914/premarket-provider-bundle.20260914.primary.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260915.freeze.json",
+  "new": "reports/premarket/days/20260915/premarket-provider-bundle.20260915.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260915.freeze.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-provider-bundle.20260915.freeze.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260915.primary.json",
+  "new": "reports/premarket/days/20260915/premarket-provider-bundle.20260915.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260915.primary.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-provider-bundle.20260915.primary.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260915.verification.json",
+  "new": "reports/premarket/days/20260915/premarket-provider-bundle.20260915.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260915.verification.receipt.json",
+  "new": "reports/premarket/days/20260915/premarket-provider-bundle.20260915.verification.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260917.freeze.json",
+  "new": "reports/premarket/days/20260917/premarket-provider-bundle.20260917.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260917.freeze.receipt.json",
+  "new": "reports/premarket/days/20260917/premarket-provider-bundle.20260917.freeze.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260918.freeze.json",
+  "new": "reports/premarket/days/20260918/premarket-provider-bundle.20260918.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260918.freeze.receipt.json",
+  "new": "reports/premarket/days/20260918/premarket-provider-bundle.20260918.freeze.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260918.primary.json",
+  "new": "reports/premarket/days/20260918/premarket-provider-bundle.20260918.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260918.primary.receipt.json",
+  "new": "reports/premarket/days/20260918/premarket-provider-bundle.20260918.primary.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260918.verification.json",
+  "new": "reports/premarket/days/20260918/premarket-provider-bundle.20260918.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260918.verification.receipt.json",
+  "new": "reports/premarket/days/20260918/premarket-provider-bundle.20260918.verification.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260921.freeze.json",
+  "new": "reports/premarket/days/20260921/premarket-provider-bundle.20260921.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260921.freeze.receipt.json",
+  "new": "reports/premarket/days/20260921/premarket-provider-bundle.20260921.freeze.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260921.primary.json",
+  "new": "reports/premarket/days/20260921/premarket-provider-bundle.20260921.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260921.primary.receipt.json",
+  "new": "reports/premarket/days/20260921/premarket-provider-bundle.20260921.primary.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260921.verification.json",
+  "new": "reports/premarket/days/20260921/premarket-provider-bundle.20260921.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260921.verification.receipt.json",
+  "new": "reports/premarket/days/20260921/premarket-provider-bundle.20260921.verification.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260924.primary.json",
+  "new": "reports/premarket/days/20260924/premarket-provider-bundle.20260924.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260924.primary.json.receipt.json",
+  "new": "reports/premarket/days/20260924/premarket-provider-bundle.20260924.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260924.verification.json",
+  "new": "reports/premarket/days/20260924/premarket-provider-bundle.20260924.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260924.verification.json.receipt.json",
+  "new": "reports/premarket/days/20260924/premarket-provider-bundle.20260924.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260928.freeze.json",
+  "new": "reports/premarket/days/20260928/premarket-provider-bundle.20260928.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260928.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20260928/premarket-provider-bundle.20260928.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260928.primary.retry1.json",
+  "new": "reports/premarket/days/20260928/premarket-provider-bundle.20260928.primary.retry1.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260928.primary.retry1.receipt.json",
+  "new": "reports/premarket/days/20260928/premarket-provider-bundle.20260928.primary.retry1.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260928.verification.json",
+  "new": "reports/premarket/days/20260928/premarket-provider-bundle.20260928.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260928.verification.json.receipt.json",
+  "new": "reports/premarket/days/20260928/premarket-provider-bundle.20260928.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260929.freeze.json",
+  "new": "reports/premarket/days/20260929/premarket-provider-bundle.20260929.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260929.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20260929/premarket-provider-bundle.20260929.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260929.primary.json",
+  "new": "reports/premarket/days/20260929/premarket-provider-bundle.20260929.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260929.primary.json.receipt.json",
+  "new": "reports/premarket/days/20260929/premarket-provider-bundle.20260929.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260929.verification.json",
+  "new": "reports/premarket/days/20260929/premarket-provider-bundle.20260929.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260929.verification.json.receipt.json",
+  "new": "reports/premarket/days/20260929/premarket-provider-bundle.20260929.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260930.freeze.json",
+  "new": "reports/premarket/days/20260930/premarket-provider-bundle.20260930.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260930.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20260930/premarket-provider-bundle.20260930.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260930.primary.json",
+  "new": "reports/premarket/days/20260930/premarket-provider-bundle.20260930.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260930.primary.json.receipt.json",
+  "new": "reports/premarket/days/20260930/premarket-provider-bundle.20260930.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260930.verification.json",
+  "new": "reports/premarket/days/20260930/premarket-provider-bundle.20260930.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20260930.verification.json.receipt.json",
+  "new": "reports/premarket/days/20260930/premarket-provider-bundle.20260930.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261001.freeze.json",
+  "new": "reports/premarket/days/20261001/premarket-provider-bundle.20261001.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261001.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261001/premarket-provider-bundle.20261001.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261001.primary.json",
+  "new": "reports/premarket/days/20261001/premarket-provider-bundle.20261001.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261001.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261001/premarket-provider-bundle.20261001.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261001.verification.json",
+  "new": "reports/premarket/days/20261001/premarket-provider-bundle.20261001.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261001.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261001/premarket-provider-bundle.20261001.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261002.freeze.json",
+  "new": "reports/premarket/days/20261002/premarket-provider-bundle.20261002.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261002.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261002/premarket-provider-bundle.20261002.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261002.primary.json",
+  "new": "reports/premarket/days/20261002/premarket-provider-bundle.20261002.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261002.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261002/premarket-provider-bundle.20261002.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261002.verification.json",
+  "new": "reports/premarket/days/20261002/premarket-provider-bundle.20261002.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261002.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261002/premarket-provider-bundle.20261002.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261005.freeze.json",
+  "new": "reports/premarket/days/20261005/premarket-provider-bundle.20261005.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261005.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261005/premarket-provider-bundle.20261005.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261005.primary.json",
+  "new": "reports/premarket/days/20261005/premarket-provider-bundle.20261005.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261005.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261005/premarket-provider-bundle.20261005.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261005.verification.json",
+  "new": "reports/premarket/days/20261005/premarket-provider-bundle.20261005.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261005.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261005/premarket-provider-bundle.20261005.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261006.freeze.json",
+  "new": "reports/premarket/days/20261006/premarket-provider-bundle.20261006.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261006.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261006/premarket-provider-bundle.20261006.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261006.primary.json",
+  "new": "reports/premarket/days/20261006/premarket-provider-bundle.20261006.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261006.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261006/premarket-provider-bundle.20261006.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261006.verification.json",
+  "new": "reports/premarket/days/20261006/premarket-provider-bundle.20261006.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261006.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261006/premarket-provider-bundle.20261006.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261007.freeze.json",
+  "new": "reports/premarket/days/20261007/premarket-provider-bundle.20261007.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261007.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261007/premarket-provider-bundle.20261007.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261007.primary.json",
+  "new": "reports/premarket/days/20261007/premarket-provider-bundle.20261007.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261007.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261007/premarket-provider-bundle.20261007.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261007.verification.json",
+  "new": "reports/premarket/days/20261007/premarket-provider-bundle.20261007.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261007.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261007/premarket-provider-bundle.20261007.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261008.freeze.json",
+  "new": "reports/premarket/days/20261008/premarket-provider-bundle.20261008.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261008.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261008/premarket-provider-bundle.20261008.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261008.primary.json",
+  "new": "reports/premarket/days/20261008/premarket-provider-bundle.20261008.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261008.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261008/premarket-provider-bundle.20261008.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261008.verification.json",
+  "new": "reports/premarket/days/20261008/premarket-provider-bundle.20261008.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261008.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261008/premarket-provider-bundle.20261008.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261009.freeze.json",
+  "new": "reports/premarket/days/20261009/premarket-provider-bundle.20261009.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261009.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261009/premarket-provider-bundle.20261009.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261009.primary.json",
+  "new": "reports/premarket/days/20261009/premarket-provider-bundle.20261009.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261009.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261009/premarket-provider-bundle.20261009.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261009.verification.json",
+  "new": "reports/premarket/days/20261009/premarket-provider-bundle.20261009.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261009.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261009/premarket-provider-bundle.20261009.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261012.freeze.json",
+  "new": "reports/premarket/days/20261012/premarket-provider-bundle.20261012.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261012.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261012/premarket-provider-bundle.20261012.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261012.primary.json",
+  "new": "reports/premarket/days/20261012/premarket-provider-bundle.20261012.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261012.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261012/premarket-provider-bundle.20261012.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261012.verification.json",
+  "new": "reports/premarket/days/20261012/premarket-provider-bundle.20261012.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261012.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261012/premarket-provider-bundle.20261012.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261013.freeze.json",
+  "new": "reports/premarket/days/20261013/premarket-provider-bundle.20261013.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261013.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261013/premarket-provider-bundle.20261013.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261013.primary.json",
+  "new": "reports/premarket/days/20261013/premarket-provider-bundle.20261013.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261013.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261013/premarket-provider-bundle.20261013.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261013.verification.json",
+  "new": "reports/premarket/days/20261013/premarket-provider-bundle.20261013.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261013.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261013/premarket-provider-bundle.20261013.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261014.freeze.json",
+  "new": "reports/premarket/days/20261014/premarket-provider-bundle.20261014.freeze.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261014.freeze.json.receipt.json",
+  "new": "reports/premarket/days/20261014/premarket-provider-bundle.20261014.freeze.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261014.primary.json",
+  "new": "reports/premarket/days/20261014/premarket-provider-bundle.20261014.primary.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261014.primary.json.receipt.json",
+  "new": "reports/premarket/days/20261014/premarket-provider-bundle.20261014.primary.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261014.verification.json",
+  "new": "reports/premarket/days/20261014/premarket-provider-bundle.20261014.verification.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/premarket-provider-bundle.20261014.verification.json.receipt.json",
+  "new": "reports/premarket/days/20261014/premarket-provider-bundle.20261014.verification.json.receipt.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/raw_external_replica_receipt.20260726T030228Z.json",
+  "new": "reports/data-ops/raw_external_replica_receipt.20260726T030228Z.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/raw_snapshot_manifest.p0-us30-1m-20260721-r82.clean-tail.json",
+  "new": "reports/data-ops/raw_snapshot_manifest.p0-us30-1m-20260721-r82.clean-tail.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/raw_snapshot_manifest.p0-us30-1m-20260721-r82.json",
+  "new": "reports/data-ops/raw_snapshot_manifest.p0-us30-1m-20260721-r82.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/reversal_study_v1",
+  "new": "reports/research/reversal_study_v1",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/score_correlation.md",
+  "new": "reports/research/h2-h4/score_correlation.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/session_005_config_freeze.md",
+  "new": "reports/archive/2026-07_paper_sessions/session_005_config_freeze.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/session_006_isolation_restart.md",
+  "new": "reports/archive/2026-07_paper_sessions/session_006_isolation_restart.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/session_007_launch_preflight.md",
+  "new": "reports/archive/2026-07_paper_sessions/session_007_launch_preflight.md",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/us_exit_test_2000usd_reviews.jsonl",
+  "new": "reports/archive/2026-07_paper_sessions/us_exit_test_2000usd_reviews.jsonl",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/us_exit_test_2000usd_rule_improvement.json",
+  "new": "reports/archive/2026-07_paper_sessions/us_exit_test_2000usd_rule_improvement.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/us_exit_test_2000usd_system_review.json",
+  "new": "reports/archive/2026-07_paper_sessions/us_exit_test_2000usd_system_review.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/us_reviews_session001.jsonl",
+  "new": "reports/archive/2026-07_paper_sessions/us_reviews_session001.jsonl",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ },
+ {
+  "old": "reports/us_rule_improvement_session001.json",
+  "new": "reports/archive/2026-07_paper_sessions/us_rule_improvement_session001.json",
+  "moved_at_utc": "2026-10-15T00:47:34Z"
+ }
+]

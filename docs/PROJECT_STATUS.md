@@ -1,6 +1,6 @@
 # 현재 상태와 세션 인계
 
-갱신일: 2026-10-14
+갱신일: 2026-10-15
 
 ## 정본
 
@@ -136,6 +136,8 @@
     - 그 사이 날짜는 첫 실행 전 `--max-pages`를 넓혀 따라잡는다.
 
 ## 다음 한 가지 작업
+
+(2026-10-15 갱신, 운영 정리 배포 완료) **출력 폴더 구조 이동과 launchd 재설치 완료.** PR #212(`d2e177d`) 병합 뒤 09:47 KST(이동 가능 시간대 07:45~10:30)에 `pgrep`으로 실행 중인 작업 없음 확인 → LaunchAgent 18개 bootout → 원래 체크아웃 `main` fast-forward → 전체 pytest 3,190 passed → dry-run 638건(전날 610건 + 10/14 거래일 장전·post-close·paper 산출물 28건, 미분류 0, 충돌 0) → `--apply` 638건 이동, 재실행 dry-run 0건 → `install_premarket_launchd.py --install`, `--status` 18개 모두 loaded. 코드가 계산하는 2026-10-14 FREEZE·post-close·장부·daytrade ledger·history 영수증 경로가 새 자리에 있음을 확인했다(freeze-paper 세션 파일은 상태가 `NOT_ACTIVATED`라 원래 없음). 이동 내역 사본: [OUTPUT_LAYOUT_MOVES_2026-10-14.json](OUTPUT_LAYOUT_MOVES_2026-10-14.json) (`reports/MOVES.json`과 바이트 동일, 저장소 상대 경로만). 아래 다음 작업은 그대로다.
 
 (2026-10-14 갱신 6, 운영 정리, 전략·판정과 무관) **출력 폴더 구조 정리(사용자 요청).** 루트의 `logs*/`·`status*.json`과 `reports/` 바로 아래 흩어진 파일을 날짜·주제별 폴더로 옮기는 구조를 정했다. 경로 규칙은 `src/output_layout.py` 한 곳에 있고, 장전·post-close·freeze-paper·daytrade·연구 스크립트·runtime config가 모두 이를 쓴다. 파일 이름은 그대로다. 기존 파일은 병합 뒤 원래 체크아웃에서 `scripts/migrate_output_layout.py --apply`로 옮기고 launchd를 재설치한다(2026-10-14 dry-run: 610건, 미분류 0, 충돌 0). 이전 문서의 예전 경로는 고치지 않고 `reports/MOVES.json`으로 찾는다. 기록: [구조와 절차](OUTPUT_LAYOUT.md). 아래 다음 작업은 그대로다.
 
