@@ -5,18 +5,50 @@ import json
 import os
 import sqlite3
 from datetime import date as Date
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from src.daytrade_paper import rules as R
 from src.daytrade_paper.core import Bar, PriorSession
 from src.history.exchange_calendar import CalendarRangeError, regular_close_minute
+from src.history.oos_guard import TRACK_INTRADAY, blind_oos_window
+from src.models import ET
 
 HISTORY_CALENDAR_DAYS = 120
 
 
 class RunRefused(Exception):
     """The run must not proceed (write-once, ledger chain, data not landed)."""
+
+
+class SealedDayRefused(RunRefused):
+    """The requested day lies in the sealed intraday blind OOS block (2026-01-21..2026-07-21 ET)."""
+
+
+def _utc_of_et_midnight(d: Date) -> str:
+    """ISO UTC string of 00:00 ET on `d`, comparable with the DB's ts_utc text."""
+    return datetime(d.year, d.month, d.day, tzinfo=ET).astimezone(timezone.utc).isoformat()
+
+
+def query_bounds(day: str) -> tuple[str, str]:
+    """[lo, hi) ts_utc bounds of `load_bars(day)`, never touching the sealed intraday block (U2, 2026-10-16).
+
+    A day inside the block is refused. For a day after it the history window starts after the block; for a day
+    before it the window ends at the block start. Bounds are ET calendar days, so the sealed day's POST bars that
+    fall on the next UTC date stay excluded. The block dates themselves are not changed here.
+    """
+    d = Date.fromisoformat(day)
+    seal_lo, seal_hi = blind_oos_window(TRACK_INTRADAY)
+    if seal_lo <= d <= seal_hi:
+        raise SealedDayRefused(f"{day} is inside the sealed intraday blind OOS block {seal_lo}..{seal_hi}; "
+                               "the Paper loader does not read it")
+    lo_d = d - timedelta(days=HISTORY_CALENDAR_DAYS)
+    hi_d = d + timedelta(days=2)
+    if d > seal_hi:
+        lo_d = max(lo_d, seal_hi + timedelta(days=1))
+    else:
+        hi_d = min(hi_d, seal_lo)
+    return _utc_of_et_midnight(lo_d), _utc_of_et_midnight(hi_d)
 
 
 def _connect_ro(db_path: Path) -> sqlite3.Connection:
@@ -44,10 +76,10 @@ def _bar(row) -> tuple[str, str, Bar] | None:
 
 
 def load_bars(db_path: Path, day: str) -> dict:
-    """Bars for `day` (all three symbols) plus prior QQQ regular sessions, read-only."""
-    d = Date.fromisoformat(day)
-    lo = (d - timedelta(days=HISTORY_CALENDAR_DAYS)).isoformat()
-    hi = (d + timedelta(days=2)).isoformat()
+    """Bars for `day` (all three symbols) plus prior QQQ regular sessions, read-only.
+
+    Refuses a day in the sealed intraday block and never reads rows inside it (`query_bounds`)."""
+    lo, hi = query_bounds(day)
     con = _connect_ro(db_path)
     try:
         regular: dict[str, list[Bar]] = {s: [] for s in R.SYMBOLS}
