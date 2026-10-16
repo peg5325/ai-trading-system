@@ -1,0 +1,21 @@
+{
+ "schema": "eval_authorizations/v1",
+ "note": "Budgets and scopes for the run gate (src/evalpath/gate.py). Changing this file is a protection change, not a research decision: it needs the user's explicit approval with scope and version. A run spec cannot raise a budget or widen a scope. Same-user processes can still edit this file; it is not write-protected by itself.",
+ "global": {"halt": false, "halt_reason": null},
+ "authorizations": {
+  "AUTH-20261016-V13-ENGINE-REPRO": {
+   "status": "active",
+   "approved_by": "user",
+   "approved_ref": "EVALUATION_PATCH_IMPLEMENTATION_PROMPT.md (2026-10-16) §1 U1/U2, §8",
+   "run_types": ["ENGINE_REPRO"],
+   "account_sim_budget": 8,
+   "budget_unit": "run_arm: one strategy x one cost model over both segment accounts A and B (2 run_account calls)",
+   "scope": {
+    "policies": ["v1.0+", "v1.3"],
+    "cost_model_ids": ["CM030_v1", "CM020_diag_v1"],
+    "delays": [0],
+    "windows": [{"start": "2023-04-11", "end_exclusive": "2026-01-21"}]
+   }
+  }
+ }
+}
