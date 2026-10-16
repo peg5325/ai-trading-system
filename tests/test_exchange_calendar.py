@@ -60,7 +60,7 @@ def test_out_of_range_fail_closed():
     with pytest.raises(cal.CalendarRangeError):
         cal.is_trading_day(date(2020, 12, 31))            # 커버 구간 이전(2021-01-01~)
     with pytest.raises(cal.CalendarRangeError):
-        cal.is_trading_day(date(2027, 1, 1))              # 커버 구간 이후
+        cal.is_trading_day(date(2028, 1, 3))              # 커버 구간 이후(~2027-12-31)
 
 
 def test_calendar_range_starts_2021_and_v1_start_is_frozen():
@@ -196,3 +196,21 @@ def test_true_wall_terminates_deterministically(tmp_path):
     assert res.exhausted is True
     assert res.stopped_reason == "empty_budget_exhausted"
     assert res.gap_skips >= 6
+
+
+@pytest.mark.parametrize("iso", [
+    "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31",
+    "2027-06-18", "2027-07-05", "2027-09-06", "2027-11-25", "2027-12-24",
+])
+def test_2027_full_holidays(iso):
+    assert cal.is_holiday(date.fromisoformat(iso)) is True
+    assert cal.is_trading_day(date.fromisoformat(iso)) is False
+
+
+def test_2027_early_close_and_open_days():
+    assert cal.is_early_close(date(2027, 11, 26)) is True
+    assert cal.expected_regular_minutes(date(2027, 11, 26)) == 210
+    for iso in ("2027-07-02", "2027-12-23", "2027-12-31"):   # 조기폐장·관찰 휴장 아님
+        d = date.fromisoformat(iso)
+        assert cal.is_trading_day(d) is True and cal.is_early_close(d) is False
+    assert cal.CALENDAR_END == date(2027, 12, 31)

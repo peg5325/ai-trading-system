@@ -47,11 +47,11 @@ def test_classify_session_early_close_vs_normal_day(iso, expected):
 
 
 def test_classify_session_outside_calendar_range_keeps_fixed_windows():
-    """캘린더 구간 밖(2027-11-26 = 2027 Black Friday 예정)은 예외 없이 고정 창(REGULAR ~16:00)."""
-    assert classify_session(_et("2027-11-26T14:00"), MARKET_US) == SESSION_REGULAR
-    assert classify_session(_et("2027-01-01T10:00"), MARKET_US) == SESSION_REGULAR
+    """캘린더 구간 밖(2028-11-24 = 2028 Black Friday 예정)은 예외 없이 고정 창(REGULAR ~16:00)."""
+    assert classify_session(_et("2028-11-24T14:00"), MARKET_US) == SESSION_REGULAR
+    assert classify_session(_et("2028-01-03T10:00"), MARKET_US) == SESSION_REGULAR
     assert classify_session(_et("2020-11-27T14:00"), MARKET_US) == SESSION_REGULAR
-    c = Candle.from_moment("QQQ", "1m", _et("2027-01-01T13:30"), 1, 1, 1, 1, 1, "USD", True)
+    c = Candle.from_moment("QQQ", "1m", _et("2028-01-03T13:30"), 1, 1, 1, 1, 1, "USD", True)
     assert c.session == SESSION_REGULAR
 
 
@@ -250,9 +250,16 @@ def test_out_of_calendar_fallback_warns_once(monkeypatch, caplog):
     from src import models
     monkeypatch.setattr(models, "_fallback_warned", False)
     with caplog.at_level("WARNING", logger="src.models"):
-        assert classify_session(_et("2027-11-26T14:00"), MARKET_US) == SESSION_REGULAR
-        assert classify_session(_et("2027-12-01T14:00"), MARKET_US) == SESSION_REGULAR
+        assert classify_session(_et("2028-11-24T14:00"), MARKET_US) == SESSION_REGULAR
+        assert classify_session(_et("2028-12-01T14:00"), MARKET_US) == SESSION_REGULAR
         assert classify_session(_et("2022-11-25T14:00"), MARKET_US) == SESSION_POST
     warnings = [r for r in caplog.records if r.name == "src.models" and r.levelname == "WARNING"]
     assert len(warnings) == 1
-    assert "2027-11-26" in warnings[0].getMessage() and "2026-12-31" in warnings[0].getMessage()
+    assert "2028-11-24" in warnings[0].getMessage() and "2027-12-31" in warnings[0].getMessage()
+
+
+def test_2027_black_friday_is_early_close():
+    """2027 달력 추가(2026-10-16): 2027-11-26 은 13:00 ET 조기폐장."""
+    assert classify_session(_et("2027-11-26T12:59"), MARKET_US) == SESSION_REGULAR
+    assert classify_session(_et("2027-11-26T13:00"), MARKET_US) == SESSION_POST
+    assert classify_session(_et("2027-12-23T15:59"), MARKET_US) == SESSION_REGULAR
