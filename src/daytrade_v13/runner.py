@@ -10,7 +10,12 @@ from src.daytrade_paper import rules as R
 from src.daytrade_paper.simulate import run_day
 from src.daytrade_v11.data import SegmentData, day_context, day_inputs, external_for
 from src.daytrade_v13.day import V10_TRADE_KEYS, AccountState, simulate_day
-from src.daytrade_v13.policy import BASE_COSTS, Costs, Policy
+from src.daytrade_v13.policy import BASE_COSTS, Costs, Policy, cost_model_id
+
+# Result kinds (cost contract v2). Only an account_sim re-runs the account (equity, sizing, cash limits, locks)
+# under its cost model; a fixed_qty_diagnostic keeps another run's quantities and is never an account return.
+ACCOUNT_SIM = "account_sim"
+FIXED_QTY_DIAGNOSTIC = "fixed_qty_diagnostic"
 
 INTENDED = "intended_difference"
 MATCH = "match"
@@ -40,7 +45,8 @@ def run_account(days: list[dict], policy: Policy, costs: Costs = BASE_COSTS, del
     liquidation values (v1.1 §6.4)."""
     acct = AccountState()
     results = [simulate_day(account=acct, policy=policy, costs=costs, delay=delay, **d) for d in days]
-    return {"policy": policy.name, "delay": delay, "costs": vars(costs).copy(), "days": results,
+    return {"result_kind": ACCOUNT_SIM, "cost_model_id": cost_model_id(costs),
+            "policy": policy.name, "delay": delay, "costs": vars(costs).copy(), "days": results,
             "R": acct.equity / R.START_EQUITY - 1, "D": acct.max_dd, "equity_end": acct.equity,
             "account_halt": acct.halt_event}
 
@@ -49,8 +55,36 @@ def run_arm(seg_days: dict[str, list[dict]], policy: Policy, costs: Costs = BASE
     """Both segment accounts; G = (R_A + R_B) / 2, D = max(D_A, D_B)."""
     segs = {name: run_account(days, policy, costs, delay) for name, days in seg_days.items()}
     rs = [s["R"] for s in segs.values()]
-    return {"policy": policy.name, "delay": delay, "costs": vars(costs).copy(), "segments": segs,
+    return {"result_kind": ACCOUNT_SIM, "cost_model_id": cost_model_id(costs),
+            "policy": policy.name, "delay": delay, "costs": vars(costs).copy(), "segments": segs,
             "G": sum(rs) / len(rs) if rs else 0.0, "D": max((s["D"] for s in segs.values()), default=0.0)}
+
+
+def fixed_qty_diagnostic(account: dict, costs: Costs) -> dict:
+    """Re-price the trades of one `run_account` result under `costs`, keeping every quantity and raw price.
+
+    Diagnostic only: equity, sizing, cash limits, locks and halts are NOT re-run, so the running balance is a
+    cost sensitivity, not an account, and must not be reported as an account return or used for promotion. It may
+    fall below zero; `min_running_balance` reports that instead of hiding it.
+    """
+    if account.get("result_kind") != ACCOUNT_SIM:
+        raise ValueError("fixed_qty_diagnostic needs an account_sim result")
+    balance = min_balance = R.START_EQUITY
+    total, n = 0.0, 0
+    for day in account["days"]:
+        for tr in day["trades"]:
+            q = tr["shares"]
+            notional = q * tr["entry_raw"] * (1 + costs.slippage)
+            proceeds = q * tr["exit_raw"] * (1 - costs.slippage)
+            pnl = proceeds * (1 - costs.commission - costs.sec_fee) - notional * (1 + costs.commission)
+            total += pnl
+            balance += pnl
+            min_balance = min(min_balance, balance)
+            n += 1
+    return {"result_kind": FIXED_QTY_DIAGNOSTIC, "not_an_account_return": True,
+            "source_cost_model_id": account["cost_model_id"], "cost_model_id": cost_model_id(costs),
+            "trades": n, "total_pnl": total, "end_balance": balance, "min_running_balance": min_balance,
+            "went_below_zero": min_balance < 0}
 
 
 # ---------------------------------------------------------------- §5 operational checks

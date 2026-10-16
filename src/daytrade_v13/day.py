@@ -46,7 +46,14 @@ from src.daytrade_paper.situation import (
     classify_s5,
     opening_signals,
 )
-from src.daytrade_v13.policy import BASE_COSTS, Costs, Policy, finite_positive, size
+from src.daytrade_v13.policy import (
+    BASE_COSTS,
+    Costs,
+    Policy,
+    cost_model_id,
+    finite_positive,
+    size,
+)
 
 ACCOUNT_HALT_LEVEL = 0.65  # 1 - 0.35 (Charter §5)
 EXIT_REASON_KO = {**V10_EXIT_REASON_KO, "ACCOUNT_HALT": "계좌 −35% 중단 → 다음 봉 시가 전량 청산"}
@@ -103,17 +110,38 @@ def mark_pnl(trade: dict, price: float, costs: Costs) -> float:
     return v
 
 
+def cost_breakdown(trade: dict) -> dict:
+    """Reporting only (cost contract v2): split a closed trade's P&L without changing it.
+
+    net_pnl = reference_price_pnl - slippage_impact - explicit_fees, where the reference prices are the raw bar
+    prices before slippage and the slippage impact is the price difference to the fills. Slippage is inside the
+    fills, so it is never subtracted from `pnl` again; `explicit_fees` is commission + SEC only.
+    """
+    q = trade["shares"]
+    ref = q * (trade["exit_raw"] - trade["entry_raw"])
+    executed = q * (trade["exit_fill"] - trade["entry_fill"])
+    fees = trade["buy_commission"] + trade["sell_commission"] + trade["sec_fee"]
+    return {"quantity": q, "reference_price_pnl": ref, "executed_price_pnl": executed,
+            "slippage_impact": ref - executed, "explicit_fees": fees, "net_pnl": trade["pnl"],
+            "identity_residual": trade["pnl"] - (ref - (ref - executed) - fees),
+            "entry_notional": trade["notional"], "exit_notional": trade["proceeds"],
+            "return_denominator": "entry_notional (shares x entry fill, before the buy commission)",
+            "return_on_entry_notional": trade["pnl"] / trade["notional"]}
+
+
 def close_trade(trade: dict, exit_: dict, costs: Costs) -> dict:
     """`simulate._close_trade` with costs as input."""
     s = sell_net(trade["shares"], exit_["raw"], costs)
     pnl = s["net"] - trade["notional"] - trade["buy_commission"]
     if not math.isfinite(pnl):
         raise InvalidRun(f"non-finite P&L of {trade['kind']} {trade['symbol']}")
-    return {**trade, "exit_t": exit_["t"], "exit_at": exit_["at"], "exit_raw": exit_["raw"],
-            "exit_fill": s["fill"], "exit_reason": exit_["reason"],
-            "exit_reason_ko": EXIT_REASON_KO[exit_["reason"]], "proceeds": s["proceeds"],
-            "sell_commission": s["commission"], "sec_fee": s["sec_fee"], "pnl": pnl,
-            "entry_time": fmt_t(trade["entry_t"]), "exit_time": fmt_t(exit_["t"])}
+    out = {**trade, "exit_t": exit_["t"], "exit_at": exit_["at"], "exit_raw": exit_["raw"],
+           "exit_fill": s["fill"], "exit_reason": exit_["reason"],
+           "exit_reason_ko": EXIT_REASON_KO[exit_["reason"]], "proceeds": s["proceeds"],
+           "sell_commission": s["commission"], "sec_fee": s["sec_fee"], "pnl": pnl,
+           "entry_time": fmt_t(trade["entry_t"]), "exit_time": fmt_t(exit_["t"])}
+    out["cost_breakdown"] = cost_breakdown(out)
+    return out
 
 
 def open_trade(kind: str, sym: str, t: int, bar: Bar, stop_raw: float | None, stop_frac_fixed: float | None,
@@ -147,6 +175,25 @@ def open_trade(kind: str, sym: str, t: int, bar: Bar, stop_raw: float | None, st
             "sizing_equity": equity, "high_halved": high,
             "sizing": {"limits": sz["limits"], "binding": sz["binding"],
                        "single_cap_binds": sz["single_cap_binds"]}}, None, None
+
+
+FILL_ASSUMPTION = ("OBSERVED_OPEN_THEN_FILL: the bar-T open is observed, the stop distance and the notional are "
+                   "computed from it (contract v1.0: notional from the stop distance on the slippage-adjusted "
+                   "fill), and the order is assumed to fill at that open x (1 + slippage). Whether a live order "
+                   "fills there is not verified.")
+
+
+def order_timing(signal_t: int, t: int, trade: dict) -> dict:
+    """Reporting only: the order events of one entry, as minute-of-day integers (bar t covers [t, t+1)).
+
+    The decision at `signal_t` reads bars with t < signal_t. The entry quantity depends on the open of bar `t`
+    (= signal_t, or the delayed fill bar), so it is known only at that open; the order is submitted after it.
+    """
+    return {"signal_t": signal_t, "data_available_through_t": signal_t - 1,
+            "sizing_price": trade["entry_raw"], "sizing_price_known_at_t": t, "sizing_price_kind": "bar_open",
+            "order_submit_t": t, "order_notional": trade["notional"], "order_qty": trade["shares"],
+            "fill_t": t, "fill_price": trade["entry_fill"], "filled_qty": trade["shares"],
+            "fill_assumption": FILL_ASSUMPTION}
 
 
 # ---------------------------------------------------------------- one position (ExitWatcher split into steps)
@@ -226,8 +273,8 @@ def simulate_day(day: str, regular: dict[str, list[Bar]], qqq_pre: list[Bar], pr
     """Simulate one scored day for `account` (mutated: equity, high-water mark, halt state, drawdown)."""
     equity_start = account.equity
     base = {"date": day, "policy": policy.name, "delay": delay, "costs": vars(costs).copy(),
-            "equity_start": equity_start, "trades": [], "situations": [], "no_trade_reasons": [],
-            "blocked_entries": [], "lock": None, "check_1445": None, "account_halt": None,
+            "cost_model_id": cost_model_id(costs), "equity_start": equity_start, "trades": [], "situations": [],
+            "no_trade_reasons": [], "blocked_entries": [], "lock": None, "check_1445": None, "account_halt": None,
             "halted_at_start": account.halted}
     quality = data_quality(regular, prior, bool(events.get("early_close")), decision_time(events),
                            prev_times, expected_prev, prev_early_close)
@@ -282,6 +329,10 @@ def simulate_day(day: str, regular: dict[str, list[Bar]], qqq_pre: list[Bar], pr
     locked: dict | None = None
     liquidate_next = False
     min_day_pnl = 0.0
+    # Reporting only: cash = start + realized - open entry notionals - their buy commissions; NAV = liquidation
+    # value (cash + open positions marked at the bar close net of exit costs), the basis of the risk controls.
+    trace = {"min_cash": None, "min_cash_time": None, "min_nav": equity_start, "min_nav_time": None,
+             "risk_basis": "liquidation value: realized + open positions at the bar close after exit costs"}
 
     def bar(sym: str, t: int) -> Bar:
         b = bt[sym].get(t)
@@ -309,6 +360,7 @@ def simulate_day(day: str, regular: dict[str, list[Bar]], qqq_pre: list[Bar], pr
                                           [p.trade for p in open_pos()])
             if trade is not None:
                 trade["signal_t"] = signal_t
+                trade["timing"] = order_timing(signal_t, t, trade)
                 positions.append(Position(trade, inputs["prev_close"], delay))
                 return
         base["blocked_entries"].append({"kind": kind, "symbol": sym, "signal_t": signal_t, "fill_t": t,
@@ -369,6 +421,11 @@ def simulate_day(day: str, regular: dict[str, list[Bar]], qqq_pre: list[Bar], pr
         value = equity_start + day_pnl
         if not finite_positive(value):
             raise InvalidRun(f"{day} {fmt_t(t)}: liquidation-value account {value!r} not a finite positive value")
+        cash = equity_start + realized - sum(p.trade["notional"] + p.trade["buy_commission"] for p in open_pos())
+        if trace["min_cash"] is None or cash < trace["min_cash"]:
+            trace["min_cash"], trace["min_cash_time"] = cash, fmt_t(t)
+        if value < trace["min_nav"]:
+            trace["min_nav"], trace["min_nav_time"] = value, fmt_t(t)
         account.hwm = max(account.hwm, value)
         account.max_dd = max(account.max_dd, 1 - value / account.hwm)
         if policy.risk_controls:
@@ -398,6 +455,7 @@ def simulate_day(day: str, regular: dict[str, list[Bar]], qqq_pre: list[Bar], pr
         locked["overshoot_final"] = max(0.0, limit - total)
     base["lock"] = locked
     base["min_day_pnl"] = min_day_pnl
+    base["account_trace"] = trace
     account.equity = equity_start + total
     base["pnl"] = {"day_pnl": total, "equity_end": account.equity, "day_return": total / equity_start}
     return base

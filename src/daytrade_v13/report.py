@@ -115,3 +115,37 @@ def not_double(v13: dict, cap: dict, rel: float = 1e-9) -> dict:
             reasons[why] = reasons.get(why, 0) + 1
             days.append({"segment": name, "date": a["date"], "why": why})
     return {"days": len(days), "by_reason": reasons, "list": days}
+
+
+# ---------------------------------------------------------------- verdict axes (cost contract v2, report only)
+
+PASS, FAIL, NOT_EVALUATED, INSUFFICIENT, INVALID = "PASS", "FAIL", "NOT_EVALUATED", "INSUFFICIENT", "INVALID"
+AXIS_STATUSES = (PASS, FAIL, NOT_EVALUATED, INSUFFICIENT, INVALID)
+VERDICT_AXES = ("data_validity", "causality", "accounting", "economics", "statistics", "contract_match", "sample")
+STAGES = ("ENGINE_VALIDATION", "DEV_SELECTED", "FINAL_TESTED", "WITHDRAWN", "NOT_RUN")
+
+
+def verdict_axes(stage: str, **axes: dict) -> dict:
+    """One status per axis, each with a reason. An axis that was not measured is NOT_EVALUATED, never PASS.
+
+    `axes` maps axis name -> {"status": one of AXIS_STATUSES, "reason": str, ...}. Unknown axis names, unknown
+    statuses and a status without a reason are refused. Engine validation is not strategy validation: with stage
+    ENGINE_VALIDATION the economics and statistics axes may only be NOT_EVALUATED.
+    """
+    if stage not in STAGES:
+        raise ValueError(f"stage {stage!r} not in {STAGES}")
+    unknown = set(axes) - set(VERDICT_AXES)
+    if unknown:
+        raise ValueError(f"unknown verdict axes {sorted(unknown)}")
+    out: dict = {"stage": stage, "axes": {}}
+    for name in VERDICT_AXES:
+        a = dict(axes.get(name) or {"status": NOT_EVALUATED, "reason": "not measured in this run"})
+        if a.get("status") not in AXIS_STATUSES:
+            raise ValueError(f"{name}: status {a.get('status')!r} not in {AXIS_STATUSES}")
+        if not a.get("reason"):
+            raise ValueError(f"{name}: a status needs a reason")
+        if stage == "ENGINE_VALIDATION" and name in ("economics", "statistics") and a["status"] != NOT_EVALUATED:
+            raise ValueError(f"{name}: an engine validation run does not evaluate the strategy")
+        out["axes"][name] = a
+    out["engine_validation_is_not_strategy_validation"] = stage == "ENGINE_VALIDATION"
+    return out

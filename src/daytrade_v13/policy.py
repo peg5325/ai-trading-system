@@ -34,6 +34,27 @@ class Costs:
 
 BASE_COSTS = Costs()
 
+# Named cost models (Charter v2.6 §3, reporting labels only; the arithmetic above is unchanged).
+# CM030: the research default (commission 0.10%/side, slippage 0.05%/side in the fill, SEC on sells); a research
+# assumption, not a verified broker rate. CM020: same commission without slippage, a diagnostic that never decides.
+COST_CONTRACT_VERSION = "cost_contract/v2 (Charter v2.6)"
+COST_MODELS = {
+    "CM030_v1": BASE_COSTS,
+    "CM020_diag_v1": Costs(R.COMMISSION, R.SEC_FEE, 0.0),
+}
+DIAGNOSTIC_COST_MODELS = frozenset({"CM020_diag_v1"})
+
+
+def cost_model_id(costs: Costs) -> str:
+    """Registered id of `costs`, `<id>x<k>` for an exact scaled copy, else a CUSTOM label with the values."""
+    for cid, c in COST_MODELS.items():
+        if costs == c:
+            return cid
+        for k in (1.5, 2.0):
+            if costs == c.scaled(k):
+                return f"{cid}x{k}"
+    return f"CUSTOM(c={costs.commission!r},f={costs.sec_fee!r},s={costs.slippage!r})"
+
 
 @dataclass(frozen=True)
 class Policy:
