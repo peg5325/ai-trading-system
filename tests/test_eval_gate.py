@@ -1,4 +1,8 @@
-"""Run gate, run ledger and the engine-reproduction driver (§7). tmp files only; the compute step is injected."""
+"""Run gate, run ledger and the engine-reproduction driver (§7). tmp files only; the compute step is injected.
+
+Authorizations here are FAKE test files (canonical unit market_data_run_account). The real config holds only the
+closed 2026-10-16 authorization, which the gate must refuse.
+"""
 from __future__ import annotations
 
 import copy
@@ -16,9 +20,15 @@ from src.evalpath.gate import GateRefused, check, parse_spec
 from src.evalpath.research_copy import build_copy
 
 ROOT = Path(__file__).resolve().parents[1]
-AUTHS = json.loads((ROOT / "config" / "eval_authorizations.json").read_text(encoding="utf-8"))
-AUTH_ID = "AUTH-20261016-V13-ENGINE-REPRO"
+REAL_AUTHS = json.loads((ROOT / "config" / "eval_authorizations.json").read_text(encoding="utf-8"))
+AUTH_ID = "AUTH-TEST-FAKE"
 WINDOWS = [{"start": "2023-04-11", "end_exclusive": "2026-01-21"}]
+AUTHS = {"schema": "eval_authorizations/v1", "global": {"halt": False, "halt_reason": None},
+         "authorizations": {AUTH_ID: {
+             "status": "active", "approved_by": "test", "approved_ref": "fake", "run_types": ["ENGINE_REPRO"],
+             "budget": 8, "budget_unit": ledger.MARKET_UNIT,
+             "scope": {"policies": ["v1.0+", "v1.3"], "cost_model_ids": ["CM030_v1", "CM020_diag_v1"],
+                       "delays": [0], "windows": WINDOWS}}}}
 EVAL = "v13-engine-repro/v1 (PREREG_DAYTRADE_V1_3_SIZING arms, v1.1 mask 84d22f46)"
 EVIDENCE = {k: "n/a: engine reproduction of a rejected arm; see spec prose" for k in (
     "difference_from_prior_failures", "changed_factors_and_reason", "edge_over_cost_basis",
@@ -50,7 +60,19 @@ def gate(s, auths=AUTHS, act=None):
 
 def test_budget_comes_from_the_authorization_not_the_spec():
     g = gate(spec())
-    assert g["budget"] == 8 and "run_arm" in g["budget_unit"]
+    assert g["budget"] == 8 and g["budget_unit"] == ledger.MARKET_UNIT
+
+
+def test_the_real_closed_authorization_and_a_run_arm_unit_are_refused():
+    old = "AUTH-20261016-V13-ENGINE-REPRO"
+    assert REAL_AUTHS["authorizations"][old]["status"] == "closed"
+    assert not [k for k, v in REAL_AUTHS["authorizations"].items() if v["status"] == "active"]
+    with pytest.raises(GateRefused, match="closed"):
+        gate(spec(authorization_id=old), auths=REAL_AUTHS)
+    a = copy.deepcopy(AUTHS)
+    a["authorizations"][AUTH_ID]["budget_unit"] = "run_arm"
+    with pytest.raises(GateRefused, match="budget unit"):
+        gate(spec(), auths=a)
 
 
 @pytest.mark.parametrize("change,match", [
@@ -157,8 +179,7 @@ def _driver():
     return mod
 
 
-@pytest.fixture
-def setup(tmp_path):
+def _setup(tmp_path, n_runs=2, budget=8):
     src = make_db(tmp_path / "src.sqlite")
     al = {"schema": "research_allowlist/v1", "id": "t", "interval": "1m", "symbols": ["QQQ", "TQQQ", "SQQQ"],
           "ranges": WINDOWS, "approved_by": "test", "approved_ref": "test"}
@@ -168,47 +189,77 @@ def setup(tmp_path):
     mask.write_text("{}", encoding="utf-8")
     s = spec(data=actual(copy_sha256=man["copy_sha256"], allowlist_sha256=man["allowlist_sha256"],
                          mask_sha256=hashlib.sha256(mask.read_bytes()).hexdigest()),
-             runs=[{"run_key": k, "phase": "pre", "policy": "v1.0+", "cost_model_id": "CM030_v1"}
-                   for k in ("a", "b")])
+             runs=[{"run_key": f"k{i}", "phase": "pre", "policy": "v1.0+", "cost_model_id": "CM030_v1"}
+                   for i in range(n_runs)])
     md = tmp_path / "spec.md"
     md.write_text("```json run-spec\n" + json.dumps(s) + "\n```\n", encoding="utf-8")
+    auths = copy.deepcopy(AUTHS)
+    auths["authorizations"][AUTH_ID]["budget"] = budget
+    auth_file = tmp_path / "fake_authorizations.json"
+    auth_file.write_text(json.dumps(auths), encoding="utf-8")
     files = {k: tmp_path / f"{k}.csv" for k in ("vix", "vix9d", "dix")}
     for f in files.values():
         f.write_text("x", encoding="utf-8")
     args = ["--spec", md, "--phase", "pre", "--code-root", tmp_path, "--code-label", "test", "--copy", copy_db,
             "--mask", mask, "--events", mask, "--vix-csv", files["vix"], "--vix9d-csv", files["vix9d"],
-            "--dix-csv", files["dix"], "--ledger", tmp_path / "ledger.jsonl", "--out-dir", tmp_path / "out"]
+            "--dix-csv", files["dix"], "--ledger", tmp_path / "ledger.jsonl", "--out-dir", tmp_path / "out",
+            "--authorizations", auth_file]
     return {"src": src, "copy": copy_db, "args": [str(a) for a in args], "tmp": tmp_path}
 
 
-def fake_compute(calls):
+@pytest.fixture
+def setup(tmp_path):
+    return _setup(tmp_path)
+
+
+def _arg(cmd, name):
+    return cmd[cmd.index(name) + 1]
+
+
+def guarded_fake_compute(calls):
+    """Stands in for the compute process: uses the same ledger guard for each planned unit (synthetic stub)."""
     def run(cmd):
         calls.append(cmd)
-        out = Path(cmd[cmd.index("--out") + 1])
+        g = ledger.AccountCallGuard(Path(_arg(cmd, "--ledger")), _arg(cmd, "--authorization-id"),
+                                    int(_arg(cmd, "--budget")), json.loads(_arg(cmd, "--unit-keys")))
+        for key in json.loads(_arg(cmd, "--unit-keys")):
+            g.call(key, lambda: None)
+        out = Path(_arg(cmd, "--out"))
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text("{}", encoding="utf-8")
         return 0
     return run
 
 
-def test_driver_reserves_before_computing_and_passes_only_the_copy(setup):
+def test_driver_plans_account_units_and_passes_only_the_copy(setup):
     drv = _driver()
     calls: list = []
-    assert drv.run(drv.parse(setup["args"]), compute=fake_compute(calls)) == 0
+    assert drv.run(drv.parse(setup["args"]), compute=guarded_fake_compute(calls)) == 0
     assert len(calls) == 2
+    assert [json.loads(_arg(c, "--unit-keys")) for c in calls] == [["S1/k0/A", "S1/k0/B"], ["S1/k1/A", "S1/k1/B"]]
     flat = " ".join(" ".join(c) for c in calls)
     assert str(setup["copy"]) in flat and str(setup["src"]) not in flat
     recs = ledger.read(setup["tmp"] / "ledger.jsonl")
-    assert [r["event"] for r in recs] == ["reserve", "complete", "reserve", "complete"]
-    # the same runs cannot be repeated under the same keys
-    assert drv.run(drv.parse(setup["args"]), compute=fake_compute([])) == 2
+    assert sum(r["event"] == "reserve" for r in recs) == 4
+    assert {r["resource"] for r in recs} == {ledger.MARKET_UNIT}
+    # the same units cannot be planned again
+    again: list = []
+    assert drv.run(drv.parse(setup["args"]), compute=guarded_fake_compute(again)) == 2 and again == []
+
+
+def test_driver_refuses_a_plan_over_budget_before_any_compute(tmp_path):
+    s = _setup(tmp_path, n_runs=3, budget=4)  # 3 runs x A/B = 6 account calls > 4
+    drv = _driver()
+    calls: list = []
+    assert drv.run(drv.parse(s["args"]), compute=guarded_fake_compute(calls)) == 2
+    assert calls == [] and ledger.read(tmp_path / "ledger.jsonl") == []
 
 
 def test_driver_refuses_a_plain_db_and_stops_a_phase_on_failure(setup):
     drv = _driver()
     args = list(setup["args"])
     args[args.index("--copy") + 1] = str(setup["src"])
-    assert drv.run(drv.parse(args), compute=fake_compute([])) == 2
+    assert drv.run(drv.parse(args), compute=guarded_fake_compute([])) == 2
     calls: list = []
 
     def failing(cmd):
@@ -216,5 +267,9 @@ def test_driver_refuses_a_plain_db_and_stops_a_phase_on_failure(setup):
         return 3
     assert drv.run(drv.parse(setup["args"]), compute=failing) == 3
     assert len(calls) == 1  # the second run of the phase is not started
-    recs = ledger.read(setup["tmp"] / "ledger.jsonl")
-    assert [r["event"] for r in recs] == ["reserve", "fail"]
+
+
+def test_driver_refuses_while_another_run_holds_the_lock(setup):
+    drv = _driver()
+    with ledger.single_run(setup["tmp"] / "ledger.jsonl"):
+        assert drv.run(drv.parse(setup["args"]), compute=guarded_fake_compute([])) == 2

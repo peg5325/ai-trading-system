@@ -1,15 +1,24 @@
 {
  "schema": "eval_authorizations/v1",
- "note": "Budgets and scopes for the run gate (src/evalpath/gate.py). Changing this file is a protection change, not a research decision: it needs the user's explicit approval with scope and version. A run spec cannot raise a budget or widen a scope. Same-user processes can still edit this file; it is not write-protected by itself.",
+ "note": "Budgets and scopes for the run gate (src/evalpath/gate.py). Changing this file is a protection change, not a research decision: it needs the user's explicit approval with scope and version. A run spec cannot raise a budget or widen a scope. Same-user processes can still edit this file; it is not write-protected by itself (authorization_integrity NOT_VERIFIED, CONTROL_CLOSEOUT 2026-10-19).",
+ "budget_unit_rule": "Since 2026-10-19 the only accepted unit is market_data_run_account: one run_account call on real market data. Segments A and B are 2 units; each extra policy, cost model, stress or delay account is one more unit. Synthetic test calls are a separate resource (synthetic_run_account). Authorizations with another unit are refused by the gate.",
  "global": {"halt": false, "halt_reason": null},
  "authorizations": {
   "AUTH-20261016-V13-ENGINE-REPRO": {
-   "status": "active",
+   "status": "closed",
+   "closed_ref": "EVAL_CONTROL_CLOSEOUT_PROMPT.md (user, 2026-10-19) §2: no further market-data runs; remaining units are not usable",
    "approved_by": "user",
    "approved_ref": "EVALUATION_PATCH_IMPLEMENTATION_PROMPT.md (2026-10-16) §1 U1/U2, §8",
    "run_types": ["ENGINE_REPRO"],
    "account_sim_budget": 8,
    "budget_unit": "run_arm: one strategy x one cost model over both segment accounts A and B (2 run_account calls)",
+   "reconciliation": {
+    "original_instruction": "account_sim at most 8 (the allocation example listed R-a, R-b per stage without expanding the A/B accounts)",
+    "implemented_unit": "run_arm, defined by the maintenance session in this file and the run spec (commit a382680); no separate user approval of this redefinition was found",
+    "executed": {"run_arm": 6, "run_account": 12},
+    "over_limit_if_counted_per_account": 4,
+    "clarified_with_user_before_running": false
+   },
    "scope": {
     "policies": ["v1.0+", "v1.3"],
     "cost_model_ids": ["CM030_v1", "CM020_diag_v1"],

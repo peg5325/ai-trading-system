@@ -14,6 +14,8 @@ import json
 import re
 from pathlib import Path
 
+from src.evalpath.ledger import MARKET_UNIT
+
 RUN_TYPES = ("ENGINE_REPRO", "STRATEGY_EXPLORE", "FINAL_TEST")
 NEVER_IN_THIS_VERSION = frozenset({"FINAL_TEST"})
 REQUIRED = ("spec_id", "run_type", "authorization_id", "cost_contract_version", "cost_model_ids",
@@ -77,6 +79,9 @@ def check(spec: dict, auths: dict, actual: dict, *, cost_models: set[str], cost_
         raise GateRefused(f"authorization {spec['authorization_id']} is {auth.get('status')!r}")
     if spec["run_type"] not in auth["run_types"]:
         raise GateRefused(f"authorization {spec['authorization_id']} does not cover {spec['run_type']}")
+    if auth.get("budget_unit") != MARKET_UNIT:
+        raise GateRefused(f"authorization {spec['authorization_id']} budget unit {auth.get('budget_unit')!r} is not "
+                          f"{MARKET_UNIT!r} (one real-market run_account call per unit)")
 
     if spec["cost_contract_version"] != cost_contract_version:
         raise GateRefused(f"cost contract {spec['cost_contract_version']!r} != code {cost_contract_version!r}")
@@ -102,5 +107,5 @@ def check(spec: dict, auths: dict, actual: dict, *, cost_models: set[str], cost_
             raise GateRefused(f"delay {run.get('delay')} outside authorization scope")
     if data["windows"] != scope["windows"]:
         raise GateRefused(f"windows {data['windows']} != authorized {scope['windows']}")
-    return {"authorization_id": spec["authorization_id"], "budget": int(auth["account_sim_budget"]),
+    return {"authorization_id": spec["authorization_id"], "budget": int(auth["budget"]),
             "budget_unit": auth["budget_unit"], "scope": scope}

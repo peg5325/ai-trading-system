@@ -5,10 +5,11 @@
       --vix-csv .. --vix9d-csv .. --dix-csv .. --ledger <ledger.jsonl> --out-dir <dir>
 
 Order: parse the one `json run-spec` block, verify the research copy against its manifest, measure the mask hash,
-check spec + authorization + measured inputs (`src.evalpath.gate.check`), then for each run of the phase reserve one
-budget unit in the ledger BEFORE computing and record complete/fail after. The compute runs in a separate process
-(`eval_repro_v13_compute.py`) with PYTHONPATH cleared and only the copy path. Budget unit = one run_arm (one
-strategy x one cost model; the two segment accounts A and B are 2 run_account calls). No source DB, no orders.
+check spec + authorization + measured inputs (`src.evalpath.gate.check`). Then, under a single-run lock, expand the
+phase's runs into account-call units (run x segment) and refuse the whole plan before any computation if it exceeds
+the authorization's remaining budget. Budget unit (closeout 2026-10-19) = one run_account call on real market data;
+a strategy over segments A and B is 2 units. The compute process (`eval_repro_v13_compute.py`, PYTHONPATH cleared,
+only the copy path) reserves each unit right before its call and refuses unplanned calls. No source DB, no orders.
 """
 from __future__ import annotations
 
@@ -81,30 +82,31 @@ def run(args, compute=spawn) -> int:
     if not runs:
         print(f"refused: no runs with phase {args.phase!r} in the spec", file=sys.stderr)
         return 2
+    keyed = [{**r, "run_key": f"{spec['spec_id']}/{r['run_key']}"} for r in runs]
+    units = ledger.expand_plan(keyed, [seg.name for seg in SEGMENTS])
     rc_all = 0
-    for r in runs:
-        key = f"{spec['spec_id']}/{r['run_key']}"
-        try:
-            ledger.reserve(args.ledger, granted["authorization_id"], granted["budget"], key, 1,
-                           {"phase": args.phase, "code_label": args.code_label, "policy": r["policy"],
-                            "cost_model_id": r["cost_model_id"], "budget_unit": granted["budget_unit"]})
-        except ledger.BudgetExceeded as exc:
-            print(f"refused: {exc}", file=sys.stderr)
-            return 2
-        out = args.out_dir / f"{r['run_key']}.json"
-        costs = vars(COST_MODELS[r["cost_model_id"]])
-        cmd = [sys.executable, str(COMPUTE), "--code-root", str(args.code_root), "--copy", str(args.copy),
-               "--mask", str(args.mask), "--events", str(args.events), "--vix-csv", str(args.vix_csv),
-               "--vix9d-csv", str(args.vix9d_csv), "--dix-csv", str(args.dix_csv), "--out", str(out),
-               "--policy", r["policy"], "--costs", json.dumps(costs), "--delay", str(r.get("delay", 0))]
-        rc = compute(cmd)
-        sha = hashlib.sha256(out.read_bytes()).hexdigest() if out.exists() else None
-        ledger.finish(args.ledger, key, rc == 0, {"returncode": rc, "result": str(out), "result_sha256": sha,
-                                                  "code_label": args.code_label})
-        print(f"{key}: returncode {rc}, result {out if sha else 'none'}")
-        if rc != 0:
-            rc_all = rc
-            break  # a failed or mismatched run stops the phase; nothing is retried automatically
+    try:
+        with ledger.single_run(args.ledger):
+            ledger.preflight(args.ledger, granted["authorization_id"], granted["budget"], units)
+            for r, short in zip(keyed, runs):
+                out = args.out_dir / f"{short['run_key']}.json"
+                full = args.out_dir / f"{short['run_key']}.full.json"
+                costs = vars(COST_MODELS[r["cost_model_id"]])
+                cmd = [sys.executable, str(COMPUTE), "--code-root", str(args.code_root), "--copy", str(args.copy),
+                       "--mask", str(args.mask), "--events", str(args.events), "--vix-csv", str(args.vix_csv),
+                       "--vix9d-csv", str(args.vix9d_csv), "--dix-csv", str(args.dix_csv), "--out", str(out),
+                       "--full-out", str(full), "--ledger", str(args.ledger), "--run-key", r["run_key"],
+                       "--authorization-id", granted["authorization_id"], "--budget", str(granted["budget"]),
+                       "--unit-keys", json.dumps([u["unit_key"] for u in units if u["run_key"] == r["run_key"]]),
+                       "--policy", r["policy"], "--costs", json.dumps(costs), "--delay", str(r.get("delay", 0))]
+                rc = compute(cmd)
+                print(f"{r['run_key']}: returncode {rc}, result {out if out.exists() else 'none'}")
+                if rc != 0:
+                    rc_all = rc
+                    break  # a failed or mismatched run stops the phase; nothing is retried automatically
+    except (ledger.BudgetExceeded, ledger.RunLocked) as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return 2
     return rc_all
 
 
