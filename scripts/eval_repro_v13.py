@@ -42,6 +42,7 @@ from src.evalpath.research_copy import (
 EVALUATION_CONTRACT_VERSION = "v13-engine-repro/v1 (PREREG_DAYTRADE_V1_3_SIZING arms, v1.1 mask 84d22f46)"
 AUTHORIZATIONS = ROOT / "config" / "eval_authorizations.json"
 COMPUTE = Path(__file__).resolve().parent / "eval_repro_v13_compute.py"
+ENV_ALLOWLIST = ("PATH", "LANG", "LC_ALL", "TZ", "TMPDIR")
 
 
 def parse(argv=None):
@@ -57,7 +58,9 @@ def parse(argv=None):
 
 
 def spawn(cmd: list[str]) -> int:
-    env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "PYTHONHOME")}
+    # Allowlisted environment only: the operator's other variables (API keys, tokens, account settings) are not
+    # passed to the compute process. This narrows inheritance; it is not process isolation.
+    env = {k: os.environ[k] for k in ENV_ALLOWLIST if k in os.environ}
     return subprocess.run(cmd, env=env, check=False).returncode
 
 

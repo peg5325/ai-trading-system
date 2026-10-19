@@ -269,6 +269,24 @@ def test_driver_refuses_a_plain_db_and_stops_a_phase_on_failure(setup):
     assert len(calls) == 1  # the second run of the phase is not started
 
 
+def test_compute_process_gets_only_allowlisted_environment(monkeypatch):
+    drv = _driver()
+    seen = {}
+
+    class Done:
+        returncode = 0
+
+    def fake_run(cmd, env, check):
+        seen.update(env)
+        return Done()
+    monkeypatch.setenv("FAKE_API_KEY_FOR_TEST", "sentinel-not-a-secret")
+    monkeypatch.setenv("PYTHONPATH", "/somewhere")
+    monkeypatch.setattr(drv.subprocess, "run", fake_run)
+    assert drv.spawn(["python", "-c", "pass"]) == 0
+    assert "FAKE_API_KEY_FOR_TEST" not in seen and "PYTHONPATH" not in seen
+    assert set(seen) <= set(drv.ENV_ALLOWLIST)
+
+
 def test_driver_refuses_while_another_run_holds_the_lock(setup):
     drv = _driver()
     with ledger.single_run(setup["tmp"] / "ledger.jsonl"):
