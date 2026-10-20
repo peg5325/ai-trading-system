@@ -116,6 +116,8 @@ def cost_breakdown(trade: dict) -> dict:
     net_pnl = reference_price_pnl - slippage_impact - explicit_fees, where the reference prices are the raw bar
     prices before slippage and the slippage impact is the price difference to the fills. Slippage is inside the
     fills, so it is never subtracted from `pnl` again; `explicit_fees` is commission + SEC only.
+    `identity_residual` algebraically reduces to pnl - (executed_price_pnl - explicit_fees): it checks that the
+    recorded P&L, fills, notional and fees agree (e.g. notional == shares x entry fill), not the slippage split.
     """
     q = trade["shares"]
     ref = q * (trade["exit_raw"] - trade["entry_raw"])

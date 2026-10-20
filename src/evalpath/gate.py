@@ -65,7 +65,9 @@ def check(spec: dict, auths: dict, actual: dict, *, cost_models: set[str], cost_
     if flags:
         raise GateRefused(f"spec asks for protected changes {flags}; a spec line cannot authorize them")
     ev = spec["evidence"]
-    empty = [k for k in EVIDENCE_KEYS if not str(ev.get(k, "")).strip()]
+    if not isinstance(ev, dict):
+        raise GateRefused("evidence must be an object with the required keys")
+    empty =[k for k in EVIDENCE_KEYS if not str(ev.get(k, "")).strip()]
     if empty:
         raise GateRefused(f"evidence missing or empty: {empty}")
 
@@ -107,5 +109,8 @@ def check(spec: dict, auths: dict, actual: dict, *, cost_models: set[str], cost_
             raise GateRefused(f"delay {run.get('delay')} outside authorization scope")
     if data["windows"] != scope["windows"]:
         raise GateRefused(f"windows {data['windows']} != authorized {scope['windows']}")
+    for key in ("symbols", "interval"):  # checked when the authorization restricts them
+        if key in scope and data[key] != scope[key]:
+            raise GateRefused(f"{key} {data[key]!r} != authorized {scope[key]!r}")
     return {"authorization_id": spec["authorization_id"], "budget": int(auth["budget"]),
             "budget_unit": auth["budget_unit"], "scope": scope}

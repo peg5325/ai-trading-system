@@ -152,3 +152,21 @@ def test_paper_cli_paths_cannot_bypass_the_refusal(extra, tmp_path, capsys):
     err = capsys.readouterr().err
     assert rc == 2 and "sealed intraday blind OOS" in err
     assert not (tmp_path / "out").exists() and not (tmp_path / "dry").exists() and not (tmp_path / "repo").exists()
+
+
+def test_first_day_with_fifty_post_seal_sessions_is_2026_10_01(tmp_path):
+    """09-30 has 49 post-block prior sessions (data check fails: < 50); 10-01 has 50 (passes the count).
+    Sealed sessions in the DB never fill the gap."""
+    after = list(xcal.trading_days(SEAL_HI + timedelta(days=1), date(2026, 10, 1)))
+    db = make_db(tmp_path / "h.sqlite", sealed_days=[SEAL_HI - timedelta(days=1), SEAL_HI], days_after_seal=after)
+    sep30, oct1 = store.load_bars(db, "2026-09-30"), store.load_bars(db, "2026-10-01")
+    assert len(sep30["prior"]) == 49 and len(oct1["prior"]) == 50
+    assert sep30["prior"][0].date == oct1["prior"][0].date == (SEAL_HI + timedelta(days=1)).isoformat()
+    need = max(R.SMA_DAYS, R.ATR_DAYS + 1, R.RVOL_LOOKBACK)
+    assert need == 50
+
+
+def test_shadow_replay_skips_and_counts_sealed_days():
+    script = _script("run_daytrade_shadow")
+    days = ["2026-01-20", "2026-01-21", "2026-07-21", "2026-07-22"]
+    assert script.split_sealed(days) == (["2026-01-20", "2026-07-22"], ["2026-01-21", "2026-07-21"])

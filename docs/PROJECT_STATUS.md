@@ -146,7 +146,7 @@
 - 증거: `reports/backtest_audit_followup/20261019T020144Z/`(관련 합성 테스트 365 passed 원본 로그, 리뷰 패치, 합성 출력 계약 예시, 매니페스트).
 
 (2026-10-16 갱신, 평가 경로 최소 정비, 엔진 검증·전략 판정 아님) **v1.3 경로의 비용·시간·인과성·데이터 경계·실행 기록을 정비했고, 수정 전후 고정 재현이 같았다.**
-사용자 지시서(EVALUATION_PATCH_IMPLEMENTATION_PROMPT, U1·U2 승인) 범위. 브랜치 `worktree-backtest-audit-followup`(로컬 커밋, push·PR·병합 안 함):
+사용자 지시서(EVALUATION_PATCH_IMPLEMENTATION_PROMPT, U1·U2 승인) 범위. 브랜치 `worktree-backtest-audit-followup`(2026-10-16 당시 로컬 커밋, 2026-10-20 PR #219로 병합):
 `428435c` 보고 전용 필드(주문 사건 시각·비용 분해·현금/순자산·결과 종류·판정 축·실행 원장), `fc0293d` 경계 보호(Paper 로더 일중 봉인 거부 U2, 허용 목록 연구 사본 P3),
 `a382680` 실행 게이트·원장(P6)·재현 진입점, `fd5f9bc` 허용 목록, `da0d353` Charter v2.6(U1: CM030 기준, CM020 진단)·실행 명세, 이 갱신 커밋(접촉 원장 [DATA_CONTACT_LEDGER](research/DATA_CONTACT_LEDGER.md)).
 - 인과성: 합성 테스트로 확인. 진입 수량은 봉 T 시가를 보고 정하고 그 시가×(1+슬리피지)에 체결한다고 가정한다(계약 v1.0과 일치, 실주문 체결 가능성은 미검증, 거래 기록에 명시).

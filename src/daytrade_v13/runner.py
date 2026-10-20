@@ -65,7 +65,8 @@ def fixed_qty_diagnostic(account: dict, costs: Costs) -> dict:
 
     Diagnostic only: equity, sizing, cash limits, locks and halts are NOT re-run, so the running balance is a
     cost sensitivity, not an account, and must not be reported as an account return or used for promotion. It may
-    fall below zero; `min_running_balance` reports that instead of hiding it.
+    fall below zero; `min_running_balance` reports that instead of hiding it. The running balance adds trades in
+    entry order (as recorded), not exit time, so on days with overlapping positions its minimum is approximate.
     """
     if account.get("result_kind") != ACCOUNT_SIM:
         raise ValueError("fixed_qty_diagnostic needs an account_sim result")

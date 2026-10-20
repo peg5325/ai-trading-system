@@ -46,7 +46,9 @@ DIAGNOSTIC_COST_MODELS = frozenset({"CM020_diag_v1"})
 
 
 def cost_model_id(costs: Costs) -> str:
-    """Registered id of `costs`, `<id>x<k>` for an exact scaled copy, else a CUSTOM label with the values."""
+    """Registered id of `costs`, `<id>x<k>` for an exact scaled copy, else a CUSTOM label with the values.
+
+    Exact float equality: a multiple built other than by `Costs.scaled` may be labelled CUSTOM. Labels only."""
     for cid, c in COST_MODELS.items():
         if costs == c:
             return cid

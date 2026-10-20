@@ -17,6 +17,7 @@ import os
 import sqlite3
 import stat
 from datetime import date, datetime, timezone
+from itertools import pairwise
 from pathlib import Path
 
 from src.history.oos_guard import TRACK_INTRADAY, TRACK_SWING, overlaps_blind_oos
@@ -61,13 +62,22 @@ def validate_allowlist(al: dict) -> dict:
     track = TRACK_BY_INTERVAL.get(al["interval"])
     if track is None:
         raise CopyRefused(f"interval {al['interval']!r} not in {sorted(TRACK_BY_INTERVAL)}")
+    spans = []
     for r in al["ranges"]:
-        lo, hi = _et(r["start"]), _et(r["end_exclusive"])
+        try:
+            lo, hi = _et(r["start"]), _et(r["end_exclusive"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise CopyRefused(f"range {r!r} needs ISO dates 'start' and 'end_exclusive'") from exc
         if not lo < hi:
             raise CopyRefused(f"empty or reversed range {r}")
         for t in (TRACK_INTRADAY, TRACK_SWING) if track == TRACK_SWING else (track,):
             if overlaps_blind_oos(lo, hi, t):
                 raise CopyRefused(f"range {r['start']}..{r['end_exclusive']} touches the sealed {t} block")
+        spans.append((lo, hi))
+    spans.sort()
+    for (_, a_hi), (b_lo, _) in pairwise(spans):
+        if b_lo < a_hi:
+            raise CopyRefused("allowlist ranges overlap; give disjoint ranges")
     return al
 
 
@@ -97,6 +107,7 @@ def build_copy(source_db: Path, allowlist: dict, out_db: Path) -> dict:
     dst = sqlite3.connect(out_db)
     counts: dict[str, int] = {}
     hashes: dict[str, str] = {}
+    ok = False
     try:
         dst.executescript(SCHEMA)
         cols = ",".join(COLUMNS)
@@ -115,9 +126,12 @@ def build_copy(source_db: Path, allowlist: dict, out_db: Path) -> dict:
                                 rows)
             counts[sym], hashes[sym] = n, h.hexdigest()
         dst.commit()
+        ok = True
     finally:
         src.close()
         dst.close()
+        if not ok:
+            out_db.unlink(missing_ok=True)  # no partial copy without a manifest is left behind
     os.chmod(out_db, stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
     st = Path(source_db).stat()
     man = {"schema": MANIFEST_SCHEMA, "allowlist": al, "allowlist_sha256": allowlist_sha256(al),
@@ -159,7 +173,9 @@ def verify_copy(copy_db: Path, expected_copy_sha256: str | None = None) -> dict:
 
 
 def assert_covered(man: dict, symbol: str, interval: str, start: datetime | None, end: datetime | None) -> None:
-    """Refuse a [start, end) request the copy's allowlist does not cover (unbounded requests are refused)."""
+    """Refuse a [start, end) request the copy's allowlist does not cover (unbounded requests are refused).
+
+    The request must fit inside ONE range; a request spanning two adjacent ranges is refused (conservative)."""
     al = man["allowlist"]
     if symbol not in al["symbols"] or interval != al["interval"]:
         raise CopyRefused(f"{symbol} {interval} is not in allowlist {al['id']}")

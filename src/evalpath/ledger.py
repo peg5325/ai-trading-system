@@ -21,6 +21,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import sys
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -151,7 +152,11 @@ def preflight(path: Path, authorization_id: str, budget: int, units: list[dict],
 
 class AccountCallGuard:
     """Wrap each run_account call: refuse an unplanned unit, reserve the planned one right before the call, record
-    complete/fail after. The reservation stays counted on failure (no budget comes back)."""
+    complete/fail after. The reservation stays counted on failure (no budget comes back).
+
+    By design `preflight` only reads the ledger and each unit is reserved separately right before its call: the
+    budget is re-checked under the lock at every reservation, and concurrent drivers are excluded by `single_run`.
+    A run cut off midway therefore leaves its earlier units spent and the later ones unreserved."""
 
     def __init__(self, path: Path, authorization_id: str, budget: int, planned_keys: list[str],
                  resource: str = MARKET_UNIT):
@@ -168,7 +173,10 @@ class AccountCallGuard:
         try:
             out = fn(*args, **kwargs)
         except BaseException as exc:
-            finish(self.path, key, False, {"error": f"{type(exc).__name__}: {exc}"})
+            try:
+                finish(self.path, key, False, {"error": f"{type(exc).__name__}: {exc}"})
+            except Exception as fin:  # noqa: BLE001 - keep the original error visible; the unit stays counted
+                print(f"ledger finish failed for {key}: {fin!r}", file=sys.stderr)
             raise
         finish(self.path, key, True, {})
         return out

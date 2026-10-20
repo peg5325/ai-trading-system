@@ -123,3 +123,23 @@ def test_research_steps_on_the_copy_match_the_source(source, tmp_path):
     with pytest.raises(OOSLockError):
         research_load(str(out), "QQQ", "1m", start=datetime(2026, 2, 1, tzinfo=timezone.utc),
                       end=datetime(2026, 2, 3, tzinfo=timezone.utc))
+
+
+@pytest.mark.parametrize("ranges,match", [
+    ([{"start": "2023-04-11", "end_exclusive": "2023-06-01"}, {"start": "2023-05-01", "end_exclusive": "2023-07-01"}],
+     "overlap"),
+    ([{"start": "2023-04-11"}], "ISO dates"),
+    ([{"start": "not-a-date", "end_exclusive": "2023-05-01"}], "ISO dates"),
+])
+def test_overlapping_or_malformed_ranges_are_refused(ranges, match, tmp_path):
+    with pytest.raises(CopyRefused, match=match):
+        build_copy(tmp_path / "missing.sqlite", allowlist(ranges=ranges), tmp_path / "c.sqlite")
+
+
+def test_a_failed_build_leaves_no_partial_copy(tmp_path):
+    empty = tmp_path / "empty.sqlite"
+    sqlite3.connect(empty).close()  # no candle_history table: the copy query fails midway
+    out = tmp_path / "c.sqlite"
+    with pytest.raises(sqlite3.OperationalError):
+        build_copy(empty, allowlist(), out)
+    assert not out.exists() and not manifest_path(out).exists()

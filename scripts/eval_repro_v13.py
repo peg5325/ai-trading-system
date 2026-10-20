@@ -87,6 +87,11 @@ def run(args, compute=spawn) -> int:
         return 2
     keyed = [{**r, "run_key": f"{spec['spec_id']}/{r['run_key']}"} for r in runs]
     units = ledger.expand_plan(keyed, [seg.name for seg in SEGMENTS])
+    existing = [str(p) for r in runs for p in (args.out_dir / f"{r['run_key']}.json",
+                                               args.out_dir / f"{r['run_key']}.full.json") if p.exists()]
+    if existing:  # outputs are write-once: refuse before any budget is spent
+        print(f"refused: outputs already exist {existing}", file=sys.stderr)
+        return 2
     rc_all = 0
     try:
         with ledger.single_run(args.ledger):
@@ -100,6 +105,7 @@ def run(args, compute=spawn) -> int:
                        "--vix9d-csv", str(args.vix9d_csv), "--dix-csv", str(args.dix_csv), "--out", str(out),
                        "--full-out", str(full), "--ledger", str(args.ledger), "--run-key", r["run_key"],
                        "--authorization-id", granted["authorization_id"], "--budget", str(granted["budget"]),
+                       "--authorizations", str(args.authorizations), "--code-label", args.code_label,
                        "--unit-keys", json.dumps([u["unit_key"] for u in units if u["run_key"] == r["run_key"]]),
                        "--policy", r["policy"], "--costs", json.dumps(costs), "--delay", str(r.get("delay", 0))]
                 rc = compute(cmd)

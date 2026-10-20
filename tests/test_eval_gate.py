@@ -122,6 +122,15 @@ def test_runs_outside_the_authorized_scope_are_refused(run, match):
         gate(spec(runs=[{"run_key": "x", "phase": "pre", **run}]))
 
 
+def test_non_object_evidence_and_scope_symbol_restriction_are_refused():
+    with pytest.raises(GateRefused, match="evidence must be an object"):
+        gate(spec(evidence="see prose"))
+    a = copy.deepcopy(AUTHS)
+    a["authorizations"][AUTH_ID]["scope"]["symbols"] = ["QQQ"]
+    with pytest.raises(GateRefused, match="symbols"):
+        gate(spec(), auths=a)
+
+
 def test_halt_and_revocation():
     a = copy.deepcopy(AUTHS)
     a["global"]["halt"] = True
@@ -285,6 +294,55 @@ def test_compute_process_gets_only_allowlisted_environment(monkeypatch):
     assert drv.spawn(["python", "-c", "pass"]) == 0
     assert "FAKE_API_KEY_FOR_TEST" not in seen and "PYTHONPATH" not in seen
     assert set(seen) <= set(drv.ENV_ALLOWLIST)
+
+
+def test_driver_refuses_existing_outputs_before_any_compute_and_passes_auth_and_label(setup):
+    drv = _driver()
+    out_dir = setup["tmp"] / "out"
+    out_dir.mkdir()
+    (out_dir / "k1.full.json").write_text("{}", encoding="utf-8")
+    calls: list = []
+    assert drv.run(drv.parse(setup["args"]), compute=guarded_fake_compute(calls)) == 2
+    assert calls == [] and ledger.read(setup["tmp"] / "ledger.jsonl") == []
+    (out_dir / "k1.full.json").unlink()
+    assert drv.run(drv.parse(setup["args"]), compute=guarded_fake_compute(calls)) == 0
+    assert _arg(calls[0], "--code-label") == "test"
+    assert _arg(calls[0], "--authorizations").endswith("fake_authorizations.json")
+
+
+def _compute_mod():
+    spec_ = importlib.util.spec_from_file_location("eval_repro_v13_compute", ROOT / "scripts" / "eval_repro_v13_compute.py")
+    mod = importlib.util.module_from_spec(spec_)
+    spec_.loader.exec_module(mod)
+    return mod
+
+
+def test_compute_step_rechecks_the_authorization_file(tmp_path):
+    comp = _compute_mod()
+    f = tmp_path / "auth.json"
+    f.write_text(json.dumps(AUTHS), encoding="utf-8")
+    comp.verify_authorization(f, AUTH_ID, 8, ledger.MARKET_UNIT)
+    for auth_id, budget, match in ((AUTH_ID, 99, "budget"), ("AUTH-NONE", 8, "not active")):
+        with pytest.raises(comp.AuthorizationRefused, match=match):
+            comp.verify_authorization(f, auth_id, budget, ledger.MARKET_UNIT)
+    real = ROOT / "config" / "eval_authorizations.json"  # the closed 2026-10-16 authorization
+    with pytest.raises(comp.AuthorizationRefused, match="not active"):
+        comp.verify_authorization(real, "AUTH-20261016-V13-ENGINE-REPRO", 8, ledger.MARKET_UNIT)
+
+
+def test_guard_keeps_the_original_error_when_finishing_fails(tmp_path, monkeypatch, capsys):
+    g = ledger.AccountCallGuard(tmp_path / "l.jsonl", "A", 2, ["x/A"])
+
+    def broken_finish(*a, **k):
+        raise OSError("disk full")
+    monkeypatch.setattr(ledger, "finish", broken_finish)
+
+    def boom():
+        raise RuntimeError("compute failed")
+    with pytest.raises(RuntimeError, match="compute failed"):
+        g.call("x/A", boom)
+    assert "disk full" in capsys.readouterr().err
+    assert ledger.used_units(ledger.read(tmp_path / "l.jsonl"), "A") == 1
 
 
 def test_driver_refuses_while_another_run_holds_the_lock(setup):

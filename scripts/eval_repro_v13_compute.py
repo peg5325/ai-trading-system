@@ -32,11 +32,35 @@ def load_ledger_module():
     return mod
 
 
+AUTHORIZATIONS = Path(__file__).resolve().parents[1] / "config" / "eval_authorizations.json"
+
+
+class AuthorizationRefused(Exception):
+    pass
+
+
+def verify_authorization(path: Path, authorization_id: str, budget: int, market_unit: str) -> None:
+    """Re-check the authorization file here too, so running this step directly cannot use a closed authorization,
+    another unit or a made-up budget (the arguments are not trusted on their own)."""
+    auths = json.loads(Path(path).read_text(encoding="utf-8"))
+    if (auths.get("global") or {}).get("halt"):
+        raise AuthorizationRefused("all runs halted")
+    auth = (auths.get("authorizations") or {}).get(authorization_id)
+    if auth is None or auth.get("status") != "active":
+        raise AuthorizationRefused(f"authorization {authorization_id!r} is missing or not active")
+    if auth.get("budget_unit") != market_unit:
+        raise AuthorizationRefused(f"authorization unit {auth.get('budget_unit')!r} is not {market_unit!r}")
+    if int(auth.get("budget", -1)) != budget:
+        raise AuthorizationRefused(f"budget argument {budget} != authorized {auth.get('budget')}")
+
+
 def parse(argv=None):
     p = argparse.ArgumentParser()
     for a in ("--code-root", "--copy", "--mask", "--events", "--vix-csv", "--vix9d-csv", "--dix-csv", "--out",
               "--ledger"):
         p.add_argument(a, type=Path, required=True)
+    p.add_argument("--authorizations", type=Path, default=AUTHORIZATIONS)
+    p.add_argument("--code-label", default=None, help="commit the code root was exported from (run_record.commit)")
     p.add_argument("--full-out", type=Path, default=None)
     p.add_argument("--run-key", required=True)
     p.add_argument("--authorization-id", required=True)
@@ -75,6 +99,11 @@ def projection(arm: dict, v10_keys) -> dict:
 def main(argv=None) -> int:
     args = parse(argv)
     ledger = load_ledger_module()
+    try:
+        verify_authorization(args.authorizations, args.authorization_id, args.budget, ledger.MARKET_UNIT)
+    except AuthorizationRefused as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return 2
     root = args.code_root.resolve()
     sys.path.insert(0, str(root))
     import src
@@ -136,7 +165,9 @@ def _write_full(args, arm: dict, pol, costs, fixed: dict) -> None:
         return
     full_arm = {"result_kind": "account_sim", "cost_model_id": cost_model_id(costs), "policy": pol.name,
                 "delay": args.delay, "segments": arm["segments"], "G": arm["G"], "D": arm["D"]}
-    rec = run_record(run_id=args.run_key, run_type="ENGINE_REPRO", config_hash=config_hash(pol, costs, args.delay),
+    commit = args.code_label or {"value": None, "unknown_reason": "no --code-label given"}
+    rec = run_record(run_id=args.run_key, run_type="ENGINE_REPRO", commit=commit,
+                     config_hash=config_hash(pol, costs, args.delay),
                      cost_model_ids=[cost_model_id(costs)], mask_sha256=hashlib.sha256(args.mask.read_bytes()).hexdigest())
     doc = oc.build_full_output(full_arm, label="ENGINE_REPRO", run_record=rec,
                                mask={"sha256": rec["mask_sha256"], "schema": fixed.get("schema"),

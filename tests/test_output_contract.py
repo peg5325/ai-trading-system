@@ -110,7 +110,8 @@ def test_compute_full_out_writer_produces_a_complete_contract(tmp_path):
     comp = _compute()
     mask = tmp_path / "mask.json"
     mask.write_text('{"schema": "daytrade_v11_mask/v1"}', encoding="utf-8")
-    args = SimpleNamespace(full_out=tmp_path / "x.full.json", run_key="synthetic-run", delay=0, mask=mask)
+    args = SimpleNamespace(full_out=tmp_path / "x.full.json", run_key="synthetic-run", delay=0, mask=mask,
+                           code_label="abc1234")
     arm = synthetic_arm()
     comp._write_full(args, {"segments": arm["segments"], "G": arm["G"], "D": arm["D"]}, V13,
                      COST_MODELS["CM030_v1"], {"schema": "daytrade_v11_mask/v1"})
@@ -118,6 +119,7 @@ def test_compute_full_out_writer_produces_a_complete_contract(tmp_path):
     assert oc.missing_fields(doc) == []
     assert doc["label"] == "ENGINE_REPRO" and doc["mask"]["quality_conditional"] is True
     assert doc["run_record"]["mask_sha256"] == doc["mask"]["sha256"]
+    assert doc["run_record"]["commit"] == "abc1234"
     with pytest.raises(FileExistsError):
         comp._write_full(args, {"segments": arm["segments"], "G": arm["G"], "D": arm["D"]}, V13,
                          COST_MODELS["CM030_v1"], {})
