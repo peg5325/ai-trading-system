@@ -39,9 +39,11 @@ class AuthorizationRefused(Exception):
     pass
 
 
-def verify_authorization(path: Path, authorization_id: str, budget: int, market_unit: str) -> None:
+def verify_authorization(path: Path, authorization_id: str, budget: int, market_unit: str,
+                         policy: str | None = None, delay: int = 0) -> None:
     """Re-check the authorization file here too, so running this step directly cannot use a closed authorization,
-    another unit or a made-up budget (the arguments are not trusted on their own)."""
+    another unit, a made-up budget, another run type or a policy/delay outside the scope (arguments are not
+    trusted on their own)."""
     auths = json.loads(Path(path).read_text(encoding="utf-8"))
     if (auths.get("global") or {}).get("halt"):
         raise AuthorizationRefused("all runs halted")
@@ -50,8 +52,19 @@ def verify_authorization(path: Path, authorization_id: str, budget: int, market_
         raise AuthorizationRefused(f"authorization {authorization_id!r} is missing or not active")
     if auth.get("budget_unit") != market_unit:
         raise AuthorizationRefused(f"authorization unit {auth.get('budget_unit')!r} is not {market_unit!r}")
-    if int(auth.get("budget", -1)) != budget:
-        raise AuthorizationRefused(f"budget argument {budget} != authorized {auth.get('budget')}")
+    try:
+        authorized = int(auth.get("budget"))
+    except (TypeError, ValueError) as exc:
+        raise AuthorizationRefused(f"authorized budget {auth.get('budget')!r} is not a number") from exc
+    if authorized != budget:
+        raise AuthorizationRefused(f"budget argument {budget} != authorized {authorized}")
+    if "ENGINE_REPRO" not in (auth.get("run_types") or []):
+        raise AuthorizationRefused("authorization does not cover ENGINE_REPRO")
+    scope = auth.get("scope") or {}
+    if policy is not None and policy not in (scope.get("policies") or []):
+        raise AuthorizationRefused(f"policy {policy!r} outside the authorized scope")
+    if delay not in (scope.get("delays") or [0]):
+        raise AuthorizationRefused(f"delay {delay} outside the authorized scope")
 
 
 def parse(argv=None):
@@ -100,7 +113,8 @@ def main(argv=None) -> int:
     args = parse(argv)
     ledger = load_ledger_module()
     try:
-        verify_authorization(args.authorizations, args.authorization_id, args.budget, ledger.MARKET_UNIT)
+        verify_authorization(args.authorizations, args.authorization_id, args.budget, ledger.MARKET_UNIT,
+                             policy=args.policy, delay=args.delay)
     except AuthorizationRefused as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return 2

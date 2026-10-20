@@ -129,6 +129,10 @@ def test_non_object_evidence_and_scope_symbol_restriction_are_refused():
     a["authorizations"][AUTH_ID]["scope"]["symbols"] = ["QQQ"]
     with pytest.raises(GateRefused, match="symbols"):
         gate(spec(), auths=a)
+    a = copy.deepcopy(AUTHS)
+    a["authorizations"][AUTH_ID]["scope"]["interval"] = "5m"
+    with pytest.raises(GateRefused, match="interval"):
+        gate(spec(), auths=a)
 
 
 def test_halt_and_revocation():
@@ -325,6 +329,20 @@ def test_compute_step_rechecks_the_authorization_file(tmp_path):
     for auth_id, budget, match in ((AUTH_ID, 99, "budget"), ("AUTH-NONE", 8, "not active")):
         with pytest.raises(comp.AuthorizationRefused, match=match):
             comp.verify_authorization(f, auth_id, budget, ledger.MARKET_UNIT)
+    comp.verify_authorization(f, AUTH_ID, 8, ledger.MARKET_UNIT, policy="v1.3", delay=0)
+    for kw, match in (({"policy": "v1.3-cap"}, "policy"), ({"policy": "v1.3", "delay": 1}, "delay")):
+        with pytest.raises(comp.AuthorizationRefused, match=match):
+            comp.verify_authorization(f, AUTH_ID, 8, ledger.MARKET_UNIT, **kw)
+    bad = copy.deepcopy(AUTHS)
+    bad["authorizations"][AUTH_ID]["budget"] = "eight"
+    f.write_text(json.dumps(bad), encoding="utf-8")
+    with pytest.raises(comp.AuthorizationRefused, match="not a number"):
+        comp.verify_authorization(f, AUTH_ID, 8, ledger.MARKET_UNIT)
+    bad["authorizations"][AUTH_ID]["budget"] = 8
+    bad["authorizations"][AUTH_ID]["run_types"] = ["STRATEGY_EXPLORE"]
+    f.write_text(json.dumps(bad), encoding="utf-8")
+    with pytest.raises(comp.AuthorizationRefused, match="ENGINE_REPRO"):
+        comp.verify_authorization(f, AUTH_ID, 8, ledger.MARKET_UNIT)
     real = ROOT / "config" / "eval_authorizations.json"  # the closed 2026-10-16 authorization
     with pytest.raises(comp.AuthorizationRefused, match="not active"):
         comp.verify_authorization(real, "AUTH-20261016-V13-ENGINE-REPRO", 8, ledger.MARKET_UNIT)

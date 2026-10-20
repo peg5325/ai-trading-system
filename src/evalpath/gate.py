@@ -67,7 +67,7 @@ def check(spec: dict, auths: dict, actual: dict, *, cost_models: set[str], cost_
     ev = spec["evidence"]
     if not isinstance(ev, dict):
         raise GateRefused("evidence must be an object with the required keys")
-    empty =[k for k in EVIDENCE_KEYS if not str(ev.get(k, "")).strip()]
+    empty = [k for k in EVIDENCE_KEYS if not str(ev.get(k, "")).strip()]
     if empty:
         raise GateRefused(f"evidence missing or empty: {empty}")
 

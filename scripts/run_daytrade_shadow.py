@@ -71,7 +71,11 @@ def _db_days(db: Path, start: str, end: str) -> list[str]:
 def split_sealed(days: list[str]) -> tuple[list[str], list[str]]:
     """(replayable days, days inside the sealed intraday block). Sealed days are skipped and counted, because
     load_bars refuses them (U2); a replay range that crosses the block then still runs the days around it."""
-    return [d for d in days if not is_sealed_day(d)], [d for d in days if is_sealed_day(d)]
+    keep: list[str] = []
+    sealed: list[str] = []
+    for d in days:
+        (sealed if is_sealed_day(d) else keep).append(d)
+    return keep, sealed
 
 
 def run_replay(args) -> int:
