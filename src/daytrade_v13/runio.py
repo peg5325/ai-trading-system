@@ -113,6 +113,34 @@ def manifest(git: dict, args, mask: dict, mask_sha: str, ext: dict, extra: dict)
     }
 
 
+RUN_RECORD_FIELDS = ("family_id", "hypothesis_id", "parent_run_id", "run_id", "rerun_of", "run_type",
+                     "config_hash", "commit", "dirty_tracked", "data_copy_sha256", "allowlist_sha256",
+                     "mask_sha256", "research_window", "cost_model_ids", "cost_contract_version",
+                     "evaluation_contract_version", "verdict_axes", "artifact_paths", "instruction_source",
+                     "results_seen_before_next_change")
+
+
+def unknown(reason: str) -> dict:
+    return {"value": None, "unknown_reason": reason}
+
+
+def config_hash(policy, costs, delay: int) -> str:
+    """SHA-256 of the applied arm settings (Policy, Costs, delay), sorted-key JSON."""
+    from dataclasses import asdict
+
+    doc = {"policy": asdict(policy), "costs": asdict(costs), "delay": delay}
+    return hashlib.sha256(json.dumps(doc, sort_keys=True).encode()).hexdigest()
+
+
+def run_record(**fields) -> dict:
+    """Run-ledger record (P5). Every field in RUN_RECORD_FIELDS is present; a field the caller does not know is
+    stored as {"value": None, "unknown_reason": ...} and is never filled with a current default."""
+    extra = set(fields) - set(RUN_RECORD_FIELDS)
+    if extra:
+        raise ValueError(f"unknown run record fields {sorted(extra)}")
+    return {k: fields[k] if k in fields else unknown("not supplied by the caller") for k in RUN_RECORD_FIELDS}
+
+
 def write_json_once(path: Path, doc: dict) -> str:
     raw = (json.dumps(doc, ensure_ascii=False, indent=1, sort_keys=True) + "\n").encode("utf-8")
     path.parent.mkdir(parents=True, exist_ok=True)

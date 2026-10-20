@@ -1,0 +1,11 @@
+{
+ "schema": "research_allowlist/v1",
+ "id": "v13_engine_repro_20261016",
+ "interval": "1m",
+ "symbols": ["QQQ", "TQQQ", "SQQQ"],
+ "ranges": [{"start": "2023-04-11", "end_exclusive": "2026-01-21"}],
+ "approved_by": "user",
+ "approved_ref": "EVALUATION_PATCH_IMPLEMENTATION_PROMPT.md (2026-10-16) §2 stage B, §8",
+ "purpose": "Engine reproduction of the rejected v1.0+ and v1.3 arms on the fixed v1.1 mask (segments A 2023-04-11..2024-07-24, B 2024-08-05..2026-01-20). Starts at segment A so the 2026-10-15 QQQ backfill before A is not in the copy (the v1.1 boundary fact 'no QQQ regular bars before A' stays true and no new warm-up enters).",
+ "exposure_history": "DEV data already seen many times (BACKTEST_AUDIT §5.2: v1.1/v1.3/entry/reversal studies). B overlaps dates inside the swing/daily seal; this is 1m intraday data and is recorded, not claimed independent."
+}

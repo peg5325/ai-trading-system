@@ -35,6 +35,7 @@ from src.daytrade_paper.external import (
 from src.daytrade_paper.store import (
     RunRefused,
     check_chain,
+    is_sealed_day,
     load_bars,
     load_ledger,
 )
@@ -67,10 +68,21 @@ def _db_days(db: Path, start: str, end: str) -> list[str]:
     return [r[0] for r in rows]
 
 
+def split_sealed(days: list[str]) -> tuple[list[str], list[str]]:
+    """(replayable days, days inside the sealed intraday block). Sealed days are skipped and counted, because
+    load_bars refuses them (U2); a replay range that crosses the block then still runs the days around it."""
+    keep: list[str] = []
+    sealed: list[str] = []
+    for d in days:
+        (sealed if is_sealed_day(d) else keep).append(d)
+    return keep, sealed
+
+
 def run_replay(args) -> int:
     cal = load_events(args.events)
-    days = _db_days(args.db, args.start, args.end)
-    summary = {"external": args.external, "days": 0, "compared": 0, "identical": 0, "paper_incomplete": 0, "mismatch": [], "situations": {}}
+    days, sealed = split_sealed(_db_days(args.db, args.start, args.end))
+    summary = {"external": args.external, "days": 0, "compared": 0, "identical": 0, "paper_incomplete": 0, "mismatch": [], "situations": {},
+               "sealed_skipped": len(sealed)}
     prev: str | None = None
     for day in days:
         data = load_bars(args.db, day)
